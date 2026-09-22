@@ -209,10 +209,26 @@ def main():
     effort = a.effort
     if a.agent == 'codex':
         if tier:
-            from runtimes import CODEX_TIER_MAP
-            _, routed_effort = CODEX_TIER_MAP.get(tier, (None, None))
+            from runtimes import codex_tier_settings
+            routed_model, routed_effort = codex_tier_settings(tier)
             effort = effort or routed_effort
-            model = model or os.environ.get('DATARIM_CODEX_MODEL_'+tier.upper())
+            model = model or os.environ.get('DATARIM_CODEX_MODEL_'+tier.upper()) or routed_model
+            # Name what was applied, in Codex's own vocabulary. "Jev recommends
+            # opus" describes a tier the operator will never see: the client's
+            # status line reports `<model> <effort>`.
+            applied = ' '.join(x for x in (model, effort) if x)
+            print(f'Jev applied {tier} as {applied}', file=sys.stderr)
+        elif a.resume and not a.no_route:
+            # Resume does NOT inherit the resumed session's model or effort: it
+            # re-resolves both from the config chain in force now. MEASURED on
+            # codex-cli 0.155.1 -- a session created as gpt-5.6-sol/low came
+            # back as gpt-6-astra/medium when resumed with no overrides, an
+            # upgrade to the most expensive model that nothing announces.
+            # Without a task there is nothing to classify, so say so rather
+            # than let the silence read as "the old tier was kept".
+            print('Jev: resuming without a task, so no tier was chosen; Codex '
+                  'will re-resolve its model and effort from ~/.codex/config.toml, '
+                  'not from the resumed session', file=sys.stderr)
         if a.print:
             args += ['exec']
             if a.resume:

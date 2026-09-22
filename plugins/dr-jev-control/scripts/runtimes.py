@@ -203,17 +203,96 @@ class ClaudeRuntime(BaseRuntime):
 # Codex
 # ---------------------------------------------------------------------------
 
-#: Codex tier -> (model override or None, reasoning effort). The model stays
-#: None by default because model availability is account-dependent: on a
-#: ChatGPT-auth account only the configured default was accepted and every other
-#: id returned HTTP 400 (measured 2026-09-21). Effort is the portable lever, so
-#: the default map moves effort and leaves the model to the operator's
-#: ~/.codex/config.toml. Override per tier via DATARIM_CODEX_MODEL_<TIER>.
-CODEX_TIER_MAP = {
-    "haiku": (None, "low"),
-    "sonnet": (None, "medium"),
-    "opus": (None, "high"),
+#: Codex tier -> (model override or None, reasoning effort).
+#:
+#: The model was left None here until 2026-09-22 on the strength of a real
+#: measurement -- every id other than the configured default returned HTTP 400
+#: on a ChatGPT-auth account -- but the conclusion drawn from it was too wide.
+#: What the API rejects is ids that do not exist for the account (`gpt-5.6`,
+#: `gpt-6`, and the sample config's own value among them). The ids the server
+#: itself advertises are accepted, and it advertises them in a file the client
+#: already maintains: ~/.codex/models_cache.json, carrying each model's
+#: `supported_reasoning_levels`, `default_reasoning_level` and `visibility`.
+#:
+#: So the tier table is derived from that cache rather than hardcoded. A static
+#: list would go stale the moment the account's catalogue changes, and the CLI
+#: performs no client-side validation: an unavailable model or an unsupported
+#: effort surfaces only as an HTTP 400 mid-run.
+#:
+#: Preference order per tier, first available wins. Names are matched against
+#: the cache, so an entry absent from this account is skipped rather than
+#: attempted. DATARIM_CODEX_MODEL_<TIER> still overrides everything.
+CODEX_TIER_PREFERENCES = {
+    "haiku": (("gpt-5.6-luna", "gpt-5.5"), "low"),
+    "sonnet": (("gpt-5.6-terra", "gpt-5.6-luna"), "medium"),
+    "opus": (("gpt-6-astra", "gpt-5.6-sol"), "high"),
 }
+
+#: Effort names the server accepts, cheapest first. `minimal` is documented but
+#: rejected ("Supported values are: 'none', 'low', 'medium', 'high', 'xhigh',
+#: and 'max'"); `none`, `max` and `ultra` work without being documented. Kept
+#: here so a tier can be clamped to what a given model actually supports.
+CODEX_EFFORT_ORDER = ("none", "low", "medium", "high", "xhigh", "max", "ultra")
+
+
+def _models_cache(home=None):
+    """Models the account can actually run, as the client last saw them.
+
+    Returns {slug: {"efforts": [...], "default": str, "visibility": str}}.
+    A missing or unreadable cache yields {} so callers fall back to effort-only
+    steering rather than guessing a model that would 400 mid-run.
+    """
+    import json
+    from pathlib import Path
+    path = Path(home or Path.home())/'.codex/models_cache.json'
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+    models = data.get('models') or data.get('data') or []
+    if isinstance(models, dict):
+        models = models.get('models', [])
+    out = {}
+    for entry in models:
+        slug = entry.get('slug')
+        if not slug:
+            continue
+        levels = entry.get('supported_reasoning_levels') or []
+        efforts = [lv.get('effort') for lv in levels if isinstance(lv, dict) and lv.get('effort')]
+        out[slug] = {'efforts': efforts,
+                     'default': entry.get('default_reasoning_level'),
+                     'visibility': entry.get('visibility')}
+    return out
+
+
+def codex_tier_settings(tier, home=None):
+    """(model, effort) for a tier, validated against this account's catalogue.
+
+    The effort is clamped to what the chosen model supports: `gpt-5.5` stops at
+    `xhigh`, and the CLI would not complain about `ultra` -- the server would,
+    after the run had started.
+    """
+    preferred, effort = CODEX_TIER_PREFERENCES.get(tier, ((), "medium"))
+    cache = _models_cache(home)
+    if not cache:
+        return None, effort
+    for slug in preferred:
+        entry = cache.get(slug)
+        if not entry:
+            continue
+        efforts = entry['efforts']
+        if efforts and effort not in efforts:
+            order = [e for e in CODEX_EFFORT_ORDER if e in efforts]
+            wanted = CODEX_EFFORT_ORDER.index(effort)
+            below = [e for e in order if CODEX_EFFORT_ORDER.index(e) <= wanted]
+            effort = below[-1] if below else (order[0] if order else effort)
+        return slug, effort
+    return None, effort
+
+
+#: Back-compat shape for callers that only need the static pair. Derived, so a
+#: tier that resolves to a model on this host reports it here too.
+CODEX_TIER_MAP = {tier: codex_tier_settings(tier) for tier in CODEX_TIER_PREFERENCES}
 
 
 class CodexRuntime(BaseRuntime):
