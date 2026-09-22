@@ -66,14 +66,41 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$PYTHON_ONLY" != true ]; then
-    SUDO=""
-    if [ "$(id -u)" -ne 0 ]; then
-        SUDO="sudo"
-    fi
+    # Install only what is missing, and only when this account can actually
+    # install. A self-hosted runner is a long-lived machine whose tools are
+    # already there: measured on arcana-devs-3, the ci-runner account already
+    # had jq, shellcheck and bats under ~/.local/bin and has no passwordless
+    # sudo, so the unconditional `sudo apt-get` failed the job before a single
+    # test ran -- over packages that did not need installing.
+    missing=""
+    for tool in jq shellcheck socat; do
+        command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
+    done
 
-    echo "==> apt fixtures (jq, shellcheck, socat)"
-    $SUDO apt-get update -qq
-    $SUDO apt-get install -y --no-install-recommends jq shellcheck socat
+    if [ -z "$missing" ]; then
+        echo "==> apt fixtures (jq, shellcheck, socat): already present"
+    else
+        SUDO=""
+        if [ "$(id -u)" -ne 0 ]; then
+            # `sudo -n` fails rather than prompting, so a runner without
+            # passwordless sudo is reported as such instead of hanging on a
+            # password prompt no one can answer.
+            if sudo -n true 2>/dev/null; then
+                SUDO="sudo -n"
+            else
+                echo "ERROR: missing fixtures:$missing" >&2
+                echo "       this account cannot apt-get install (no passwordless sudo)." >&2
+                echo "       Install them on the runner, or run as root." >&2
+                exit 1
+            fi
+        fi
+
+        echo "==> apt fixtures (installing:$missing)"
+        # shellcheck disable=SC2086  # $missing is a deliberate word list
+        $SUDO apt-get update -qq
+        # shellcheck disable=SC2086
+        $SUDO apt-get install -y --no-install-recommends $missing
+    fi
 
 echo "==> bats-core ${BATS_HUMAN_VERSION} @ ${BATS_SHA}"
 workdir="$(mktemp -d)"
