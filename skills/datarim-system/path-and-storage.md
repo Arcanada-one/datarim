@@ -26,9 +26,9 @@ A directory named `datarim/`, including a historical KB, does not enable Datarim
    installed root (rule 4), not under `code/datarim/`, which does not exist
    there. An agent that pattern-matches "this task's code path contains
    `code/` → look under `code/datarim/`" is applying a framework-specific
-   exception where the general rule already applies. Precedent: a prior QA
-   incident — `/dr-qa` searched for an expectations file under a consumer
-   project's non-existent `code/datarim/` and returned a false
+   exception where the general rule already applies.
+   Precedent: a prior QA incident — `/dr-qa` searched for an expectations file
+   under a consumer project's non-existent `code/datarim/` and returned a false
    `BLOCKED "expectations file missing"`; the file was present at the correctly
    resolved path all along. Explicit installation makes the wrong path
    unresolvable rather than merely discouraged, but the pattern-match is what

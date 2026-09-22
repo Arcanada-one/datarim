@@ -16,7 +16,12 @@ DR_COMPLIANCE="$BATS_TEST_DIRNAME/../commands/dr-compliance.md"
 }
 
 @test "path-and-storage.md cites the code/datarim resolution precedent" {
-    run grep -c 'prior QA incident' "$SKILL_DOC"
+    # Matched against the document with newlines collapsed, so re-wrapping a
+    # paragraph cannot drop the guard. The earlier form grepped line by line
+    # and went red when "prior QA\n   incident" broke across a line during an
+    # unrelated reflow -- a false alarm about the prose, while the precedent it
+    # guards was still there and still correct.
+    run bash -c "tr '\n' ' ' < '$SKILL_DOC' | tr -s ' ' | grep -c 'prior QA incident'"
     [ "$status" -eq 0 ]
     [ "$output" -ge 1 ]
 }
