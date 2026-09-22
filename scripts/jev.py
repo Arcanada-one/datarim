@@ -91,6 +91,52 @@ def datarim_enabled(root):
         return False
 
 
+def codex_hook_trust(sha, home=None):
+    """Whether Codex will actually execute the Jev hooks it has installed.
+
+    Codex records each hook under `[hooks.state."<file>:<event>:<i>:<j>"]` with a
+    `trusted_hash`, and runs it only once that block also carries
+    `enabled = true` -- granted by the operator in the TUI, never by writing the
+    file. The two states are indistinguishable from the client's own "Active"
+    counter, which counts installed hooks: measured on codex-cli 0.155.1, it
+    read 2/2 Active for UserPromptSubmit while the ledger held zero such events.
+
+    Trust is keyed to the command string, which embeds releases/<sha>, so a
+    reinstall silently returns every hook to untrusted. Hence the sha argument:
+    a stale entry for an older release is not evidence about this one.
+    """
+    home = Path(home or Path.home())
+    config = home/'.codex/config.toml'
+    hooks = home/'.codex/hooks.json'
+    if not config.is_file() or not hooks.is_file():
+        return {'state': 'not_measured', 'reason': 'no Codex hook configuration'}
+    try:
+        installed = json.loads(hooks.read_text())
+        text = config.read_text()
+    except (OSError, ValueError) as exc:
+        return {'state': 'not_measured', 'reason': type(exc).__name__}
+    ours, pending = [], []
+    for event, groups in (installed.get('hooks') or installed).items():
+        if not isinstance(groups, list):
+            continue
+        for i, group in enumerate(groups):
+            for j, hook in enumerate(group.get('hooks', []) if isinstance(group, dict) else []):
+                if sha not in str(hook.get('command', '')):
+                    continue
+                # Codex spells the state key in snake_case, not the event name.
+                key = re.sub(r'(?<!^)(?=[A-Z])', '_', event).lower()
+                ours.append(event)
+                block = re.search(
+                    r'\[hooks\.state\."[^"]*:' + re.escape(f'{key}:{i}:{j}') + r'"\]\n((?:(?!\[).*\n)*)',
+                    text)
+                if not block or 'enabled = true' not in block.group(1):
+                    pending.append(event)
+    if not ours:
+        return {'state': 'not_measured', 'reason': 'no Jev hooks for this release'}
+    return {'state': 'untrusted' if pending else 'trusted',
+            'installed': sorted(set(ours)), 'pending': sorted(set(pending))}
+
+
 def main():
     a, extra = parse()
     installed = Path(__file__).resolve().parent.parent
@@ -153,6 +199,13 @@ def main():
                   'versions': versions, 'findings': findings,
                   'key_ready': key_ready, 'native_agents_live': 'not_measured',
                   'api': 'not_measured', 'source_sha': manifest['source_sha']}
+        if not a.agent or a.agent == 'codex':
+            trust = codex_hook_trust(manifest['source_sha'])
+            report['codex_hook_trust'] = trust
+            if trust['state'] == 'untrusted':
+                findings.append('codex: hooks installed but not trusted (' +
+                                ', '.join(trust['pending']) + '); accept the directory '
+                                'and "Trust all" in a Codex session, or they never run')
         if a.api:
             from route import load_cfg
             from jev_client import diagnose

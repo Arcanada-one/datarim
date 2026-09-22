@@ -197,9 +197,26 @@ def install(args):
                 else:
                     atomic_write(path, data)
         raise
-    print(json.dumps({'installed': str(runtime), 'source_sha': sha, 'backup': str(backup),
-                      'key_file': str(key), 'native_live': 'not_measured',
-                      'codex_hook_trust': 'review with /hooks in a fresh Codex session'}, indent=2))
+    report = {'installed': str(runtime), 'source_sha': sha, 'backup': str(backup),
+              'key_file': str(key), 'native_live': 'not_measured'}
+    if 'codex' in args.client:
+        # Writing the hook file is not installing the hook. Codex gates hooks
+        # behind TWO prompts, both in the TUI, and a refusal at either one is
+        # silent: the client still reports the hooks as "Active", while the
+        # ledger records no events for them. MEASURED on codex-cli 0.155.1 --
+        # 73 PreToolUse events and zero UserPromptSubmit over 45 minutes,
+        # because the newly written entries were still awaiting review.
+        report['codex_hook_trust'] = {
+            'state': 'not_measured',
+            'gate_1': 'trust the working directory -- its own prompt says project-local '
+                      'config, hooks and exec policies do not load until you do',
+            'gate_2': '"Hooks need review" -> "Trust all and continue"; declining leaves '
+                      'the hooks installed but never executed',
+            'reinstall': 'trust is keyed to the command string, which contains '
+                         'releases/<sha>, so every reinstall needs gate 2 again',
+            'verify': 'jev doctor --agent=codex reads the enabled flags; the ledger is '
+                      'the authority, not the client\'s Active counter'}
+    print(json.dumps(report, indent=2))
 
 
 def main():
