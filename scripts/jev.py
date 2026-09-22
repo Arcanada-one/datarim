@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -65,6 +64,13 @@ def main():
     installed = Path(__file__).resolve().parent.parent
     host_mode = (installed/'host-installation.json').is_file()
     try:
+        if not host_mode:
+            root = project_root()
+            project_manifest = json.loads((root/'.datarim-runtime/installation.json').read_text())
+            if project_manifest.get('host_jev'):
+                from jev_hook import host_runtime
+                installed = host_runtime()
+                host_mode = True
         if host_mode:
             from jev_hook import environment
             env, root = environment({'cwd': str(Path.cwd())}, runtime=installed)
@@ -135,6 +141,8 @@ def main():
     os.environ[a.agent.upper()+'_BIN'] = exe
     if a.dry_run:
         print(json.dumps({'agent': a.agent, 'binary': exe, 'project': str(root),
+                          'scope': 'host' if host_mode else 'project',
+                          'datarim_enabled': bool(os.environ.get('DATARIM_ROOT')),
                           'live': a.live, 'network_calls': 0, 'task_present': bool(a.task)}))
         return 0
     if not manifest.get('with_jev'):
@@ -158,7 +166,8 @@ def main():
             from route import route, load_cfg
             decision = route(a.task, load_cfg(), a.mode)
             tier = decision['model']
-            os.environ['JEV_ROUTED_PROMPT_SHA'] = hashlib.sha256(a.task.encode()).hexdigest()
+            from prompt_cache import save
+            os.environ['JEV_PROMPT_CACHE'] = str(save(a.task, decision))
             print(f'Jev recommends {tier} ({a.mode})', file=sys.stderr)
         except Exception as exc:
             # Do not print raw provider exceptions or response bodies.

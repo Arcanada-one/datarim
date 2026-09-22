@@ -1,36 +1,37 @@
 #!/usr/bin/env bats
-#
-# Tests for update.sh under TUNE-0033 (symlink-default + local/ overlay).
-#
-# AC-6 contract:
-#   - Symlink mode → git pull only, exit 0, no install step.
-#   - Copy    mode → git pull + install --force --yes --copy.
+load 'helpers/project_install'
+setup() { setup_project_fixture; }
 
-load 'helpers/install_fixture'
-
-setup() {
-    setup_fixture
-    setup_full_scripts
-    init_fake_git_with_origin
+@test "update requires explicit project scope" {
+    run sh "$PRODUCT_ROOT/update.sh"
+    [ "$status" -eq 2 ]
+    [ ! -e "$HOME/.claude" ]
 }
 
-@test "U1 AC-6 update.sh under symlink mode skips install step (exit 0)" {
-    seed_symlink_install
-    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" "$FAKE_REPO/update.sh"
+@test "unchanged update preserves the pinned runtime" {
+    install_project
     [ "$status" -eq 0 ]
-    [[ "$output" == *"ymlink"* ]]
-    # Install step is skipped — no "Installing scope..." messages.
-    [[ "$output" != *"Installing agents"* ]]
-    [[ "$output" != *"Installing skills"* ]]
+    run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'"status": "unchanged"'* ]]
 }
 
-@test "U2 AC-6 update.sh under copy mode runs install --force --yes --copy" {
-    seed_existing_copy_install
-    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" "$FAKE_REPO/update.sh"
+@test "enabling then disabling project Jev retires only owned hooks" {
+    mkdir -p "$PROJECT/.cursor"
+    printf '%s\n' '{"version":1,"hooks":{"beforeShellExecution":[{"command":"foreign-guard"}]}}' > "$PROJECT/.cursor/hooks.json"
+    install_project
     [ "$status" -eq 0 ]
-    # Installation step ran (proper install message visible)
-    [[ "$output" == *"Installing"* || "$output" == *"Copied"* ]]
-    # Runtime stays in copy mode — agents/ is still a real dir, not a symlink.
-    [ ! -L "$FAKE_CLAUDE/agents" ]
-    [ -d "$FAKE_CLAUDE/agents" ]
+    run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT" --with-jev
+    [ "$status" -eq 0 ]
+    run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT"
+    [ "$status" -eq 0 ]
+    run python3 - "$PROJECT/.cursor/hooks.json" <<'CHECK'
+import json,sys
+h=json.load(open(sys.argv[1]))['hooks']
+assert h['beforeShellExecution']==[{'command':'foreign-guard'}]
+assert not any('jev_hook.py' in json.dumps(v) for v in h.values())
+CHECK
+    [ "$status" -eq 0 ]
+    [ -f "$PROJECT/config/credentials/jev/api-key" ]
+    [ -d "$PROJECT/.datarim-runtime-backups" ]
 }

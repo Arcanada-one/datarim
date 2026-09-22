@@ -33,7 +33,7 @@ setup() {
     printf -- '---\nid: ADR-0001\n---\nArchitecture Decision Record ADR-0001 file-sync-policy.\n' \
         > documentation/architecture/ADR-0001-file-sync-policy.md
 
-    printf 'See OLD-0007 for details.\n| OLD | Foo project | foo |\n' > CLAUDE.md
+    printf 'See OLD-0007 for details.\n| OLD | Foo project | foo |\n' > AGENTS.md
     git add -A
     git commit -qm init
 }
@@ -44,13 +44,13 @@ teardown() {
 }
 
 @test "V-AC-01 content rename of unambiguous prefix across scope" {
-    run "$SH" --old OLD --new NEW --path datarim --path CLAUDE.md --apply
+    run "$SH" --old OLD --new NEW --path datarim --path AGENTS.md --apply
     [ "$status" -eq 0 ]
     grep -q 'NEW-0007' datarim/backlog.md
     ! grep -q 'OLD-0007' datarim/backlog.md
-    grep -q 'NEW-0007' CLAUDE.md
+    grep -q 'NEW-0007' AGENTS.md
     # registry row (bare `OLD`, not a token) stays untouched -- out of scope by design
-    grep -q '| OLD | Foo project | foo |' CLAUDE.md
+    grep -q '| OLD | Foo project | foo |' AGENTS.md
 }
 
 @test "V-AC-02 exclude-anchor protects homograph; collision+include renames index" {
@@ -85,18 +85,18 @@ teardown() {
 }
 
 @test "V-AC-05 --dry-run (default) writes nothing and prints plan" {
-    run "$SH" --old OLD --new NEW --path datarim --path CLAUDE.md
+    run "$SH" --old OLD --new NEW --path datarim --path AGENTS.md
     [ "$status" -eq 0 ]
     echo "$output" | grep -q 'RENAME'
     [ -z "$(git status --porcelain)" ]
 }
 
 @test "V-AC-06 verify passes clean, fails on half-rename residue" {
-    "$SH" --old OLD --new NEW --path datarim --path CLAUDE.md --apply
-    run "$SH" --old OLD --new NEW --path datarim --path CLAUDE.md --verify
+    "$SH" --old OLD --new NEW --path datarim --path AGENTS.md --apply
+    run "$SH" --old OLD --new NEW --path datarim --path AGENTS.md --verify
     [ "$status" -eq 0 ]
     printf -- '- OLD-0009 stray residue\n' >> datarim/backlog.md
-    run "$SH" --old OLD --new NEW --path datarim --path CLAUDE.md --verify
+    run "$SH" --old OLD --new NEW --path datarim --path AGENTS.md --verify
     [ "$status" -eq 1 ]
     echo "$output" | grep -q 'OLD-0009'
 }

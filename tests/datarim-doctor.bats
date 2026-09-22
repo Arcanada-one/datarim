@@ -1046,13 +1046,13 @@ EOF
 # a consumer project declared DEV -> general (where its whole archive corpus
 # already lived) and QA -> general, both reserved, so both were discarded without
 # a word while --probe-prefix answered `development` / `qa` -- subdirs that
-# existed in no repo. Since a project CLAUDE.md typically tells agents to trust
+# existed in no repo. Since a project AGENTS.md typically tells agents to trust
 # the probe over their own assumption, the silence is what stranded the archive.
 # Resolution is unchanged; the shadowed row is now reported. These tests pin the
 # warning AND the untouched precedence.
 
 @test "T-SHADOW-WARN reserved prefix shadowed by a project row warns, resolution unchanged" {
-    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+    cat > "$TMPROOT/AGENTS.md" <<'EOF'
 # Test project
 
 ## Task Prefix Registry
@@ -1083,7 +1083,7 @@ EOF
 @test "T-SHADOW-AGREE project row that agrees with the runtime warns nothing" {
     # QCK -> quick in both tables. Agreement is not a conflict; stay quiet or the
     # warning becomes noise every project learns to ignore.
-    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+    cat > "$TMPROOT/AGENTS.md" <<'EOF'
 ## Task Prefix Registry
 
 | Prefix | Project | Archive Subdir |
@@ -1098,7 +1098,7 @@ EOF
 
 @test "T-SHADOW-NONRESERVED non-reserved project prefix resolves with no warning" {
     # The intended extension point: a prefix the runtime does not reserve.
-    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+    cat > "$TMPROOT/AGENTS.md" <<'EOF'
 ## Task Prefix Registry
 
 | Prefix | Project | Archive Subdir |
@@ -1119,7 +1119,7 @@ EOF
 }
 
 @test "T-SHADOW-UNSAFE malformed shadow row is rejected, never echoed" {
-    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+    cat > "$TMPROOT/AGENTS.md" <<'EOF'
 ## Task Prefix Registry
 
 | Prefix | Project | Archive Subdir |

@@ -503,7 +503,7 @@ replace_field() {
 
 @test "[docs] shipped references describe the same mandatory redundancy gate" {
     for file in \
-        CLAUDE.md \
+        AGENTS.md \
         README.md \
         documentation/explanation/pipeline.md \
         documentation/reference/agents.md \

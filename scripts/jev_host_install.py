@@ -118,11 +118,16 @@ def install(args):
         (source/'plugins/dr-jev-control/config/jev-control.json').read_text())
     if not isinstance(existing, dict):
         raise ValueError('Host config must be an object')
-    existing['datarim_projects'] = sorted({str(Path(p).resolve(strict=True)) for p in args.datarim_project})
+    if args.datarim_project is not None:
+        existing['datarim_projects'] = sorted({str(Path(p).resolve(strict=True)) for p in args.datarim_project})
+    else:
+        existing.setdefault('datarim_projects', [])
     existing.setdefault('telemetry', {}).update(path=None, store_prompt_text=False)
     if existing.get('api', {}).get('base_url') != 'https://api.typesafe.ai/v1/systemone':
         raise ValueError('Host Jev requires the pinned provider endpoint')
     files = {config: (json.dumps(existing, indent=2)+'\n').encode()}
+    pointer = safe_path(home, '.config/jev/installation.json')
+    files[pointer] = (json.dumps({'schema': 1, 'runtime': str(runtime)}, indent=2)+'\n').encode()
     paths = {'claude': '.claude/settings.json', 'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json'}
     for client in args.client:
         target = safe_path(home, paths[client])
@@ -201,7 +206,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--home', default=str(Path.home()))
     parser.add_argument('--client', action='append', choices=list(EVENTS), required=True)
-    parser.add_argument('--datarim-project', action='append', default=[])
+    parser.add_argument('--datarim-project', action='append', default=None)
     parser.add_argument('--replace-legacy-root', action='append', default=[])
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()

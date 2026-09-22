@@ -10,9 +10,9 @@ setup() {
 }
 
 @test "V1 AC-7 validate.sh emits WARN when local/ overlay shadows framework file" {
-    mkdir -p "$FAKE_CLAUDE/local/skills"
-    mkdir -p "$(dirname "$FAKE_CLAUDE/local/skills/testing/SKILL.md")"
-    echo "# my override" > "$FAKE_CLAUDE/local/skills/testing/SKILL.md"
+    mkdir -p "$FAKE_REPO/local/skills"
+    mkdir -p "$(dirname "$FAKE_REPO/local/skills/testing/SKILL.md")"
+    echo "# my override" > "$FAKE_REPO/local/skills/testing/SKILL.md"
     run bash -c "HOME='$FAKE_HOME' CLAUDE_DIR='$FAKE_CLAUDE' '$FAKE_REPO/validate.sh' 2>&1"
     [[ "$output" == *"WARN"* ]]
     [[ "$output" == *"override"* ]]
@@ -20,8 +20,8 @@ setup() {
 }
 
 @test "V2 AC-7 validate.sh INFO when local/ exists but no overrides" {
-    mkdir -p "$FAKE_CLAUDE/local/skills"
-    echo "# my new skill" > "$FAKE_CLAUDE/local/skills/my-namespace-only.md"
+    mkdir -p "$FAKE_REPO/local/skills"
+    echo "# my new skill" > "$FAKE_REPO/local/skills/my-namespace-only.md"
     run bash -c "HOME='$FAKE_HOME' CLAUDE_DIR='$FAKE_CLAUDE' '$FAKE_REPO/validate.sh' 2>&1"
     [[ "$output" == *"no local overrides"* || "$output" == *"INFO"* ]]
     # No override WARN line for a non-shadowing file
@@ -42,9 +42,9 @@ seed_critical_skill() {
 
 @test "V3 critical override security.md → ERROR + exit 1" {
     seed_critical_skill "security/SKILL.md"
-    mkdir -p "$FAKE_CLAUDE/local/skills"
-    mkdir -p "$(dirname "$FAKE_CLAUDE/local/skills/security/SKILL.md")"
-    echo "# evil override" > "$FAKE_CLAUDE/local/skills/security/SKILL.md"
+    mkdir -p "$FAKE_REPO/local/skills"
+    mkdir -p "$(dirname "$FAKE_REPO/local/skills/security/SKILL.md")"
+    echo "# evil override" > "$FAKE_REPO/local/skills/security/SKILL.md"
     run bash -c "HOME='$FAKE_HOME' CLAUDE_DIR='$FAKE_CLAUDE' '$FAKE_REPO/validate.sh' 2>&1"
     [ "$status" -eq 1 ]
     [[ "$output" == *"ERROR: critical skill 'skills/security/SKILL.md'"* ]]
@@ -53,9 +53,9 @@ seed_critical_skill() {
 
 @test "V4 critical override datarim-system.md → ERROR + exit 1" {
     seed_critical_skill "datarim-system/SKILL.md"
-    mkdir -p "$FAKE_CLAUDE/local/skills"
-    mkdir -p "$(dirname "$FAKE_CLAUDE/local/skills/datarim-system/SKILL.md")"
-    echo "# evil override" > "$FAKE_CLAUDE/local/skills/datarim-system/SKILL.md"
+    mkdir -p "$FAKE_REPO/local/skills"
+    mkdir -p "$(dirname "$FAKE_REPO/local/skills/datarim-system/SKILL.md")"
+    echo "# evil override" > "$FAKE_REPO/local/skills/datarim-system/SKILL.md"
     run bash -c "HOME='$FAKE_HOME' CLAUDE_DIR='$FAKE_CLAUDE' '$FAKE_REPO/validate.sh' 2>&1"
     [ "$status" -eq 1 ]
     [[ "$output" == *"ERROR: critical skill 'skills/datarim-system/SKILL.md'"* ]]
@@ -63,9 +63,9 @@ seed_critical_skill() {
 
 @test "V5 critical override compliance.md → ERROR + exit 1" {
     seed_critical_skill "compliance/SKILL.md"
-    mkdir -p "$FAKE_CLAUDE/local/skills"
-    mkdir -p "$(dirname "$FAKE_CLAUDE/local/skills/compliance/SKILL.md")"
-    echo "# evil override" > "$FAKE_CLAUDE/local/skills/compliance/SKILL.md"
+    mkdir -p "$FAKE_REPO/local/skills"
+    mkdir -p "$(dirname "$FAKE_REPO/local/skills/compliance/SKILL.md")"
+    echo "# evil override" > "$FAKE_REPO/local/skills/compliance/SKILL.md"
     run bash -c "HOME='$FAKE_HOME' CLAUDE_DIR='$FAKE_CLAUDE' '$FAKE_REPO/validate.sh' 2>&1"
     [ "$status" -eq 1 ]
     [[ "$output" == *"ERROR: critical skill 'skills/compliance/SKILL.md'"* ]]
@@ -73,9 +73,9 @@ seed_critical_skill() {
 
 @test "V6 critical override ai-quality.md → ERROR + exit 1" {
     seed_critical_skill "ai-quality/SKILL.md"
-    mkdir -p "$FAKE_CLAUDE/local/skills"
-    mkdir -p "$(dirname "$FAKE_CLAUDE/local/skills/ai-quality/SKILL.md")"
-    echo "# evil override" > "$FAKE_CLAUDE/local/skills/ai-quality/SKILL.md"
+    mkdir -p "$FAKE_REPO/local/skills"
+    mkdir -p "$(dirname "$FAKE_REPO/local/skills/ai-quality/SKILL.md")"
+    echo "# evil override" > "$FAKE_REPO/local/skills/ai-quality/SKILL.md"
     run bash -c "HOME='$FAKE_HOME' CLAUDE_DIR='$FAKE_CLAUDE' '$FAKE_REPO/validate.sh' 2>&1"
     [ "$status" -eq 1 ]
     [[ "$output" == *"ERROR: critical skill 'skills/ai-quality/SKILL.md'"* ]]
@@ -83,9 +83,9 @@ seed_critical_skill() {
 
 @test "V7 critical override evolution.md → ERROR + exit 1" {
     seed_critical_skill "evolution/SKILL.md"
-    mkdir -p "$FAKE_CLAUDE/local/skills"
-    mkdir -p "$(dirname "$FAKE_CLAUDE/local/skills/evolution/SKILL.md")"
-    echo "# evil override" > "$FAKE_CLAUDE/local/skills/evolution/SKILL.md"
+    mkdir -p "$FAKE_REPO/local/skills"
+    mkdir -p "$(dirname "$FAKE_REPO/local/skills/evolution/SKILL.md")"
+    echo "# evil override" > "$FAKE_REPO/local/skills/evolution/SKILL.md"
     run bash -c "HOME='$FAKE_HOME' CLAUDE_DIR='$FAKE_CLAUDE' '$FAKE_REPO/validate.sh' 2>&1"
     [ "$status" -eq 1 ]
     [[ "$output" == *"ERROR: critical skill 'skills/evolution/SKILL.md'"* ]]
@@ -93,18 +93,18 @@ seed_critical_skill() {
 
 @test "V8 critical override security-baseline.md → ERROR + exit 1" {
     seed_critical_skill "security-baseline/SKILL.md"
-    mkdir -p "$FAKE_CLAUDE/local/skills"
-    mkdir -p "$(dirname "$FAKE_CLAUDE/local/skills/security-baseline/SKILL.md")"
-    echo "# evil override" > "$FAKE_CLAUDE/local/skills/security-baseline/SKILL.md"
+    mkdir -p "$FAKE_REPO/local/skills"
+    mkdir -p "$(dirname "$FAKE_REPO/local/skills/security-baseline/SKILL.md")"
+    echo "# evil override" > "$FAKE_REPO/local/skills/security-baseline/SKILL.md"
     run bash -c "HOME='$FAKE_HOME' CLAUDE_DIR='$FAKE_CLAUDE' '$FAKE_REPO/validate.sh' 2>&1"
     [ "$status" -eq 1 ]
     [[ "$output" == *"ERROR: critical skill 'skills/security-baseline/SKILL.md'"* ]]
 }
 
 @test "V9 non-critical skill override testing.md → WARN only, exit 0" {
-    mkdir -p "$FAKE_CLAUDE/local/skills"
-    mkdir -p "$(dirname "$FAKE_CLAUDE/local/skills/testing/SKILL.md")"
-    echo "# personal testing tweaks" > "$FAKE_CLAUDE/local/skills/testing/SKILL.md"
+    mkdir -p "$FAKE_REPO/local/skills"
+    mkdir -p "$(dirname "$FAKE_REPO/local/skills/testing/SKILL.md")"
+    echo "# personal testing tweaks" > "$FAKE_REPO/local/skills/testing/SKILL.md"
     run bash -c "HOME='$FAKE_HOME' CLAUDE_DIR='$FAKE_CLAUDE' '$FAKE_REPO/validate.sh' 2>&1"
     [ "$status" -eq 0 ]
     [[ "$output" == *"WARN: override detected"* ]]
@@ -113,9 +113,9 @@ seed_critical_skill() {
 
 @test "V10 critical-name override under non-skills scope → WARN only (path-scoped)" {
     # Same basename in agents/ scope is NOT critical — blocklist is skills-only.
-    mkdir -p "$FAKE_CLAUDE/local/agents"
+    mkdir -p "$FAKE_REPO/local/agents"
     # Need a framework agent file with the same name to trigger override detection.
-    cp "$FAKE_REPO/agents"/*.md "$FAKE_CLAUDE/local/agents/" 2>/dev/null || skip "no agents to clone"
+    cp "$FAKE_REPO/agents"/*.md "$FAKE_REPO/local/agents/" 2>/dev/null || skip "no agents to clone"
     first=$(find "$FAKE_REPO/agents" -name '*.md' | head -1)
     [ -n "$first" ] || skip "no agents available"
     run bash -c "HOME='$FAKE_HOME' CLAUDE_DIR='$FAKE_CLAUDE' '$FAKE_REPO/validate.sh' 2>&1"

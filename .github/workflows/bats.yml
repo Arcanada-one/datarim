@@ -36,6 +36,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  jev-and-project-runtime:
+    name: Jev and project runtime contracts
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux, X64]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Assert exact triggering head
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - name: Install pinned test dependencies
+        run: |
+          /usr/bin/python3 -m venv "$RUNNER_TEMP/jev-venv"
+          /bin/ln -sf /usr/bin/python3 "$RUNNER_TEMP/jev-venv/bin/python"
+          bash tests/ci-install-bats-deps.sh --python-bin "$RUNNER_TEMP/jev-venv/bin/python"
+      - name: Verify Jev source manifest
+        run: sha256sum -c JEV-MANIFEST.sha256
+      - name: Run offline engine and lifecycle contracts
+        run: |
+          set -euo pipefail
+          python_bin="$RUNNER_TEMP/jev-venv/bin/python"
+          "$python_bin" -m unittest discover -s plugins/dr-jev-control/tests -v
+          for pattern in 'test_jev_*.py' 'test_project_*.py' 'test_framework_*.py'; do
+            "$python_bin" -m unittest discover -s tests -p "$pattern" -v
+          done
+
   registry:
     name: exclusion registry + inventory
     runs-on: ubuntu-latest

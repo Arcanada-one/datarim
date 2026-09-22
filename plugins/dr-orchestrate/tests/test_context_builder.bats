@@ -29,7 +29,7 @@ setup() {
 @test "build_context does NOT inject full project context or task history" {
     run bash "$BUILDER" build_context 1 "$BRIEF" "proj-a" "env-x"
     [ "$status" -eq 0 ]
-    # KB is a reference, not a dump: no full CLAUDE.md body, no history transcript.
+    # KB is a reference, not a dump: no full AGENTS.md body, no history transcript.
     ! echo "$output" | grep -q "=== HISTORY ==="
     ! echo "$output" | grep -q "=== FULL-PROJECT ==="
 }

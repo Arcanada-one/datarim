@@ -3,7 +3,7 @@
 #
 # Original 4 assertions preserved:
 #   1. Every dr-* in documentation/reference/commands.md -> delegates to doc-fanout-lint
-#   2. Every dr-* in CLAUDE.md            -> delegates to doc-fanout-lint
+#   2. Every dr-* in AGENTS.md            -> delegates to doc-fanout-lint
 #   3. No obsolete /dr-reflect|/dr-security references (native)
 #   4. documentation/ is the canonical docs root with the 4 Diátaxis categories (INFRA-0306,
 #      2.49.0 — supersedes the pre-rename invariant that asserted documentation/ ABSENT)
@@ -19,14 +19,14 @@ setup() {
     [ "$status" -eq 0 ] || { echo "$output"; false; }
 }
 
-@test "every dr-* command file is mentioned in CLAUDE.md (doc-fanout linter)" {
+@test "every dr-* command file is mentioned in AGENTS.md (doc-fanout linter)" {
     CFG="$BATS_TEST_DIRNAME/fixtures/test-command-doc-coverage-claude.yml"
     run bash "$REPO/dev-tools/doc-fanout-lint.sh" --root "$REPO" --config "$CFG" --quiet
     [ "$status" -eq 0 ] || { echo "$output"; false; }
 }
 
-@test "no obsolete /dr-reflect or /dr-security references in CLAUDE.md" {
-    ! grep -qE '/dr-reflect|/dr-security' "$REPO/CLAUDE.md"
+@test "no obsolete /dr-reflect or /dr-security references in AGENTS.md" {
+    ! grep -qE '/dr-reflect|/dr-security' "$REPO/AGENTS.md"
 }
 
 @test "documentation/ is the canonical docs root with the 4 Diátaxis categories" {

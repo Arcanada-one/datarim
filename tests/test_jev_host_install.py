@@ -66,6 +66,23 @@ class HostInstallTests(unittest.TestCase):
         self.assertEqual(target.read_bytes(), before)
         self.assertFalse((self.home/'.config/jev/config.json').exists())
 
+    def test_update_preserves_omitted_allowlist_and_project_launcher_uses_host(self):
+        self.install()
+        self.args.datarim_project = None
+        self.install()
+        cfg = json.loads((self.home/'.config/jev/config.json').read_text())
+        self.assertEqual(cfg['datarim_projects'], [str(self.project)])
+        runtime = self.project/'.datarim-runtime'; runtime.mkdir()
+        (runtime/'installation.json').write_text(json.dumps({'schema': 1,
+            'project': str(self.project), 'host_jev': True, 'with_jev': True}))
+        result = subprocess.run([sys.executable, str(ROOT/'scripts/jev.py'), '--agent=codex', '--dry-run'],
+                                cwd=self.project, env=dict(os.environ, HOME=str(self.home), CODEX_BIN='/usr/bin/true'),
+                                capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(report['scope'], 'host')
+        self.assertTrue(report['datarim_enabled'])
+
     def test_symlinked_registration_is_rejected_before_mutation(self):
         outside = self.home/'outside'; outside.write_text('unchanged')
         folder = self.home/'.codex'; folder.mkdir()

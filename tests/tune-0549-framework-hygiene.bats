@@ -5,7 +5,7 @@
 # documentation/. An old ignore rule declared «framework repo MUST NOT
 # contain documentation/» while ~44 files under documentation/ were TRACKED
 # (the docs migration deliberately force-added the Diátaxis tree, and
-# CLAUDE.md § S4/S10 reference documentation/ paths as shipped surfaces).
+# AGENTS.md § S4/S10 reference documentation/ paths as shipped surfaces).
 # The consequence: every new doc needed `git add -f`, and a contributor
 # reasonably concluded the path was wrong.
 #

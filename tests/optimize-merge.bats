@@ -2,7 +2,7 @@
 
 # TUNE-0017: Tests for seo-launch+marketing → go-to-market merge and description shortening
 # TUNE-0034: removed 3 stale assertions on go-to-market.md (artifact removed pre-2026)
-# and "24 skills" snapshot count in CLAUDE.md (count is volatile, not an invariant).
+# and "24 skills" snapshot count in AGENTS.md (count is volatile, not an invariant).
 # Surviving tests cover live invariants: removed legacy skills stay removed, and
 # no skill description exceeds the 155-char discovery cap.
 

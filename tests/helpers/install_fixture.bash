@@ -62,12 +62,20 @@ setup_full_scripts() {
         cp "$REPO_ROOT/validate.sh" "$FAKE_REPO/validate.sh"
         chmod +x "$FAKE_REPO/validate.sh"
     fi
-    # validate.sh greps CLAUDE.md for skill names — provide a minimal one
+    # validate.sh greps AGENTS.md for skill names — provide a minimal one
     # mentioning all fixture file basenames so warnings stay quiet.
-    cat > "$FAKE_REPO/CLAUDE.md" <<'CLAUDE'
-# Test fixture CLAUDE.md
+    cat > "$FAKE_REPO/AGENTS.md" <<'CLAUDE'
+# Test fixture AGENTS.md
 References: planner, testing, dr-init, prd-template, deploy, config, frag.
+Template: templates/prd-template.md.
 CLAUDE
+    cp "$REPO_ROOT/dev-tools/check-template-targets.py" "$FAKE_REPO/dev-tools/"
+    cp "$REPO_ROOT/dev-tools/framework-graph.py" "$FAKE_REPO/dev-tools/"
+    printf 'commands:\n  dr-init:\n    requires: []\n    precedes: []\n' > "$FAKE_REPO/dev-tools/command-graph.yaml"
+    printf '%s\n' '---' 'name: testing' 'description: Focused fixture skill for verifying project-local validation behavior.' '---' > "$FAKE_REPO/skills/testing/SKILL.md"
+    mkdir -p "$FAKE_REPO/skills/visual-maps"
+    touch "$FAKE_REPO/skills/visual-maps/framework-architecture.md" "$FAKE_REPO/skills/visual-maps/command-dependencies.md"
+    python3 "$FAKE_REPO/dev-tools/framework-graph.py" --write >/dev/null
 }
 
 # TUNE-0033: seed FAKE_CLAUDE as a fully populated real-copy install,

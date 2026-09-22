@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import hashlib,json,os,sys
+import json,os,sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).parent))
 from route import route,load_cfg
@@ -11,13 +11,13 @@ def main():
     if not isinstance(payload,dict):return 0
     prompt=payload.get('prompt') or payload.get('user_prompt') or payload.get('message') or ''
     if not isinstance(prompt,str) or len(prompt.strip())<3:return 0
-    if os.environ.get('JEV_ROUTED_PROMPT_SHA') == hashlib.sha256(prompt.encode()).hexdigest():
-        return 0
     cfg=load_cfg()
     if not cfg.get('hooks',{}).get('prompt_router',True):return 0
     api=cfg.get('api',{})
     budget={"timeout_seconds":api.get('hook_timeout_seconds',4),"retries":api.get('hook_retries',0)}
-    try:r=route(prompt,cfg,os.environ.get('DATARIM_JEV_MODE') or None,budget=budget)
+    try:
+        from prompt_cache import consume
+        r=consume(prompt) or route(prompt,cfg,os.environ.get('DATARIM_JEV_MODE') or None,budget=budget)
     except Exception:return 0
     if not r.get('ok'):return 0
     a=r['answers']; sel=r.get('selection',{}) or {}

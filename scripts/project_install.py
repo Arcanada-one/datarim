@@ -3,21 +3,27 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
+import uuid
 
 SOURCE = Path(__file__).resolve().parents[1]
 BEGIN = '<!-- datarim-project:begin -->'
 END = '<!-- datarim-project:end -->'
 SCOPES = ('agents', 'skills', 'commands', 'templates', 'scripts', 'dev-tools', 'plugins', 'config', 'cli')
 PRIVATE_IGNORES = ('/.datarim-runtime/', '/.datarim-runtime-previous/',
+                   '/.datarim-runtime-backups/',
                    '/.datarim-uninstalled/', '/.datarim-install-*/',
+                   '/.datarim-install.lock',
                    '/config/credentials/', '/datarim/')
 
 
@@ -54,10 +60,45 @@ def replace_block(text, block):
     return text.rstrip() + '\n\n' + block + '\n'
 
 
+def project_directory(value):
+    root = Path(value).resolve(strict=True)
+    protected = {Path(p).resolve() for p in ('/', '/etc', '/usr', '/bin', '/sbin', '/System',
+                 '/Library', '/Applications', '/opt', '/var', '/tmp', '/home', '/Users')}
+    if (root in protected or root == Path.home().resolve() or root in Path.home().resolve().parents
+            or root == SOURCE or SOURCE.is_relative_to(root)):
+        raise ValueError('Choose a consumer project, not home, a system directory, or product source')
+    return root
+
+
+@contextlib.contextmanager
+def project_lock(root):
+    path = safe_path(root, '.datarim-install.lock')
+    fd = os.open(path, os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW|os.O_NONBLOCK, 0o600)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError('Installation lock must be a regular file')
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise ValueError('Another installation transaction owns this project') from exc
+        yield
+    finally:
+        os.close(fd)
+
+
 def install(args):
+    root = project_directory(args.project)
+    if args.dry_run:
+        return _install(args)
+    with project_lock(root):
+        return _install(args)
+
+
+def _install(args):
     root = Path(args.project).resolve(strict=True)
-    if root == Path.home().resolve() or root == Path('/') or root == SOURCE or SOURCE.is_relative_to(root):
-        raise ValueError('Choose a consumer project, not home, filesystem root, or product source')
+    if getattr(args, 'host_jev', False):
+        from jev_hook import host_runtime
+        host_runtime()  # A declaration alone must not silently remove all hooks.
     runtime = safe_path(root, '.datarim-runtime')
     for context in args.context:
         path = Path(context)
@@ -147,6 +188,11 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
             expected = (previous or {}).get('files', {}).get(name)
             if expected != digest(target.read_bytes()):
                 raise ValueError(f'Unmanaged or locally modified file: {name}')
+    obsolete = set((previous or {}).get('files', {})) - set(files)
+    for name in obsolete:
+        target = safe_path(root, name)
+        if target.exists() and digest(target.read_bytes()) != previous['files'][name]:
+            raise ValueError(f'Locally modified retired discovery file: {name}')
     key = safe_path(root, 'config/credentials/jev/api-key')
     if key.exists() and (not key.is_file() or key.stat().st_mode & 0o077):
         raise ValueError('Existing Jev key is not private (expected mode 0600)')
@@ -159,10 +205,16 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
             return
     stage = Path(tempfile.mkdtemp(prefix='.datarim-install-', dir=root))
     backups = {}
-    old_runtime = root / '.datarim-runtime-previous'
+    old_runtime = safe_path(root, '.datarim-runtime-previous')
+    archived_previous = None
+    moved_current = False
+    installed_new = False
     if old_runtime.exists():
-        stage.rmdir()
-        raise ValueError('Previous runtime already exists; verify and retire it before updating')
+        prior = old_runtime/'installation.json'
+        if not prior.is_file() or json.loads(prior.read_text()).get('project') != str(root):
+            stage.rmdir()
+            raise ValueError('Previous runtime is not an owned project backup')
+        archived_previous = safe_path(root, '.datarim-runtime-backups/'+uuid.uuid4().hex)
     try:
         for scope in SCOPES:
             if (SOURCE / scope).exists():
@@ -197,7 +249,7 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
                     'with_jev': args.with_jev, 'host_jev': getattr(args, 'host_jev', False), 'contexts': args.context,
                     'files': {n: digest(v) for n, v in files.items()}}
         (stage / 'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
-        for name in files:
+        for name in set(files) | obsolete:
             target = root / name
             backups[name] = target.read_bytes() if target.exists() else None
         (stage/'rollback-files.json').write_text(json.dumps({n: v.decode() if v is not None else None for n,v in backups.items()}, indent=2)+'\n')
@@ -212,13 +264,20 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
                               for n, v in json.loads(original_path.read_text()).items()})
         (stage/'original-files.json').write_text(json.dumps({n: v.decode() if v is not None else None for n,v in originals.items()}, indent=2)+'\n')
         (stage/'original-files.json').chmod(0o600)
+        if archived_previous is not None:
+            archived_previous.parent.mkdir(mode=0o700, exist_ok=True)
+            old_runtime.rename(archived_previous)
         if runtime.exists():
             runtime.rename(old_runtime)
+            moved_current = True
         stage.rename(runtime)
+        installed_new = True
         for name, data in files.items():
             target = root / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
+        for name in obsolete:
+            (root/name).unlink(missing_ok=True)
         if args.with_jev:
             key.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             key.parent.chmod(0o700)
@@ -240,12 +299,14 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
                 target.unlink(missing_ok=True)
             else:
                 target.write_bytes(data)
-        if old_runtime.exists():
+        if moved_current:
             if runtime.exists():
                 shutil.rmtree(runtime)
             old_runtime.rename(runtime)
-        elif not previous and runtime.exists():
+        elif installed_new and not previous and runtime.exists():
             shutil.rmtree(runtime)
+        if archived_previous is not None and archived_previous.exists() and not old_runtime.exists():
+            archived_previous.rename(old_runtime)
         raise
     finally:
         if stage.exists():
@@ -253,6 +314,14 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
 
 
 def uninstall(args):
+    root = project_directory(args.project)
+    if args.dry_run:
+        return _uninstall(args)
+    with project_lock(root):
+        return _uninstall(args)
+
+
+def _uninstall(args):
     root = Path(args.project).resolve(strict=True)
     runtime = safe_path(root, '.datarim-runtime')
     manifest = json.loads((runtime/'installation.json').read_text())

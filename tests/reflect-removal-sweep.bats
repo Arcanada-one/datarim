@@ -15,7 +15,7 @@
 #   New live spec/doc references fail this test.
 #
 # Whitelisted files (intentional historical forward-pointers):
-#   - CLAUDE.md                   "/dr-reflect command no longer exists"
+#   - AGENTS.md                   "/dr-reflect command no longer exists"
 #   - documentation/explanation/pipeline.md            "Historical note: prior to v1.10.0..."
 #   - commands/dr-archive.md      "Historical: prior to v1.10.0..."
 #   - skills/reflecting/SKILL.md        "former /dr-reflect command was retired..."
@@ -44,7 +44,7 @@ REPO="${BATS_TEST_DIRNAME}/.."
 
 # Files allowed to mention /dr-reflect (must all be forward-pointer annotations).
 WHITELIST=(
-    "CLAUDE.md"
+    "AGENTS.md"
     "documentation/explanation/pipeline.md"
     "documentation/how-to/evolution-log.md"
     "commands/dr-archive.md"

@@ -214,8 +214,8 @@ EOF
     [ "$status" -eq 0 ]
 }
 
-@test "T22: root CLAUDE.md is gate-clean" {
-    run "$GATE" "$REPO_ROOT/CLAUDE.md"
+@test "T22: root AGENTS.md is gate-clean" {
+    run "$GATE" "$REPO_ROOT/AGENTS.md"
     [ "$status" -eq 0 ]
 }
 
@@ -382,7 +382,7 @@ assert_hatch_fails() {
 
 @test "C1: security workflow invokes every governed target" {
     local target
-    for target in skills agents commands templates documentation/how-to documentation/reference documentation/explanation documentation/tutorials CLAUDE.md README.md; do
+    for target in skills agents commands templates documentation/how-to documentation/reference documentation/explanation documentation/tutorials AGENTS.md README.md; do
         run grep -F "$target" "$REPO_ROOT/.github/workflows/security.yml"
         [ "$status" -eq 0 ]
     done

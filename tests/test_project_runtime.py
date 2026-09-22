@@ -151,6 +151,37 @@ class InstallationLifecycleTests(unittest.TestCase):
             project_install.install(self.args)
         self.assertEqual((self.project/'.datarim-runtime/VERSION').read_text(), 'test\n')
 
+    def test_repeated_updates_retire_owned_discovery_and_preserve_backups(self):
+        project_install.install(self.args)
+        (self.source/'VERSION').write_text('second\n')
+        project_install.install(self.args)
+        (self.source/'commands/dr-do.md').unlink()
+        (self.source/'VERSION').write_text('third\n')
+        project_install.install(self.args)
+        self.assertEqual((self.project/'.datarim-runtime/VERSION').read_text(), 'third\n')
+        self.assertEqual((self.project/'.datarim-runtime-previous/VERSION').read_text(), 'second\n')
+        self.assertEqual(len(list((self.project/'.datarim-runtime-backups').iterdir())), 1)
+        self.assertFalse((self.project/'.agents/skills/dr-do/SKILL.md').exists())
+        self.assertFalse((self.project/'.claude/commands/dr-do.md').exists())
+
+    def test_failed_preparation_does_not_restore_an_older_backup_over_current(self):
+        project_install.install(self.args)
+        (self.source/'VERSION').write_text('second\n')
+        project_install.install(self.args)
+        state = self.project/'.datarim-runtime/state'; state.mkdir()
+        (state/'bad').symlink_to(self.source)
+        (self.source/'VERSION').write_text('third\n')
+        with self.assertRaisesRegex(ValueError, 'symlink'):
+            project_install.install(self.args)
+        self.assertEqual((self.project/'.datarim-runtime/VERSION').read_text(), 'second\n')
+        self.assertEqual((self.project/'.datarim-runtime-previous/VERSION').read_text(), 'test\n')
+
+    def test_concurrent_installation_is_refused(self):
+        with project_install.project_lock(self.project):
+            with self.assertRaisesRegex(ValueError, 'Another installation'):
+                project_install.install(self.args)
+        self.assertFalse((self.project/'.datarim-runtime').exists())
+
 
 class JevTransportTests(unittest.TestCase):
     @classmethod

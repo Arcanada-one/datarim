@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # check-template-path-convention.bats — TUNE-0267 regression for runtime
-# markdown template-path convention (CLAUDE.md § Critical Rules #4).
+# markdown template-path convention (AGENTS.md § Critical Rules #4).
 #
 # Detector contract: every template asset reference inside
 # commands/*.md, skills/**/*.md, agents/*.md MUST be absolute

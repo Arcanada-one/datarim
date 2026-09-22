@@ -1,5 +1,6 @@
 """Vendor contracts and host/project authority boundaries, without network calls."""
 import json
+import io
 import os
 from pathlib import Path
 import sys
@@ -16,9 +17,28 @@ import catalog
 import route
 from project_state import disabled_reason
 from ledger import read_events
+import prompt_cache
+import hook_user_prompt
 
 
 class NativeHookTests(unittest.TestCase):
+    def test_wrapper_decision_is_delivered_once_without_second_classification(self):
+        with tempfile.TemporaryDirectory() as directory:
+            prompt = 'Review the implementation'
+            decision = {'ok': True, 'answers': {}, 'model': 'sonnet', 'candidates': {}}
+            with patch.dict(os.environ, {'JEV_STATE_DIR': directory}, clear=True):
+                cache = prompt_cache.save(prompt, decision)
+                with patch.dict(os.environ, {'JEV_PROMPT_CACHE': str(cache)}), \
+                     patch.object(hook_user_prompt, 'load_cfg', return_value={'hooks': {'prompt_router': True}}), \
+                     patch.object(hook_user_prompt, 'route', return_value=decision) as classify:
+                    for expected_calls in (0, 1):
+                        output = io.StringIO()
+                        with patch('sys.stdin', io.StringIO(json.dumps({'prompt': prompt}))), patch('sys.stdout', output):
+                            hook_user_prompt.main()
+                        self.assertIn('JEV ROUTING ADVICE', output.getvalue())
+                        self.assertEqual(classify.call_count, expected_calls)
+                self.assertFalse(cache.exists())
+
     def test_host_stats_collect_sessions_without_following_external_ledger(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()

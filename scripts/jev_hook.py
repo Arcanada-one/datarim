@@ -29,6 +29,23 @@ EVENTS = {
 }
 
 
+def host_runtime(home=None):
+    home = Path(home or Path.home()).resolve()
+    pointer = home/'.config/jev/installation.json'
+    if pointer.is_symlink() or not pointer.is_file() or pointer.stat().st_mode & 0o077:
+        raise ValueError('Install host Jev before selecting host ownership')
+    data = json.loads(pointer.read_text())
+    runtime = Path(data['runtime']).resolve(strict=True)
+    if data.get('schema') != 1 or not runtime.is_relative_to(home/'.local/share/jev/releases'):
+        raise ValueError('Invalid host Jev runtime pointer')
+    metadata = runtime/'host-installation.json'
+    if metadata.is_symlink() or not metadata.is_file() or metadata.stat().st_mode & 0o077:
+        raise ValueError('Unsafe host Jev manifest')
+    if json.loads(metadata.read_text()).get('runtime') != str(runtime):
+        raise ValueError('Host runtime identity mismatch')
+    return runtime
+
+
 def normalize(client, event, payload):
     canonical = EVENTS[client][event]
     out = dict(payload)
