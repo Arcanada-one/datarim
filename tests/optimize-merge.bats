@@ -23,6 +23,14 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   for f in "$REPO_ROOT"/skills/*.md "$REPO_ROOT"/skills/*/SKILL.md; do
     [ -f "$f" ] || continue
     desc=$(awk '/^---$/{c++; next} c==1 && /^description:/{sub(/^description: */, ""); print; exit}' "$f")
+    # Strip a surrounding YAML quote pair before measuring: the quotes are
+    # syntax (required when the value contains a colon), not description text,
+    # and counting them charges a skill two characters for punctuation it did
+    # not choose. The limit applies to what a reader sees.
+    case "$desc" in
+      \"*\") desc="${desc#\"}"; desc="${desc%\"}" ;;
+      \'*\') desc="${desc#\'}"; desc="${desc%\'}" ;;
+    esac
     len=${#desc}
     if [ "$len" -gt 155 ]; then
       echo "OVER $len $f: $desc"

@@ -48,6 +48,14 @@ def load():
             edge = {'from': 'skill:'+str(path.parent.relative_to(ROOT/'skills')) if path.name == 'SKILL.md' else 'fragment:'+source,
                     'relation': 'loads', 'to': node, 'source': source}
             (edges if full.is_file() and full.resolve().is_relative_to(ROOT.resolve()) else broken).append(edge)
+    # Declared delegation conditions annotate the derived command->agent edge.
+    # The edge itself comes from the explicit reference in the command file; the
+    # condition cannot be derived from a reference, so it is declared.
+    conditions={(c,a):cond for c,meta in cg.items() for a,cond in (meta.get('delegates_when') or {}).items()}
+    for e in edges:
+        if e['relation']=='delegates_to':
+            cond=conditions.get((e['from'][8:], e['to'][6:]))
+            if cond: e['condition']=cond
     for c,meta in cg.items():
         for r in meta.get('requires',[]): edges.append({'from':f'command:{c}','relation':'requires','to':f'command:{r}','source':'dev-tools/command-graph.yaml'})
         for p in meta.get('precedes',[]): edges.append({'from':f'command:{c}','relation':'precedes','to':f'command:{p}','source':'dev-tools/command-graph.yaml'})
@@ -79,7 +87,9 @@ def render(g):
     ca=[e for e in edges if e['relation']=='delegates_to']; ask=[e for e in edges if e['from'].startswith('agent:') and e['relation']=='loads']
     def id_(x): return re.sub(r'[^A-Za-z0-9_]','_',x)
     out=['# Framework Architecture — Generated Map','', '> **GENERATED FILE. DO NOT EDIT.** Source: repository inventory + `dev-tools/command-graph.yaml` + explicit references in commands/agents. Regenerate with `python3 dev-tools/framework-graph.py --write`.','',f"Inventory: **{len(inv['commands'])} commands · {len(inv['agents'])} agents · {len(inv['skills'])} skills**.",'','## Command → Agent graph','','```mermaid','graph LR']
-    for e in ca: out.append(f"    C_{id_(e['from'][8:])}[\"/{e['from'][8:]}\"] --> A_{id_(e['to'][6:])}[\"{e['to'][6:]}\"]")
+    for e in ca:
+        arrow = f'-.->|"{e["condition"]}"|' if e.get('condition') else '-->'
+        out.append(f"    C_{id_(e['from'][8:])}[\"/{e['from'][8:]}\"] {arrow} A_{id_(e['to'][6:])}[\"{e['to'][6:]}\"]")
     if not ca: out.append('    none["No explicit command → agent references"]')
     out += ['```','','## Agent → Skill graph','','```mermaid','graph LR']
     for e in ask: out.append(f"    A_{id_(e['from'][6:])}[\"{e['from'][6:]}\"] --> S_{id_(e['to'][6:])}[\"{e['to'][6:]}\"]")

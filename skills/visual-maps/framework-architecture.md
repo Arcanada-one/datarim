@@ -8,6 +8,7 @@ Inventory: **28 commands · 19 agents · 79 skills**.
 
 ```mermaid
 graph LR
+    C_dr_plan["/dr-plan"] -.->|"L3-4 or reductive/ambiguous scope"| A_strategist["strategist"]
     C_dr_addskill["/dr-addskill"] --> A_skill_creator["skill-creator"]
     C_dr_compliance["/dr-compliance"] --> A_compliance["compliance"]
     C_dr_design["/dr-design"] --> A_architect["architect"]
@@ -21,7 +22,6 @@ graph LR
     C_dr_optimize["/dr-optimize"] --> A_optimizer["optimizer"]
     C_dr_orchestrate["/dr-orchestrate"] --> A_dr_orchestrate_resolver["dr-orchestrate-resolver"]
     C_dr_plan["/dr-plan"] --> A_peer_reviewer["peer-reviewer"]
-    C_dr_plan["/dr-plan"] --> A_strategist["strategist"]
     C_dr_plugin["/dr-plugin"] --> A_developer["developer"]
     C_dr_prd["/dr-prd"] --> A_peer_reviewer["peer-reviewer"]
     C_dr_prd["/dr-prd"] --> A_researcher["researcher"]

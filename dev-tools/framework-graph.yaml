@@ -190,6 +190,11 @@ inventory:
   - skills/visual-maps/utility-and-dependencies.md
   - skills/writing-plans/plan-document-reviewer-prompt.md
 edges:
+- condition: L3-4 or reductive/ambiguous scope
+  from: command:dr-plan
+  relation: delegates_to
+  source: commands/dr-plan.md
+  to: agent:strategist
 - from: agent:architect
   relation: loads
   source: agents/architect.md
@@ -858,10 +863,6 @@ edges:
   relation: delegates_to
   source: commands/dr-plan.md
   to: agent:peer-reviewer
-- from: command:dr-plan
-  relation: delegates_to
-  source: commands/dr-plan.md
-  to: agent:strategist
 - from: command:dr-plan
   relation: loads
   source: commands/dr-plan.md
