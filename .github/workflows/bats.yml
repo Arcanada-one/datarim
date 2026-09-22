@@ -39,7 +39,18 @@ jobs:
   jev-and-project-runtime:
     name: Jev and project runtime contracts
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, linux, X64]
+    # `dev`, not the bare [self-hosted, linux, X64] pool. That pool is every
+    # self-hosted machine in the org -- web and production hosts included -- and
+    # this job landed on arcana-www-arcanada, where `python3 -m venv` cannot
+    # build an interpreter: Python 3.10 there has no ensurepip, so the step died
+    # before running a single contract.
+    #
+    # Measured as ci-runner, the account that runs the job, not as an
+    # interactive user: venv succeeds on arcana-devs (3.12) and fails on
+    # arcana-www (3.10). The `dev` label selects arcana-devs{,-2,-3} and
+    # excludes the web and production hosts, which should not be running the
+    # repository's test contracts in any case.
+    runs-on: [self-hosted, linux, X64, dev]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
