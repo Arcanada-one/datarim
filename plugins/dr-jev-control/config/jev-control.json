@@ -28,7 +28,7 @@
     "default_mode": "balanced",
     "component_selection": {
       "multi_select_max": 4,
-      "apply_threshold": 0.70,
+      "apply_threshold": 0.7,
       "mention_threshold": 0.45,
       "candidate_probe_limit": 8
     },
@@ -84,7 +84,7 @@
   },
   "telemetry": {
     "enabled": true,
-    "path": "~/.datarim/jev/ledger.jsonl",
+    "path": null,
     "store_prompt_text": false
   }
 }

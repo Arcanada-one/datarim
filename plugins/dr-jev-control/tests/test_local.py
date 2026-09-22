@@ -116,7 +116,7 @@ class TestHookTimeoutBudgetConsistency(unittest.TestCase):
         worst_case_single_call = hook_timeout + 3
         self.assertEqual(hook_retries, 0, "hook_retries must stay 0 or this worst-case math needs updating")
 
-        install_src = (P / "scripts/install.py").read_text()
+        install_src = (P.parents[1] / "scripts/project_install.py").read_text()
         m = __import__("re").search(r"'timeout':\s*(\d+)", install_src)
         self.assertIsNotNone(m, "install.py must register an explicit hook timeout")
         registered_timeout = int(m.group(1))

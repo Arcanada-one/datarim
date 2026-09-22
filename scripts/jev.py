@@ -49,7 +49,7 @@ def parse(argv=None):
         p.error('Supervision limits must be positive')
     # CLI passthrough must not relocate the client outside verified scope.
     for value in extra:
-        if value.split('=', 1)[0] in ('--cwd', '--directory', '--workspace', '-C', '--cd', '--worktree', '-w', '--add-dir'):
+        if value.startswith(('-C', '-w')) or value.split('=', 1)[0] in ('--cwd', '--directory', '--workspace', '--cd', '--worktree', '--add-dir'):
             p.error('Client directory/worktree overrides bypass project scope; launch from the approved context')
     return a, extra
 
@@ -64,6 +64,7 @@ def main():
     try:
         root = project_root()
         runtime = activate(root)
+        os.environ.pop('TYPESAFE_API_KEY', None)
     except (ScopeError, OSError, ValueError) as exc:
         print(f'jev: {exc}', file=sys.stderr)
         return 2

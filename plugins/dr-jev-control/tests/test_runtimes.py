@@ -31,7 +31,7 @@ import runtimes  # noqa: E402
 
 class TestRegistry(unittest.TestCase):
     def test_both_runtimes_registered(self):
-        self.assertEqual(sorted(runtimes.REGISTRY), ["claude", "codex"])
+        self.assertEqual(sorted(runtimes.REGISTRY), ["claude", "codex", "cursor"])
 
     def test_unknown_runtime_is_rejected(self):
         with self.assertRaises(runtimes.RuntimeError_):

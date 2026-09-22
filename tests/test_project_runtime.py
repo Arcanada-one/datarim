@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from argparse import Namespace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -79,6 +80,76 @@ class ProjectScopeTests(unittest.TestCase):
         run = subprocess.run([str(ROOT/'install.sh'), '--with-claude'], capture_output=True, text=True)
         self.assertEqual(run.returncode, 2)
         self.assertIn('--project', run.stderr)
+
+
+class InstallationLifecycleTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        base = Path(self.tmp.name).resolve()
+        self.source, self.project = base/'source', base/'project'
+        self.source.mkdir()
+        self.project.mkdir()
+        for name in ('agents', 'skills', 'commands'):
+            (self.source/name).mkdir()
+        (self.source/'skills/testing').mkdir()
+        (self.source/'skills/testing/SKILL.md').write_text('---\nname: testing\n---\nTest behavior.\n')
+        (self.source/'commands/dr-do.md').write_text('Run the task.\n')
+        (self.source/'AGENTS.md').write_text('# Framework\n')
+        (self.source/'VERSION').write_text('test\n')
+        (self.project/'AGENTS.md').write_text('# Original project rules\n')
+        (self.project/'.gitignore').write_text('/build/\n')
+        self.args = Namespace(project=str(self.project), with_jev=False,
+                              context=[], dry_run=False, init=True)
+        self.source_patch = patch.object(project_install, 'SOURCE', self.source)
+        self.source_patch.start()
+        self.addCleanup(self.source_patch.stop)
+
+    def test_install_update_uninstall_preserves_originals_and_private_ignores(self):
+        project_install.install(self.args)
+        for vendor in ('.agents', '.claude', '.cursor'):
+            skill = self.project/vendor/'skills/testing/SKILL.md'
+            self.assertIn('name: testing', skill.read_text())
+        manifest = self.project/'.datarim-runtime/installation.json'
+        before = manifest.stat().st_mtime_ns
+        project_install.install(self.args)
+        self.assertEqual(manifest.stat().st_mtime_ns, before)
+        (self.source/'VERSION').write_text('new version\n')
+        project_install.install(self.args)
+        project_install.uninstall(self.args)
+        self.assertEqual((self.project/'AGENTS.md').read_text(), '# Original project rules\n')
+        self.assertFalse((self.project/'.agents/skills/testing/SKILL.md').exists())
+        self.assertTrue((self.project/'datarim/tasks.md').is_file())
+        self.assertIn('/build/', (self.project/'.gitignore').read_text())
+        for rule in project_install.PRIVATE_IGNORES:
+            self.assertIn(rule, (self.project/'.gitignore').read_text())
+        self.assertEqual((self.project/'.datarim-uninstalled').stat().st_mode & 0o077, 0)
+
+    def test_foreign_skill_conflict_has_no_partial_install(self):
+        foreign = self.project/'.cursor/skills/testing/SKILL.md'
+        foreign.parent.mkdir(parents=True)
+        foreign.write_text('Foreign instructions')
+        with self.assertRaisesRegex(ValueError, 'Unmanaged'):
+            project_install.install(self.args)
+        self.assertEqual(foreign.read_text(), 'Foreign instructions')
+        self.assertFalse((self.project/'.datarim-runtime').exists())
+        self.assertEqual((self.project/'AGENTS.md').read_text(), '# Original project rules\n')
+
+    def test_nested_context_cannot_escape(self):
+        self.args.context = ['../outside']
+        with self.assertRaisesRegex(ValueError, 'relative subdirectories'):
+            project_install.install(self.args)
+        self.assertFalse((self.project/'.datarim-runtime').exists())
+
+    def test_update_rejects_state_symlink_without_replacing_runtime(self):
+        project_install.install(self.args)
+        state = self.project/'.datarim-runtime/state'
+        state.mkdir()
+        (state/'escape').symlink_to(self.source)
+        (self.source/'VERSION').write_text('new version\n')
+        with self.assertRaisesRegex(ValueError, 'symlink'):
+            project_install.install(self.args)
+        self.assertEqual((self.project/'.datarim-runtime/VERSION').read_text(), 'test\n')
 
 
 class JevTransportTests(unittest.TestCase):

@@ -2,7 +2,7 @@
 
 > **Version:** 2.67.5
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
-> **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `documentation/tutorials/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
+> **Multi-runtime:** `AGENTS.md` is the sole project-instruction format. Install this framework only inside an explicitly enabled project. Codex, Claude Code, and Cursor use their native AGENTS loaders; no alternate instruction files or import adapters are installed. See `documentation/reference/jev-cli.md` for client requirements.
 
 ## CLI-Agent Models and Versions
 
@@ -226,7 +226,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize, lint, index, cross-reference |
 | `/dr-optimize` | Maintenance | Audit framework, prune unused, merge duplicates, sync docs |
 | `/dr-plugin` | Extension | Manage the opt-in plugin system (list/enable/disable/sync/doctor, v1.23.0+). Manifest-driven runtime symlinks, snapshot/rollback, dependency-graph + skill-registry health checks |
-| `/dr-orchestrate run` | Core+Plugin | Self-driving Datarim pipeline runner (v2.5.0). **Command and autonomy policy are core** (no plugin needed — `dev-tools/rules/fb-rules.yaml` + `dev-tools/fb-policy-loader.sh`). Phase 1 lean rule-based tmux runner; Phase 2 adds multi-backend subagent inference (coworker → claude → codex) for unknown prompts, autonomy L1 → L2 (assisted), flock-race-safe cooldown, audit schema v2. v2.5.0 adds bot-interaction interface. **Tmux/bot transport runner is the opt-in plugin** — `dr-plugin enable <abs-path>/plugins/dr-orchestrate`. Security floor: whitelist + 0x1b escape-block + 500 ms micro + 60 s decision cooldown + 5-violations/hr 1 h pane block. JSONL audit, hash-only credentials. |
+| `/dr-orchestrate run` | Core+Plugin | Self-driving Datarim pipeline runner (v2.5.0). **Command and autonomy policy are core** (no plugin needed — `dev-tools/rules/fb-rules.yaml` + `dev-tools/fb-policy-loader.sh`). Phase 1 lean rule-based tmux runner; Phase 2 adds multi-backend subagent inference (claude → codex → cursor) for unknown prompts, autonomy L1 → L2 (assisted), flock-race-safe cooldown, audit schema v2. v2.5.0 adds bot-interaction interface. **Tmux/bot transport runner is the opt-in plugin** — `dr-plugin enable <abs-path>/plugins/dr-orchestrate`. Security floor: whitelist + 0x1b escape-block + 500 ms micro + 60 s decision cooldown + 5-violations/hr 1 h pane block. JSONL audit, hash-only credentials. |
 | `/dr-save` | Utility | Capture current session to `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` before context is destroyed. 5-layer body, 32 KB cap (L1/L5 non-truncatable), append-only, claim-provenance enforcement, secret redaction. Cross-runtime: Claude Code / Codex CLI / Cursor. |
 | `/dr-continue` | Utility | Resume from session artefact in a **clean context window**. Re-verifies every claim (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrades provenance, routes to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. |
 | `/dr-help` | Utility | List all commands with descriptions and usage guidance |
@@ -273,7 +273,7 @@ Findings carry an explicit `source_layer` tag (`floor` / `peer_review` / `dispat
 
 **Audit log:** `datarim/qa/verify-{task-id}-{stage}-{iter}.md` (append-only, `chmod a-w` post-write). Header carries `source_layer_breakdown: {floor: N, peer_review: M, dispatch: K}` for tri-layer provenance.
 
-**`coworker --task-id <ID>` propagation MANDATORY at Layer 2.** Without it the prospective-rate / token-cost tooling (`dev-tools/measure-prospective-rate.sh` + `dev-tools/measure-invocation-token-cost.sh`) cannot filter logs by task.
+**Task attribution at Layer 2.** Record the task ID in native agent review receipts so evidence and costs can be attributed to the correct task. Coworker and RTK are retired dependencies.
 
 ### Verification tagging at archive time
 
@@ -308,7 +308,7 @@ Datarim ships with a built-in `datarim-core` set (skills/agents/commands/templat
 
 **Manifest:** `datarim/enabled-plugins.md` — single source of truth (one entry per active plugin: `id`, `source`, `version`, `enabled_at`, optional `depends_on`, `overrides`, `file_inventory`).
 
-**Symlink layout:** plugin files link into `~/.claude/<category>/<plugin-id>/<basename>` for namespace isolation. Files declared under `overrides:` install at root position `~/.claude/<category>/<basename>` to win the local-overlay precedence. Root-position install is conflict-checked against existing symlinks and regular files.
+**Symlink layout:** plugin files link into `${DATARIM_RUNTIME:?}/<category>/<plugin-id>/<basename>` for namespace isolation. Files declared under `overrides:` install at root position `${DATARIM_RUNTIME:?}/<category>/<basename>` to win the local-overlay precedence. Root-position install is conflict-checked against existing symlinks and regular files.
 
 **Safety:**
 - Pre-mutation snapshot of `runtime/` + `manifest.md` on every `enable` (FIFO cap `DR_PLUGIN_SNAPSHOT_MAX=50`; age-based purge after `DR_PLUGIN_SNAPSHOT_AGE_DAYS=30`).
@@ -318,7 +318,7 @@ Datarim ships with a built-in `datarim-core` set (skills/agents/commands/templat
 
 **Doctor checks (9):** manifest-syntax, inventory-consistency, broken-symlinks, orphan-files, override-integrity, dependency-graph (DFS cycle/dangling), git-state (uncommitted manifest), snapshot-cleanup (>30d), skill-registry (frontmatter `name:` ↔ basename — closes Skill-tool resolution gap).
 
-**Personal additions vs plugins:** `~/.claude/local/{skills,agents,commands,templates}/` (gitignored overlay) is for one-off personal stuff. `/dr-plugin` is for shareable, versioned extensions distributed as a unit.
+**Personal additions vs plugins:** `${DATARIM_RUNTIME:?}/local/{skills,agents,commands,templates}/` (gitignored overlay) is for one-off personal stuff. `/dr-plugin` is for shareable, versioned extensions distributed as a unit.
 
 ---
 
@@ -364,7 +364,7 @@ Enforced by `dev-tools/check-body-english.sh` (MANDATORY, fail-hard in `/dr-arch
 
 This governs the language of **runtime artefacts** Datarim generates per task — distinct from the shipped instruction surface above. It closes the gap the English-Only section does not cover: the free-generated body of `creative-*`, `PRD-*`, `plan-*`, and the analytical body of `archive-*` / reflection / compliance-report documents.
 
-**Default rule.** The free-generated body and analysis of those runtime artefacts default to **English**. This file is auto-loaded into the agent's context every turn, so the directive is in-context at generation time; the coworker delegation path mirrors it (see `skills/coworker-context/SKILL.md`).
+**Default rule.** The free-generated body and analysis of those runtime artefacts default to **English**. The native AGENTS loader supplies this policy to the agent; delegated work must carry the resolved project language explicitly.
 
 **Hard exclusions — the English default does NOT touch these; they keep their existing language:**
 
@@ -372,9 +372,9 @@ This governs the language of **runtime artefacts** Datarim generates per task �
 - **Intentionally operator-facing sections** defined by their canonical templates and kept in the operator's language by deliberate decision: the archive / compliance-report sections «Начальная задача» and «Как решили», and the `human-summary` recap «Отчёт оператору». The latter follows the `human-summary` skill's own banlist/whitelist — this policy defers to that skill, it does not override it. <!-- allow-non-ascii: canonical-russian-template-section-names-cited-verbatim-from-archive-compliance-and-human-summary-schema -->
 - **Ordinary user-project content** — the operator's own articles, posts, and prose are never auto-translated. Content-work skills and commands (`humanize`, `publishing`, `writing`, `factcheck`, `dr-write`, `dr-edit`, `dr-publish`, `dr-humanize`) stay exempt, consistent with the English-Only carve-out above.
 
-**Override.** The default is overridable with **no code, no new file, and no schema change**: set one documented line in the consuming project's own `AGENTS.md` § Project-Specific Configuration (`Artifact language: <lang>`). Because `AGENTS.md` is auto-loaded, the override reaches the agent in-context. For shell-aware coworker call sites a secondary convention `DATARIM_ARTIFACT_LANG=<lang>` is documented — a command that already shells out passes the resolved language into the coworker `--spec`. The override deliberately does **not** add a field to the closed init-task frontmatter schema.
+**Override.** The default is overridable with **no code, no new file, and no schema change**: set one documented line in the consuming project's own `AGENTS.md` § Project-Specific Configuration (`Artifact language: <lang>`). Because `AGENTS.md` is auto-loaded, the override reaches the agent in-context. Native child processes may receive the resolved language through `DATARIM_ARTIFACT_LANG=<lang>`. The override deliberately does **not** add a field to the closed init-task frontmatter schema.
 
-**Canonical home.** This policy is the single source of truth, read by everyone who uses the framework. Coworker (the optional external-LLM delegate) mirrors it; coworker is never the source of truth.
+**Canonical home.** This policy is the single source of truth, read by everyone who uses the framework. Native delegated agents inherit the resolved policy; they do not redefine it.
 
 **No enforcement gate.** The load-bearing mechanism is the in-context directive, not a post-hoc validator — runtime `datarim/` artefacts are gitignored, ephemeral, and regenerable, so a gate would be false-positive-prone (against legitimate operator-facing strings) for no proportional benefit. If a future task shows artefacts drifting back to non-English despite this directive, the remedy is to reuse `dev-tools/check-body-english.sh` with a new scope token — not to write a new script.
 
@@ -385,7 +385,7 @@ This governs the language of **runtime artefacts** Datarim generates per task �
 1. **Datarim is truth** — `datarim/` for workflow state, `documentation/archive/` for completed task archives
 2. **Task ID required** — All reports must include task ID in filename
 3. **Path resolution first** — Always find `datarim/` before writing
-4. **No absolute filesystem paths in runtime** — Use `${DATARIM_RUNTIME:?}/` or project-relative paths only. **Corollary for template refs in `commands/*.md`, `skills/**/*.md`, `agents/*.md`:** every `templates/<name>.<ext>` reference MUST be qualified with `${DATARIM_RUNTIME:?}/templates/...` (or `${DATARIM_RUNTIME:-$HOME/.claude}/templates/...` in shell contexts). Bare `templates/X` resolves to the agent's cwd and breaks LLM-copied invocations (e.g. `coworker write --context`) in any consumer project. Explicit `datarim/templates/X` is reserved for project-local overlay refs. Detector: `dev-tools/check-template-path-convention.sh` (regression: `tests/check-template-path-convention.bats`).
+4. **No absolute filesystem paths in runtime** — Use `${DATARIM_RUNTIME:?}/` or project-relative paths only. **Corollary for template refs in `commands/*.md`, `skills/**/*.md`, `agents/*.md`:** every `templates/<name>.<ext>` reference MUST be qualified with `${DATARIM_RUNTIME:?}/templates/...` (or `${DATARIM_RUNTIME:?}/templates/...` in shell contexts). Bare `templates/X` resolves to the agent's cwd and breaks LLM-copied invocations (e.g. `coworker write --context`) in any consumer project. Explicit `datarim/templates/X` is reserved for project-local overlay refs. Detector: `dev-tools/check-template-path-convention.sh` (regression: `tests/check-template-path-convention.bats`).
 5. **Context before code** — Gather requirements before implementing
 6. **One thing at a time** — Implement one method/stub per iteration
 7. **Human in the loop** — Evolution proposals need approval
@@ -401,7 +401,7 @@ Workflow-state directories shared by multiple agent sessions follow Step 0.1 sem
 
 ### Canonical-First Development for Runtime Artefacts
 
-Any code that lives in `code/datarim/{scripts,tests,skills,agents,commands,templates}/` MUST be edited in the canonical Datarim repo, never via `~/.claude/<scope>/` (which under v1.17+ symlink-mode is a directory-symlink to canonical). Editing through the symlink works mechanically (same inode) but obscures `git diff` visibility in the canonical repo and risks loss-on-rebuild. Any tool that writes directly to `~/.claude/<scope>/` outside the install pipeline is a defect — the canonical repo is the single source of truth.
+Any code that lives in `code/datarim/{scripts,tests,skills,agents,commands,templates}/` MUST be edited in the canonical Datarim repo, never via `${DATARIM_RUNTIME:?}/<scope>/` (which under v1.17+ symlink-mode is a directory-symlink to canonical). Editing through the symlink works mechanically (same inode) but obscures `git diff` visibility in the canonical repo and risks loss-on-rebuild. Any tool that writes directly to `${DATARIM_RUNTIME:?}/<scope>/` outside the install pipeline is a defect — the canonical repo is the single source of truth.
 
 ---
 
@@ -613,7 +613,7 @@ Per § Artifact Language Policy, the free-generated body of runtime artefacts de
 Artifact language: <lang>   # e.g. ru — applies to the free-generated artefact body only; operator-facing and verbatim sections are unaffected
 ```
 
-Leave it unset to keep the English default. (Shell-aware coworker call sites may also read `DATARIM_ARTIFACT_LANG=<lang>`.)
+Leave it unset to keep the English default. (Native child processes may also read `DATARIM_ARTIFACT_LANG=<lang>`.)
 
 ### What This Project Is
 

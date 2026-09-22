@@ -221,219 +221,58 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ## Runtimes
 
-Datarim is runtime-agnostic. Three AI coding runtimes are supported with different integration levels: Claude Code (primary, native hook integration, full `coworker rtk` token-economy support), Codex CLI (parity via shim), and Cursor (parity — native `beforeShellExecution` hook via `coworker rtk enable`). See the canonical [Runtime support matrix](documentation/tutorials/use-cases.md#runtime-support) for details.
-
----
+Datarim uses project-local `AGENTS.md` instructions with Codex, Claude Code,
+and Cursor. Claude Code requires version 2.1.277 or newer with its native
+AGENTS loader available. No CLAUDE instruction files or import adapters are
+installed. Coworker and RTK are not required.
 
 ## Prerequisites
 
-- **bash ≥ 4** — install.sh requires bash. Invoke it as `bash install.sh` (explicit) or `sh install.sh` (auto-re-execs under bash when bash is on PATH). If bash is absent you get an actionable error and exit 2.
-- **git** — required for cloning the repo.
-- **At least one supported vendor agent**, installed and authenticated:
-  - [Claude Code](https://code.claude.com/documentation/en/overview) (primary) — `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux/WSL) or `irm https://claude.ai/install.ps1 | iex` (Windows PowerShell). Install with `./install.sh --with-claude`.
-  - [Codex CLI](https://developers.openai.com/codex/cli) — parity via the `coworker rtk` shim. Install with `./install.sh --with-codex`.
-  - [Cursor](https://cursor.com) — parity via the native `beforeShellExecution` hook. Install with `./install.sh --with-cursor`.
-  - See the [Runtime support matrix](documentation/tutorials/use-cases.md#runtime-support) for per-vendor hook integration and token-economy details.
-- **Recommended:** [context7](https://github.com/upstash/context7) MCP server for
-  token-efficient documentation access (reduces context usage when looking up library
-  docs)
-
----
+- Python 3.10 or newer and Git.
+- An installed, authenticated agent client: Codex CLI, Claude Code, or Cursor CLI.
+- A project directory you explicitly want to enable.
+- For optional Jev classification: a separate Jev API key for each host.
 
 ## Operating Model
 
-**`~/.claude/` is the living system — the source of truth for running
-instructions.** This repository is a curated snapshot: it holds clean, fresh
-versions of the framework that can be installed into any new project or
-machine.
-
-The living system evolves. Different projects use `~/.claude/` daily and, via
-`/dr-archive` Step 0.5 (reflecting skill), propose updates to skills, agents,
-and commands. Approved updates land in `~/.claude/` first, then get curated
-back into this repo so the next person who clones it gets the current state.
-
-**Direction of sync: runtime → repo (with curation).**
-
-### How to update the framework
-
-1. Edit the file in `~/.claude/` — that is where the change goes first. Usually
-   this happens through `/dr-archive` Step 0.5 after a task surfaces a lesson.
-2. After the human approves the change, commit it in this repository by
-   copying the updated file from `~/.claude/` into the repo tree.
-3. Run `./validate.sh` to confirm runtime symlinks point at the repo.
-4. Bump `VERSION` if the change is significant enough to warrant a release.
-
-`install.sh` is for seeding a fresh machine — it wires this repo's content into
-`~/.claude/`. **It requires an explicit runtime flag**: with no
-`--with-claude` / `--with-codex` / `--with-cursor` / `--project DIR` argument it
-only prints usage and exits 0 without touching anything.
-
-`install.sh --force` applies to **copy mode only**. Under the default symlink
-topology it is a semantic no-op — the installer prints
-`Already symlinked … nothing to update` and exits 0. In copy mode on a live
-system it refuses to run without an explicit `yes` confirmation (or
-`--yes` / `DATARIM_INSTALL_YES=1`) and then takes a timestamped backup into
-`~/.claude/backups/force-*/`. Note the three paths that return **without** a
-backup: an already-symlinked runtime (early exit), symlink mode over an
-existing copy install (consent and the `migrate-*` snapshot are handled by the
-migration prompt instead), and a fresh empty target. Use with intention; the
-guard exists because `--force` previously destroyed 9 runtime evolutions.
-
----
+This repository is the framework source. Changes are reviewed and merged here;
+projects receive a pinned copy under `.datarim-runtime/`. No runtime is installed
+in user home directories, and no shell startup file is modified. Task knowledge
+belongs to the consumer project, never to this source repository.
 
 ## Installation
 
-> **Releases are signed.** Every tagged release ships a cosign-signed source tarball, a CycloneDX SBOM, and a SLSA L2 build provenance attestation. Verify before installing — see [`documentation/how-to/release-verification.md`](documentation/how-to/release-verification.md).
+Start with the walkthrough for your intended setup:
 
-### First install on a new machine
+- [Initialize Datarim without Jev](documentation/tutorials/initialize-datarim.md)
+- [Initialize Datarim together with Jev](documentation/tutorials/initialize-datarim-with-jev.md)
+- [Configure and use Jev](documentation/how-to/configure-and-use-jev.md)
+- [Jev command reference](documentation/reference/jev-cli.md)
 
-```bash
-git clone https://github.com/Arcanada-one/datarim.git
-cd datarim
-chmod +x install.sh
-./install.sh --with-claude
+```sh
+./install.sh --project /absolute/path/to/project --init --with-jev
+cd /absolute/path/to/project
+source .datarim-runtime/activate.sh
+jev doctor
 ```
 
-**A runtime flag is required.** Bare `./install.sh` prints usage and exits 0
-without installing anything. Pick at least one of:
+The installer preserves existing project instructions, creates a protected empty
+key file, and refuses conflicts. Add the host's key using an editor, then run
+`jev doctor --api` to check the connection. Omit `--with-jev` to use Datarim alone.
 
-| Flag | Effect |
-|------|--------|
-| `--with-claude` | Claude Code runtime — symlinks scopes into `~/.claude/` (default mode) |
-| `--with-codex` | Codex CLI runtime — symlinks into `~/.codex/`, plus `AGENTS.md` and the SKILL.md wrappers (`--no-codex-ux` opts out) |
-| `--with-cursor` | Cursor IDE — flat `.md` mirror of each `SKILL.md` into `~/.cursor/skills/` |
-| `--project DIR` | Project-local **copy** install into `DIR/.datarim` (no symlinks) |
+All four entrypoints share project checks and the same configuration:
 
-Flags combine: `./install.sh --with-claude --with-codex` installs both
-runtimes in one pass. Other useful flags: `--dry-run` (print the planned
-mutations and exit), `--copy` (real files instead of symlinks), `--help`.
-
-By default this is **symlink** mode: the scope directories in `~/.claude/`
-become symlinks to the cloned repo, so a `git pull` is the update. Copy mode
-(`--copy`, or auto-detected on Windows) writes real files instead.
-
-#### What the installer touches outside `~/.claude/<scope>/`
-
-Beyond the scope symlinks the installer has three side effects worth knowing
-about before you run it:
-
-- **`~/.local/bin/`** — symlinks three hook guards from `dev-tools/`:
-  `coworker-hook-guard`, `branch-integration-guard`, and
-  `session-execution-drift-warn`. An existing regular file at any of those
-  paths is backed up once (`.bak-<UTC-timestamp>`) before the symlink replaces
-  it. Registering the hooks in your `settings.json` stays a manual, machine-local
-  step — the installer never edits the hooks array.
-- **`$CLAUDE_DIR/CLAUDE.md`** — on a `--with-claude` install the coworker
-  delegation fragment is synced into your own `CLAUDE.md` between the
-  `<!-- coworker-fragment:begin -->` / `<!-- coworker-fragment:end -->`
-  sentinel lines. Everything outside the sentinels is your hand-written
-  content and is never touched; if the sentinels are absent the installer
-  prints instructions and leaves the file alone.
-- **`~/.claude/local/{skills,agents,commands,templates}/`** — real (gitignored)
-  directories created for personal overrides that should not be committed
-  upstream.
-
-`--profile orchestrator` is a separate, standalone action: it writes only
-`~/.config/datarim-orchestrate/local.yaml` (mode 0600) and installs no scopes.
-
-### Verifying the install
-
-```bash
-./validate.sh
+```sh
+jevcodex "Investigate the failing test"
+jevclaude "Review this change"
+jevcursor "Explain this module"
+jev --agent=codex "Investigate the failing test"
 ```
 
-Verifies that the installed scopes resolve to the canonical Datarim repo
-(symlink mode) or contain the expected fileset (copy mode). Under symlink
-topology drift is impossible by construction — runtime IS the repo by inode.
-
-The scope list lives in `install.sh INSTALL_SCOPES` and has **seven** entries:
-`agents/`, `skills/`, `commands/`, `templates/`, `scripts/`, `tests/`, and
-`dev-tools/`. The last three are runtime-required — several `/dr-*` commands
-shell out to `dev-tools/` and `scripts/` helpers at runtime, so they are
-installed rather than repo-only. Only root files (`install.sh`, `update.sh`,
-`validate.sh`, `VERSION`, `CLAUDE.md`, `README.md`, `LICENSE`) stay
-repo-only. See [documentation/tutorials/getting-started.md](documentation/tutorials/getting-started.md#installer-contract)
-for the full installer contract.
-
-### Symlink-default operating model
-
-Since v1.17.0, `install.sh` defaults to **symlink** mode — the
-`symlink-default` operating model. It links all seven scope directories
-(`agents/`, `skills/`, `commands/`, `templates/`, `scripts/`, `tests/`,
-`dev-tools/`) from `~/.claude/` into the cloned Datarim repo, so every
-`git pull` instantly refreshes runtime with no copy step and no drift. Copy
-mode (`install.sh --copy`) is the documented fallback for filesystems without
-symlink support (FAT, exFAT, Windows native without Developer Mode). Copy mode
-is also where the merge semantics apply: it skips any file that already exists
-unless you pass `--force`. See [`documentation/explanation/symlinks.md`](documentation/explanation/symlinks.md) for
-the full operating model, copy-mode migration recipe, and limitations.
-
-### Windows (WSL / Git Bash)
-
-```bash
-# From WSL or Git Bash terminal:
-git clone https://github.com/Arcanada-one/datarim.git
-cd datarim
-./install.sh --with-claude
-```
-
-The same installer works under WSL and Git Bash — and the same rule applies:
-without a `--with-*` / `--project` flag it only prints usage. Under Git Bash
-(`MINGW*` / `MSYS*` / `CYGWIN*`) the installer auto-detects that symlinks are
-unavailable and falls back to copy mode. Native PowerShell is not supported.
-
-### Manual Installation
-
-If you prefer to install manually or need to customize the locations, use
-recursive copies so supporting fragments are preserved:
-
-```bash
-mkdir -p ~/.claude/{agents,skills,commands,templates,scripts,tests,dev-tools}
-cp -R agents/.     ~/.claude/agents/
-cp -R skills/.     ~/.claude/skills/
-cp -R commands/.   ~/.claude/commands/
-cp -R templates/.  ~/.claude/templates/
-cp -R scripts/.    ~/.claude/scripts/
-cp -R tests/.      ~/.claude/tests/
-cp -R dev-tools/.  ~/.claude/dev-tools/
-```
-
-A manual copy skips the installer's other side effects — the `~/.local/bin/`
-hook-guard symlinks, the `CLAUDE.md` delegation fragment, and the `local/`
-overlay directories. Add those by hand if you need them.
-
-### Updating an existing installation
-
-```bash
-cd /path/to/datarim              # your cloned repo
-./update.sh                      # pull + (copy-mode) reinstall
-```
-
-`update.sh` branches on the runtime topology it detects:
-
-- **Symlink mode (default):** runs `git pull origin main` and exits. The
-  runtime IS the repo, so the pull *is* the install — nothing is copied and
-  no backup is taken.
-- **Copy mode:** `git pull origin main`, then
-  `./install.sh --copy --force --yes` to overwrite `~/.claude/`.
-
-Use `./update.sh --dry-run` to preview what would change without writing
-anything. `update.sh` does not run `validate.sh` — run it yourself if you
-want to confirm the topology afterwards.
-
-### Activate in Your Project
-
-```bash
-cp CLAUDE.md /path/to/your/project/
-```
-
-The `CLAUDE.md` file contains the framework rules that Claude Code reads on startup.
-The file has two sections:
-
-1. **Framework section** (top) — pipeline definitions, agent roster, skill
-   references, and behavioral rules. Do not modify this section.
-2. **Project section** (bottom) — your project description, tech stack, conventions,
-   and custom rules. Customize this freely.
+Run `./update.sh --project /absolute/path/to/project --with-jev` from the reviewed
+source checkout to update a project. Follow the walkthrough for backup handling
+and uninstall. Activation is limited to the current shell; each invocation
+checks its actual working directory, including after you leave the project.
 
 ---
 

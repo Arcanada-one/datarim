@@ -1,6 +1,6 @@
 #!/bin/bash
 # Datarim Framework Validator
-# Checks that all framework components exist and are referenced in CLAUDE.md.
+# Checks that all framework components exist and are referenced in AGENTS.md.
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -28,13 +28,13 @@ for dir in agents skills commands templates; do
         ERRORS=$((ERRORS + 1))
     fi
 
-    # Verify each file in the directory is referenced in CLAUDE.md
+    # Verify each file in the directory is referenced in AGENTS.md
     for f in "$SCRIPT_DIR/$dir"/*.md; do
         [ -f "$f" ] || continue
         basename=$(basename "$f" .md)
-        # Skip checking if basename appears in CLAUDE.md (case-insensitive)
-        if ! grep -qi "$basename" "$SCRIPT_DIR/CLAUDE.md" 2>/dev/null; then
-            echo "  WARN: $dir/$basename.md not referenced in CLAUDE.md"
+        # Skip checking if basename appears in AGENTS.md (case-insensitive)
+        if ! grep -qi "$basename" "$SCRIPT_DIR/AGENTS.md" 2>/dev/null; then
+            echo "  WARN: $dir/$basename.md not referenced in AGENTS.md"
         fi
     done
 done
@@ -78,7 +78,7 @@ else
 fi
 
 # v1.17.0: detect local/ overlay overrides
-LOCAL_DIR="${CLAUDE_DIR:-$HOME/.claude}/local"
+LOCAL_DIR="$SCRIPT_DIR/local"
 if [ -d "$LOCAL_DIR" ]; then
     echo ""
     echo "Local Overlay Override Check:"
@@ -140,16 +140,12 @@ if [ -x "$SCRIPT_DIR/dev-tools/check-code-contracts.sh" ]; then
     fi
 fi
 
-# Runtime drift check: a runtime symlinked into a feature-worktree serves
-# stale rules to every agent on the host. Blocking — that state must be loud.
-if [ -f "$SCRIPT_DIR/dev-tools/check-runtime-drift.sh" ]; then
-    echo ""
-    echo "Runtime Drift Check:"
-    if bash "$SCRIPT_DIR/dev-tools/check-runtime-drift.sh" --check --claude-dir "${CLAUDE_DIR:-$HOME/.claude}"; then
-        :
-    else
-        ERRORS=$((ERRORS + 1))
-    fi
+# Shipped template paths must resolve, including qualified references.
+echo "Template Target Check:"
+if python3 "$SCRIPT_DIR/dev-tools/check-template-targets.py"; then
+    :
+else
+    ERRORS=$((ERRORS + 1))
 fi
 
 # Canonical framework graph: inventory + generated visual maps must agree with

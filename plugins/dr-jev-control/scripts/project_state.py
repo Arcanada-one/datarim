@@ -13,6 +13,6 @@ def read_key():
     if not path:
         return os.environ.get('TYPESAFE_API_KEY', '').strip()
     target = Path(path)
-    if target.is_symlink() or target.stat().st_mode & 0o077:
+    if target.is_symlink() or not target.is_file() or target.stat().st_mode & 0o077:
         raise ValueError('Jev key must be a private regular file')
     return target.read_text().strip()
