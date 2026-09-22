@@ -47,7 +47,7 @@ print('ok: all core pipeline commands present')
 }
 
 @test "command-dependencies.md contains pipeline graph reference" {
-    run grep -c 'dr-do --> dr-qa' "$MERMAID"
+    run grep -Ec 'dr-do(\[[^]]*\])? --> dr-qa(\[[^]]*\])?'  "$MERMAID"
     [ "$status" -eq 0 ]
     [ "$output" -ge 1 ]
 }

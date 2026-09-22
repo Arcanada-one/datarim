@@ -3,7 +3,7 @@
 # Patterns that MUST NOT appear in any artifact published to an external
 # registry (npm / PyPI / Docker Hub / public web). Per the Public Surface
 # Hygiene Mandate — canonical text lives in the consumer's ecosystem
-# CLAUDE.md; this file is the machine-readable contract surface.
+# AGENTS.md; this file is the machine-readable contract surface.
 #
 # Format: one extended-regex pattern per non-empty, non-comment line.
 # Lines starting with `#` are comments. Patterns are passed to `grep -E`

@@ -18,7 +18,7 @@
 # Not drift: copy-mode installs (scope is a real directory, not a symlink) —
 # copy-mode currency is the installer's business, not a symlink-target property.
 #
-# Contract (per CLAUDE.md § Validation Discipline):
+# Contract (per AGENTS.md § Validation Discipline):
 #   pure shell; --check mode; exit 0 = PASS, exit 1 = FAIL, exit 2 = usage.
 #
 # Usage:

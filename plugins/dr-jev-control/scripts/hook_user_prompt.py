@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json,os,sys
+import hashlib,json,os,sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).parent))
 from route import route,load_cfg
@@ -11,6 +11,8 @@ def main():
     if not isinstance(payload,dict):return 0
     prompt=payload.get('prompt') or payload.get('user_prompt') or payload.get('message') or ''
     if not isinstance(prompt,str) or len(prompt.strip())<3:return 0
+    if os.environ.get('JEV_ROUTED_PROMPT_SHA') == hashlib.sha256(prompt.encode()).hexdigest():
+        return 0
     cfg=load_cfg()
     if not cfg.get('hooks',{}).get('prompt_router',True):return 0
     api=cfg.get('api',{})
@@ -38,13 +40,15 @@ def main():
         conf=s.get('confidence',0.0)
         return f"{choice} ({conf:.2f})" if s.get('applied') else f"{choice} ({conf:.2f}, low confidence - advisory only, do not treat as a decision)"
 
-    ctx=("DATARIM JEV ROUTING ADVICE (System-One advisory; task instructions and Datarim policy remain authoritative):\n"
+    ctx=("JEV ROUTING ADVICE (System-One advisory; operator and project instructions remain authoritative):\n"
          f"- mode: {r.get('mode','balanced')} | suggested model tier for delegated/subagent work: {r['model']}\n"
          f"- max suggested agent fan-out: {r.get('profile',{}).get('max_agents',3)} | context budget: {r.get('profile',{}).get('context_budget','medium')} | validation policy: {r.get('profile',{}).get('validation','risk_based')}\n"
-         f"- skills: {fmt_multi('skills')}\n"
-         f"- agent: {fmt_single('agents')} | command: {fmt_single('commands')} | template: {fmt_single('templates')}\n"
          f"- needs substantial reasoning: {getn('needs_system2')} | production risk: {getn('production_risk')} | validation needed: {getn('needs_validation')} | parallelizable: {getn('parallelizable')}\n"
-         "Use these as routing hints, not facts. Load only the selected components that are actually relevant. Do not broaden context merely because a component was suggested.")
+         "Use these as routing hints, not facts. This advice does not switch the running model.")
+    if any(r.get('candidates', {}).values()):
+        ctx += (f"\nProject catalog: skills: {fmt_multi('skills')}; agent: {fmt_single('agents')}; "
+                f"command: {fmt_single('commands')}; template: {fmt_single('templates')}. "
+                "Load only relevant selected components; a suggestion does not authorize delegation.")
     print(json.dumps({"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":ctx}},ensure_ascii=False))
     return 0
 if __name__=='__main__':raise SystemExit(main())

@@ -22,6 +22,7 @@ rephrases); a missed `rm -rf /` is not.
 from __future__ import annotations
 
 import os
+import posixpath
 import re
 import shlex
 
@@ -66,11 +67,25 @@ def _strip_wrappers(argv):
         head = out[0].rsplit("/", 1)[-1]
         if head in ("sudo", "doas", "command", "nice", "nohup", "time", "eval", "exec"):
             out = out[1:]
+            value_flags = {'-u', '-g', '-h', '-p', '-C', '-T', '-r', '-n'} if head in ('sudo', 'doas') else {'-n'} if head == 'nice' else set()
+            # sudo -n means non-interactive and takes no value.
+            if head == 'sudo':
+                value_flags.discard('-n')
+            while out and out[0].startswith('-'):
+                token = out[0]
+                out = out[2:] if token in value_flags else out[1:]
+                if token == '--':
+                    break
             continue
         if head == "env":
             out = out[1:]
-            while out and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", out[0]):
-                out = out[1:]
+            while out:
+                if out[0] in ('-u', '--unset', '-C', '--chdir'):
+                    out = out[2:]
+                elif out[0].startswith('-') or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", out[0]):
+                    out = out[1:]
+                else:
+                    break
             continue
         break
     return out
@@ -101,11 +116,9 @@ def _is_catastrophic_rm(argv):
     recursive = bool(short & {"r", "R"}) or "recursive" in long
     if not recursive:
         return False
-    if not (bool(short & {"f"}) or "force" in long or "no-preserve-root" in long):
-        # A recursive delete without -f still prompts, so it is not the
-        # unattended-catastrophe case this floor exists for.
-        return False
     for target in _operands(argv):
+        if target.startswith('/'):
+            target = posixpath.normpath(target)
         t = target.rstrip("/") or "/"
         if target in _PROTECTED_ROOTS or t in _PROTECTED_ROOTS:
             return True
@@ -121,12 +134,17 @@ def _is_force_push(argv):
     if len(argv) < 2 or argv[1] != "push":
         return False
     short, long = _flags(argv)
-    # --force-with-lease / --force-if-includes are the SAFE variants: they
-    # refuse when the remote moved. Blocking them pushes people toward plain
-    # --force, so they are explicitly allowed.
-    if long & {"force-with-lease", "force-if-includes"}:
-        return False
-    return "force" in long or "f" in short
+    # Lease/include flags do not cancel an explicit --force or forced refspec.
+    return "force" in long or "f" in short or any(t.startswith('+') for t in argv[2:])
+
+
+def _git_subcommand(argv):
+    index = 1
+    with_value = {'-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env'}
+    while index < len(argv) and argv[index].startswith('-'):
+        token = argv[index]
+        index += 2 if token in with_value else 1
+    return [argv[0], *argv[index:]]
 
 
 def _is_hard_reset(argv):
@@ -148,7 +166,27 @@ _SQL_DROP = re.compile(r"\bDROP\s+(DATABASE|SCHEMA)\b", re.I)
 _MAX_SEGMENT_CHARS = 16384
 
 
-def destructive_reason(command):
+def _segments(command):
+    """Linear scan: shell separators inside quotes belong to that argv item."""
+    start, quote, escaped = 0, None, False
+    for index, char in enumerate(command):
+        if escaped:
+            escaped = False
+            continue
+        if char == '\\' and quote != "'":
+            escaped = True
+        elif quote:
+            if char == quote:
+                quote = None
+        elif char in ('"', "'"):
+            quote = char
+        elif char in ';|&\n':
+            yield command[start:index]
+            start = index+1
+    yield command[start:]
+
+
+def destructive_reason(command, _depth=0):
     """Return why `command` is blocked, or None if it is allowed.
 
     Every command is checked as a whole and per pipeline/`&&` segment, so a
@@ -159,7 +197,7 @@ def destructive_reason(command):
     if _SQL_DROP.search(command):
         return "SQL DROP DATABASE/SCHEMA"
 
-    for segment in re.split(r"\|\||&&|;|\||\n", command):
+    for segment in _segments(command):
         if len(segment) > _MAX_SEGMENT_CHARS:
             # Keep BOTH ends. The command name and flags live at the head, but
             # the target operand lives at the tail -- a head-only truncation let
@@ -171,9 +209,19 @@ def destructive_reason(command):
         if not argv:
             continue
         name = argv[0].rsplit("/", 1)[-1]
+        if name in ('bash', 'sh', 'zsh', 'dash', 'ksh'):
+            for index, arg in enumerate(argv[1:], 1):
+                if arg.startswith('-') and not arg.startswith('--') and 'c' in arg[1:] and index+1 < len(argv):
+                    if _depth >= 4:
+                        return 'nested shell exceeds deterministic inspection depth'
+                    nested = destructive_reason(argv[index+1], _depth+1)
+                    if nested:
+                        return nested
+                    break
         if name == "rm" and _is_catastrophic_rm(argv):
-            return "recursive forced delete of a protected path"
+            return "recursive delete of a protected path"
         if name == "git":
+            argv = _git_subcommand(argv)
             if _is_force_push(argv):
                 return "git force push"
             if _is_hard_reset(argv):

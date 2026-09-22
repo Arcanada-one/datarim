@@ -247,6 +247,7 @@ Start with the walkthrough for your intended setup:
 - [Initialize Datarim without Jev](documentation/tutorials/initialize-datarim.md)
 - [Initialize Datarim together with Jev](documentation/tutorials/initialize-datarim-with-jev.md)
 - [Configure and use Jev](documentation/how-to/configure-and-use-jev.md)
+- [Use host Jev with project-local Datarim](documentation/how-to/host-jev-with-project-datarim.md)
 - [Jev command reference](documentation/reference/jev-cli.md)
 
 ```sh

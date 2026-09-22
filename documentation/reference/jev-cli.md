@@ -50,4 +50,4 @@ documented in [configuration](../how-to/configure-and-use-jev.md).
 
 Legacy `dr-jev` and `dr-claude-jev` are not installed globally. Use the entrypoints
 above. Capabilities must be verified on each installed client version; the
-presence of an adapter is not evidence of a successful real API session.
+presence of a runtime implementation is not evidence of a successful real API session.

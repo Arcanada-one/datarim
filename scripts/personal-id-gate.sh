@@ -27,7 +27,7 @@
 # --check           Exit 0/1 (implied; explicit alias for scripting clarity)
 #
 # Shipped surface default paths (relative to script's parent dir):
-#   cli skills agents commands templates scripts dev-tools CLAUDE.md README.md
+#   cli skills agents commands templates scripts dev-tools AGENTS.md README.md
 #   docs documentation
 #
 # Both docs/ and documentation/ are listed: this framework repo uses
@@ -51,7 +51,7 @@ DEFAULT_REGEX="${FRAMEWORK_ROOT}/dev-tools/personal-id-forbidden.regex"
 DEFAULT_PATHS=(
     cli skills agents commands templates scripts dev-tools
     plugins config tests .github
-    CLAUDE.md AGENTS.md README.md SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md
+    AGENTS.md AGENTS.md README.md SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md
     install.sh update.sh validate.sh
     docs documentation
 )

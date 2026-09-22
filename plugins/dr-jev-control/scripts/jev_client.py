@@ -11,7 +11,13 @@ class JevError(RuntimeError):
 RETRYABLE={429,500,502,503,504,529}
 
 def _payload(state, questions, api):
-    return json.dumps({"state":state,"model":api.get("model","jev-latest"),"questions":questions},ensure_ascii=False,separators=(",",":")).encode()
+    from ledger import _scrub
+    if isinstance(state, str) and state.lstrip().startswith(('{', '[')):
+        try:
+            state = json.dumps(_scrub(json.loads(state)), ensure_ascii=False)
+        except (ValueError, TypeError):
+            pass
+    return json.dumps(_scrub({"state":state,"model":api.get("model","jev-latest"),"questions":questions}),ensure_ascii=False,separators=(",",":")).encode()
 
 def _curl(url,key,payload,timeout,connect_timeout):
     # Send headers and body through stdin config, never secret-bearing argv.
@@ -21,7 +27,8 @@ def _curl(url,key,payload,timeout,connect_timeout):
         "header = " + json.dumps("Content-Type: application/json"),
         "data-binary = " + json.dumps(payload.decode("utf-8")),
     ]) + "\n"
-    cmd=[shutil.which("curl") or "curl","-sS","--connect-timeout",str(connect_timeout),"--max-time",str(timeout),"-X","POST",url,
+    curl = '/usr/bin/curl' if os.environ.get('JEV_HOST_STATE') else (shutil.which('curl') or 'curl')
+    cmd=[curl,"-q","-sS","--connect-timeout",str(connect_timeout),"--max-time",str(timeout),"-X","POST",url,
          "-H","User-Agent: datarim-jev-control/3.0", "--config", "-",
          "-w","\n__DRJEV_HTTP__:%{http_code}\n"]
     try:
@@ -42,7 +49,12 @@ def _curl(url,key,payload,timeout,connect_timeout):
 def _urllib(url,key,payload,timeout):
     req=urllib.request.Request(url,data=payload,headers={"Authorization":f"Bearer {key}","Content-Type":"application/json","User-Agent":"datarim-jev-control/3.0"},method="POST")
     try:
-        with urllib.request.urlopen(req,timeout=timeout) as r: return json.loads(r.read().decode())
+        # Never forward a bearer to a redirect destination. Both transports
+        # require the configured endpoint to answer the request directly.
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                return None
+        with urllib.request.build_opener(NoRedirect).open(req,timeout=timeout) as r: return json.loads(r.read().decode())
     except urllib.error.HTTPError as e:
         body=e.read().decode(errors="replace")[:2000]; raise JevError(_http_code(e.code),f"TypeSafe HTTP {e.code}",status=e.code,body=body) from e
     except urllib.error.URLError as e:
@@ -65,15 +77,8 @@ def _kill_switch_reason():
     request, so checking here makes the switch effective immediately, which is
     what the CLI tells the operator it does.
     """
-    v = os.environ.get("DATARIM_JEV_DISABLE", "").strip().lower()
-    if v not in ("", "0", "false", "no"):
-        return f"env DATARIM_JEV_DISABLE={v}"
-    try:
-        if (state_dir() / 'DISABLED').exists():
-            return "project Jev disable flag"
-    except OSError:
-        pass
-    return None
+    from project_state import disabled_reason
+    return disabled_reason()
 
 
 def evaluate(state, questions, cfg, *, budget=None):
@@ -91,6 +96,8 @@ def evaluate(state, questions, cfg, *, budget=None):
         raise JevError("AUTH_ERROR", "Jev key file missing or unsafe") from exc
     if not key: raise JevError("AUTH_ERROR","TYPESAFE_API_KEY is not set")
     api=cfg.get("api",{}); url=api.get("base_url","https://api.typesafe.ai/v1/systemone")
+    if os.environ.get('JEV_HOST_STATE') and url != 'https://api.typesafe.ai/v1/systemone':
+        raise JevError('ENDPOINT_POLICY', 'Host Jev credential is restricted to the configured provider endpoint')
     budget=budget or {}
     payload=_payload(state,questions,api)
     timeout=float(budget.get("timeout_seconds",api.get("timeout_seconds",15)))
@@ -100,6 +107,8 @@ def evaluate(state, questions, cfg, *, budget=None):
     use_curl=(transport=="curl" or (transport=="auto" and shutil.which("curl")))
     last=None
     for i in range(retries+1):
+        if _kill_switch_reason() is not None:
+            raise JevError('DISABLED', 'Jev disabled before request/retry')
         try:
             out=_curl(url,key,payload,timeout,connect) if use_curl else _urllib(url,key,payload,timeout)
             if not isinstance(out,dict) or not isinstance(out.get("answers"),dict): raise JevError("INVALID_RESPONSE","response has no answers object")

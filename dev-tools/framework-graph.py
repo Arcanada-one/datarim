@@ -35,17 +35,41 @@ def load():
         text=(ROOT/'agents'/f'{a}.md').read_text(errors='replace')
         for s in refs(text,'skill'):
             (edges if s in skills else broken).append({'from':f'agent:{a}','relation':'loads','to':f'skill:{s}','source':f'agents/{a}.md'})
+    # Skill routers also load fragments and other skills. Keep these edges in
+    # the graph rather than reporting only the command/agent subset as complete.
+    fragments = sorted(str(p.relative_to(ROOT)) for p in (ROOT/'skills').rglob('*.md') if p.name != 'SKILL.md')
+    for path in sorted((ROOT/'skills').rglob('*.md')):
+        source = str(path.relative_to(ROOT))
+        targets = set(re.findall(r'(?<!local/)skills/([A-Za-z0-9._/-]+\.md)', path.read_text()))
+        for target in sorted(targets):
+            full = ROOT/'skills'/target
+            is_skill = target.endswith('/SKILL.md')
+            node = 'skill:'+target.removesuffix('/SKILL.md') if is_skill else 'fragment:skills/'+target
+            edge = {'from': 'skill:'+str(path.parent.relative_to(ROOT/'skills')) if path.name == 'SKILL.md' else 'fragment:'+source,
+                    'relation': 'loads', 'to': node, 'source': source}
+            (edges if full.is_file() and full.resolve().is_relative_to(ROOT.resolve()) else broken).append(edge)
     for c,meta in cg.items():
         for r in meta.get('requires',[]): edges.append({'from':f'command:{c}','relation':'requires','to':f'command:{r}','source':'dev-tools/command-graph.yaml'})
         for p in meta.get('precedes',[]): edges.append({'from':f'command:{c}','relation':'precedes','to':f'command:{p}','source':'dev-tools/command-graph.yaml'})
     edges=sorted({(e['from'],e['relation'],e['to'],e['source']):json.dumps(e,sort_keys=True) for e in edges}.values())
     edges=[json.loads(e) for e in edges]
-    return {'schema_version':1,'generated':True,'inventory':{'commands':commands,'agents':agents,'skills':skills},'edges':edges,'broken_references':broken}
+    return {'schema_version':2,'generated':True,'inventory':{'commands':commands,'agents':agents,'skills':skills,'fragments':fragments},'edges':edges,'broken_references':broken}
 def validate(g):
     errs=[]; inv=g['inventory']; cg=yaml.safe_load((ROOT/'dev-tools/command-graph.yaml').read_text())['commands']
     disk=set(inv['commands']); declared=set(cg)
     if disk!=declared: errs.append(f'command inventory drift: files-only={sorted(disk-declared)} graph-only={sorted(declared-disk)}')
     if g['broken_references']: errs += ['broken reference: '+str(x) for x in g['broken_references']]
+    for skill in inv['skills']:
+        text=(ROOT/'skills'/skill/'SKILL.md').read_text()
+        parts=text.split('---',2)
+        metadata=yaml.safe_load(parts[1]) if len(parts)==3 and not parts[0].strip() else {}
+        if not isinstance(metadata,dict):
+            errs.append(f'{skill}: invalid frontmatter')
+            continue
+        if metadata.get('name') != skill.replace('/', '-'):
+            errs.append(f'{skill}: frontmatter name does not match directory')
+        if not isinstance(metadata.get('description'),str) or len(metadata['description'].strip())<40:
+            errs.append(f'{skill}: description must have at least 40 characters')
     for c,m in cg.items():
         for x in m.get('requires',[])+m.get('precedes',[]):
             if x not in declared: errs.append(f'{c} references unknown command {x}')
@@ -78,9 +102,9 @@ def main():
         OUT.write_text(yaml.safe_dump(g,sort_keys=False,width=120)); MAP.write_text(render(g)); CMDMAP.write_text(render_cmd(g))
     if a.check or not a.write:
         expected=yaml.safe_dump(g,sort_keys=False,width=120)
-        if OUT.exists() and OUT.read_text()!=expected: errs.append('dev-tools/framework-graph.yaml is stale; run --write')
-        if MAP.exists() and MAP.read_text()!=render(g): errs.append('framework-architecture.md is stale; run --write')
-        if CMDMAP.exists() and CMDMAP.read_text()!=render_cmd(g): errs.append('command-dependencies.md is stale; run --write')
+        if not OUT.is_file() or OUT.read_text()!=expected: errs.append('dev-tools/framework-graph.yaml is missing or stale; run --write')
+        if not MAP.is_file() or MAP.read_text()!=render(g): errs.append('framework-architecture.md is missing or stale; run --write')
+        if not CMDMAP.is_file() or CMDMAP.read_text()!=render_cmd(g): errs.append('command-dependencies.md is missing or stale; run --write')
     if errs:
         print('\n'.join('ERROR: '+e for e in errs),file=sys.stderr); return 1
     print(f"framework graph OK: {len(g['inventory']['commands'])} commands, {len(g['inventory']['agents'])} agents, {len(g['inventory']['skills'])} skills, {len(g['edges'])} edges")

@@ -12,7 +12,7 @@
 # WITH a corresponding documentation/archive/*/archive-{ID}.md are prunable.
 #
 # Single responsibility: this script MUST NOT be merged with datarim-doctor.sh
-# (see CLAUDE.md § Validation Discipline — orthogonal concerns get orthogonal tools).
+# (see AGENTS.md § Validation Discipline — orthogonal concerns get orthogonal tools).
 # Both /dr-doctor and /dr-dream invoke this script directly.
 #
 # Usage:

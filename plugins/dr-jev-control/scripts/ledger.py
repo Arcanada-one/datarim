@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import time
 from pathlib import Path
 from project_state import state_dir
@@ -69,6 +70,10 @@ _SECRET = re.compile(
 )
 
 _MAX_SCRUB_DEPTH = 24
+_SENSITIVE_FIELD = re.compile(r'(?:^|[_-])(?:pass(?:word|wd)?|secret(?:[_-]?key)?|token|api[_-]?key|access[_-]?key|private[_-]?key|client[_-]?secret|authorization|cookie)$', re.I)
+_CREDENTIAL_ASSIGNMENT = re.compile(
+    r'''(?i)([a-z0-9_-]*(?:password|passwd|secret(?:[_-]?key)?|token|api[_-]?key|access[_-]?key|private[_-]?key|authorization|cookie)["']?\s*[:=]\s*)(?:"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|[^\s,;}]+)''')
+_AUTH_HEADER = re.compile(r'''(?i)(authorization["']?\s*[:=]\s*["']?)(?:Bearer|Basic)\s+[^\s"',;}]+''')
 
 
 def redact(text):
@@ -77,6 +82,8 @@ def redact(text):
     # PEM first: it spans lines and must be consumed whole, before any
     # single-line alternative can nibble at its header.
     text = _PEM_BLOCK.sub("<redacted-private-key>", text)
+    text = _AUTH_HEADER.sub(lambda m: m[1]+'<redacted>', text)
+    text = _CREDENTIAL_ASSIGNMENT.sub(lambda m: m[1]+'"<redacted>"', text)
     return _SECRET.sub("<redacted>", text)
 
 
@@ -95,7 +102,8 @@ def _scrub(obj, _depth=0):
     if isinstance(obj, bytes):
         return redact(obj.decode("utf-8", "replace"))
     if isinstance(obj, dict):
-        return {redact(k) if isinstance(k, str) else k: _scrub(v, _depth + 1)
+        return {redact(k) if isinstance(k, str) else k:
+                '<redacted>' if isinstance(k, str) and _SENSITIVE_FIELD.search(k) else _scrub(v, _depth + 1)
                 for k, v in obj.items()}
     if isinstance(obj, (list, tuple, set)):
         return [_scrub(v, _depth + 1) for v in obj]
@@ -146,6 +154,10 @@ def log_event(cfg, event, text, data):
             "sha256": hashlib.sha256((text or "").encode()).hexdigest(),
             "data": _scrub(data),
         }
+        if os.environ.get('JEV_EVENT_CONTEXT'):
+            context = json.loads(os.environ['JEV_EVENT_CONTEXT'])
+            if isinstance(context, dict):
+                rec['hook_context'] = _scrub(context)
         if tel.get("store_prompt_text", False):
             rec["text"] = redact(text)
         try:
@@ -165,8 +177,13 @@ def log_event(cfg, event, text, data):
         # O_CREAT with an explicit mode: p.open("a") creates at the umask default
         # (typically 0644) and the chmod landed only *after* the secret-bearing
         # line was already on disk.
-        fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        if p.is_symlink() or any(parent.is_symlink() for parent in p.parents):
+            raise ValueError('Ledger path must not traverse symlinks')
+        fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0), 0o600)
         with os.fdopen(fd, "a") as f:  # fdopen owns fd; its close covers both
+            if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+                raise ValueError('Ledger must be a regular file')
+            os.fchmod(f.fileno(), 0o600)
             f.write(line + "\n")
     except Exception:
         pass

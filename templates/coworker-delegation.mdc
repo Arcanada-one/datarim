@@ -34,7 +34,7 @@ runtime config; do not use them as defaults.
 - Total estimated tokens to read >15000 (sum across files — roughly a single large file the read-guard flags at ~10k est-tokens, or several mid-size files together; the guard estimates tokens as `wc -c / divisor`, so assume large/dense files trip it).
 - ≥3 files for one question.
 - Any read from `wiki/_raw_/`.
-- Bootstrap reads (tasks.md + backlog.md + CLAUDE.md + PRD + plan) — one call, not per-file Read.
+- Bootstrap reads (tasks.md + backlog.md + AGENTS.md + PRD + plan) — one call, not per-file Read.
 - `git diff` / `git log -p` output >~200 lines.
 
 ## ALWAYS write through coworker write first, then surgical edit

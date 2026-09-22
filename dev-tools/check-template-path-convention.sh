@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-template-path-convention.sh — runtime markdown template-path validator (TUNE-0267).
 #
-# Per CLAUDE.md § Critical Rules #4 ("No absolute paths — Use $HOME/.claude/ or
+# Per AGENTS.md § Critical Rules #4 ("No absolute paths — Use $HOME/.claude/ or
 # project-relative paths only"), every reference to a template asset in runtime
 # markdown (commands/*.md, skills/**/*.md, agents/*.md) MUST be absolute, starting
 # with `$HOME/.claude/templates/` or `${DATARIM_RUNTIME:-$HOME/.claude}/templates/`.

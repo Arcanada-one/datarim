@@ -34,29 +34,18 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # --- workspace resolution ----------------------------------------------------
 
 resolve_workspace() {
-    if [ -n "${DR_PLUGIN_WORKSPACE:-}" ]; then
-        echo "$DR_PLUGIN_WORKSPACE"
-        return 0
-    fi
-    # Walk up from cwd looking for datarim/ marker.
-    local dir="$PWD"
-    while [ "$dir" != "/" ]; do
-        if [ -d "$dir/datarim" ]; then
-            echo "$dir"
-            return 0
-        fi
-        dir="$(dirname "$dir")"
-    done
-    echo "dr-plugin: datarim/ not found in cwd or any parent. Run /dr-init." >&2
-    return 2
+    python3 "$SCRIPT_DIR/project_scope.py" "${DR_PLUGIN_WORKSPACE:-$PWD}"
 }
 
 resolve_runtime_root() {
-    if [ -n "${DR_PLUGIN_RUNTIME_ROOT:-}" ]; then
-        echo "$DR_PLUGIN_RUNTIME_ROOT"
-    else
-        echo "$HOME/.claude/local"
+    local workspace runtime
+    workspace="$(resolve_workspace)" || return 2
+    runtime="$workspace/.datarim-runtime/local"
+    if [ -n "${DR_PLUGIN_RUNTIME_ROOT:-}" ] && [ "$DR_PLUGIN_RUNTIME_ROOT" != "$runtime" ]; then
+        echo 'dr-plugin: runtime override must equal the enabled project local directory' >&2
+        return 2
     fi
+    printf '%s\n' "$runtime"
 }
 
 resolve_repo_root() {
@@ -230,9 +219,9 @@ _categories_allowed() {
 #
 # Rollout gate: a plugin whose manifest declares `requires_fb_rules_mirror: true`
 # hosts autonomous agents, so the consumer MUST first mirror the canonical
-# Autonomous Agent Operating Rules (FB-1..FB-8) into its own ecosystem CLAUDE.md
+# Autonomous Agent Operating Rules (FB-1..FB-8) into its own ecosystem AGENTS.md
 # at rank-1 mandate level. This runs scripts/check-fb-rules-mirror.sh against the
-# consumer workspace CLAUDE.md and refuses enable on drift, with an operator
+# consumer workspace AGENTS.md and refuses enable on drift, with an operator
 # instruction. Stack-agnostic: the requirement is a manifest opt-in, the consumer
 # path is the resolved workspace — no consumer repo/IP is hard-coded.
 #
@@ -249,17 +238,17 @@ _fb_rules_mirror_preflight() {
         return 1
     fi
 
-    local consumer_claude="$ws/CLAUDE.md"
+    local consumer_claude="$ws/AGENTS.md"
     if [ ! -f "$consumer_claude" ]; then
-        echo "dr-plugin enable: consumer CLAUDE.md not found at $consumer_claude — cannot verify FB-rules mirror." >&2
-        echo "dr-plugin enable: mirror the canonical Autonomous Agent Operating Rules (FB-1..FB-8) into the consumer ecosystem CLAUDE.md at rank-1 mandate level, then retry." >&2
+        echo "dr-plugin enable: consumer AGENTS.md not found at $consumer_claude — cannot verify FB-rules mirror." >&2
+        echo "dr-plugin enable: mirror the canonical Autonomous Agent Operating Rules (FB-1..FB-8) into the consumer ecosystem AGENTS.md at rank-1 mandate level, then retry." >&2
         return 1
     fi
 
     if "$checker" --quiet "$consumer_claude"; then
         return 0
     fi
-    echo "dr-plugin enable: refused — consumer CLAUDE.md does not mirror canonical FB-rules." >&2
+    echo "dr-plugin enable: refused — consumer AGENTS.md does not mirror canonical FB-rules." >&2
     echo "dr-plugin enable: mirror the canonical Autonomous Agent Operating Rules (FB-1..FB-8) into $consumer_claude at rank-1 mandate level, then retry. Run scripts/check-fb-rules-mirror.sh \"$consumer_claude\" for the missing items." >&2
     return 1
 }
@@ -448,14 +437,14 @@ cmd_enable() {
     fi
 
     # TUNE-0187: dr-orchestrate ships fb-rules enforcement that assumes the
-    # consumer's own CLAUDE.md already mirrors the canonical Autonomous Agent
+    # consumer's own AGENTS.md already mirrors the canonical Autonomous Agent
     # Operating Rules mandate text at rank-1 level. Refuse enable rather than
     # activate a plugin whose enforced rules the workspace hasn't adopted.
     if [ "$id" = "dr-orchestrate" ]; then
         local ws_preflight
         ws_preflight="$(resolve_workspace)" || return 2
-        if ! grep -q "Autonomous Agent Operating Rules" "$ws_preflight/CLAUDE.md" 2>/dev/null; then
-            echo "dr-plugin enable: dr-orchestrate requires this workspace's CLAUDE.md to mirror the canonical Autonomous Agent Operating Rules mandate (see documentation/mandates/autonomous-agents.md) before enabling (TUNE-0187). Not found in $ws_preflight/CLAUDE.md." >&2
+        if ! grep -q "Autonomous Agent Operating Rules" "$ws_preflight/AGENTS.md" 2>/dev/null; then
+            echo "dr-plugin enable: dr-orchestrate requires this workspace's AGENTS.md to mirror the canonical Autonomous Agent Operating Rules mandate (see documentation/mandates/autonomous-agents.md) before enabling (TUNE-0187). Not found in $ws_preflight/AGENTS.md." >&2
             return 1
         fi
     fi
@@ -467,7 +456,7 @@ cmd_enable() {
     bootstrap_manifest_if_missing "$manifest" "$repo"
 
     # Rollout gate (TUNE-0187): if the plugin declares requires_fb_rules_mirror,
-    # refuse enable until the consumer CLAUDE.md mirrors the canonical FB-rules.
+    # refuse enable until the consumer AGENTS.md mirrors the canonical FB-rules.
     if ! _fb_rules_mirror_preflight "$yaml" "$ws"; then
         return 1
     fi

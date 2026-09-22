@@ -453,7 +453,7 @@ area_prefix_to_subdir() {
 project_prefix_to_subdir() {
   local prefix="$1" cursor="$REPO_ARG" result
   while [[ "$cursor" != / ]]; do
-    if [[ -f "$cursor/CLAUDE.md" && ! -L "$cursor/CLAUDE.md" ]]; then
+    if [[ -f "$cursor/AGENTS.md" && ! -L "$cursor/AGENTS.md" ]]; then
       result="$(awk -v p="$prefix" '
         /^#{2,6} Task Prefix Registry/ { section=1; next }
         section && /^#{1,6} / { section=0 }
@@ -462,7 +462,7 @@ project_prefix_to_subdir() {
           key=f[2]; gsub(/^ +| +$/,"",key)
           if (key==p) { area=f[4]; gsub(/^ +| +$/,"",area); print area; exit }
         }
-      ' "$cursor/CLAUDE.md")"
+      ' "$cursor/AGENTS.md")"
       if [[ -n "$result" ]]; then
         [[ "$result" =~ ^[a-z][a-z0-9-]*$ ]] || return 1
         printf '%s\n' "$result"

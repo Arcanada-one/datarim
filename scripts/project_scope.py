@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import sys
 
 
 class ScopeError(ValueError):
@@ -46,3 +47,11 @@ def activate(root):
     os.environ['DATARIM_JEV_STATE'] = str(runtime / 'state/jev')
     os.environ['TYPESAFE_API_KEY_FILE'] = str(root / 'config/credentials/jev/api-key')
     return runtime
+
+
+if __name__ == '__main__':
+    try:
+        print(project_root(sys.argv[1] if len(sys.argv) > 1 else None))
+    except (OSError, ValueError) as exc:
+        print(f'ERROR: {exc}', file=sys.stderr)
+        raise SystemExit(1)

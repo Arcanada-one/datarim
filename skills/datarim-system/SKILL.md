@@ -184,40 +184,18 @@ Load only the fragment needed for the current sub-problem:
 
 Before writing any file to `datarim/`:
 
-1. Check whether `datarim/` exists in the current working directory.
-2. If not, walk up the directory tree until a parent containing `datarim/` is found.
-3. If no such directory exists, stop and instruct the user to run `/dr-init`.
+1. Resolve the explicit installation with `scripts/project_scope.py`.
+2. Respect physical paths and nested repository context grants.
+3. Use only `<resolved-project>/datarim/`; historical state never activates a project. See `path-and-storage.md`.
 
 ## Large-Plan Read Strategy (L3+ tasks)
 
-When `/dr-do` enters an L3+ task whose plan, PRD, and supporting INSIGHTS read
-together exceed ~600 lines, the default first move SHOULD be a single
-external-context delegation rather than a sequential read of every artefact:
-
-1. **Delegate the bulk read.** Issue one `coworker ask` call (or the project's
-   equivalent external-context channel — see AGENTS.md § Coworker Delegation /
-   the runtime's external-LLM contract) against PRD + plan + INSIGHTS, with a
-   question that asks for per-step / per-V-AC / per-file structured output.
-2. **Read the structured summary, not the raw artefacts.** Apply the summary
-   to drive implementation order, file paths, V-AC ↔ step mapping, and MOD
-   touchpoints. Re-enter the raw artefacts only when the summary is
-   ambiguous on a specific point.
-3. **Re-use the same summary at `/dr-qa` and `/dr-compliance`.** The QA and
-   compliance layers should reuse the structured spec — re-delegating
-   produces drift between the implementation summary and the verification
-   summary.
-
-**When NOT to apply:** plans under 600 lines (direct read is cheaper);
-tasks where exact line numbers and code-block fidelity matter more than
-structure (literal `Edit` operations against the plan-quoted code).
-
-**Rationale.** A 1.6k-line plan + PRD + INSIGHTS read costs ~50% of a
-working context window if loaded raw, and forces re-reads at every
-verification stage. One delegated call returns a stable specification that
-anchors every subsequent decision and survives session compaction. This
-pattern was canonicalised in v2 of the orchestrator plan (775-line plan, 436-line PRD,
-431-line INSIGHTS) shipped end-to-end without ever reading the plan body
-into the main context, with zero V-AC misses.
+When a plan and its supporting documents exceed the available context, locate
+relevant headings with `rg -n` and read bounded sections. Keep a phase checklist
+with exact source paths and acceptance-criterion references. Read the original
+passage again whenever a summary is ambiguous. Native subagents may perform
+independent bounded reads when project policy permits delegation. Coworker and
+RTK are not runtime dependencies.
 
 ## Upstream API Audit Before Code Hardening
 

@@ -10,7 +10,9 @@ import hook_pre_tool
 
 class T(unittest.TestCase):
  def test_inventory(self):
-  inv=catalog.inventory(); self.assertGreater(len(inv['skills']),20); self.assertGreater(len(inv['agents']),5); self.assertGreater(len(inv['commands']),10)
+  with mock.patch.dict(os.environ, {'DATARIM_ROOT': str(P.parents[1])}):
+   inv=catalog.inventory()
+  self.assertGreater(len(inv['skills']),20); self.assertGreater(len(inv['agents']),5); self.assertGreater(len(inv['commands']),10)
  def test_shortlist_bound(self):
   xs=[{'name':f'x{i}','description':'python test' if i==3 else 'other','path':'x'} for i in range(30)]
   r=catalog.shortlist(xs,'python test',5);self.assertLessEqual(len(r),5);self.assertEqual(r[0]['name'],'x3')

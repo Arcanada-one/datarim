@@ -14,14 +14,14 @@
 #   script is a static, diff-independent scanner. It additionally covers the
 #   project-level wrappers and the datarim.club site config that live OUTSIDE
 #   the framework git repo (in the parent workspace) and were previously
-#   guarded only by a manual grep (see Projects/Datarim/CLAUDE.md § Version
+#   guarded only by a manual grep (see Projects/Datarim/AGENTS.md § Version
 #   consistency check).
 #
 #   TUNE-0174 extends the same gate with a second, isomorphic drift class:
 #   framework COMPONENT COUNTS (agents / skills / commands / templates).
 #   Ground truth is derived mechanically from disk (find under the repo's
 #   {agents,commands,skills,templates} directories); every doc/site surface
-#   that restates a count (README directory-tree comments, CLAUDE.md "Agent
+#   that restates a count (README directory-tree comments, AGENTS.md "Agent
 #   files:" / "Skill files:" / "Command files:" lines, the datarim.club
 #   hero copy in three locales) is checked against that ground truth. This
 #   absorbs TUNE-0154's original scope-target TUNE-0163 deferred and
@@ -30,10 +30,10 @@
 #
 # SCANNED SURFACES — version (canonical = VERSION)
 #   In-repo (relative to repo root = this script's ../):
-#     CLAUDE.md                              > **Version:** X.Y.Z
+#     AGENTS.md                              > **Version:** X.Y.Z
 #     README.md                              [![Version: X.Y.Z]...badge/Version-X.Y.Z-...
 #   Cross-root (relative to repo root; skipped when absent, e.g. single-repo CI):
-#     ../CLAUDE.md                           Текущая версия: **X.Y.Z**
+#     ../AGENTS.md                           Текущая версия: **X.Y.Z**
 #     ../README.md                           - **Версия:** X.Y.Z
 #     ../../Websites/datarim.club/config.php 'version' => 'X.Y.Z',
 #
@@ -44,9 +44,9 @@
 #     skills/**/SKILL.md   -> category "skills" (including nested tiers)
 #     templates/**/*.md    -> category "templates" (including nested docs)
 #   Claim surfaces (relative to repo root; skipped when absent):
-#     CLAUDE.md                                    "Agent files: ... (N agents)"
-#     CLAUDE.md                                    "Skill files: ... (N skills, ..."
-#     CLAUDE.md                                    "Command files: ... (N commands, ..."
+#     AGENTS.md                                    "Agent files: ... (N agents)"
+#     AGENTS.md                                    "Skill files: ... (N skills, ..."
+#     AGENTS.md                                    "Command files: ... (N commands, ..."
 #     README.md                                    "agents/            # Agent personas (N agents)"
 #     README.md                                    "skills/             # Knowledge modules (N skills)"
 #     README.md                                    "commands/           # Slash commands (N commands)"
@@ -128,9 +128,9 @@ fi
 # then isolated. cross_root files (../, ../../) are skipped when absent.
 surfaces() {
     printf '%s\n' \
-        'CLAUDE.md|^> \*\*Version:\*\* ' \
+        'AGENTS.md|^> \*\*Version:\*\* ' \
         'README.md|badge/Version-' \
-        '../CLAUDE.md|Текущая версия: \*\*' \
+        '../AGENTS.md|Текущая версия: \*\*' \
         '../README.md|\*\*Версия:\*\* ' \
         "../../Websites/datarim.club/config.php|'version'[[:space:]]*=>[[:space:]]*'"
 }
@@ -203,9 +203,9 @@ ground_truth_for() {
 # copy restates all three categories in a single sentence).
 count_surfaces() {
     printf '%s\n' \
-        'CLAUDE.md|agents|Agent files: .*/agents/\{name\}\.md. \(' \
-        'CLAUDE.md|skills|Skill files: .*/skills/\{name\}/SKILL\.md. \(' \
-        'CLAUDE.md|commands|Command files: .*/commands/\{name\}\.md. \(' \
+        'AGENTS.md|agents|Agent files: .*/agents/\{name\}\.md. \(' \
+        'AGENTS.md|skills|Skill files: .*/skills/\{name\}/SKILL\.md. \(' \
+        'AGENTS.md|commands|Command files: .*/commands/\{name\}\.md. \(' \
         'README.md|agents|# Agent personas \(' \
         'README.md|skills|# Knowledge modules \(' \
         'README.md|commands|# Slash commands \(' \

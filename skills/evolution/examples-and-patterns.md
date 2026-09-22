@@ -36,7 +36,7 @@ Impact: High
 **Good — prune with evidence:**
 ```
 Category: prune-skill
-Target: skills/deprecated-helper/SKILL.md
+Target: skills/<deprecated-helper>/SKILL.md
 What: Remove deprecated helper skill
 Why: Not referenced by any agent or command. Last used 40+ tasks ago. Functionality absorbed into utilities.md.
 Impact: Low
@@ -46,7 +46,7 @@ Risk: Low
 **Good — merge with clear rationale:**
 ```
 Category: merge-skills
-Target: skills/testing/SKILL.md (absorb skills/test-helpers/SKILL.md)
+Target: skills/testing/SKILL.md (absorb skills/<test-helpers>/SKILL.md)
 What: Merge test-helpers.md into testing.md
 Why: 80% topic overlap. Both cover mocking patterns and test organization. Separate files cause confusion about where to look.
 Impact: Medium

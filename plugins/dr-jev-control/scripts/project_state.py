@@ -4,8 +4,22 @@ from pathlib import Path
 
 
 def state_dir():
+    explicit = os.environ.get('JEV_STATE_DIR')
+    if explicit:
+        return Path(explicit)
     root = Path(os.environ.get('DATARIM_PROJECT_ROOT', Path.cwd())).resolve()
     return root / '.datarim-runtime/state/jev'
+
+
+def disabled_reason():
+    for name in ('JEV_DISABLE', 'DATARIM_JEV_DISABLE'):
+        if os.environ.get(name, '').strip().lower() not in ('', '0', 'false', 'no'):
+            return 'env ' + name
+    roots = [state_dir()]
+    for name in ('JEV_HOST_STATE', 'JEV_PROJECT_STATE'):
+        if os.environ.get(name):
+            roots.append(Path(os.environ[name]))
+    return next(('Jev disable flag' for root in roots if (root/'DISABLED').exists()), None)
 
 
 def read_key():

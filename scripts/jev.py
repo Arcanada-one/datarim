@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Project-local Jev dispatcher for Claude Code, Codex and Cursor."""
+"""Jev dispatcher for Claude Code, Codex and Cursor; Datarim is opt-in."""
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -61,17 +62,26 @@ def binary(agent):
 
 def main():
     a, extra = parse()
+    installed = Path(__file__).resolve().parent.parent
+    host_mode = (installed/'host-installation.json').is_file()
     try:
-        root = project_root()
-        runtime = activate(root)
+        if host_mode:
+            from jev_hook import environment
+            env, root = environment({'cwd': str(Path.cwd())}, runtime=installed)
+            os.environ.clear()
+            os.environ.update(env)
+            runtime = installed
+        else:
+            root = project_root()
+            runtime = activate(root)
         os.environ.pop('TYPESAFE_API_KEY', None)
     except (ScopeError, OSError, ValueError) as exc:
         print(f'jev: {exc}', file=sys.stderr)
         return 2
-    manifest = json.loads((runtime/'installation.json').read_text())
+    manifest = json.loads((runtime/('host-installation.json' if host_mode else 'installation.json')).read_text())
     plugin = runtime/'plugins/dr-jev-control/scripts'
     sys.path.insert(0, str(plugin))
-    state = runtime/'state/jev'
+    state = Path(os.environ['JEV_HOST_STATE']) if host_mode else runtime/'state/jev'
     if a.task in ('on', 'off'):
         state.mkdir(parents=True, exist_ok=True, mode=0o700)
         flag = state/'DISABLED'
@@ -79,7 +89,7 @@ def main():
             flag.touch(mode=0o600)
         else:
             flag.unlink(missing_ok=True)
-        print('Jev '+a.task+' for this project')
+        print('Jev '+a.task+(' for this host' if host_mode else ' for this project'))
         return 0
     if a.task == 'doctor':
         import subprocess
@@ -98,9 +108,11 @@ def main():
                 match = re.search(r'(\d+)\.(\d+)\.(\d+)', result.stdout)
                 if not match or tuple(map(int, match.groups())) < (2, 1, 277):
                     findings.append('claude: native AGENTS requires >=2.1.277')
-        key = root/'config/credentials/jev/api-key'
+        key = Path(os.environ['TYPESAFE_API_KEY_FILE'])
         key_ready = key.is_file() and bool(key.stat().st_size)
-        report = {'project': str(root), 'versions': versions, 'findings': findings,
+        report = {'project': str(root), 'scope': 'host' if host_mode else 'project',
+                  'datarim_enabled': bool(os.environ.get('DATARIM_ROOT')),
+                  'versions': versions, 'findings': findings,
                   'key_ready': key_ready, 'native_agents_live': 'not_measured',
                   'api': 'not_measured', 'source_sha': manifest['source_sha']}
         if a.api:
@@ -144,6 +156,7 @@ def main():
             from route import route, load_cfg
             decision = route(a.task, load_cfg(), a.mode)
             tier = decision['model']
+            os.environ['JEV_ROUTED_PROMPT_SHA'] = hashlib.sha256(a.task.encode()).hexdigest()
             print(f'Jev recommends {tier} ({a.mode})', file=sys.stderr)
         except Exception as exc:
             # Do not print raw provider exceptions or response bodies.

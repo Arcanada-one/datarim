@@ -783,12 +783,12 @@ def _reroute(rt, gate, obs, cfg, turn, quiet):
 
     # Wording is emitted only after every state change for this reroute is
     # settled, so the operator is never told "holding" on a turn that also
-    # changed the reasoning budget (project CLAUDE.md, Defensive Invariants).
+    # changed the reasoning budget (project AGENTS.md, Defensive Invariants).
     if not quiet:
         if verdict.get("applied"):
             # Wording must match what actually happened. A deferred switch (Codex)
             # has changed no running process yet, so it is never announced in the
-            # past tense -- project CLAUDE.md, Defensive Invariants.
+            # past tense -- project AGENTS.md, Defensive Invariants.
             arrow = "→" if not verdict.get("deferred") else "⇢"
             when = "" if not verdict.get("deferred") else " — takes effect next turn"
             suffix = " (confirmation timed out; assuming applied)" if verdict.get("tier_uncertain") else ""

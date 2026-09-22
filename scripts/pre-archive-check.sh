@@ -315,7 +315,7 @@ fi
 # ---------- Shared mode ----------
 
 if [ -n "$SHARED_REPO" ]; then
-    # Strict regex validation per CLAUDE.md S1: anchored, no metacharacters.
+    # Strict regex validation per AGENTS.md S1: anchored, no metacharacters.
     if ! printf '%s' "$TASK_ID" | grep -qE "$TASK_ID_RE"; then
         echo "ERROR: invalid --task-id (canonical task-id required): $TASK_ID" >&2
         exit 2

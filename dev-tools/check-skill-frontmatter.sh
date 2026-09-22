@@ -15,7 +15,7 @@
 # script is safe to run during the migration hybrid window. Reserved
 # skills/.system/ namespace (Constraint C3) is skipped.
 #
-# Companion: AGENTS.md MUST be a symlink → CLAUDE.md (AC-7 carry-over).
+# Companion: regular AGENTS.md is canonical; CLAUDE.md adapters are forbidden.
 #
 # Usage: check-skill-frontmatter.sh [--root <repo-root>]
 # Exit 0 PASS, 1 FAIL.

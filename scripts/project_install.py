@@ -107,39 +107,27 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
     ignore = safe_path(root, '.gitignore')
     text = ignore.read_text() if ignore.exists() else ''
     files['.gitignore'] = private_ignores(text).encode()
-    if args.with_jev:
-        import shlex
-        settings_path = safe_path(root, '.claude/settings.local.json')
-        settings = json.loads(settings_path.read_text()) if settings_path.exists() else {}
-        if not isinstance(settings, dict) or not isinstance(settings.get('hooks', {}), dict):
-            raise ValueError('Claude settings and hooks must be objects')
-        hooks = settings.setdefault('hooks', {})
-        for event, matcher in [('UserPromptSubmit', None), ('PreToolUse', 'Bash|Write|Edit|MultiEdit'), ('PostToolUse', 'Write|Edit|MultiEdit')]:
-            existing = hooks.get(event, [])
-            if not isinstance(existing, list):
-                raise ValueError('Claude hook event must be an array')
-            # Keep all unrelated entries, including foreign hooks in a mixed array.
-            kept = []
-            for item in existing:
-                if not isinstance(item, dict):
-                    raise ValueError('Claude hook entry must be an object')
-                commands = item.get('hooks', [])
-                if not isinstance(commands, list) or any(not isinstance(h, dict) for h in commands):
-                    raise ValueError('Claude hook commands must be an array of objects')
-                remaining = [h for h in commands if '.datarim-runtime/scripts/project_hook.py' not in str(h.get('command', ''))]
-                if remaining:
-                    kept.append({**item, 'hooks': remaining})
-            entry = {'hooks': [{'type': 'command', 'timeout': 9,
-                     'command': shlex.join([sys.executable, str(runtime/'scripts/project_hook.py'), event])}]}
-            if matcher:
-                entry['matcher'] = matcher
-            hooks[event] = kept + [entry]
-        files['.claude/settings.local.json'] = (json.dumps(settings, indent=2)+'\n').encode()
+    if args.with_jev or (previous or {}).get('with_jev'):
+        from jev_host_install import merge_hooks
+        for client, relative in [('claude', '.claude/settings.local.json'),
+                                 ('codex', '.codex/hooks.json'), ('cursor', '.cursor/hooks.json')]:
+            target = safe_path(root, relative)
+            current = json.loads(target.read_text()) if target.exists() else {}
+            register = args.with_jev and not getattr(args, 'host_jev', False)
+            updated = merge_hooks(current, client, runtime, [runtime], register=register)
+            files[relative] = (json.dumps(updated, indent=2)+'\n').encode()
     # Native discovery paths, preserving whole-directory foreign skill sets.
-    for skill in sorted((SOURCE / 'skills').glob('*/SKILL.md')):
-        files[f'.agents/skills/{skill.parent.name}/SKILL.md'] = (
-            f'---\nname: {skill.parent.name}\ndescription: Load the project-local Datarim {skill.parent.name} skill when needed.\n---\n\n'
-            f'Read `.datarim-runtime/skills/{skill.parent.name}/SKILL.md` from the project root.\n').encode()
+    for skill in sorted((SOURCE / 'skills').rglob('SKILL.md')):
+        relative = str(skill.parent.relative_to(SOURCE/'skills'))
+        name = relative.replace('/', '-')
+        header = skill.read_text().split('---', 2)
+        if len(header) != 3 or header[0].strip():
+            raise ValueError(f'Skill has no YAML frontmatter: {relative}')
+        target = f'.agents/skills/{name}/SKILL.md'
+        if target in files:
+            raise ValueError(f'Skill discovery name collision: {name}')
+        files[target] = ('---'+header[1]+'---\n\n'
+            f'Read `.datarim-runtime/skills/{relative}/SKILL.md` from the project root.\n').encode()
     for command in sorted((SOURCE / 'commands').glob('*.md')):
         files[f'.agents/skills/{command.stem}/SKILL.md'] = (
             f'---\nname: {command.stem}\ndescription: Run the project-local Datarim {command.stem} workflow command.\n---\n\n'
@@ -153,7 +141,7 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
     # All files are checked before the first mutation.
     for name, data in files.items():
         target = safe_path(root, name)
-        if name in ('AGENTS.md', '.gitignore', '.claude/settings.local.json'):
+        if name in ('AGENTS.md', '.gitignore', '.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json'):
             continue
         if target.exists() and target.read_bytes() != data:
             expected = (previous or {}).get('files', {}).get(name)
@@ -165,7 +153,7 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
     if args.dry_run:
         print(json.dumps({'project': str(root), 'files': sorted(files), 'runtime': str(runtime), 'with_jev': args.with_jev}))
         return
-    if previous and previous.get('source_digest') == source_hash.hexdigest() and previous.get('with_jev') == args.with_jev and previous.get('contexts', []) == args.context:
+    if previous and previous.get('source_digest') == source_hash.hexdigest() and previous.get('with_jev') == args.with_jev and previous.get('host_jev', False) == getattr(args, 'host_jev', False) and previous.get('contexts', []) == args.context:
         if all((root/name).is_file() and (root/name).read_bytes() == data for name, data in files.items()):
             print(json.dumps({'status': 'unchanged', 'project': str(root)}))
             return
@@ -206,7 +194,7 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
         except subprocess.CalledProcessError:
             sha = None
         manifest = {'schema': 1, 'project': str(root), 'source_sha': sha, 'source_digest': source_hash.hexdigest(),
-                    'with_jev': args.with_jev, 'contexts': args.context,
+                    'with_jev': args.with_jev, 'host_jev': getattr(args, 'host_jev', False), 'contexts': args.context,
                     'files': {n: digest(v) for n, v in files.items()}}
         (stage / 'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
         for name in files:
@@ -303,11 +291,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--project', required=True)
     parser.add_argument('--with-jev', action='store_true')
+    parser.add_argument('--host-jev', action='store_true', help='Use already installed host Jev hooks; do not register duplicate project hooks')
     parser.add_argument('--init', action='store_true')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--uninstall', action='store_true')
     parser.add_argument('--context', action='append', default=[], help='Explicit nested repository path')
     args = parser.parse_args()
+    if args.host_jev and not args.with_jev:
+        parser.error('--host-jev requires --with-jev')
     try:
         uninstall(args) if args.uninstall else install(args)
     except (ValueError, OSError) as exc:

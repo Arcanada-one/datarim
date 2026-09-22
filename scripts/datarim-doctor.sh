@@ -157,7 +157,7 @@ fi
 # --- TUNE-0030: prefix → archive area resolution ----------------------------
 # Two-tier lookup:
 #   1) area prefix (universal, stack-agnostic) — defined here, owned by Datarim runtime.
-#   2) project prefix — declared by caller in nearest CLAUDE.md (walk-up tree),
+#   2) project prefix — declared by caller in nearest AGENTS.md (walk-up tree),
 #      under `## Task Prefix Registry` section with table | Prefix | Project | Archive Subdir |.
 # Falls back to `general` when neither matches. Path-traversal hardened.
 #
@@ -170,7 +170,7 @@ fi
 # defect. A consumer project declared DEV → general (where its entire archive
 # corpus already lived) and QA → general; both prefixes are reserved, so both
 # rows were discarded without a word while the probe answered `development` /
-# `qa` — subdirs that existed in no repo. Because a project CLAUDE.md typically
+# `qa` — subdirs that existed in no repo. Because a project AGENTS.md typically
 # instructs agents to resolve the subdir via the probe «rather than assuming»,
 # an obedient agent creates a stray archive tree and strands the archive outside
 # the corpus later prior-art greps search. Resolution is unchanged; the shadowed
@@ -201,7 +201,7 @@ lookup_project_prefix_from_claude_md() {
     cwd="$(cd "$start_dir" 2>/dev/null && pwd)" || return 1
     [ -z "$cwd" ] && return 1
     while [ -n "$cwd" ] && [ "$cwd" != "/" ]; do
-        claude_md="$cwd/CLAUDE.md"
+        claude_md="$cwd/AGENTS.md"
         if [ -f "$claude_md" ]; then
             result="$(awk -v p="$prefix" '
                 /^#{2,6} Task Prefix Registry/ { in_section=1; next }
@@ -687,7 +687,7 @@ if [ "$SCOPE" = "all" ]; then
 fi
 
 # --- execution-host drift advisory pass (TUNE-0472, SCOPE=execution) --------
-# Validation Discipline (framework CLAUDE.md § Self-Evolution): the drift
+# Validation Discipline (framework AGENTS.md § Self-Evolution): the drift
 # comparison logic lives entirely in the standalone
 # dev-tools/check-execution-host-drift.sh — this pass only INVOKES it and
 # aggregates its findings, it never re-derives the canon<->map comparison

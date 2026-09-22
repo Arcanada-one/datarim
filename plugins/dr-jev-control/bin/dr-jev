@@ -2,6 +2,15 @@
 set -euo pipefail
 resolve_plugin_home(){ if [[ -n "${DATARIM_JEV_HOME:-}" ]]; then printf '%s\n' "$DATARIM_JEV_HOME"; return; fi; local source="${BASH_SOURCE[0]}" dir; while [[ -L "$source" ]]; do dir="$(cd -P "$(dirname "$source")" >/dev/null 2>&1 && pwd)"; source="$(readlink "$source")"; [[ "$source" != /* ]] && source="$dir/$source"; done; cd -P "$(dirname "$source")/.." >/dev/null 2>&1 && pwd; }
 HERE="$(resolve_plugin_home)"
+# Legacy inspection CLI is still project-bound; it never creates home state.
+DATARIM_PROJECT_ROOT="$(python3 "$HERE/../../scripts/project_scope.py" "$PWD")" || exit 2
+DATARIM_RUNTIME="$DATARIM_PROJECT_ROOT/.datarim-runtime"
+DATARIM_ROOT="$DATARIM_RUNTIME"
+DATARIM_JEV_HOME="$DATARIM_RUNTIME/plugins/dr-jev-control"
+DATARIM_JEV_CONFIG="$DATARIM_RUNTIME/jev-config.json"
+TYPESAFE_API_KEY_FILE="$DATARIM_PROJECT_ROOT/config/credentials/jev/api-key"
+export DATARIM_PROJECT_ROOT DATARIM_RUNTIME DATARIM_ROOT DATARIM_JEV_HOME DATARIM_JEV_CONFIG TYPESAFE_API_KEY_FILE
+unset TYPESAFE_API_KEY
 help(){ cat <<'USAGE'
 dr-jev — inspect and diagnose the Datarim Jev control plane
 
@@ -15,13 +24,13 @@ Commands:
   dr-jev doctor --api                 Check local installation + live TypeSafe API
   dr-jev modes                        Show routing modes
   dr-jev runtimes                     Show supported agent runtimes and their status
-  dr-jev off                          Disable the integration machine-wide (Datarim runs plain)
+  dr-jev off                          Disable the integration for this project (Datarim runs plain)
   dr-jev on                           Re-enable the integration
   dr-jev status                       Show whether the integration is currently active
   dr-jev help                         Show this help
 
 Modes: economy | balanced (default) | quality
-Runtimes: claude (default) | codex
+Runtimes: claude (default) | codex | cursor
 
 Launch Claude Code with: dr-claude-jev [--mode MODE] "task"
 Dynamic (live) routing:  dr-claude-jev --live "task"
@@ -32,7 +41,7 @@ USAGE
 # Defaulted so `set -u` cannot abort before the case dispatch on a host with no
 # HOME. This is the one command whose entire purpose is to be more reliable than
 # the integration it disables, so it must not fail silently.
-DISABLE_FLAG="${HOME:-/nonexistent}/.datarim/jev/DISABLED"
+DISABLE_FLAG="$DATARIM_RUNTIME/state/jev/DISABLED"
 case "${1:-help}" in
  route)
    shift

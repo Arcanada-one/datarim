@@ -28,19 +28,13 @@ def kill_switch_reason():
     Two operator-facing off switches, both usable without editing any config and
     without touching the installed hooks:
       * env `DATARIM_JEV_DISABLE=1`  -- per shell / per session
-      * file `~/.datarim/jev/DISABLED` -- machine-wide, survives new shells
+      * file `.datarim-runtime/state/jev/DISABLED` -- project-local, survives new shells
     The point is that turning the integration off must be easier and more
     reliable than the integration itself; an operator debugging a broken control
     plane should never have to hand-edit JSON to get plain Datarim back.
     """
-    v=os.environ.get('DATARIM_JEV_DISABLE','').strip().lower()
-    if v not in ('','0','false','no'): return f"env DATARIM_JEV_DISABLE={v}"
-    flag=state_dir() / 'DISABLED'
-    try:
-        if flag.exists(): return f"flag file {flag}"
-    except OSError:
-        pass
-    return None
+    from project_state import disabled_reason
+    return disabled_reason()
 
 def load_cfg(*, strict=False):
     """Load the control-plane config, degrading to a disabled-but-valid default.
@@ -90,7 +84,7 @@ def route(task,cfg=None,mode=None,*,budget=None):
     picks={k:shortlist(v,state,n) for k,v in inv.items()}
     mode_note=f"Operating mode: {mode}. {profile.get('description','')}"
     questions={
-      "model_tier":q_choice(mode_note+" Choose the Claude model tier that best follows this mode while reliably completing the task. Prefer haiku for simple bounded work, sonnet for normal software engineering, opus only for genuinely difficult architecture, ambiguous multi-step reasoning, or high-stakes work.",{"haiku":"Simple, bounded, low-risk work","sonnet":"Normal engineering requiring meaningful reasoning","opus":"Very difficult, ambiguous, architectural, or high-stakes reasoning"}),
+      "model_tier":q_choice(mode_note+" Choose the required reasoning capability band. These legacy band names map to the selected client's models or reasoning effort; they do not require a particular model provider.",{"haiku":"Simple, bounded, low-risk work","sonnet":"Normal engineering requiring meaningful reasoning","opus":"Very difficult, ambiguous, architectural, or high-stakes reasoning"}),
       "complexity":q_score("Rate implementation/reasoning complexity.",["Trivial","Simple","Moderate","Complex","Very complex"]),
       "needs_system2":q_noul("Does successful completion require substantial multi-step reasoning rather than a fast classification or mechanical operation?"),
       "production_risk":q_noul("Could an incorrect execution plausibly cause destructive, security-sensitive, production, data-loss, secret-exposure, irreversible, or externally visible effects?"),
@@ -98,6 +92,8 @@ def route(task,cfg=None,mode=None,*,budget=None):
       "parallelizable":q_noul("Can meaningful independent subtasks be delegated in parallel without creating likely edit conflicts?"),
     }
     for kind,label in (("skills","skill"),("agents","agent"),("commands","command"),("templates","template")):
+        if not picks[kind]:
+            continue
         opts=criteria(picks[kind]); opts["none"]="No listed component is materially useful"
         questions[f"{label}_choice"]=q_choice(f"Which single Datarim {label} is most useful for this task? Choose none when no candidate is materially useful.",opts)
     # Per-candidate applicability probes for kinds where several components can
@@ -107,6 +103,8 @@ def route(task,cfg=None,mode=None,*,budget=None):
         questions.update(components.build_probes(kind,picks[kind],cfg))
     res=evaluate(state,questions,cfg,budget=budget); a=res.get('answers',{})
     model=a.get('model_tier',{}).get('choice',cfg['routing'].get('default_model','sonnet'))
+    if model not in ('haiku', 'sonnet', 'opus'):
+        model = 'sonnet'
     # Deterministic mode guardrails: Jev advises within a policy envelope.
     if mode=='economy' and model=='opus': model='sonnet'
     if mode=='quality' and model=='haiku': model='sonnet'
@@ -114,7 +112,10 @@ def route(task,cfg=None,mode=None,*,budget=None):
     for kind in components.MULTI_KINDS:
         sel[kind]=components.resolve(kind,picks[kind],a,cfg)
     for kind,label in (("agents","agent"),("commands","command"),("templates","template")):
-        sel[kind]=components.single_choice(a.get(f"{label}_choice"),cfg)
+        answer = a.get(f"{label}_choice")
+        if not isinstance(answer, dict) or answer.get('choice') not in criteria(picks[kind]):
+            answer = None
+        sel[kind]=components.single_choice(answer,cfg)
     out={"ok":True,"mode":mode,"profile":profile,"model":model,"answers":a,"selection":sel,
          "usage":res.get('usage',{}),"candidates":{k:[x['name'] for x in v] for k,v in picks.items()}}
     log(cfg,"route",task,out); return out

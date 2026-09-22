@@ -17,7 +17,7 @@ artifacts:
     consumers:
       - id: framework_claude
         kind: grep_in_file
-        file: CLAUDE.md
+        file: AGENTS.md
         pattern: /{name}
         severity: error
       - id: framework_readme
@@ -59,7 +59,7 @@ artifacts:
     consumers:
       - id: framework_claude
         kind: grep_in_file
-        file: CLAUDE.md
+        file: AGENTS.md
         pattern: "{name}"
         severity: error
       - id: docs_agents_row

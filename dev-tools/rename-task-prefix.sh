@@ -15,7 +15,7 @@
 #   rename-task-prefix.sh --old OLD --new NEW [flags]
 #     --old OLD              OLD task prefix (required)
 #     --new NEW              NEW task prefix (required)
-#     --path P               file or dir in scope (repeatable; default: datarim CLAUDE.md)
+#     --path P               file or dir in scope (repeatable; default: datarim AGENTS.md)
 #     --exclude-anchor S     line containing literal S is never renamed (repeatable)
 #     --include-anchor S     collision number renames only on a line matching S (repeatable)
 #     --collision-number N   4-digit number shared with a homograph (repeatable)
@@ -72,10 +72,10 @@ done
 
 # Default scope when none given.
 if [ "${#PATHS[@]}" -eq 0 ]; then
-    for p in datarim CLAUDE.md; do
+    for p in datarim AGENTS.md; do
         if [ -e "$p" ]; then PATHS+=("$p"); fi
     done
-    [ "${#PATHS[@]}" -gt 0 ] || die "no default scope found (datarim/ or CLAUDE.md); pass --path"
+    [ "${#PATHS[@]}" -gt 0 ] || die "no default scope found (datarim/ or AGENTS.md); pass --path"
 fi
 
 # Assemble the shared classifier argument vector (paths + anchors + collisions).
@@ -159,7 +159,7 @@ case "$MODE" in
         run_py --apply
         printf '\n--- Verifying ---\n'
         if run_verify; then
-            printf '\n--- Next Step ---\nRename applied and verified. Review the git diff, migrate the CLAUDE.md registry row, then commit.\n'
+            printf '\n--- Next Step ---\nRename applied and verified. Review the git diff, migrate the AGENTS.md registry row, then commit.\n'
         else
             die "post-apply verification FAILED -- inspect residue above" 1
         fi

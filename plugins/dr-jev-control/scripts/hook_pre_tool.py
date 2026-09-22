@@ -25,7 +25,6 @@ def main():
     # hook in the host CLI.
     if not isinstance(p,dict):return 0
     tool=str(p.get('tool_name','')); inp=p.get('tool_input',{})
-    s=json.dumps({"tool":tool,"input":inp},ensure_ascii=False)[:12000]
 
     # Hard local floor FIRST, before any config is consulted.
     # It is deterministic and local, so it must not depend on the control
@@ -35,10 +34,11 @@ def main():
     # DATARIM_JEV_DISABLE=1 let a recursive root delete through unblocked.)
     # Matching lives in safety_floor.py and runs on a normalised argv, because
     # literal-spelling patterns missed trivial variants -- see that module.
-    cmd=str(inp.get('command','')) if isinstance(inp,dict) else ''
+    shell_tool = tool.lower() in ('bash', 'shell', 'exec_command')
+    cmd=str(inp.get('cmd', inp.get('command',''))) if shell_tool and isinstance(inp,dict) else ''
     reason=destructive_reason(cmd)
     if reason:
-        print(json.dumps({"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":f"Datarim deterministic safety floor blocked a destructive command ({reason})."}}));return 0
+        print(json.dumps({"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":f"Jev deterministic safety floor blocked a destructive command ({reason})."}}));return 0
 
     # Advisory layer. Absent (import failed) means the floor above has already
     # had its say and there is nothing further to add.
@@ -49,8 +49,22 @@ def main():
     # Ordinary reads, tests, grep, git diff/status/log, and normal source edits do not pay an API round-trip.
     low=(tool.lower() in ('read','grep','glob','view') or (tool.lower() in ('bash','shell','exec_command') and not re.search(r'\b(rm|mv|chmod|chown|sudo|ssh|scp|rsync|curl|wget|kubectl|helm|terraform|ansible|docker|podman|npm\s+publish|git\s+(push|reset|clean|checkout|switch|rebase|merge)|gh\s+|aws\s+|gcloud\s+|az\s+|psql|mysql|redis-cli)\b|>\s*[^&]|sed\s+-i',cmd,re.I)))
     path=str(inp.get('file_path',inp.get('path',''))) if isinstance(inp,dict) else ''
+    if tool.lower() == 'apply_patch' and isinstance(inp, dict):
+        # Codex supplies patch text under `command`. Only path headers leave the
+        # hook; source contents and added credential values remain local.
+        patch_text = inp.get('command', inp.get('patch', ''))
+        if isinstance(patch_text, str):
+            path = '\n'.join(re.findall(r'^\*\*\* (?:Add|Update|Delete) File: (.+)$',
+                                       patch_text, re.M)[:100])
     ordinary_edit=tool.lower() in ('write','edit','multiedit','apply_patch') and not re.search(r'(\.env|secret|credential|production|prod\.|migration|deploy|settings\.json)',path,re.I)
     if low or ordinary_edit:return 0
+    # Classify the operation, never transmit tool output or file contents.
+    # Scrub before truncation: truncation can remove a credential terminator.
+    from ledger import _scrub
+    descriptor = {'tool': tool, 'path': path}
+    if shell_tool:
+        descriptor['command'] = cmd
+    s=json.dumps(_scrub(descriptor),ensure_ascii=False)[:12000]
     q={"risky":{"type":"noul","instructions":"Is this proposed tool call destructive, irreversible, security-sensitive, secret-exposing, production-changing, externally mutating, or otherwise deserving explicit review before autonomous execution?"}}
     api=cfg.get('api',{})
     budget={"timeout_seconds":api.get('hook_timeout_seconds',4),"retries":api.get('hook_retries',0)}

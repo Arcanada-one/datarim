@@ -19,6 +19,6 @@ def main():
         pass
     tool=str(p.get('tool_name',''))
     if tool in ('Write','Edit','MultiEdit','apply_patch'):
-        print(json.dumps({"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"A file-changing tool ran. Preserve Datarim acceptance criteria and run the narrowest relevant validation before declaring completion."}}))
+        print(json.dumps({"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"A file-changing tool ran. Preserve the task acceptance criteria and run the narrowest relevant validation before declaring completion."}}))
     return 0
 if __name__=='__main__':raise SystemExit(main())
