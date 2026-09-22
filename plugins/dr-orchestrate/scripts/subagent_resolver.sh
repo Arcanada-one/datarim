@@ -23,12 +23,15 @@ set -euo pipefail
 : "${DR_FLEET_VERSION_TIMEOUT_S:=2}"
 # shellcheck source=lib/project-state.sh
 . "$DR_ORCH_DIR/scripts/lib/project-state.sh"
-# This resolver creates and writes STATE_DIR, so project state is genuinely
-# required. Refuse with a message rather than aborting inside an expansion.
+# STATE_DIR is used for exactly one thing: a sentinel file that stops the
+# "backend missing" warning repeating. That is a convenience, not a capability,
+# so resolution itself must not require a project runtime — refusing here would
+# make the resolver unusable outside an installed project in order to protect a
+# de-duplication marker. Without state the warning simply repeats.
 if [[ -z "${STATE_DIR:-}" ]]; then
-  STATE_DIR="$(dr_orch_state_root)" || exit 2
+  STATE_DIR="$(dr_orch_state_root_or_empty)"
 fi
-mkdir -p "$STATE_DIR"
+[[ -n "$STATE_DIR" ]] && mkdir -p "$STATE_DIR"
 
 # shellcheck source=rules_loader.sh
 source "$DR_ORCH_DIR/scripts/rules_loader.sh"
@@ -185,6 +188,12 @@ PY
 
 _warn_missing_once() {
   local backend="$1"
+  if [[ -z "${STATE_DIR:-}" ]]; then
+    # No project state to remember the warning in; warn every time rather than
+    # staying silent, since the warning is the useful half.
+    echo "WARN backend-missing backend=${backend}" >&2
+    return 0
+  fi
   local sentinel="$STATE_DIR/.warned.${backend}"
   [[ -f "$sentinel" ]] && return 0
   echo "WARN backend-missing backend=${backend}" >&2
