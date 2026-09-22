@@ -481,8 +481,8 @@ class TestSafetyFloorMatching(unittest.TestCase):
                     f"{self.RM} -r ./tmpdir"):
             self.assertFalse(self.check(cmd), cmd)
 
-    def test_recursive_without_force_is_not_the_catastrophe_case(self):
-        self.assertFalse(self.check(f"{self.RM} -r /"))
+    def test_recursive_delete_of_root_does_not_require_force_to_be_dangerous(self):
+        self.assertTrue(self.check(f"{self.RM} -r /"))
 
     def test_force_push_variants(self):
         self.assertTrue(self.check("git push --force origin main"))

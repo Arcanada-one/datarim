@@ -157,6 +157,7 @@ def run(client, event, payload):
             return native_output(client, event, {'hookSpecificOutput': {
                 'hookEventName': canonical, 'permissionDecision': 'deny',
                 'permissionDecisionReason': 'Jev deterministic safety floor: ' + reason}})
+    env = None
     try:
         env, cwd = environment(normalized)
         script = {'UserPromptSubmit': 'hook_user_prompt.py', 'PreToolUse': 'hook_pre_tool.py',
@@ -164,11 +165,37 @@ def run(client, event, payload):
         child = subprocess.run([sys.executable, str(ENGINE / script)], input=json.dumps(normalized),
                                text=True, capture_output=True, cwd=cwd, env=env, timeout=6)
         result = json.loads(child.stdout) if child.returncode == 0 and child.stdout.strip() else {}
-        return native_output(client, event, result)
+        output = native_output(client, event, result)
+        receipt(env, client, event, output, unavailable=child.returncode != 0)
+        return output
     except (OSError, ValueError, KeyError, TypeError, ImportError, subprocess.TimeoutExpired):
         # Floor has already examined the command. Cursor requires valid JSON to
         # allow it when only the advisory service is unavailable.
-        return native_output(client, event, {})
+        output = native_output(client, event, {})
+        receipt(env, client, event, output, unavailable=True)
+        return output
+
+
+def receipt(env, client, event, output, *, unavailable):
+    """Observe delivery separately from classification and actual agent use."""
+    if env is None:
+        return  # Never invent a workspace or write state to an ambiguous cwd.
+    try:
+        from ledger import log_event
+        config = json.loads(Path(env['DATARIM_JEV_CONFIG']).read_text())
+        telemetry = config.get('telemetry', {})
+        if not telemetry.get('enabled', True):
+            return
+        body = output.get('hookSpecificOutput', {})
+        data = json.loads(env['JEV_EVENT_CONTEXT'])
+        data.update(advice_emitted=bool(body.get('additionalContext') or output.get('additional_context')
+                                       or output.get('agent_message')),
+                    blocked=body.get('permissionDecision') == 'deny' or output.get('permission') == 'deny',
+                    unavailable=unavailable, applied='not_measured')
+        log_event({'telemetry': {'path': str(Path(env['JEV_STATE_DIR'])/'ledger.jsonl'),
+                                'store_prompt_text': False}}, 'hook_delivery', '', data)
+    except Exception:
+        pass
 
 
 def main():

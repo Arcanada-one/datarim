@@ -191,18 +191,27 @@ def log_event(cfg, event, text, data):
 
 def read_events(cfg, *, events=None, limit=None):
     p = ledger_path(cfg, strict=True)
-    if not p.exists():
-        return []
+    paths = [p]
+    aggregate = os.environ.get('JEV_STATS_ROOT')
+    if aggregate:
+        root = Path(aggregate).resolve()
+        paths = [x for x in root.glob('projects/*/sessions/*/ledger.jsonl')
+                 if x.resolve().is_relative_to(root) and not x.is_symlink()]
     out = []
-    with p.open() as f:
-        for line in f:
-            try:
-                rec = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if events and rec.get("event") not in events:
-                continue
-            out.append(rec)
+    for path in paths:
+        if not path.is_file() or path.is_symlink():
+            continue
+        with path.open() as f:
+            for line in f:
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(rec, dict) or (events and rec.get("event") not in events):
+                    continue
+                out.append(rec)
+    if aggregate:
+        out.sort(key=lambda rec: rec.get('ts', 0) if isinstance(rec.get('ts', 0), (int, float)) else 0)
     return out[-limit:] if limit else out
 
 

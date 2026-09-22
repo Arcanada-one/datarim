@@ -80,7 +80,8 @@ def route(task,cfg=None,mode=None,*,budget=None):
     if not cfg.get('routing',{}).get('enabled',True):
         raise RoutingDisabled(cfg.get('disabled_reason') or 'routing.enabled is false')
     modes=cfg['routing'].get('modes',{}); profile=modes.get(mode,modes.get('balanced',{}))
-    inv=inventory(); n=int(cfg['routing'].get('catalog_shortlist',12)); state=task[:int(cfg['routing'].get('max_state_chars',18000))]
+    from ledger import redact
+    inv=inventory(); n=int(cfg['routing'].get('catalog_shortlist',12)); state=redact(task)[:int(cfg['routing'].get('max_state_chars',18000))]
     picks={k:shortlist(v,state,n) for k,v in inv.items()}
     mode_note=f"Operating mode: {mode}. {profile.get('description','')}"
     questions={

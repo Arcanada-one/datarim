@@ -15,9 +15,24 @@ import jev_host_install
 import catalog
 import route
 from project_state import disabled_reason
+from ledger import read_events
 
 
 class NativeHookTests(unittest.TestCase):
+    def test_host_stats_collect_sessions_without_following_external_ledger(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            state = root/'state'
+            for session, stamp in [('first', 2), ('second', 1)]:
+                path = state/'projects'/'project'/'sessions'/session/'ledger.jsonl'
+                path.parent.mkdir(parents=True)
+                path.write_text(json.dumps({'event': 'route', 'ts': stamp})+'\nnull\n')
+            external = root/'foreign.jsonl'; external.write_text('{"event":"route","ts":3}\n')
+            link = state/'projects'/'project'/'sessions'/'foreign'; link.mkdir()
+            (link/'ledger.jsonl').symlink_to(external)
+            with patch.dict(os.environ, {'JEV_STATS_ROOT': str(state)}):
+                self.assertEqual([r['ts'] for r in read_events({'telemetry': {}})], [1, 2])
+
     def test_registration_preserves_mixed_foreign_hooks_and_is_idempotent(self):
         runtime = Path('/host/jev/releases/revision')
         original = {'env': {'KEEP': 'yes'}, 'hooks': {'PreToolUse': [{'matcher': 'Bash', 'hooks': [

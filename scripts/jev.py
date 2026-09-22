@@ -122,6 +122,8 @@ def main():
         print(json.dumps(report, indent=2))
         return 1 if findings or (a.api and not report['api'].get('api', {}).get('ok')) else 0
     if a.task == 'stats':
+        if host_mode:
+            os.environ['JEV_STATS_ROOT'] = str(state)
         os.execv(sys.executable, [sys.executable, str(plugin/'cli_report.py'), 'stats'])
     if not a.agent:
         print('jev: select --agent=codex, --agent=claude, or --agent=cursor', file=sys.stderr)
