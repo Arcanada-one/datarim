@@ -47,16 +47,48 @@ The token means the loader works. `NOTOKEN` means the project's instructions are
 not reaching the session, and any workflow that depends on them will behave as if
 the file were absent. Remove the probe line afterwards.
 
+Claude Code loads `AGENTS.md` by default only when no `CLAUDE.md`,
+`.claude/CLAUDE.md` or `CLAUDE.local.md` exists in the working directory or any
+directory above it. A `CLAUDE.local.md` you add for your own uncommitted notes
+therefore silences the project's `AGENTS.md`. To load both, set
+`instructionFiles` to `claude-md-and-agents-md` under the builtin plugin — and
+note the two placement rules that make a wrong attempt look like missing support:
+
+```jsonc
+// ~/.claude/settings.json — ignored in project or local settings files
+{
+  "pluginConfigs": {
+    "agents-md@builtin": {
+      "options": { "instructionFiles": "claude-md-and-agents-md" }
+    }
+  }
+}
+```
+
 **Measured on 2026-09-22, Claude Code 2.1.278 on macOS: this probe returned
-`NOTOKEN`.** The same file, same directory and same content answered correctly
-once renamed to `CLAUDE.md`, and the result did not change with
-`instructionFiles` set to `claude-md-and-agents-md`, with the builtin plugin
-enabled explicitly, or in a clean temporary project with no ancestor `CLAUDE.md`.
-Documented suppression rules do not explain it. Treat AGENTS-only loading on
-Claude Code as **unverified on that version** rather than as working, and re-run
-the probe on your own version before depending on it. The absence of a loader is
-not a reason to add a CLAUDE adapter here — it is a reason to know that project
-instructions are not being read.
+`NOTOKEN`**, in a clean temporary project with no ancestor `CLAUDE.md` and no
+settings at all — the case where the default is documented to load `AGENTS.md`.
+The probe is calibrated: the same file, directory and flags answered correctly
+when renamed to `CLAUDE.md`, so the negative is real and not a blind instrument.
+
+The feature is present in the installed build (`AGENTS.md loaded`,
+`claude-md-or-agents-md` and `instructionFiles` all appear in the binary), but
+`agents-md@builtin` does not appear in `claude plugin list` on this host — not as
+disabled, absent. That matches the documented case where a session does not
+receive the feature flag that activates the builtin plugin; in such sessions
+Claude reads `CLAUDE.md` only and **Project instructions** is missing from
+`/config`. The other documented causes were excluded by measurement: the version
+is 2.1.277+, no managed settings exist, `disableAllHooks` and
+`allowManagedHooksOnly` are unset, the build has been installed for two days
+across ~70 sessions, and clearing `DISABLE_TELEMETRY` did not change the result.
+
+So this is **an environment-gated activation, not a missing capability** and not
+a property of the version. Before depending on `AGENTS.md`, run the probe on your
+own host: if it returns `NOTOKEN`, check `claude plugin list` for
+`agents-md@builtin` first. Where the flag is absent the supported fallback is to
+import `AGENTS.md` from a `CLAUDE.md` — a one-line import, not a duplicated
+instruction file, and not a reason for this installer to generate a CLAUDE
+adapter.
 
 Native client invocation remains available without Jev:
 
