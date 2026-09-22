@@ -434,6 +434,11 @@ check_code_contracts() {
     mark_run
     local out rc
     out="$("$checker" --root "$WORKSPACE" --format json 2>&1)"; rc=$?
+    if [ "$rc" -eq 2 ] && printf '%s' "$out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o == {"files":0,"contracts":0,"errors":[],"status":"not_measured"}' >/dev/null 2>&1; then
+        echo "[code_contracts] NOT_MEASURED: no contract files in this workspace" >&2
+        CHECKS_RUN=$((CHECKS_RUN - 1))
+        mark_skip; return 0
+    fi
     if [ "$rc" -ne 0 ]; then
         emit_finding "high" "consistency" "code-contracts:format" \
             "CONTRACTS" "" "test_output" "check-code-contracts.sh" "$out"

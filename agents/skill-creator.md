@@ -60,16 +60,10 @@ Document the rationale briefly in the artifact's first paragraph or in the propo
   - Is this entirely new? → **Create** new skill/agent/command.
 
 ### Step 4: Determine Scope
-Apply the following rules in order:
-1. If the user explicitly said "global" or "user-level" or "for all projects" → use `${DATARIM_RUNTIME:?}/`.
-2. If the project has `.claude/skills/` with at least one skill file → use project `.claude/`.
-3. If the project has `.claude/` directory (even empty) → use project `.claude/`.
-4. Otherwise → ask the user whether to create in project scope or user scope.
-
-When creating in project scope, create the necessary directories:
-```bash
-mkdir -p .claude/skills .claude/agents .claude/commands
-```
+Use the explicitly initialized project's local extension directory and native
+client discovery paths. Do not modify the pinned framework snapshot directly.
+Reusable components belong in a source-repository pull request. Global or
+user-level Datarim installation is unsupported; select a project instead.
 
 ### Step 5: Design and Generate
 For each artifact, follow the Datarim patterns. Reference existing skills/agents/commands in `${DATARIM_RUNTIME:?}/` as exemplars for structure and frontmatter. Key rules:

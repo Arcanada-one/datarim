@@ -26,11 +26,10 @@ effort: high
 2.  **LOAD SKILLS**:
     - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always)
     - `${DATARIM_RUNTIME:?}/skills/evolution/SKILL.md` (Evolution proposal format and approval gate)
-3.  **DETERMINE SCOPE**: What to audit?
-    - If user said "project" → scan project `.claude/` directory
-    - If user said "global" or "user" → scan `${DATARIM_RUNTIME:?}/`
-    - If user said "datarim" or "framework" → scan the Datarim source repo
-    - Default: scan both project `.claude/` and `${DATARIM_RUNTIME:?}/`, report separately
+3.  **DETERMINE SCOPE**: Audit the initialized project's `.agents/`, `.claude/`,
+    `.cursor/` discovery directories and `.datarim-runtime/`, reporting ownership
+    separately. For an explicit framework audit, inspect the source repository
+    and propose changes through a pull request. Global Datarim scope is unsupported.
 4.  **FULL AUDIT**: For the target scope, build a complete inventory:
 
     ```

@@ -5,9 +5,9 @@ set -euo pipefail
 umask 077
 
 DR_ORCH_DIR="${DR_ORCH_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-DR_ORCH_STATE_DIR="${DR_ORCH_STATE_DIR:-${STATE_DIR:-$HOME/.local/share/dr-orchestrate/state}}"
+DR_ORCH_STATE_DIR="${DR_ORCH_STATE_DIR:-${STATE_DIR:-${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate}}"
 DR_ORCH_RULES_DEFAULT="${DR_ORCH_RULES_DEFAULT:-$DR_ORCH_DIR/rules/default.yaml}"
-DR_ORCH_RULES_USER="${DR_ORCH_RULES_USER:-$HOME/.config/dr-orchestrate/rules/user.yaml}"
+DR_ORCH_RULES_USER="${DR_ORCH_RULES_USER:-${DATARIM_RUNTIME:?Project runtime required}/local/config/orchestrate-rules.yaml}"
 DR_ORCH_AUDIT_FILE="${DR_ORCH_AUDIT_FILE:-$DR_ORCH_STATE_DIR/resolver-audit.jsonl}"
 DR_ORCH_LOCK_TIMEOUT="${DR_ORCH_LOCK_TIMEOUT:-5}"
 

@@ -27,13 +27,9 @@ Your goal is to create clear, engaging, audience-appropriate written content —
 - **Active voice**: "The system processes requests" not "Requests are processed by the system."
 - **No AI patterns**: Write naturally from the start. Avoid the patterns listed in the humanize skill.
 
-## Coworker prohibition — voice-bearing content
+## Voice-bearing content
 
-This agent generates voice-bearing text — published articles, social posts,
-ecosystem-site docs. `coworker` MUST NOT be used for any operation in this
-task: not for writing drafts, translating, editing, fact-checking, or reading
-source material. The assigned model performs all work directly. Per
-`~/.claude/AGENTS.md` § Do NOT delegate → Voice-bearing and judgment content.
+The assigned model performs all writing, editing, translation, and review directly. Do not delegate authorship or editorial judgment. Follow the project's publication constraints.
 
 ## Publishing handoff
 

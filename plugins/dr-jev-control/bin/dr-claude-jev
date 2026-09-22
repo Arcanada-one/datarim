@@ -7,7 +7,15 @@ resolve_plugin_home() {
   cd -P "$(dirname "$source")/.." >/dev/null 2>&1 && pwd
 }
 HERE="$(resolve_plugin_home)"; ROOT="$(cd "$HERE/../.." && pwd)"; ROUTE="$HERE/scripts/route.py"; LIVE="$HERE/scripts/live_supervisor.py"; CLAUDE_BIN="${CLAUDE_BIN:-claude}"
-export DATARIM_ROOT="${DATARIM_ROOT:-$ROOT}" DATARIM_JEV_HOME="$HERE"
+# Legacy launcher requires the same explicit project boundary as the dispatcher.
+DATARIM_PROJECT_ROOT="$(python3 "$ROOT/scripts/project_scope.py" "$PWD")" || exit 2
+DATARIM_RUNTIME="$DATARIM_PROJECT_ROOT/.datarim-runtime"
+DATARIM_ROOT="$DATARIM_RUNTIME"
+DATARIM_JEV_HOME="$DATARIM_RUNTIME/plugins/dr-jev-control"
+DATARIM_JEV_CONFIG="$DATARIM_RUNTIME/jev-config.json"
+TYPESAFE_API_KEY_FILE="$DATARIM_PROJECT_ROOT/config/credentials/jev/api-key"
+export DATARIM_PROJECT_ROOT DATARIM_RUNTIME DATARIM_ROOT DATARIM_JEV_HOME DATARIM_JEV_CONFIG TYPESAFE_API_KEY_FILE
+unset TYPESAFE_API_KEY
 usage(){ cat <<'USAGE'
 dr-claude-jev — Claude Code + Datarim + Jev control plane
 

@@ -50,6 +50,21 @@ def safe_path(root, relative):
     return target
 
 
+def atomic_bytes(target, data):
+    """Publish complete bytes, retaining an existing file's access mode."""
+    fd, temporary = tempfile.mkstemp(prefix='.datarim-write-', dir=target.parent)
+    try:
+        mode = stat.S_IMODE(target.stat().st_mode) if target.exists() else 0o600
+        os.fchmod(fd, mode)
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, target)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
 def replace_block(text, block):
     if text.count(BEGIN) != text.count(END) or text.count(BEGIN) > 1:
         raise ValueError('Malformed Datarim managed block; refusing overwrite')
@@ -133,6 +148,12 @@ def _install(args):
                 source_hash.update(str(path.relative_to(SOURCE)).encode())
                 source_hash.update(path.read_bytes())
     files = {}
+    snapshots = {}
+    def read_initial(name):
+        target = safe_path(root, name)
+        if name not in snapshots:
+            snapshots[name] = target.read_bytes() if target.exists() else None
+        return snapshots[name]
     agents = safe_path(root, 'AGENTS.md')
     block = f'''{BEGIN}
 ## Datarim project workflow
@@ -144,16 +165,16 @@ Use project-local `datarim/` state only. Do not enable this workflow in another
 project. The product source checkout is not a task knowledge base.
 Activate the local CLI with `source .datarim-runtime/activate.sh`.
 {END}'''
-    files['AGENTS.md'] = replace_block(agents.read_text() if agents.exists() else '# Project instructions\n', block).encode()
+    files['AGENTS.md'] = replace_block((read_initial('AGENTS.md') or b'# Project instructions\n').decode(), block).encode()
     ignore = safe_path(root, '.gitignore')
-    text = ignore.read_text() if ignore.exists() else ''
+    text = (read_initial('.gitignore') or b'').decode()
     files['.gitignore'] = private_ignores(text).encode()
     if args.with_jev or (previous or {}).get('with_jev'):
         from jev_host_install import merge_hooks
         for client, relative in [('claude', '.claude/settings.local.json'),
                                  ('codex', '.codex/hooks.json'), ('cursor', '.cursor/hooks.json')]:
             target = safe_path(root, relative)
-            current = json.loads(target.read_text()) if target.exists() else {}
+            current = json.loads(read_initial(relative) or b'{}')
             register = args.with_jev and not getattr(args, 'host_jev', False)
             updated = merge_hooks(current, client, runtime, [runtime], register=register)
             files[relative] = (json.dumps(updated, indent=2)+'\n').encode()
@@ -182,6 +203,7 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
     # All files are checked before the first mutation.
     for name, data in files.items():
         target = safe_path(root, name)
+        read_initial(name)
         if name in ('AGENTS.md', '.gitignore', '.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json'):
             continue
         if target.exists() and target.read_bytes() != data:
@@ -191,6 +213,7 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
     obsolete = set((previous or {}).get('files', {})) - set(files)
     for name in obsolete:
         target = safe_path(root, name)
+        read_initial(name)
         if target.exists() and digest(target.read_bytes()) != previous['files'][name]:
             raise ValueError(f'Locally modified retired discovery file: {name}')
     key = safe_path(root, 'config/credentials/jev/api-key')
@@ -205,6 +228,7 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
             return
     stage = Path(tempfile.mkdtemp(prefix='.datarim-install-', dir=root))
     backups = {}
+    published = {}
     old_runtime = safe_path(root, '.datarim-runtime-previous')
     archived_previous = None
     moved_current = False
@@ -251,7 +275,10 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
         (stage / 'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
         for name in set(files) | obsolete:
             target = root / name
-            backups[name] = target.read_bytes() if target.exists() else None
+            current = safe_path(root, name).read_bytes() if target.exists() else None
+            if current != snapshots[name]:
+                raise ValueError(f'Concurrent modification: {name}')
+            backups[name] = snapshots[name]
         (stage/'rollback-files.json').write_text(json.dumps({n: v.decode() if v is not None else None for n,v in backups.items()}, indent=2)+'\n')
         (stage/'rollback-files.json').chmod(0o600)
         # Uninstall restores pre-install originals, even after several updates.
@@ -275,9 +302,19 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
         for name, data in files.items():
             target = root / name
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(data)
+            target = safe_path(root, name)
+            current = target.read_bytes() if target.exists() else None
+            if current != snapshots[name]:
+                raise ValueError(f'Concurrent modification: {name}')
+            atomic_bytes(target, data)
+            published[name] = data
         for name in obsolete:
-            (root/name).unlink(missing_ok=True)
+            target = safe_path(root, name)
+            current = target.read_bytes() if target.exists() else None
+            if current != snapshots[name]:
+                raise ValueError(f'Concurrent modification: {name}')
+            target.unlink(missing_ok=True)
+            published[name] = None
         if args.with_jev:
             key.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             key.parent.chmod(0o700)
@@ -293,20 +330,35 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
                     target.write_text('# '+name.removesuffix('.md').title()+'\n')
         print(json.dumps({'status': 'installed', **manifest}))
     except Exception:
-        for name, data in backups.items():
-            target = root / name
-            if data is None:
-                target.unlink(missing_ok=True)
-            else:
-                target.write_bytes(data)
-        if moved_current:
-            if runtime.exists():
+        recovery = []
+        for name, expected in published.items():
+            try:
+                target = safe_path(root, name)
+                current = target.read_bytes() if target.exists() else None
+                if current != expected:
+                    recovery.append({'path': name, 'status': 'foreign_change_preserved'})
+                    continue
+                data = backups[name]
+                if data is None:
+                    target.unlink(missing_ok=True)
+                else:
+                    atomic_bytes(target, data)
+            except (OSError, ValueError):
+                recovery.append({'path': name, 'status': 'restore_failed'})
+        # A failed file restore must never prevent the runtime rollback.
+        try:
+            if moved_current:
+                if runtime.exists():
+                    shutil.rmtree(runtime)
+                old_runtime.rename(runtime)
+            elif installed_new and not previous and runtime.exists():
                 shutil.rmtree(runtime)
-            old_runtime.rename(runtime)
-        elif installed_new and not previous and runtime.exists():
-            shutil.rmtree(runtime)
-        if archived_previous is not None and archived_previous.exists() and not old_runtime.exists():
-            archived_previous.rename(old_runtime)
+            if archived_previous is not None and archived_previous.exists() and not old_runtime.exists():
+                archived_previous.rename(old_runtime)
+        except OSError:
+            recovery.append({'path': '.datarim-runtime', 'status': 'restore_failed'})
+        if recovery:
+            print(json.dumps({'status': 'rollback_incomplete', 'recovery': recovery}), file=sys.stderr)
         raise
     finally:
         if stage.exists():

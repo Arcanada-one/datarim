@@ -28,3 +28,14 @@ commands or call a paid provider.
 Passing these tests does not prove native client trust, AGENTS loading, API
 access, model switching, quality, or savings. Those require fresh-session live
 receipts on each installed client and host.
+
+## Historical expectation fixtures
+
+The five former product-root expectation records now live under
+`tests/fixtures/legacy-expectations/`. Their bytes remain regression inputs for
+legacy schema compatibility; they are not active task state. The validator
+tests use this explicit fixture root, never a product-root knowledge base.
+
+Project lifecycle tests also inject concurrent foreign edits and persistent
+write failures. Updates refuse changed merge inputs; rollback preserves later
+foreign edits and attempts runtime restoration even when file restoration fails.

@@ -86,7 +86,7 @@ When auto-mode is active (env var + matching marker), this command:
 
 1. Consults `${DATARIM_RUNTIME:?}/skills/autonomous-mode/SKILL.md`
    § Question Suppression Ladder before any operator prompt — resolve each interview
-   question through L1–L4 (codebase/runtime/memory/coworker) and only surface the
+   question through L1–L4 (codebase/runtime/memory/native consultation) and only surface the
    genuinely ambiguous ones. A wizard that suppresses every question is a plain
    discovery pass; that is acceptable — persist the L1–L4-resolved answers to the log.
 2. Runs a consilium autonomously for L3–L4 hard decisions instead of asking the operator.

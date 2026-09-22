@@ -10,7 +10,7 @@ export DR_ORCH_DIR
 
 # Stateful modules must see one canonical root. Keep STATE_DIR as the legacy
 # compatibility alias, but never let source order select a different root.
-AUDIT_DIR="${AUDIT_DIR:-$HOME/.local/share/datarim-orchestrate}"
+AUDIT_DIR="${AUDIT_DIR:-${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate}"
 DR_ORCH_STATE_DIR="${DR_ORCH_STATE_DIR:-${STATE_DIR:-$AUDIT_DIR/state}}"
 STATE_DIR="$DR_ORCH_STATE_DIR"
 export AUDIT_DIR DR_ORCH_STATE_DIR STATE_DIR
@@ -239,7 +239,7 @@ if (( UNKNOWN_PROMPT )); then
   # pane_capture. Inbox directory is written by orchestrator-input-handler.sh
   # (async path). Files are named <ulid>.json and sorted lexicographically
   # (ULID sort = arrival order). On dequeue the file is removed atomically.
-  _DR_ORCH_INBOX_DIR="${DR_ORCH_INBOX_DIR:-$HOME/.local/share/datarim-orchestrate/inbox}"
+  _DR_ORCH_INBOX_DIR="${DR_ORCH_INBOX_DIR:-${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate/inbox}"
   if [[ -z "$UNKNOWN_TEXT" ]] && [[ -d "$_DR_ORCH_INBOX_DIR" ]]; then
     oldest="$(ls "$_DR_ORCH_INBOX_DIR"/*.json 2>/dev/null | sort | head -1 || true)"
     if [[ -n "$oldest" ]] && [[ -f "$oldest" ]]; then

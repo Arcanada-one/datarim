@@ -32,11 +32,10 @@ effort: high
     - List all current skills, agents, and commands in the target scope
     - Check if the user's need is already covered (fully or partially)
     - Determine: Create new? Update existing? Extend + supplement?
-6.  **DETERMINE SCOPE** (where to install):
-    - If user said "global" / "user-level" / "for all projects" → `${DATARIM_RUNTIME:?}/`
-    - If project has `.claude/skills/` with at least one `.md` file → project `.claude/`
-    - If project has `.claude/` directory → project `.claude/`
-    - Otherwise → ask the user
+6.  **DETERMINE SCOPE**: Use the explicitly initialized project. Store local
+    extensions under `.datarim-runtime/local/`; expose skills through the project's
+    native client discovery directories. Reusable framework changes belong in a
+    source-repository pull request. Global Datarim installation is unsupported.
 7.  **DESIGN**: Create the artifact(s) following Datarim conventions:
     - Skills: YAML frontmatter (name, description, [model for task-skills]) + structured markdown sections
     - Agents: Frontmatter (name, description, **model** [REQUIRED]) + Role statement + Capabilities + Context Loading
@@ -87,12 +86,11 @@ effort: high
 
 ## Scope Rules
 
-| Condition | Install to |
-|-----------|-----------|
-| User said "global" or "user-level" | `${DATARIM_RUNTIME:?}/` |
-| Project has `.claude/skills/*.md` | Project `.claude/` |
-| Project has `.claude/` dir | Project `.claude/` |
-| No project `.claude/` | Ask user, default to project `.claude/` |
+| Requested scope | Destination |
+|-----------------|-------------|
+| Current project | Project-local extensions and native client discovery |
+| Reusable framework | Source repository pull request |
+| Global/user-level | Unsupported; select an explicit project |
 
 ## Quality Criteria for Generated Skills
 

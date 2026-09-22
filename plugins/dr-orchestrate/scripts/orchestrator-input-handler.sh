@@ -22,7 +22,7 @@
 set -euo pipefail
 
 : "${DR_ORCH_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-: "${DR_ORCH_INBOX_DIR:=$HOME/.local/share/datarim-orchestrate/inbox}"
+: "${DR_ORCH_INBOX_DIR:=${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate/inbox}"
 : "${DR_ORCH_INBOUND_TOKEN:=}"
 
 # Whitelisted commands for sync shortcut (V-AC-5/6).

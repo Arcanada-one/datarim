@@ -53,13 +53,13 @@ inventory:
   skills:
   - adversarial-review
   - ai-quality
+  - artifact-context
   - autonomous-mode
   - brainstorming
   - code-contracts
   - compliance
   - consilium
   - context-window-self-clearing
-  - coworker-context
   - cron-agent-patterns
   - cta-format
   - customer-delivery
@@ -1197,6 +1197,10 @@ edges:
 - from: command:dr-write
   relation: loads
   source: commands/dr-write.md
+  to: skill:artifact-context
+- from: command:dr-write
+  relation: loads
+  source: commands/dr-write.md
   to: skill:consilium
 - from: command:dr-write
   relation: loads
@@ -1362,6 +1366,10 @@ edges:
   relation: loads
   source: skills/visual-maps/stage-process-flows.md
   to: skill:cta-format
+- from: skill:artifact-context
+  relation: loads
+  source: skills/artifact-context/SKILL.md
+  to: skill:security-baseline
 - from: skill:autonomous-mode
   relation: loads
   source: skills/autonomous-mode/SKILL.md
@@ -1390,10 +1398,6 @@ edges:
   relation: loads
   source: skills/context-window-self-clearing/SKILL.md
   to: skill:dr-next-snapshot-replay
-- from: skill:coworker-context
-  relation: loads
-  source: skills/coworker-context/SKILL.md
-  to: skill:security-baseline
 - from: skill:cta-format
   relation: loads
   source: skills/cta-format/SKILL.md

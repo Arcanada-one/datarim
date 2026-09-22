@@ -17,8 +17,9 @@ argument-hint: [topic or file path]
 2.  **LOAD SKILLS**:
     - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always)
     - `${DATARIM_RUNTIME:?}/skills/writing/SKILL.md` (Writing workflow and quality checklist)
+    - `${DATARIM_RUNTIME:?}/skills/artifact-context/SKILL.md` (Artifact format and exact contract quotations)
     - `${DATARIM_RUNTIME:?}/skills/humanize/SKILL.md` (Reference for avoiding AI patterns from the start)
-    - **Voice-bearing content prohibition:** `coworker` MUST NOT be used for writing, translating, editing, or checking articles and social posts. The assigned model performs all work directly — voice-bearing content goes through `coworker` at no stage. Per `~/.claude/AGENTS.md` § Do NOT delegate → Voice-bearing and judgment content. The coworker hook guard (`dev-tools/coworker-hook-guard.sh`) enforces this mechanically.
+    - **Voice-bearing content:** the assigned model performs writing, editing, translation, and factual review directly. Preserve the operator's authorship and publication constraints.
 3.  **RESOLVE PATH**: Find `datarim/` directory using standard path resolution. If not found, content work can proceed without it — not all writing requires a Datarim project context.
 4.  **UNDERSTAND THE REQUEST**:
     - What type of content? (article, blog post, docs, research, social media, legal, report)

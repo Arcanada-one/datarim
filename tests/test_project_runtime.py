@@ -125,6 +125,56 @@ class InstallationLifecycleTests(unittest.TestCase):
             self.assertIn(rule, (self.project/'.gitignore').read_text())
         self.assertEqual((self.project/'.datarim-uninstalled').stat().st_mode & 0o077, 0)
 
+    def test_concurrent_shared_rules_change_during_copy_is_preserved(self):
+        original_copy = project_install.shutil.copytree
+        touched = False
+        def concurrent_copy(*args, **kwargs):
+            nonlocal touched
+            result = original_copy(*args, **kwargs)
+            if not touched:
+                touched = True
+                (self.project/'AGENTS.md').write_text('# Concurrent foreign rules\n')
+            return result
+        with patch.object(project_install.shutil, 'copytree', side_effect=concurrent_copy):
+            with self.assertRaisesRegex(ValueError, 'Concurrent modification'):
+                project_install.install(self.args)
+        self.assertEqual((self.project/'AGENTS.md').read_text(), '# Concurrent foreign rules\n')
+        self.assertFalse((self.project/'.datarim-runtime').exists())
+
+    def test_persistent_file_restore_failure_still_restores_runtime(self):
+        project_install.install(self.args)
+        (self.source/'VERSION').write_text('new version\n')
+        real_write = project_install.atomic_bytes
+        writes = 0
+        def failing_write(target, data):
+            nonlocal writes
+            writes += 1
+            if writes >= 2:
+                raise OSError('injected persistent write failure')
+            return real_write(target, data)
+        with patch.object(project_install, 'atomic_bytes', side_effect=failing_write):
+            with self.assertRaisesRegex(OSError, 'injected'):
+                project_install.install(self.args)
+        self.assertEqual((self.project/'.datarim-runtime/VERSION').read_text(), 'test\n')
+
+    def test_rollback_preserves_foreign_edit_after_publication(self):
+        project_install.install(self.args)
+        (self.source/'VERSION').write_text('new version\n')
+        real_write = project_install.atomic_bytes
+        writes = 0
+        def racing_write(target, data):
+            nonlocal writes
+            writes += 1
+            if writes == 2:
+                (self.project/'AGENTS.md').write_text('# Foreign late edit\n')
+                raise OSError('injected next-file failure')
+            return real_write(target, data)
+        with patch.object(project_install, 'atomic_bytes', side_effect=racing_write):
+            with self.assertRaises(OSError):
+                project_install.install(self.args)
+        self.assertEqual((self.project/'AGENTS.md').read_text(), '# Foreign late edit\n')
+        self.assertEqual((self.project/'.datarim-runtime/VERSION').read_text(), 'test\n')
+
     def test_foreign_skill_conflict_has_no_partial_install(self):
         foreign = self.project/'.cursor/skills/testing/SKILL.md'
         foreign.parent.mkdir(parents=True)

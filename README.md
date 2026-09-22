@@ -116,7 +116,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 - **Plugin system (v1.23.0+)** — opt-in extension mechanism. `datarim-core`
   ships built-in; additional skills/agents/commands/templates are enabled via
   `/dr-plugin enable <source>` against a `plugin.yaml` manifest. Runtime symlinks
-  per-plugin namespace under `~/.claude/<category>/<plugin-id>/`; root-position via
+  per-plugin namespace under `.datarim-runtime/<category>/<plugin-id>/`; root-position via
   `overrides:`. `dr-plugin doctor` runs 9 health checks (manifest-syntax,
   inventory-consistency, broken-symlinks, orphan-files, override-integrity,
   dependency-graph, git-state, snapshot-cleanup, skill-registry).
@@ -126,7 +126,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   rule-based runner with security floor (whitelist, byte-0x1b escape block,
   500 ms micro + 60 s decision cooldown, 5-violations/hr → 1 h pane block,
   fail-closed); Phase 2 (v2.4.0+) adds a multi-backend subagent inference; v2.5.0 ships a bot-interaction interface (OpenAPI 3.1 + adnanh/webhook + HMAC-SHA256/Redis outbound, gated activation). Phase 2 baseline
-  layer (coworker → claude → codex, lenient JSON parse, FD-3 close, fail-
+  layer (claude → codex → cursor, lenient JSON parse, FD-3 close, fail-
   closed threshold gate) for unknown prompts and bumps plugin autonomy from
   L1 (manual) to L2 (assisted). Flock-race-safe cooldown on Linux, audit
   schema v2 with confidence + backend metadata, hash-only matched text
@@ -139,19 +139,11 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   Codex sessions preserves task pointers and snapshot phase before fixed
   `/compact` or `/clear`, then resumes with snapshot-first `/dr-next`.
 
-- **Multi-runtime coworker delegation enforcement** — `dev-tools/coworker-hook-guard.sh`
-  is a PreToolUse hook that denies direct bulk I/O when the MANDATORY
-  delegation rules apply (>400-line reads, ≥3-file ask, bootstrap
-  multi-file load, `git diff`/`git log -p` over ~200 lines, protected
-  write paths). Covers Claude tool names (`Read`, `Write`, `Bash`) AND
-  Codex CLI native tool names (`view`, `apply_patch`, `shell`,
-  `exec_command`). Single source of truth for the delegation rules text
-  is `templates/coworker-delegation-fragment.md`; `install.sh
-  --with-codex` prepends it into `~/.codex/AGENTS.override.md`. Codex
-  hooks.json wiring is operator-maintained per machine — see
-  `documentation/how-to/codex-cli-coworker-hooks.md`. Companion Stop-side
-  validator: `dev-tools/hooks/dr-output-stop.{py,sh}` enforces Stage
-  Header + human-summary structure on `/dr-do` transcripts.
+- **Explicit project scope** — Datarim instructions, skills, and task state
+  belong to the installed project. Native agents perform bounded reads and
+  reviews according to project policy. Coworker and RTK are retired runtime
+  dependencies. Optional Jev classification has separate native hooks for
+  Claude, Codex, and Cursor; see the [host/project guide](documentation/how-to/host-jev-with-project-datarim.md).
 
 - **Autonomous Agent Operating Rules contract** — the core ships
   `dev-tools/rules/fb-rules.yaml` (FB-1..FB-8 policy block with
@@ -160,9 +152,9 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   `dev-tools/fb-policy-loader.sh` `load_fb_policy()` entry point; the
   `dr-orchestrate` plugin's `rules_loader.sh` is a thin shim that delegates
   to it. Consumers mirror the canonical rule text in their own ecosystem
-  `CLAUDE.md` (Datarim ships the contract surface, not the canonical text —
+  `AGENTS.md` (Datarim ships the contract surface, not the canonical text —
   the text is ecosystem-owned and audit-tagged per consumer). See
-  `dev-tools/rules/fb-rules.yaml` header and the framework's `CLAUDE.md`
+  `dev-tools/rules/fb-rules.yaml` header and the framework's `AGENTS.md`
   § Autonomous Agent Operating Rules (cross-link).
 
 - **Self-evolving framework** — after every task, `/dr-archive` Step 0.5 (reflecting
@@ -208,7 +200,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   closed; a valid `GO` unlocks only the next existing planning gate.
 
 - **Project scaffolding** — `/dr-init create project "Name"` creates a complete
-  project structure: CLAUDE.md with Laws of Robotics and Datarim pipeline, documentation/
+  project structure: AGENTS.md with Laws of Robotics and Datarim pipeline, documentation/
   stubs (architecture, testing, deployment, gotchas), ephemeral working directories,
   and Datarim workflow state. Tech stack auto-detected. Idempotent — safe to run on
   existing projects.
@@ -283,13 +275,13 @@ checks its actual working directory, including after you leave the project.
 # Navigate to your project
 cd your-project
 
-# Option A: Scaffold a new project (creates CLAUDE.md, documentation/, datarim/ automatically)
+# Option A: Scaffold a new project (creates AGENTS.md, documentation/, datarim/ automatically)
 claude
 /dr-init create project "My API Service"
 
-# Option B: Set up manually in an existing project
-cp /path/to/datarim/CLAUDE.md .
-# Edit the project-specific section at the bottom of CLAUDE.md
+# Initialize an existing project from a reviewed source checkout
+/path/to/datarim/install.sh --project "$PWD" --init
+# The installer preserves existing AGENTS.md content.
 
 # Start Claude Code
 claude
@@ -388,7 +380,7 @@ involve most of the nineteen agents across different stages.
 | **humanize** | AI artifact removal, voice preservation, natural language patterns | Editor, Writer |
 | **publishing** | Multi-platform publishing rules, formatting, limits, workflow | Writer (on demand) |
 | **session-handoff-writer** | Producer contract for session handoff — 5-layer body, claim provenance, secret redaction | /dr-save |
-| **project-init** | Project scaffolding: CLAUDE.md, documentation/, datarim/ structure for new projects | /dr-init (project mode) |
+| **project-init** | Project scaffolding: AGENTS.md, documentation/, datarim/ structure for new projects | /dr-init (project mode) |
 | **research-workflow** | Structured research methodology — checklist, tool selection, gap discovery protocol | Researcher |
 | **reflecting** | Post-task reflection: lessons learned, evolution proposals, Class A/B gate | /dr-archive (Step 0.5) |
 
@@ -398,7 +390,7 @@ complete list of all 79 skills is in
 
 Skills are modular. Each one is a directory containing a `SKILL.md` (plus any
 supporting fragment files) that agents load when they need specific
-capabilities. Add your own by creating `~/.claude/local/skills/<name>/SKILL.md`
+capabilities. Add your own by creating `.datarim-runtime/local/skills/<name>/SKILL.md`
 — the `local/` overlay is gitignored and wins over a framework skill of the
 same name.
 
@@ -426,7 +418,7 @@ same name.
 | `/dr-doctor` | Maintenance | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md. |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize files, build index, cross-reference, flag contradictions, archive stale content. |
 | `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
-| `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `~/.claude/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
+| `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `.datarim-runtime/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
 | `/dr-orchestrate` | Maintenance | Self-driving pipeline runner. The command and its autonomy policy are core; the tmux/bot transport runner is the opt-in `dr-orchestrate` plugin. Whitelisted actions only, JSONL audit, hard-gated floor. |
 | `/dr-quick` | Any | Fast lane for trivial fixes and quick lookups — assigns a `QCK-XXXX` id, scans the knowledge base, applies the change, writes a short archive. Skips PRD, plan, design, QA, and compliance. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
@@ -604,16 +596,14 @@ and commands based on a natural language description of what you need.
 
 **Scope rules:**
 
-| Condition | Creates in |
-|-----------|-----------|
-| You said "global" or "for all projects" | `~/.claude/` (user-level) |
-| Project has `.claude/skills/` with files | Project `.claude/` |
-| Project has `.claude/` directory | Project `.claude/` |
-| No project `.claude/` | Asks you, defaults to project |
+| Requested scope | Result |
+|-----------------|--------|
+| Current initialized project | Project-local extensions and native client discovery |
+| Reusable framework component | Change the source repository through a pull request |
+| Global Datarim installation | Unsupported; select an explicit project |
 
-Project-level skills are portable and version-controlled. User-level skills apply
-everywhere. The framework prefers project scope to keep skills close to where they
-are used.
+Datarim instructions and skills are project-local. Independent host Jev hooks
+can classify work in other directories without loading the Datarim catalog.
 
 ---
 
@@ -631,8 +621,8 @@ lean by auditing, pruning, and consolidating components.
 # Audit only the project scope
 /dr-optimize project
 
-# Audit only the user-level installation
-/dr-optimize global
+# Audit the framework source repository
+/dr-optimize framework
 ```
 
 **What the optimizer checks:**
@@ -642,7 +632,7 @@ lean by auditing, pruning, and consolidating components.
 | Unused components | Skills no agent loads, agents no command invokes |
 | Oversized skills | Any skill over 500 lines (should use supporting files) |
 | Duplicate coverage | Two skills covering the same domain |
-| Broken references | Skills referenced in CLAUDE.md but missing from disk |
+| Broken references | Skills referenced in AGENTS.md but missing from disk |
 | Doc count mismatch | Documentation says 15 agents but disk has 12 |
 | Description budget | Total descriptions exceed context budget |
 
@@ -746,7 +736,7 @@ at every step.
 
 2. **Propose** — Based on the reflection, the evolution skill generates concrete
    proposals: update a skill's instructions, adjust an agent's behavior, add a new
-   pattern to CLAUDE.md, modify complexity routing thresholds. For **Class B
+   pattern to AGENTS.md, modify complexity routing thresholds. For **Class B
    proposals** (operating-model / contract-change), an entry is automatically
    spawned in `backlog.md` so the change goes through a full `/dr-prd` →
    `/dr-plan` → `/dr-do` review rather than landing as an inline tweak. The
@@ -771,7 +761,7 @@ at every step.
   routing rules are adjusted.
 - **Pipeline stages** — if a stage is consistently skipped at a certain level, the
   routing is updated to reflect actual practice.
-- **CLAUDE.md rules** — if project-specific patterns emerge, they are codified into
+- **AGENTS.md rules** — if project-specific patterns emerge, they are codified into
   the framework rules.
 
 ### What does not evolve
@@ -799,7 +789,7 @@ four orthogonal categories: tutorials (learning), how-to guides
 (problem-solving), reference (lookup), explanation (understanding). The
 framework's own docs live in `documentation/`; consumer projects bootstrap
 `documentation/{tutorials,how-to,reference,explanation}/` per the Documentation
-Taxonomy Mandate (mandate text in the consumer's ecosystem CLAUDE.md;
+Taxonomy Mandate (mandate text in the consumer's ecosystem AGENTS.md;
 the contract surface ships with the framework as `skills/diataxis-docs/SKILL.md`).
 
 ### Reference docs
@@ -825,7 +815,7 @@ readiness roadmap.
 
 ## Project Configuration
 
-When you copy `CLAUDE.md` into your project, you get a file with two distinct
+When you copy `AGENTS.md` into your project, you get a file with two distinct
 sections:
 
 ### Framework Section (Do Not Modify)
@@ -934,9 +924,9 @@ datarim/
   agents/            # Agent personas (19 agents)
   skills/            # Knowledge modules (79 skills)
   commands/          # Slash commands (28 commands)
-  templates/         # Task and document templates (29 templates)
+  templates/         # Task and document templates (28 templates)
   documentation/              # Extended documentation and use cases
-  CLAUDE.md          # Framework rules (copy to your project)
+  AGENTS.md          # Framework rules (copy to your project)
   install.sh         # Automated installer
   LICENSE            # MIT license
   README.md          # This file
@@ -962,7 +952,7 @@ Contributions are welcome. To contribute:
   when to load, and the knowledge content.
 - **New commands:** Follow the structure in existing command `.md` files. Define
   stage, prerequisites, actions, and outputs.
-- **Framework changes:** Update `CLAUDE.md`, relevant docs, and this README.
+- **Framework changes:** Update `AGENTS.md`, relevant docs, and this README.
 - **Keep it universal:** No project-specific content, no hardcoded paths, no
   technology assumptions.
 

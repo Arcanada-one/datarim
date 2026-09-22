@@ -21,7 +21,7 @@ set -euo pipefail
 : "${DR_ORCH_SUBAGENT_CHAIN:=claude codex cursor}"
 : "${DR_ORCH_RESOLVER_TIMEOUT_S:=15}"
 : "${DR_FLEET_VERSION_TIMEOUT_S:=2}"
-: "${STATE_DIR:=$HOME/.local/share/dr-orchestrate/state}"
+: "${STATE_DIR:=${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate}"
 mkdir -p "$STATE_DIR"
 
 # shellcheck source=rules_loader.sh

@@ -18,8 +18,8 @@ SOURCE = Path(__file__).resolve().parents[1]
 EVENTS = {
     'claude': [('UserPromptSubmit', None), ('PreToolUse', 'Bash|Write|Edit|MultiEdit'),
                ('PostToolUse', 'Write|Edit|MultiEdit')],
-    'codex': [('UserPromptSubmit', None), ('PreToolUse', 'Bash|apply_patch'),
-              ('PostToolUse', 'Bash|apply_patch')],
+    'codex': [('UserPromptSubmit', None), ('PreToolUse', 'Bash|exec_command|shell|apply_patch'),
+              ('PostToolUse', 'Bash|exec_command|shell|apply_patch')],
     'cursor': [('beforeSubmitPrompt', None), ('beforeShellExecution', None),
                ('postToolUse', None)],
 }

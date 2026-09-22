@@ -1,6 +1,6 @@
 ---
 name: dr-orchestrate-resolver
-description: "Plugin-backed subagent inference layer that classifies an unknown Datarim pane line into a slash-command via a multi-backend AI CLI chain (coworker → claude → codex). Fail-closed; threshold gating lives in the caller. Non-functional without the dr-orchestrate plugin's subagent_resolver.sh — enable the plugin first."
+description: "Plugin-backed subagent inference layer that classifies an unknown Datarim pane line into a slash-command via a multi-backend AI CLI chain (claude → codex → cursor). Fail-closed; threshold gating lives in the caller. Non-functional without the dr-orchestrate plugin's subagent_resolver.sh — enable the plugin first."
 model: inherit
 metadata:
   model_tier: balanced
@@ -24,7 +24,7 @@ The autonomous-vs-escalate boundary belongs to the caller — the resolver itsel
 
 The shell driver `plugins/dr-orchestrate/scripts/subagent_resolver.sh` owns the dispatch — this agent file is the declarative spec for the resolver subprocess.
 
-**Backends are tried in order from `DR_ORCH_SUBAGENT_CHAIN`** (default: `coworker-deepseek claude codex`). The first backend that returns a parseable JSON object wins. Subsequent backends are not invoked.
+**Backends are tried in order from `DR_ORCH_SUBAGENT_CHAIN`** (default: `claude codex cursor`). The first backend that returns a parseable JSON object wins. Subsequent backends are not invoked.
 
 **Each backend invocation:**
 
@@ -89,7 +89,7 @@ Operator invocation (debug shell):
 
 ```bash
 echo '{"text":"> /dr-plan ready for strategy gate"}' \
-  | DR_ORCH_SUBAGENT_CHAIN="coworker-deepseek claude" \
+  | DR_ORCH_SUBAGENT_CHAIN="claude codex" \
     DR_ORCH_RESOLVER_TIMEOUT_S=15 \
     bash plugins/dr-orchestrate/scripts/subagent_resolver.sh resolve "$(jq -r .text)"
 ```
@@ -97,7 +97,7 @@ echo '{"text":"> /dr-plan ready for strategy gate"}' \
 Expected envelope:
 
 ```json
-{"action":"/dr-plan","confidence":0.95,"reason":"explicit slash-command","backend_used":"coworker-deepseek","subagent_model":"deepseek-chat"}
+{"action":"/dr-plan","confidence":0.95,"reason":"explicit slash-command","backend_used":"claude","subagent_model":"client-default"}
 ```
 
 <!-- /gate:example-only -->
@@ -105,4 +105,3 @@ Expected envelope:
 ## References
 
 - Phase 2 PRD, plan and Phase 1 archive — see the consumer's project tree (`datarim/prd/`, `datarim/plans/`, `documentation/archive/framework/`).
-- Coworker upstream: https://github.com/Arcanada-one/coworker

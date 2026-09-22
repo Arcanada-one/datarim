@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# check-coworker-canonical-mirror.sh — Type-Signature Mirror Guard linter.
+# check-artifact-canonical-mirror.sh — Type-Signature Mirror Guard linter.
 #
-# Enforces the coworker Type-Signature Mirror Guard (see
-# skills/coworker-context/SKILL.md § Type-Signature Mirror Guard) against a
-# coworker draft or a coworker `write` spec that quotes named types,
+# Enforces the native-author Type-Signature Mirror Guard (see
+# skills/artifact-context/SKILL.md § Type-Signature Mirror Guard) against a
+# native-author draft or a native-author `write` spec that quotes named types,
 # signatures, or enum/union variants from a PRD / canonical source.
 #
-# A delegate LLM invoked through `coworker write` fabricates type signatures
+# A delegated author can fabricate type signatures
 # readily — an invented borrow, an invented collection variant, or a renamed
 # field can survive in prose to a late stage before a surgical-edit pass
 # catches it. This linter asserts the three guard conditions on a single file:
@@ -29,14 +29,14 @@
 # hostname is hard-coded. The file under test is supplied by the caller.
 #
 # Usage:
-#   ./scripts/check-coworker-canonical-mirror.sh <draft-or-spec.md>
-#   ./scripts/check-coworker-canonical-mirror.sh --quiet <file>
-#   ./scripts/check-coworker-canonical-mirror.sh --identifier PostHookContext \
+#   ./scripts/check-artifact-canonical-mirror.sh <draft-or-spec.md>
+#   ./scripts/check-artifact-canonical-mirror.sh --quiet <file>
+#   ./scripts/check-artifact-canonical-mirror.sh --identifier PostHookContext \
 #                                                --identifier Payload <file>
-#   COWORKER_MIRROR_FILE=<path> ./scripts/check-coworker-canonical-mirror.sh
+#   ARTIFACT_MIRROR_FILE=<path> ./scripts/check-artifact-canonical-mirror.sh
 #
 # Environment:
-#   COWORKER_MIRROR_FILE   file under test (alternative to positional arg)
+#   ARTIFACT_MIRROR_FILE   file under test (alternative to positional arg)
 #
 # Exit codes:
 #   0  guard satisfied — canonical block + mirror instruction + full coverage
@@ -44,7 +44,7 @@
 #   2  error (missing file, usage error)
 #
 # Read-only. No writes anywhere. Intended to be called:
-#   - from a coworker post-generation surgical-edit pass;
+#   - from a native post-generation review;
 #   - from CI / a stage gate as an advisory guard;
 #   - manually by an operator before accepting a type-quoting draft.
 
@@ -76,10 +76,10 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ -z "$TARGET" ]; then
-    TARGET="${COWORKER_MIRROR_FILE:-}"
+    TARGET="${ARTIFACT_MIRROR_FILE:-}"
 fi
 if [ -z "$TARGET" ]; then
-    echo "ERROR: file under test required (positional arg or COWORKER_MIRROR_FILE)." >&2
+    echo "ERROR: file under test required (positional arg or ARTIFACT_MIRROR_FILE)." >&2
     echo "Usage: $0 [--quiet] [--identifier NAME ...] <draft-or-spec.md>" >&2
     exit 2
 fi
@@ -174,11 +174,11 @@ fi
 $QUIET || echo ""
 
 if [ "$fail" -ne 0 ]; then
-    echo "GUARD UNMET: coworker type-signature mirror guard failed for: $TARGET" >&2
+    echo "GUARD UNMET: native-author type-signature mirror guard failed for: $TARGET" >&2
     [ -n "$missing_ids" ] && echo "  identifiers not mirrored in body:$missing_ids" >&2
     echo "  Embed a verbatim <!-- canonical --> block, instruct the delegate to" >&2
     echo "  mirror named types/variants exactly, and grep every expected name" >&2
-    echo "  before accepting the draft (see skills/coworker-context/SKILL.md" >&2
+    echo "  before accepting the draft (see skills/artifact-context/SKILL.md" >&2
     echo "  § Type-Signature Mirror Guard)." >&2
     exit 1
 fi

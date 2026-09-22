@@ -1,6 +1,6 @@
 # Jev source integrity; verify with shasum -a 256 -c JEV-MANIFEST.sha256
 71518b7da484901c63b65bfb90652f69c586a2a047a7d29bcfa064cf447707e7  plugins/dr-jev-control/README.md
-79b8a513e90b9b0cbdd21b677409702e0a1d65372e34d061c007f527e4666637  plugins/dr-jev-control/bin/dr-claude-jev
+4779e76875fb7f3f88c99b894c8d107802a2f8444a3e967875c5b0f0c99dd5e9  plugins/dr-jev-control/bin/dr-claude-jev
 15bd8cf7bb4c0bab11d7fb63096b61c71e880de5e3d5008109dcd5141150454e  plugins/dr-jev-control/bin/dr-jev
 ab52c2e6ff978aecf35f610f7f770bc4272538ee67986da8be0a335ff4f890d5  plugins/dr-jev-control/config/jev-control.json
 5daefdd15347a0fa419911ec1909c9d5439e6d99fa068be0ff6b067a1049e4df  plugins/dr-jev-control/plugin.yaml
@@ -30,6 +30,6 @@ e1538a0c46413cfb00b0f1ce0553d9fbf303f0f0fb37d5040dab14ba759e37ba  plugins/dr-jev
 9937e9a2bc3c95d9e6e32ce6062e66aa607153ae3ad7e29be02e22703472a2e2  plugins/dr-jev-control/tests/test_supervisor_e2e.py
 60ebf103f8d21b3116b5a048ece7441ac1df96c4c6d910b6f93145b5cad02fc1  scripts/jev.py
 9c24fe47faa69a3324d5415d53ebc01c29e38ff990a15cfe1c8e9c5b53f6b73f  scripts/jev_hook.py
-69b8f534aa620917741b30f00f19ec2b9fc0d433e464134d258991e52fded7f1  scripts/jev_host_install.py
+66927f7cb7988e7152d5568a8a7ab9b9fc5498a2afd37217e84d095d5259227d  scripts/jev_host_install.py
 02359ea2d88a9371f12f0805a8ca0552f3c4d0cd28d78a4808b0fe2754ac06d7  scripts/project_scope.py
-f2373bed56d0d5ac65da2177426c2944cf2ec0601d8e6b7aa1eb78aef545e6c3  scripts/project_install.py
+6b18086c1c0bebb68ef29283eff43dbe83262c47c62d162d45b95e4fed9699fa  scripts/project_install.py

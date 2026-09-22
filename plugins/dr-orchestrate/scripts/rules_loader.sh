@@ -10,8 +10,8 @@ set -euo pipefail
 
 : "${DR_ORCH_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 : "${DR_ORCH_RULES_DEFAULT:=$DR_ORCH_DIR/rules/default.yaml}"
-: "${DR_ORCH_RULES_USER:=$HOME/.config/dr-orchestrate/rules/user.yaml}"
-: "${DR_ORCH_STATE_DIR:=${STATE_DIR:-$HOME/.local/share/dr-orchestrate/state}}"
+: "${DR_ORCH_STATE_DIR:=${STATE_DIR:-${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate}}"
+: "${DR_ORCH_RULES_USER:=$DR_ORCH_STATE_DIR/config/user.yaml}"
 : "${DR_ORCH_RULES_LEARNED:=$DR_ORCH_STATE_DIR/learned-rules.yaml}"
 
 # Resolve the core policy loader (dev-tools/fb-policy-loader.sh). CORE-ONLY:
@@ -20,7 +20,7 @@ set -euo pipefail
 # documentation/how-to/evolution-log.md). Resolution order: runtime install
 # ($DATARIM_RUNTIME) first, then the repo-relative core path (the plugin
 # lives inside the framework repo). Both point at the same canonical file.
-_RUNTIME_FB_LOADER="${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/fb-policy-loader.sh"
+_RUNTIME_FB_LOADER="${DATARIM_RUNTIME:-$DR_ORCH_DIR/../..}/dev-tools/fb-policy-loader.sh"
 _REPO_FB_LOADER="$DR_ORCH_DIR/../../dev-tools/fb-policy-loader.sh"
 if [[ -f "$_RUNTIME_FB_LOADER" ]]; then
   _FB_LOADER="$_RUNTIME_FB_LOADER"
@@ -33,7 +33,7 @@ fi
 # Resolve the fb-rules.yaml source for accessors. Core canonical only —
 # prefer the runtime install, else the repo-relative core path. An explicit
 # DR_ORCH_FB_RULES (e.g. a test fixture) is honoured unchanged.
-_RUNTIME_FB_RULES="${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/rules/fb-rules.yaml"
+_RUNTIME_FB_RULES="${DATARIM_RUNTIME:-$DR_ORCH_DIR/../..}/dev-tools/rules/fb-rules.yaml"
 _REPO_FB_RULES="$DR_ORCH_DIR/../../dev-tools/rules/fb-rules.yaml"
 if [[ -n "${DR_ORCH_FB_RULES:-}" ]]; then
   # Honour explicit caller override (e.g. test fixtures) unchanged.

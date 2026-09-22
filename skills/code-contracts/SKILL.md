@@ -307,7 +307,7 @@ nearest `CONTRACTS` plus every ancestor `CONTRACTS` up to the repository root. I
 with a persistent contract, use the existing Return-to-Source / Return-to-Plan transition; do not
 silently weaken or delete the contract to make the implementation pass.
 
-Run `dev-tools/check-code-contracts.sh --root <workspace>` as the dependency-free syntax floor.
+Run `${DATARIM_RUNTIME:?}/dev-tools/check-code-contracts.sh --root <workspace>` as the dependency-free syntax floor.
 When upstream `cc-check` is available on a compatible Node runtime, it may additionally validate
 supported declaration-attached contracts. Absence of upstream `cc-check` does not disable the
 Datarim directory-contract floor.

@@ -19,7 +19,7 @@ argument-hint: [file path to approved content]
 2.  **LOAD SKILLS**:
     - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always)
     - `${DATARIM_RUNTIME:?}/skills/publishing/SKILL.md` (Platform rules, limits, formatting, workflow)
-    - **Voice-bearing content prohibition:** `coworker` MUST NOT be used for adapting, formatting, or preparing voice-bearing content for publication. The assigned model performs all publish preparation directly. Per `~/.claude/AGENTS.md` § Do NOT delegate → Voice-bearing and judgment content. The coworker hook guard (`dev-tools/coworker-hook-guard.sh`) enforces this mechanically.
+    - **Voice-bearing content:** the assigned model performs writing, editing, translation, and factual review directly. Preserve the operator's authorship and publication constraints.
 3.  **READ THE CONTENT**: Read the file at the path provided in `$ARGUMENTS`. If no path given, ask the user.
 4.  **CONFIRM READINESS**:
     - Has the content been through `/dr-edit`? If not, warn: "This content hasn't been editorially reviewed. Proceed anyway or run `/dr-edit` first?"

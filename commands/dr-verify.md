@@ -1,6 +1,6 @@
 ---
 name: dr-verify
-description: Standalone self-verification of a Datarim artifact (PRD/plan/do output). Tri-layer architecture (v2): Layer 1 deterministic floor (shell pipeline, no LLM cost) + Layer 2 cross-model peer-review (DeepSeek via coworker, ~14× cheaper than Sonnet) + Layer 3 native runtime dispatch (Claude 3-agent parallel; Codex single-prompt retained as [experimental] fallback). Findings-only mode.
+description: Standalone self-verification of a Datarim artifact (PRD/plan/do output). Tri-layer architecture (v2): Layer 1 deterministic floor (shell pipeline, no LLM cost) + Layer 2 cross-model peer-review (native isolated agent context) + Layer 3 native runtime dispatch (Claude 3-agent parallel; Codex single-prompt retained as [experimental] fallback). Findings-only mode.
 ---
 
 # /dr-verify - Standalone Self-Verification (Tri-Layer)

@@ -21,7 +21,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | compliance | Task | 7-step post-QA hardening workflow | compliance agent |
 | consilium | Task | Multi-agent panel discussions | /dr-design (L3-4) |
 | context-window-self-clearing | Reference | Default-off orchestrator contract for checkpoint-before-reset context compaction/clearing and snapshot-first continuity across Claude Code and Codex | /dr-orchestrate plugin runtime |
-| coworker-context | Reference | Conventions an external LLM (via coworker delegation) must follow when generating or editing Datarim artifacts — stage header, frontmatter, and so on | coworker `datarim` write profile, /dr-write, /dr-archive |
+| artifact-context | Reference | Artifact authoring conventions: stage headers, frontmatter, provenance, and canonical type signatures | /dr-write, native artifact authors |
 | cron-agent-patterns | Reference | Layered timeout defense for cron-orchestrated agents making external calls (LLM CLI / HTTP / subprocess) — strictly-nested tiers, anti-patterns, symmetric deadline guards with explicit next-tier headroom | on demand for cron / timer agents with external API calls |
 | cta-format | Reference | Canonical CTA "Next Step" block format | planner, architect, developer, reviewer, compliance |
 | customer-delivery | Reference | Trace verbatim customer requirements through pre-work knowledge binding, implementation, production evidence, and disposition without treating enabling output as delivery | customer-facing work |
@@ -61,7 +61,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | playwright-qa | Reference | Browser-based frontend QA — CLI / MCP / env-browser resolution chain + headed / headed-strict + per-task flock + run-`<ISO-ts>`/ artefacts | /dr-qa Layer 4f on frontend touch |
 | post-deploy-env-diff | Reference | Pre-archive gate diffing the on-host env file against the repo template when a deploy changed defaults — catches a production host left on a stale `.env` | /dr-archive, after any deploy that changed env defaults |
 | prod-readiness-probe | Reference | Deploy-class prod-readiness gate — read-only test↔prod runner symmetry probe (sudoers, PATH, ports, units, runtime versions); blocks the merge proposal at /dr-qa and archive at /dr-archive until prod is verified | /dr-qa Gate 4g, /dr-archive Step 0.4 |
-| project-init | Reference | Project scaffolding (CLAUDE.md, documentation/, datarim/ structure) | /dr-init when project intent detected |
+| project-init | Reference | Project scaffolding (AGENTS.md, documentation/, datarim/ structure) | /dr-init when project intent detected |
 | publishing | Task | Multi-platform publishing rules, formatting, platform limits | writer, on demand |
 | receiving-code-review | Reference | Handle review feedback before implementing suggestions — technical verification instead of performative agreement or blind implementation | on demand, when review feedback arrives |
 | reflecting | Reference | Review-phase workflow: lessons learned, evolution proposals with Class A/B gate, health-metrics check, follow-up-task detection | /dr-archive (Step 0.5, internal only) |
@@ -72,7 +72,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | seam-vs-integration-boundary | Reference | Plan-time scope-boundary pattern: split a one-liner that bundles a seam/contract concern with an integration/call-site concern, or scope the ACs so the integration is explicitly deferred. Advisory detector `dev-tools/check-seam-integration-boundary.sh` | /dr-plan Phase 4 Component Breakdown |
 | security | Reference | Auth, input validation, data protection | reviewer, security agent |
 | code-contracts | Reference | Persistent code-local and directory-scoped invariants; Datarim profile integrates CONTRACTS with implementation and verification | /dr-do, /dr-verify, reviewers |
-| security-baseline | Reference | Canonical S1–S11 security rule reference cited from CLAUDE.md § Security Mandate | plan/qa/compliance/do touching shipped artefacts |
+| security-baseline | Reference | Canonical S1–S11 security rule reference cited from AGENTS.md § Security Mandate | plan/qa/compliance/do touching shipped artefacts |
 | self-verification | Reference | Orchestrator for runtime-aware self-verification — tri-layer: deterministic shell floor, peer review, runtime dispatch | /dr-verify; also /dr-prd, /dr-plan, /dr-do, peer-reviewer agent |
 | session-handoff-replay | Reference | Consumer contract for /dr-continue — reads the session artefact in a clean window, re-verifies every claim via live probes (stale-snapshot / unverified-claim / missing-file banners), downgrades provenance tags, routes to /dr-next or /dr-auto. Squash-collision detection via `git merge-base --is-ancestor` | /dr-continue |
 | session-handoff-writer | Reference | Producer contract for /dr-save — writes `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` with 5-layer body, 32 KB cap (L1/L5 non-truncatable), append-only semantics, claim-provenance enforcement, secret redaction, mkdir-based atomic lock, chmod 600 | /dr-save |

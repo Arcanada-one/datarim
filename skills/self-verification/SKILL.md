@@ -122,7 +122,7 @@ Adversarial reviewer with **clean context** (no upstream Claude/Codex history �
 
 **Provider — resolved via chain (not hardcoded).** See § Peer Review Provider Resolution below. CLI override via `--peer-provider={sonnet,haiku,opus,none}` is chain step #1. External coworker providers (`deepseek`, `moonshot`, `openrouter`, `groq`) are intentionally invalid for this layer.
 
-**`--task-id {TASK-ID}` propagation is MANDATORY.** Without it the downstream token-cost tool (`dev-tools/measure-invocation-token-cost.sh`) cannot filter `~/.local/state/coworker/log/<YYYY-MM-DD>.jsonl` records by task. Skill MUST pass it on every Layer 2 invocation.
+**Task attribution is mandatory.** Include the task ID in native review receipts. Record token usage and cost only when the client exposes them; otherwise report not measured.
 
 **Adversarial frame template** is the same as the v1 Codex path (canonical text in §Single-Prompt Loop Mechanics) and is sent only to native runtime dispatch, never to coworker.
 
@@ -205,7 +205,7 @@ Default when runtime detected as claude.
 Conditional: runtime detected as codex (via env `CODEX_RUNTIME=1` or `--runtime=codex`). **Demoted from canonical at v2** — Codex CLI single-prompt self-review hit only 7.7% literal / 15.4% semantic gap-recall on the n=13 dogfood baseline (R-5 KILL_OR_PIVOT trigger). Retained for parity reasons; do not route this semantic review through coworker.
 
 1. Wrap operator-supplied artifact + AC + adversarial frame template (exact text in §Single-Prompt Loop Mechanics).
-2. Single-prompt call to LLM (provider per coworker config).
+2. Single-prompt call to the selected native model in an isolated context.
 3. Parse JSON output.
 4. Validate against schema rules 1-7.
 5. Iterate per Loop Exit Criteria.
@@ -423,12 +423,12 @@ Final verdict: CONDITIONAL
 
 ## Constraints
 
-- **Stack-agnostic mandate.** All three layers run equally under any supported runtime; Layer 2 cross-model peer-review is vendor-neutral via `coworker` abstraction. No runtime-specific API literals.
+- **Stack-agnostic mandate.** All three layers run equally under any supported runtime; Layer 2 cross-model peer-review is provided by the selected native runtime. No runtime-specific API literals.
 - **Cost budget:** ≤+25% tokens on manual `/dr-verify` invocation vs baseline `/dr-do`. Layer 1 = ~0 cost; Layer 2 absorbs the bulk via cheap external model; Layer 3 only fires for the most expensive runtime path.
 - **Append-only audit log** (`chmod a-w` post-write). Header carries `source_layer_breakdown` for tri-layer provenance.
 - **Findings-only mode**: no auto-fix application at any layer. Operator triages all findings manually.
 - **Read-only subagents/external calls.** Layer 2 (peer_review) and Layer 3 (dispatch) MUST NOT have Write/Edit/NotebookEdit; they read artifacts and emit findings only.
-- **`coworker --task-id` propagation MANDATORY at Layer 2.** Without it the prospective-rate / token-cost tooling cannot filter logs by task.
+- **Task IDs are mandatory in Layer 2 receipts.** Do not infer missing native usage or cost measurements.
 
 ## Cross-References
 

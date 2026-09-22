@@ -1,14 +1,12 @@
 ---
-name: coworker-context
-description: Canonical conventions an external LLM (via coworker delegation) must follow when generating or editing Datarim artifacts (stage header, frontmatter, etc.).
-loaded_by: coworker-profile-datarim-write, /dr-write, /dr-archive
+name: artifact-context
+description: Canonical conventions for native agents generating or editing Datarim artifacts, including stage headers, frontmatter, and exact contract quotations.
+loaded_by: /dr-write, /dr-archive
 ---
 
-# Coworker Context — Datarim Conventions Reference
+# Artifact Context — Datarim Conventions Reference
 
-Single entry point for any external LLM invoked through `coworker write` with
-`--profile datarim-write`. The profile's `system_prompt` references this skill;
-read top-to-bottom before generating or editing any artifact under `datarim/`.
+Read this skill before a native agent generates or edits project-local Datarim artifacts. Project instructions and the operator's delegation policy remain authoritative.
 
 History-agnostic: this skill names contract surfaces, not specific task IDs.
 
@@ -131,13 +129,13 @@ This skill itself complies — only contract surfaces named, not history.
 
 ## 12. Artifact Language Default
 
-The free-generated body of a Datarim artefact (creative / PRD / plan / the analytical body of archive / reflection / compliance-report) defaults to **English**, unless the operator-facing call site states another language in the `--spec`. This mirrors the canonical Artifact Language Policy in `AGENTS.md` (the single source of truth — coworker only mirrors it).
+The free-generated body of a Datarim artefact (creative / PRD / plan / the analytical body of archive / reflection / compliance-report) defaults to **English**, unless the operator-facing call site states another language in the `--spec`. This mirrors the canonical Artifact Language Policy in `AGENTS.md` (the single source of truth — delegated authors only mirror it).
 
 Preserve verbatim, in their original language, the sections that policy excludes from the English default: the verbatim operator brief and append-log, the canonical operator-facing section headings the policy names, and any user-project content quoted into the artefact. When in doubt about a section's language, defer to the cited template / skill rather than translate.
 
 ## 13. Type-Signature Mirror Guard
 
-When a `coworker write` spec asks the delegate LLM to generate a document that
+When a native author request asks the delegate LLM to generate a document that
 **quotes named types, function signatures, or enum/union variants** from a PRD
 or any canonical source (a shared type model, an API contract, a schema), the
 delegate MUST reproduce those names exactly — it MUST NOT invent generics,
@@ -150,7 +148,7 @@ silently wrong signature can survive to the plan before a surgical-edit pass
 catches it.
 
 To make the mirror reliable, a type-quoting spec MUST satisfy three conditions.
-The caller composing the `coworker write` invocation is responsible for (a) and
+The caller composing the native author request is responsible for (a) and
 (b); the caller running the post-generation pass is responsible for (c).
 
 **(a) Verbatim canonical block.** Embed the exact source excerpt — the type
@@ -180,7 +178,7 @@ caller MUST verify every name from the `<!-- canonical -->` block appears
 verbatim in the generated body — a regex/grep of each expected identifier
 against the draft — and surgically correct any drift before accepting the
 output. Never accept a type-quoting draft blind. When exact names are known
-ahead of time, `scripts/check-coworker-canonical-mirror.sh <draft>` automates
+ahead of time, `scripts/check-artifact-canonical-mirror.sh <draft>` automates
 the check: it fails when a `<!-- canonical -->` identifier is absent from the
 body, when the block is missing, or when the mirror instruction is absent.
 
