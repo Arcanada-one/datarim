@@ -415,7 +415,11 @@ trust_generated_codex_profile() {
   chmod 600 "$workspace/datarim/snapshots/TUNE-0167.snapshot.md"
   printf '# task\n' >"$workspace/datarim/tasks/TUNE-0167-task-description.md"
   chmod 600 "$workspace/datarim/tasks/TUNE-0167-task-description.md"
-  run env DR_ORCH_WORKSPACE="$workspace" DR_ORCH_RESOLVER_HINT_LOG="$BATS_TEST_TMPDIR/hint" DR_ORCH_SUBAGENT_CHAIN=mock-none \
+  # cmd_run.sh creates and writes the audit root, which is derived from the
+  # project runtime only -- there is no $HOME fallback since Datarim became
+  # project-local. A real invocation has one; the test has to supply it.
+  run env DR_ORCH_WORKSPACE="$workspace" AUDIT_DIR="$BATS_TEST_TMPDIR/audit" \
+    DR_ORCH_RESOLVER_HINT_LOG="$BATS_TEST_TMPDIR/hint" DR_ORCH_SUBAGENT_CHAIN=mock-none \
     bash "$REPO_ROOT/plugins/dr-orchestrate/scripts/cmd_run.sh" --unknown-prompt 'continue' --task TUNE-0167 --pane pane-1
   [ "$status" -eq 0 ] && [ "$(cat "$BATS_TEST_TMPDIR/hint")" = /dr-do ]
 }
@@ -427,7 +431,11 @@ trust_generated_codex_profile() {
   ln -s "$outside" "$workspace/datarim/snapshots/TUNE-0167.snapshot.md"
   printf '# task\n' >"$workspace/datarim/tasks/TUNE-0167-task-description.md"
   chmod 600 "$workspace/datarim/tasks/TUNE-0167-task-description.md"
-  run env DR_ORCH_WORKSPACE="$workspace" DR_ORCH_RESOLVER_HINT_LOG="$BATS_TEST_TMPDIR/hint" DR_ORCH_SUBAGENT_CHAIN=mock-none \
+  # cmd_run.sh creates and writes the audit root, which is derived from the
+  # project runtime only -- there is no $HOME fallback since Datarim became
+  # project-local. A real invocation has one; the test has to supply it.
+  run env DR_ORCH_WORKSPACE="$workspace" AUDIT_DIR="$BATS_TEST_TMPDIR/audit" \
+    DR_ORCH_RESOLVER_HINT_LOG="$BATS_TEST_TMPDIR/hint" DR_ORCH_SUBAGENT_CHAIN=mock-none \
     bash "$REPO_ROOT/plugins/dr-orchestrate/scripts/cmd_run.sh" --unknown-prompt 'continue' --task TUNE-0167 --pane pane-1
   [ "$status" -eq 0 ] && [ "$(cat "$BATS_TEST_TMPDIR/hint")" = none ]
 }
