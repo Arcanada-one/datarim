@@ -31,6 +31,33 @@ available native AGENTS loader. A version check alone is not a live loading
 proof: start a fresh session and verify a harmless instruction from the file.
 The installer never creates a CLAUDE adapter to compensate for missing support.
 
+### Verify the loader before you rely on it
+
+Run this in the installed project. It forbids the file-reading tools, so only
+preloaded instructions can answer — reading `AGENTS.md` with a tool proves
+nothing about the loader.
+
+```bash
+printf '\nProbe token: loader-probe-ok.\n' >> AGENTS.md
+claude -p "Without using any tool: state the probe token from your loaded project
+instructions, or NOTOKEN." --disallowed-tools "Read,Bash,Glob,Grep"
+```
+
+The token means the loader works. `NOTOKEN` means the project's instructions are
+not reaching the session, and any workflow that depends on them will behave as if
+the file were absent. Remove the probe line afterwards.
+
+**Measured on 2026-09-22, Claude Code 2.1.278 on macOS: this probe returned
+`NOTOKEN`.** The same file, same directory and same content answered correctly
+once renamed to `CLAUDE.md`, and the result did not change with
+`instructionFiles` set to `claude-md-and-agents-md`, with the builtin plugin
+enabled explicitly, or in a clean temporary project with no ancestor `CLAUDE.md`.
+Documented suppression rules do not explain it. Treat AGENTS-only loading on
+Claude Code as **unverified on that version** rather than as working, and re-run
+the probe on your own version before depending on it. The absence of a loader is
+not a reason to add a CLAUDE adapter here — it is a reason to know that project
+instructions are not being read.
+
 Native client invocation remains available without Jev:
 
 ```bash
