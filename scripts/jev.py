@@ -68,13 +68,25 @@ def datarim_enabled(root):
     become true even inside a correctly installed project — it reported "not
     enabled" for every possible state, which is indistinguishable from a real
     answer.
+
+    Resolution walks up from the given directory, because a working directory
+    inside an enabled project is still that project — reporting "not enabled"
+    from a subdirectory would answer a different question than the one asked.
+    The walk stops at the home directory so a stray manifest above it cannot
+    enable unrelated work, and the manifest must still name the directory it
+    sits in, so a copied installation does not count.
     """
     try:
-        manifest = root/'.datarim-runtime/installation.json'
-        if not manifest.is_file() or manifest.is_symlink():
-            return False
-        data = json.loads(manifest.read_text())
-        return data.get('schema') == 1 and data.get('project') == str(root)
+        start = Path(root).resolve()
+        home = Path.home().resolve()
+        for candidate in (start, *start.parents):
+            manifest = candidate/'.datarim-runtime/installation.json'
+            if manifest.is_file() and not manifest.is_symlink():
+                data = json.loads(manifest.read_text())
+                return data.get('schema') == 1 and data.get('project') == str(candidate)
+            if candidate == home:
+                break
+        return False
     except (OSError, ValueError):
         return False
 
