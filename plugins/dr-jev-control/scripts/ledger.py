@@ -177,8 +177,18 @@ def log_event(cfg, event, text, data):
         # O_CREAT with an explicit mode: p.open("a") creates at the umask default
         # (typically 0644) and the chmod landed only *after* the secret-bearing
         # line was already on disk.
-        if p.is_symlink() or any(parent.is_symlink() for parent in p.parents):
-            raise ValueError('Ledger path must not traverse symlinks')
+        # The file itself must not be a symlink -- that is the substitution this
+        # guards against, and O_NOFOLLOW below enforces it at the syscall.
+        #
+        # The *directories* above it are deliberately not checked. Requiring a
+        # symlink-free ancestry rejects the platform's own layout: on macOS
+        # `/var` is a symlink to `private/var`, so every path tempfile hands out
+        # was refused -- and log_event swallows exceptions by design, so the
+        # refusal was silent. Measured: 25 tests failed with empty ledgers, and
+        # any project living under /tmp or /var would have lost all telemetry
+        # the same way, reporting zero events rather than an error.
+        if p.is_symlink():
+            raise ValueError('Ledger path must not be a symlink')
         fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0), 0o600)
         with os.fdopen(fd, "a") as f:  # fdopen owns fd; its close covers both
             if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):

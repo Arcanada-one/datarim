@@ -100,10 +100,34 @@ class TestCodexArgv(unittest.TestCase):
             self.assertTrue(ok)
             self.assertIn(f"model_reasoning_effort={effort}", " ".join(rt._argv("x", resume=False)))
 
-    def test_no_model_flag_by_default(self):
-        """Model availability is account-dependent, so the default sends no -m."""
+    def test_a_model_is_sent_only_when_the_account_catalogue_offers_one(self):
+        """Account-dependence is the reason to read the catalogue, not to skip -m.
+
+        This test previously asserted that no -m is ever sent, on the ground
+        that model availability varies per account. The ground was sound and
+        the conclusion was not: it froze Codex to a single model and left the
+        tier expressed by reasoning effort alone, which is what the operator
+        found. The catalogue in ~/.codex/models_cache.json says which ids this
+        account may use, so the mapping is measured rather than assumed -- and
+        an empty catalogue still sends no -m, because inventing an id turns
+        into an HTTP 400 in the middle of a run.
+        """
         rt = runtimes.CodexRuntime("opus")
-        self.assertNotIn("-m", rt._argv("x", resume=False))
+        argv = rt._argv("x", resume=False)
+        from runtimes import codex_tier_settings
+        model, _ = codex_tier_settings("opus")
+        if model:
+            self.assertIn("-m", argv)
+            self.assertIn(model, argv)
+        else:
+            self.assertNotIn("-m", argv)
+
+    def test_no_model_flag_when_the_catalogue_is_empty(self):
+        """With nothing to choose from, effort still applies and -m does not."""
+        with mock.patch.object(runtimes, "_models_cache", return_value={}):
+            model, effort = runtimes.codex_tier_settings("opus")
+        self.assertIsNone(model)
+        self.assertEqual(effort, "high")
 
     def test_env_override_supplies_a_model(self):
         os.environ["DATARIM_CODEX_MODEL_OPUS"] = "some-big-model"
