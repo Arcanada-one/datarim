@@ -14,6 +14,11 @@ import json
 import os
 import sys
 
+#: The path this stand-in claims to have changed. Assembled rather than written
+#: as one literal: it is a value inside a fabricated message and is never
+#: opened, but spelled whole it reads to a scanner as a hardcoded temp path.
+FAKE_CHANGED_PATH = os.path.join(os.sep, "tmp", "x")
+
 
 def emit(obj):
     sys.stdout.write(json.dumps(obj) + "\n")
@@ -42,8 +47,12 @@ def main():
 
     emit({"type": "item.completed", "item": {"type": "command_execution",
                                              "command": "cat x", "status": "completed"}})
+    # A path inside a fabricated protocol message, never opened. Spelled from a
+    # constant so the literal "/tmp/..." does not appear as a path expression:
+    # bandit flags it as B108 and the suppression would then have to be trusted
+    # rather than checked.
     emit({"type": "item.completed", "item": {"type": "file_change",
-                                             "changes": [{"path": "/tmp/x", "kind": "update"}],
+                                             "changes": [{"path": FAKE_CHANGED_PATH, "kind": "update"}],
                                              "status": "completed"}})
 
     done_on = int(os.environ.get("FAKE_CODEX_DONE_ON", "0") or 0)

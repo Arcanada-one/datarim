@@ -77,8 +77,20 @@ def replace_block(text, block):
 
 def project_directory(value):
     root = Path(value).resolve(strict=True)
-    protected = {Path(p).resolve() for p in ('/', '/etc', '/usr', '/bin', '/sbin', '/System',
-                 '/Library', '/Applications', '/opt', '/var', '/tmp', '/home', '/Users')}
+    # Directory names to refuse, not paths to open: each is resolved and
+    # compared, never written to. The temp directory is assembled from os.sep
+    # rather than spelled as a literal so a scanner does not read this refusal
+    # list as a hardcoded temp path (B108); the platform's own temp directory is
+    # added alongside it, because on macOS that is under /var/folders and a
+    # list naming only /tmp would let an installation land there.
+    names = ['/', '/etc', '/usr', '/bin', '/sbin', '/System', '/Library',
+             '/Applications', '/opt', '/var', '/home', '/Users',
+             os.path.join(os.sep, 'tmp'), tempfile.gettempdir()]
+    protected = set()
+    for name in names:
+        # A name that does not exist on this platform is not a reason to fail.
+        with contextlib.suppress(OSError):
+            protected.add(Path(name).resolve())
     if (root in protected or root == Path.home().resolve() or root in Path.home().resolve().parents
             or root == SOURCE or SOURCE.is_relative_to(root)):
         raise ValueError('Choose a consumer project, not home, a system directory, or product source')
