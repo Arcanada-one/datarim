@@ -59,6 +59,26 @@ def binary(agent):
     return shutil.which(os.environ.get(agent.upper()+'_BIN', name)) or (shutil.which('agent') if agent == 'cursor' else None)
 
 
+def datarim_enabled(root):
+    """True when this project has an explicit Datarim installation.
+
+    Measured from the installation manifest, not from an environment variable.
+    The previous form read an environment variable that nothing in the tree
+    ever sets (activate.sh exports DATARIM_RUNTIME), so the field could not
+    become true even inside a correctly installed project — it reported "not
+    enabled" for every possible state, which is indistinguishable from a real
+    answer.
+    """
+    try:
+        manifest = root/'.datarim-runtime/installation.json'
+        if not manifest.is_file() or manifest.is_symlink():
+            return False
+        data = json.loads(manifest.read_text())
+        return data.get('schema') == 1 and data.get('project') == str(root)
+    except (OSError, ValueError):
+        return False
+
+
 def main():
     a, extra = parse()
     installed = Path(__file__).resolve().parent.parent
@@ -117,7 +137,7 @@ def main():
         key = Path(os.environ['TYPESAFE_API_KEY_FILE'])
         key_ready = key.is_file() and bool(key.stat().st_size)
         report = {'project': str(root), 'scope': 'host' if host_mode else 'project',
-                  'datarim_enabled': bool(os.environ.get('DATARIM_ROOT')),
+                  'datarim_enabled': datarim_enabled(root),
                   'versions': versions, 'findings': findings,
                   'key_ready': key_ready, 'native_agents_live': 'not_measured',
                   'api': 'not_measured', 'source_sha': manifest['source_sha']}
@@ -142,7 +162,7 @@ def main():
     if a.dry_run:
         print(json.dumps({'agent': a.agent, 'binary': exe, 'project': str(root),
                           'scope': 'host' if host_mode else 'project',
-                          'datarim_enabled': bool(os.environ.get('DATARIM_ROOT')),
+                          'datarim_enabled': datarim_enabled(root),
                           'live': a.live, 'network_calls': 0, 'task_present': bool(a.task)}))
         return 0
     if not manifest.get('with_jev'):
