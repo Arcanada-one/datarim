@@ -130,6 +130,50 @@ def _is_catastrophic_rm(argv):
     return False
 
 
+#: Block devices whose overwrite destroys every file on them at once. Matched as
+#: a resolved path so `/dev/sda`, `/dev/sda1` and `/dev/nvme0n1p2` are all seen,
+#: while a regular file under a different path is not.
+_BLOCK_DEVICE = re.compile(
+    r"^/dev/(sd[a-z]+\d*|hd[a-z]+\d*|vd[a-z]+\d*|xvd[a-z]+\d*"
+    r"|nvme\d+n\d+(p\d+)?|mmcblk\d+(p\d+)?|disk\d+(s\d+)?)$")
+
+
+def _is_raw_device_write(argv):
+    """`dd` whose output operand is a whole disk or partition.
+
+    Reading FROM a device is how a backup is taken and stays allowed; only the
+    write side is catastrophic. `of=` is the only way dd names its target, so
+    the operand is matched rather than the presence of a device anywhere.
+    """
+    for token in argv[1:]:
+        if token.startswith("of="):
+            return bool(_BLOCK_DEVICE.match(posixpath.normpath(token[3:])))
+    return False
+
+
+def _is_filesystem_format(argv, name):
+    """`mkfs`/`mkfs.<type>` targeting a block device.
+
+    Formatting a loop file or an image is ordinary work; formatting the device
+    discards the filesystem and everything in it with no file-level recovery.
+    """
+    if name != "mkfs" and not name.startswith("mkfs."):
+        return False
+    skip_next = False
+    for token in argv[1:]:
+        if skip_next:
+            skip_next = False
+            continue
+        if token in ("-t", "-T", "-b", "-i", "-L", "-U", "-m", "-O"):
+            skip_next = True
+            continue
+        if token.startswith("-"):
+            continue
+        if _BLOCK_DEVICE.match(posixpath.normpath(token)):
+            return True
+    return False
+
+
 def _is_force_push(argv):
     if len(argv) < 2 or argv[1] != "push":
         return False
@@ -220,6 +264,10 @@ def destructive_reason(command, _depth=0):
                     break
         if name == "rm" and _is_catastrophic_rm(argv):
             return "recursive delete of a protected path"
+        if name == "dd" and _is_raw_device_write(argv):
+            return "raw write to a block device"
+        if _is_filesystem_format(argv, name):
+            return "filesystem format of a block device"
         if name == "git":
             argv = _git_subcommand(argv)
             if _is_force_push(argv):

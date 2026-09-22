@@ -64,6 +64,42 @@ class HookBoundaryTests(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertIsNone(destructive_reason(command))
 
+    def test_floor_blocks_writes_that_destroy_a_whole_filesystem(self):
+        """Raw-device writes are more irreversible than the rm -rf the floor already blocks.
+
+        MEASURED 2026-09-22 on dev-ai against the installed host runtime: `rm -rf /` was
+        denied while `dd if=/dev/zero of=/dev/sda` and `mkfs.ext4 /dev/sda1` were allowed.
+        Both destroy every file on the device at once, below the filesystem, where neither
+        permissions nor file-level backups help. The module's own stated criterion is
+        "catastrophic-and-irreversible", so these belong inside it.
+        """
+        commands = ['dd if=/dev/zero of=/dev/sda',
+                    'dd if=/dev/urandom of=/dev/nvme0n1 bs=1M',
+                    'sudo dd if=/dev/zero of=/dev/sda1',
+                    'mkfs.ext4 /dev/sda1',
+                    'mkfs -t xfs /dev/nvme0n1p2',
+                    'echo start; dd if=/dev/zero of=/dev/vda']
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertIsNotNone(destructive_reason(command))
+
+    def test_floor_allows_ordinary_dd_and_mkfs_usage(self):
+        """A narrow floor must not block the everyday, recoverable forms."""
+        commands = ['dd if=backup.img of=/tmp/restore.img',
+                    'dd if=/dev/zero of=./placeholder bs=1M count=10',
+                    'dd if=/dev/sda of=/mnt/backup/disk.img',
+                    'mkfs.ext4 /tmp/loopfile.img',
+                    'echo "dd if=/dev/zero of=/dev/sda"',
+                    # Paths that END in a device-looking name but are ordinary
+                    # files. MUTATION-CHECKED: without these, anchoring the
+                    # pattern to /dev/ could be dropped and no test would fail.
+                    'dd if=/dev/zero of=/home/aether/images/sda',
+                    'dd if=backup of=./nvme0n1',
+                    'mkfs.ext4 /var/tmp/vda']
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertIsNone(destructive_reason(command))
+
     def test_large_payload_does_not_outlive_hook_budget(self):
         start = time.monotonic()
         self.assertIsNotNone(destructive_reason('rm -rf '+'-x '*1400000+'/'))
