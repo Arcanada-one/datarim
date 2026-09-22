@@ -21,7 +21,13 @@ set -euo pipefail
 : "${DR_ORCH_SUBAGENT_CHAIN:=claude codex cursor}"
 : "${DR_ORCH_RESOLVER_TIMEOUT_S:=15}"
 : "${DR_FLEET_VERSION_TIMEOUT_S:=2}"
-: "${STATE_DIR:=${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate}"
+# shellcheck source=lib/project-state.sh
+. "$DR_ORCH_DIR/scripts/lib/project-state.sh"
+# This resolver creates and writes STATE_DIR, so project state is genuinely
+# required. Refuse with a message rather than aborting inside an expansion.
+if [[ -z "${STATE_DIR:-}" ]]; then
+  STATE_DIR="$(dr_orch_state_root)" || exit 2
+fi
 mkdir -p "$STATE_DIR"
 
 # shellcheck source=rules_loader.sh

@@ -19,6 +19,20 @@ A directory named `datarim/`, including a historical KB, does not enable Datarim
    or `backlog.md`, except when explicitly initializing that project.
 5. Never fall back to the user's home, a parent workspace KB, or the framework
    source checkout. A new worktree needs its own explicit installation.
+6. **`code/datarim/` is NOT a general convention — never assume it for a
+   code-project task.** Only the Datarim framework's own repository ships a
+   `code/datarim/` source-tree. For any other project whose code lives under a
+   `code/` sub-path, workflow artefacts resolve under that project's own
+   installed root (rule 4), not under `code/datarim/`, which does not exist
+   there. An agent that pattern-matches "this task's code path contains
+   `code/` → look under `code/datarim/`" is applying a framework-specific
+   exception where the general rule already applies. Precedent: a prior QA
+   incident — `/dr-qa` searched for an expectations file under a consumer
+   project's non-existent `code/datarim/` and returned a false
+   `BLOCKED "expectations file missing"`; the file was present at the correctly
+   resolved path all along. Explicit installation makes the wrong path
+   unresolvable rather than merely discouraged, but the pattern-match is what
+   produced the false verdict, so the warning is kept.
 
 ### Quick Shell Check
 

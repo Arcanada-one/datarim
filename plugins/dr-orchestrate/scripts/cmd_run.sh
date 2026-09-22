@@ -8,9 +8,23 @@ set -euo pipefail
 DR_ORCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export DR_ORCH_DIR
 
+# shellcheck source=lib/project-state.sh
+. "$DR_ORCH_DIR/scripts/lib/project-state.sh"
+
 # Stateful modules must see one canonical root. Keep STATE_DIR as the legacy
 # compatibility alias, but never let source order select a different root.
-AUDIT_DIR="${AUDIT_DIR:-${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate}"
+if [[ -z "${AUDIT_DIR:-}" ]]; then
+  # This entrypoint creates and writes the audit root, so project state is
+  # genuinely required. Fail with a message instead of aborting mid-expansion.
+  # The audit root derives from the runtime only: deriving it from
+  # DR_ORCH_STATE_DIR would collapse AUDIT_DIR and STATE_DIR onto the same
+  # directory, whereas STATE_DIR is a child of AUDIT_DIR (see below).
+  if [[ -z "${DATARIM_RUNTIME:-}" ]]; then
+    echo 'dr-orchestrate: project runtime required to open the audit root' >&2
+    exit 2
+  fi
+  AUDIT_DIR="$DATARIM_RUNTIME/state/orchestrate"
+fi
 DR_ORCH_STATE_DIR="${DR_ORCH_STATE_DIR:-${STATE_DIR:-$AUDIT_DIR/state}}"
 STATE_DIR="$DR_ORCH_STATE_DIR"
 export AUDIT_DIR DR_ORCH_STATE_DIR STATE_DIR
@@ -239,7 +253,13 @@ if (( UNKNOWN_PROMPT )); then
   # pane_capture. Inbox directory is written by orchestrator-input-handler.sh
   # (async path). Files are named <ulid>.json and sorted lexicographically
   # (ULID sort = arrival order). On dequeue the file is removed atomically.
-  _DR_ORCH_INBOX_DIR="${DR_ORCH_INBOX_DIR:-${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate/inbox}"
+  # Read-only poll: with no project state there is simply no inbox, and the
+  # -d guard below already treats that as "nothing queued".
+  _DR_ORCH_INBOX_DIR="${DR_ORCH_INBOX_DIR:-}"
+  if [[ -z "$_DR_ORCH_INBOX_DIR" ]]; then
+    _dr_inbox_base="$(dr_orch_state_root_or_empty)"
+    [[ -n "$_dr_inbox_base" ]] && _DR_ORCH_INBOX_DIR="$_dr_inbox_base/inbox"
+  fi
   if [[ -z "$UNKNOWN_TEXT" ]] && [[ -d "$_DR_ORCH_INBOX_DIR" ]]; then
     oldest="$(ls "$_DR_ORCH_INBOX_DIR"/*.json 2>/dev/null | sort | head -1 || true)"
     if [[ -n "$oldest" ]] && [[ -f "$oldest" ]]; then

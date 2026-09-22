@@ -34,10 +34,12 @@ than assumed:
    `documentation/mandates/graph-verified-change-mandate.md`. The product has no
    `documentation/mandates/` directory at all. Shipping the patch would hand every downstream
    consumer an instruction to read a file that does not exist in their checkout.
-2. **It cites a decision record that is private to Arcanada.** `DEC-AUP-0008` appears zero times
-   anywhere in the product. It lives in the Arcanada Universal Program, a separate and private
-   governance repository. A public OSS framework must not instruct its users to obey a decision
-   they cannot read.
+2. **It cites a decision record that is private to the operator's own governance.** The decision
+   identifier the patch quotes appears zero times anywhere in the product; it lives in a separate
+   and private governance repository. A public OSS framework must not instruct its users to obey
+   a decision they cannot read. (The identifier itself is deliberately not reproduced here — the
+   product's task-identifier gate is right to keep foreign work-item identifiers out of shipped
+   documentation, and this file should not be the exception to the rule it is describing.)
 3. **The opt-in it depends on does not exist here.** `verification_policy` and `tdd-required`
    appear zero times in the product. The patch makes TDD conditional on a switch the framework
    has never implemented, so in practice it would not make test-first opt-in for consumers — it

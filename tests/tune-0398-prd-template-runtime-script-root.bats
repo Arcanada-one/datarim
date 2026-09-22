@@ -22,7 +22,15 @@ PRD_TEMPLATE="$REPO_ROOT/templates/prd-template.md"
     [ "$status" -eq 0 ]
 }
 
-@test "T3: rule cites the DATARIM_RUNTIME fallback form as the required root" {
-    run grep -F '${DATARIM_RUNTIME:-$HOME/.claude}/...' "$PRD_TEMPLATE"
+@test "T3: rule cites the explicit DATARIM_RUNTIME form as the required root" {
+    run grep -F '${DATARIM_RUNTIME:?}/...' "$PRD_TEMPLATE"
     [ "$status" -eq 0 ]
+}
+
+@test "T3b: the retired home fallback must not come back" {
+    # Datarim is project-local: a runtime that silently resolves to $HOME is the
+    # exact global-scope behaviour this migration removed. Assert its absence so
+    # a future edit cannot quietly reintroduce it.
+    run grep -F '$HOME/.claude' "$PRD_TEMPLATE"
+    [ "$status" -ne 0 ]
 }

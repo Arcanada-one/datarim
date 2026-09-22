@@ -8,6 +8,22 @@ if [[ -z "${DR_ORCH_DIR:-}" ]]; then
   export DR_ORCH_DIR
 fi
 
+# shellcheck source=lib/project-state.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/project-state.sh"
+
+# Context-window state root. Resolved on demand so that a caller which never
+# reaches a state-bearing branch is not refused up front.
+_context_state_root() {
+  local base
+  if [[ -n "${DR_ORCH_CONTEXT_STATE:-}" ]]; then
+    printf '%s\n' "$DR_ORCH_CONTEXT_STATE"
+    return 0
+  fi
+  base="$(dr_orch_state_root_or_empty)"
+  [[ -n "$base" ]] || { printf '%s\n' ''; return 0; }
+  printf '%s/state/context-window\n' "$base"
+}
+
 session_init() {
   local s="${1:-datarim}"
   if tmux has-session -t "$s" 2>/dev/null; then
@@ -195,8 +211,8 @@ _session_spawn_with_context() {
   overlay="$(printf '%s\n' "$setup_out" | awk -F= '$1=="overlay"{sub(/^overlay=/, ""); print; exit}')"
   [ -n "$instance" ] && [ -n "$incarnation" ] && [ -n "$overlay" ] || { tmux kill-session -t "$session"; return 1; }
   if [ "$runtime" = claude ]; then launch="$agent_cmd --settings $(printf '%q' "$overlay")"; else launch="$agent_cmd --profile datarim-orchestrate-context"; fi
-  launch="env DR_ORCH_DIR=$(printf '%q' "$DR_ORCH_DIR") DR_ORCH_CONTEXT_STATE=$(printf '%q' "${DR_ORCH_CONTEXT_STATE:-${DR_ORCH_STATE_DIR:-${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate/state}/context-window}") DR_ORCH_CONTEXT_TRUST_ROOT=$(printf '%q' "${DR_ORCH_CONTEXT_TRUST_ROOT:-$HOME}") DR_ORCH_USER_CONFIG=$(printf '%q' "${DR_ORCH_USER_CONFIG:-$DR_ORCH_DIR/user-config.yaml}") HOME=$(printf '%q' "$HOME") CODEX_HOME=$(printf '%q' "${CODEX_HOME:-$HOME/.codex}") DR_ORCH_CONTEXT_INSTANCE=$(printf '%q' "$instance") DR_ORCH_CONTEXT_INCARNATION=$(printf '%q' "$incarnation") DR_ORCH_CONTEXT_PANE=$(printf '%q' "$pane") DR_ORCH_ACTIVE_TASK=$(printf '%q' "$task") DR_ORCH_WORKSPACE=$(printf '%q' "$workspace") $launch"
-  meta="${DR_ORCH_CONTEXT_STATE:-${DR_ORCH_STATE_DIR:-${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate/state}/context-window}/instances/$instance.meta.json"
+  launch="env DR_ORCH_DIR=$(printf '%q' "$DR_ORCH_DIR") DR_ORCH_CONTEXT_STATE=$(printf '%q' "$(_context_state_root)") DR_ORCH_CONTEXT_TRUST_ROOT=$(printf '%q' "${DR_ORCH_CONTEXT_TRUST_ROOT:-$HOME}") DR_ORCH_USER_CONFIG=$(printf '%q' "${DR_ORCH_USER_CONFIG:-$DR_ORCH_DIR/user-config.yaml}") HOME=$(printf '%q' "$HOME") CODEX_HOME=$(printf '%q' "${CODEX_HOME:-$HOME/.codex}") DR_ORCH_CONTEXT_INSTANCE=$(printf '%q' "$instance") DR_ORCH_CONTEXT_INCARNATION=$(printf '%q' "$incarnation") DR_ORCH_CONTEXT_PANE=$(printf '%q' "$pane") DR_ORCH_ACTIVE_TASK=$(printf '%q' "$task") DR_ORCH_WORKSPACE=$(printf '%q' "$workspace") $launch"
+  meta="$(_context_state_root)/instances/$instance.meta.json"
   barrier="while grep -q '\"runtime_bound\":false' $(printf '%q' "$meta"); do sleep 0.01; done; exec $launch"
   tmux respawn-pane -k -t "$session" "$barrier"
   birth="$(tmux display-message -p -t "$session" '#{pane_pid}')"
@@ -272,7 +288,7 @@ session_close() {
   command -v tmux >/dev/null 2>&1 || return 1
   pane="$(tmux display-message -p -t "$session" '#{pane_id}' 2>/dev/null || true)"
   if tmux kill-session -t "$session" 2>/dev/null; then killed=1; fi
-  state_root="${DR_ORCH_CONTEXT_STATE:-${DR_ORCH_STATE_DIR:-${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate/state}/context-window}"
+  state_root="$(_context_state_root)"
   map="$state_root/active/$(printf '%s' "$pane" | tr -c 'A-Za-z0-9_.-' '_').map"
   if [ "$killed" -eq 1 ] && [ -n "$pane" ] && [ -f "$map" ] && ! tmux list-panes -a -F '#{pane_id}' 2>/dev/null | grep -Fxq "$pane"; then
     bash "$DR_ORCH_DIR/scripts/context_window_setup.sh" retire --pane "$pane" 2>/dev/null || return 1

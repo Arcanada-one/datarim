@@ -9,10 +9,15 @@ setup() {
   CHECKER="$REPO_ROOT/scripts/check-fb-rules-mirror.sh"
   PLUGIN_SH="$REPO_ROOT/scripts/dr-plugin.sh"
 
-  TMP="$(mktemp -d)"
+  # Physical temp root: the scope resolver resolves symlinks, and /var -> /private/var
+  # on macOS would otherwise make the manifest's project path mismatch.
+  TMP="$(cd "$(mktemp -d)" && pwd -P)"
   export DR_PLUGIN_WORKSPACE="$TMP"
-  export DR_PLUGIN_RUNTIME_ROOT="$TMP/runtime"
-  mkdir -p "$TMP/datarim" "$TMP/runtime"
+  # dr-plugin is project-scoped: the runtime root is the project's own local dir,
+  # and an override that names anything else is refused by design.
+  export DR_PLUGIN_RUNTIME_ROOT="$TMP/.datarim-runtime/local"
+  mkdir -p "$TMP/datarim" "$TMP/.datarim-runtime/local"
+  python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); (p/".datarim-runtime/installation.json").write_text(json.dumps({"schema":1,"project":str(p),"contexts":[]}))' "$TMP"
 
   # A minimal valid-category plugin fixture that opts into the gate.
   PLG="$TMP/fixture-plugin"
