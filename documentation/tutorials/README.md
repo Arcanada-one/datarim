@@ -37,4 +37,4 @@ Kebab-case `.md` filenames describing the learning goal, for example
 ---
 
 Category definition: `skills/diataxis-docs/SKILL.md`. See also the
-[Documentation Taxonomy Mandate](../../CLAUDE.md) in `CLAUDE.md`.
+[Documentation Taxonomy Mandate](../../AGENTS.md) in `AGENTS.md`.

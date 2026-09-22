@@ -24,7 +24,7 @@ PRIVATE_IGNORES = ('/.datarim-runtime/', '/.datarim-runtime-previous/',
                    '/.datarim-runtime-backups/',
                    '/.datarim-uninstalled/', '/.datarim-install-*/',
                    '/.datarim-install.lock',
-                   '/config/credentials/', '/datarim/')
+                   '/.datarim-recovery-*/', '/config/credentials/', '/datarim/')
 
 
 def private_ignores(text):
@@ -345,6 +345,19 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
                     atomic_bytes(target, data)
             except (OSError, ValueError):
                 recovery.append({'path': name, 'status': 'restore_failed'})
+        # Keep the already-written snapshot when any shared file was not restored.
+        recovery_bundle = None
+        if recovery and installed_new and runtime.exists():
+            recovery_bundle = safe_path(root, '.datarim-recovery-'+uuid.uuid4().hex)
+            try:
+                runtime.chmod(0o700)
+                runtime.rename(recovery_bundle)
+            except OSError:
+                # Do not destroy the sole remaining pre-update file snapshot.
+                print(json.dumps({'status': 'rollback_incomplete', 'recovery': recovery,
+                                  'recovery_bundle': str(runtime),
+                                  'previous_runtime': str(old_runtime)}), file=sys.stderr)
+                raise
         # A failed file restore must never prevent the runtime rollback.
         try:
             if moved_current:
@@ -358,7 +371,8 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
         except OSError:
             recovery.append({'path': '.datarim-runtime', 'status': 'restore_failed'})
         if recovery:
-            print(json.dumps({'status': 'rollback_incomplete', 'recovery': recovery}), file=sys.stderr)
+            print(json.dumps({'status': 'rollback_incomplete', 'recovery': recovery,
+                              'recovery_bundle': str(recovery_bundle) if recovery_bundle else None}), file=sys.stderr)
         raise
     finally:
         if stage.exists():

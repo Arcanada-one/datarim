@@ -144,6 +144,9 @@ class InstallationLifecycleTests(unittest.TestCase):
     def test_persistent_file_restore_failure_still_restores_runtime(self):
         project_install.install(self.args)
         (self.source/'VERSION').write_text('new version\n')
+        original_rules = (self.project/'AGENTS.md').read_bytes()
+        # Force a changed proposal, so losing the prior bytes is observable.
+        original_replace = project_install.replace_block
         real_write = project_install.atomic_bytes
         writes = 0
         def failing_write(target, data):
@@ -152,10 +155,16 @@ class InstallationLifecycleTests(unittest.TestCase):
             if writes >= 2:
                 raise OSError('injected persistent write failure')
             return real_write(target, data)
-        with patch.object(project_install, 'atomic_bytes', side_effect=failing_write):
+        with patch.object(project_install, 'atomic_bytes', side_effect=failing_write), patch.object(
+                project_install, 'replace_block', side_effect=lambda text, block: original_replace(text, block)+'Changed proposal\n'):
             with self.assertRaisesRegex(OSError, 'injected'):
                 project_install.install(self.args)
         self.assertEqual((self.project/'.datarim-runtime/VERSION').read_text(), 'test\n')
+        bundles = list(self.project.glob('.datarim-recovery-*'))
+        self.assertEqual(len(bundles), 1)
+        self.assertEqual(bundles[0].stat().st_mode & 0o077, 0)
+        saved = json.loads((bundles[0]/'rollback-files.json').read_text())
+        self.assertEqual(saved['AGENTS.md'].encode(), original_rules)
 
     def test_rollback_preserves_foreign_edit_after_publication(self):
         project_install.install(self.args)

@@ -2,681 +2,1006 @@
   {
     "path": ".github/workflows/scorecard.yml",
     "action": "keep-upstream",
-    "reason": "source identical to historical feature HEAD"
+    "reason": "source identical to historical feature HEAD",
+    "disposition": "upstream-preserved",
+    "final_sha256": "0e55939628a8b3981519e195b3b114d5973da3aa52dfc5846617708f95f2bc6a"
   },
   {
     "path": ".github/workflows/security.yml",
     "action": "keep-upstream",
-    "reason": "source identical to historical feature HEAD"
+    "reason": "source identical to historical feature HEAD",
+    "disposition": "upstream-preserved",
+    "final_sha256": "36f2bdf78b8058ba2a30cc7d57c420943ed33d06be0332fa3e785e4e0fddaeb4"
   },
   {
     "path": ".gitignore",
     "action": "import",
-    "sha256": "c13c16fe3eebf118751fec9c19d3410d875d9c6b939104504ad0e1241ad2a48b"
+    "sha256": "c13c16fe3eebf118751fec9c19d3410d875d9c6b939104504ad0e1241ad2a48b",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "2649cae913dc9e6663fa7f9d12b6a5a85418bbd2a87a7ed2eb1560a6c7a6a411"
   },
   {
     "path": ".gitleaks.toml",
     "action": "import",
-    "sha256": "e839df6a2bf3b7f5a92cd798716828606edb6d95e619453ea89b88d2cdd77982"
+    "sha256": "e839df6a2bf3b7f5a92cd798716828606edb6d95e619453ea89b88d2cdd77982",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "78e66fcaa9b8be8cb46697b863e579059917587cbdb5ba9e007cad285d3a48fa"
   },
   {
     "path": "AGENTS.md",
     "action": "canonicalize-after-import",
-    "reason": "source plain copy of CLAUDE"
+    "reason": "source plain copy of CLAUDE",
+    "disposition": "merged-into-agents-only",
+    "final_sha256": "21d83243ae3db121f9ed9b5bd10ebe57667947c937294cf0110864397ea027d4"
   },
   {
     "path": "CHANGELOG.md",
     "action": "import",
-    "sha256": "cc4edaf0cd2d8c1633f4c15c8aeb1992c0f168ab4ea347dca782e6a8560b91a6"
+    "sha256": "cc4edaf0cd2d8c1633f4c15c8aeb1992c0f168ab4ea347dca782e6a8560b91a6",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "cc4edaf0cd2d8c1633f4c15c8aeb1992c0f168ab4ea347dca782e6a8560b91a6"
   },
   {
     "path": "CLAUDE.md",
     "action": "import",
-    "sha256": "cfd47673c1676e0b5e865b3d7ac86aac7eb83e4052e313cd59ada63ce2d909ee"
+    "sha256": "cfd47673c1676e0b5e865b3d7ac86aac7eb83e4052e313cd59ada63ce2d909ee",
+    "final_destination": "AGENTS.md",
+    "disposition": "merged-into-agents-only",
+    "final_sha256": "21d83243ae3db121f9ed9b5bd10ebe57667947c937294cf0110864397ea027d4"
   },
   {
     "path": "CONTRACTS",
     "action": "import",
-    "sha256": "ad126df95cc94cc66d2985a5dd7a9c34b3cc435296deebf0f7e62a8269641d3a"
+    "sha256": "ad126df95cc94cc66d2985a5dd7a9c34b3cc435296deebf0f7e62a8269641d3a",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "ad126df95cc94cc66d2985a5dd7a9c34b3cc435296deebf0f7e62a8269641d3a"
   },
   {
     "path": "FRAMEWORK-GRAPH-INTEGRATION.md",
     "action": "import",
-    "sha256": "a54d4473ab7bd693be7c988349327efea0264416b836ab40cc3ea097bf375424"
+    "sha256": "a54d4473ab7bd693be7c988349327efea0264416b836ab40cc3ea097bf375424",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "a54d4473ab7bd693be7c988349327efea0264416b836ab40cc3ea097bf375424"
   },
   {
     "path": "JEV-INTEGRATION-REPORT.md",
     "action": "import",
-    "sha256": "0c66ce3fd7130c229e42f7329f9e68d734507317726673da2181d8ab06c6a8d6"
+    "sha256": "0c66ce3fd7130c229e42f7329f9e68d734507317726673da2181d8ab06c6a8d6",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "0c66ce3fd7130c229e42f7329f9e68d734507317726673da2181d8ab06c6a8d6"
   },
   {
     "path": "JEV-MANIFEST.sha256",
     "action": "import",
-    "sha256": "7bdf05df65805a4d4bc02e8596a87b8d01e3cb592b7b4e785560032cab0e0e34"
+    "sha256": "7bdf05df65805a4d4bc02e8596a87b8d01e3cb592b7b4e785560032cab0e0e34",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "d095297de3789eb7528e4b97ced35016b5f0dbb218b5eca99f4c17505b60daff"
   },
   {
     "path": "JEV-QUICKSTART.md",
     "action": "import",
-    "sha256": "0062d22081973c610c825f72146e95905bb7906ab08a7de3c34d9fcd51861934"
+    "sha256": "0062d22081973c610c825f72146e95905bb7906ab08a7de3c34d9fcd51861934",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "5d2c6bccbe33fc689bd512b2c2ebfd96c42ee2a779f3488df786d31f0aa32d4c"
   },
   {
     "path": "JEV-V2-NOTES.md",
     "action": "import",
-    "sha256": "b24d57aadbaa91315c4102eb0ae446089bf92af35f5917ce90d3f01df527a81a"
+    "sha256": "b24d57aadbaa91315c4102eb0ae446089bf92af35f5917ce90d3f01df527a81a",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "b24d57aadbaa91315c4102eb0ae446089bf92af35f5917ce90d3f01df527a81a"
   },
   {
     "path": "README.md",
     "action": "import",
-    "sha256": "b619bf538752edc3ca33cbc92001be8b2c45486e66dd73e6b0d5d211223ee9ec"
+    "sha256": "b619bf538752edc3ca33cbc92001be8b2c45486e66dd73e6b0d5d211223ee9ec",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "75d001758f5b58a81df05a50f11fb1d33d417c6d8a30f98dea00f6729ae4b7d2"
   },
   {
     "path": "agents/peer-reviewer.md",
     "action": "import",
-    "sha256": "73ab43921595fcc1962dcc6fdc3c4026f1ddc07610ccd5cb17bd23e5d4ce08aa"
+    "sha256": "73ab43921595fcc1962dcc6fdc3c4026f1ddc07610ccd5cb17bd23e5d4ce08aa",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "73ab43921595fcc1962dcc6fdc3c4026f1ddc07610ccd5cb17bd23e5d4ce08aa"
   },
   {
     "path": "commands/dr-do.md",
     "action": "import",
-    "sha256": "53ced835835af66dfc3bebcb15393b37c8302b48235429b9ef92b2e414319157"
+    "sha256": "53ced835835af66dfc3bebcb15393b37c8302b48235429b9ef92b2e414319157",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "c25ee12aa74dbe63267c4a7f531aa2f2f7913ce235858d56713ae75187cd48ee"
   },
   {
     "path": "commands/dr-verify.md",
     "action": "import",
-    "sha256": "f7dd9e77da2ebb66cc6657ed280008251bc5d5c55efd91d5489317db50db975a"
+    "sha256": "f7dd9e77da2ebb66cc6657ed280008251bc5d5c55efd91d5489317db50db975a",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "26ebd8ee1b7df2424ae5ae34905bb7a3f19a9de0ff6c91a544447bab09fda3b0"
   },
   {
     "path": "dev-tools/check-code-contracts.sh",
     "action": "import",
-    "sha256": "f7d2dfd332efdd296bc495ad0545717b80aea5efa763705b36ba545bd7250b35"
+    "sha256": "f7d2dfd332efdd296bc495ad0545717b80aea5efa763705b36ba545bd7250b35",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "f7d2dfd332efdd296bc495ad0545717b80aea5efa763705b36ba545bd7250b35"
   },
   {
     "path": "dev-tools/code-contracts-lint.py",
     "action": "import",
-    "sha256": "7e545909800fa0c138e361d17d654bbdaf83f49362dfdeb73ccd2b1caae61b67"
+    "sha256": "7e545909800fa0c138e361d17d654bbdaf83f49362dfdeb73ccd2b1caae61b67",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "0a40e8b0e8898255bb836536a491747a7699df82b557ccf4c9208efff4279d03"
   },
   {
     "path": "dev-tools/command-graph.yaml",
     "action": "import",
-    "sha256": "bf065dc1eebbabcb1ccb660d2ac3ac26aaf487274a78495ee22c75907617e1cd"
+    "sha256": "bf065dc1eebbabcb1ccb660d2ac3ac26aaf487274a78495ee22c75907617e1cd",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "bf065dc1eebbabcb1ccb660d2ac3ac26aaf487274a78495ee22c75907617e1cd"
   },
   {
     "path": "dev-tools/datarim-stage-probe-cleanup.sh",
     "action": "import",
-    "sha256": "2d1267dc9dc01eef98ba8fbe7e61145f9076498cfc79a68cb93475c620221772"
+    "sha256": "2d1267dc9dc01eef98ba8fbe7e61145f9076498cfc79a68cb93475c620221772",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "2d1267dc9dc01eef98ba8fbe7e61145f9076498cfc79a68cb93475c620221772"
   },
   {
     "path": "dev-tools/datarim-stage-probe-coworker-echo.sh",
     "action": "import",
-    "sha256": "b51560fcbaa5d4f580db6d28ae199d292fb6164543616cc64006a796a4c258a6"
+    "sha256": "b51560fcbaa5d4f580db6d28ae199d292fb6164543616cc64006a796a4c258a6",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "b51560fcbaa5d4f580db6d28ae199d292fb6164543616cc64006a796a4c258a6"
   },
   {
     "path": "dev-tools/datarim-stage-probe-init.sh",
     "action": "import",
-    "sha256": "d8c3d1fe62666c9212620c1d32f93560b69f16696510923fe887920079a61a96"
+    "sha256": "d8c3d1fe62666c9212620c1d32f93560b69f16696510923fe887920079a61a96",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "d8c3d1fe62666c9212620c1d32f93560b69f16696510923fe887920079a61a96"
   },
   {
     "path": "dev-tools/dr-spec-lint.sh",
     "action": "import",
-    "sha256": "cab2ed3ce55cbf7110b8babe60d8d8947adbbe76257715b8f30d115624f8c5a6"
+    "sha256": "cab2ed3ce55cbf7110b8babe60d8d8947adbbe76257715b8f30d115624f8c5a6",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "cab2ed3ce55cbf7110b8babe60d8d8947adbbe76257715b8f30d115624f8c5a6"
   },
   {
     "path": "dev-tools/dr-verify-floor.sh",
     "action": "import",
-    "sha256": "cc4902853ecdfef369f463f93e7961140e03d96dd083e883d20fa1eef2257871"
+    "sha256": "cc4902853ecdfef369f463f93e7961140e03d96dd083e883d20fa1eef2257871",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "721037545ca095f3faadc79d1aa9b8b4d6902ebb8a06efdf33a4c852ca376ca7"
   },
   {
     "path": "dev-tools/framework-graph.py",
     "action": "import",
-    "sha256": "2d0c762d7b146eb0757b244aaccef25c1fe8219aa3aabde566d5f258001b3f13"
+    "sha256": "2d0c762d7b146eb0757b244aaccef25c1fe8219aa3aabde566d5f258001b3f13",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "688d6469c31ef7098b739f255966ea9d79e0bbba79ff38cffe58f72cce903263"
   },
   {
     "path": "dev-tools/framework-graph.yaml",
     "action": "import",
-    "sha256": "c41ee82ea228f582274e181b3cc1331eabbf00833eb362449f6f075d99cb0c68"
+    "sha256": "c41ee82ea228f582274e181b3cc1331eabbf00833eb362449f6f075d99cb0c68",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "4af1d01dac6bd80348b7aea0964adfcc3f0b3470e467455bbab204320394c3f9"
   },
   {
     "path": "dev-tools/measure-invocation-token-cost.sh",
     "action": "import",
-    "sha256": "ad2c07d13ea50777163af1aa88327da93cd9b3a32ed706ef1a0badfe77cd6854"
+    "sha256": "ad2c07d13ea50777163af1aa88327da93cd9b3a32ed706ef1a0badfe77cd6854",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "ad2c07d13ea50777163af1aa88327da93cd9b3a32ed706ef1a0badfe77cd6854"
   },
   {
     "path": "dev-tools/provenance-gate.sh",
     "action": "import",
-    "sha256": "05679a46a8cd6dacc5a7aeb033596e4eb1e71115a083e005644b6e1b1e0f7b49"
+    "sha256": "05679a46a8cd6dacc5a7aeb033596e4eb1e71115a083e005644b6e1b1e0f7b49",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "05679a46a8cd6dacc5a7aeb033596e4eb1e71115a083e005644b6e1b1e0f7b49"
   },
   {
     "path": "dev-tools/spec-graph-gate.sh",
     "action": "import",
-    "sha256": "9253695cfa22a6941f892dc8cf254e5e5872735cfb66bb7cb04721ed6df92673"
+    "sha256": "9253695cfa22a6941f892dc8cf254e5e5872735cfb66bb7cb04721ed6df92673",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "9253695cfa22a6941f892dc8cf254e5e5872735cfb66bb7cb04721ed6df92673"
   },
   {
     "path": "dev-tools/tests/code-contracts.bats",
     "action": "import",
-    "sha256": "bfce98660de2f871bb82a421beaa618194b6a5d4ee81acaeba473c6a87bd6500"
+    "sha256": "bfce98660de2f871bb82a421beaa618194b6a5d4ee81acaeba473c6a87bd6500",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "bfce98660de2f871bb82a421beaa618194b6a5d4ee81acaeba473c6a87bd6500"
   },
   {
     "path": "dev-tools/tests/dr-verify-floor-spec.bats",
     "action": "import",
-    "sha256": "1dbe633afc636a62d352ad4f332bde4170c83372020960e5fcaf2440525ee3dd"
+    "sha256": "1dbe633afc636a62d352ad4f332bde4170c83372020960e5fcaf2440525ee3dd",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "1dbe633afc636a62d352ad4f332bde4170c83372020960e5fcaf2440525ee3dd"
   },
   {
     "path": "dev-tools/tests/spec-graph-gate.bats",
     "action": "import",
-    "sha256": "ca374287bb337dc0b11fb8257f2f10bf25c945d19186c0c2f0c78bf24e72ede2"
+    "sha256": "ca374287bb337dc0b11fb8257f2f10bf25c945d19186c0c2f0c78bf24e72ede2",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "ca374287bb337dc0b11fb8257f2f10bf25c945d19186c0c2f0c78bf24e72ede2"
   },
   {
     "path": "documentation/archive/framework/archive-TUNE-0579.md",
     "action": "import",
-    "sha256": "67625f87f71cc94eb7b21c26ce56f12cbf6c752f8424e6b146663abfec7ca576"
+    "sha256": "67625f87f71cc94eb7b21c26ce56f12cbf6c752f8424e6b146663abfec7ca576",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "67625f87f71cc94eb7b21c26ce56f12cbf6c752f8424e6b146663abfec7ca576"
   },
   {
     "path": "documentation/archive/framework/archive-TUNE-0580.md",
     "action": "import",
-    "sha256": "7f9b8527f7aea6286eb77a42a1e49c861896db3cc1b2dadcc758aa8bc1c5e672"
+    "sha256": "7f9b8527f7aea6286eb77a42a1e49c861896db3cc1b2dadcc758aa8bc1c5e672",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "7f9b8527f7aea6286eb77a42a1e49c861896db3cc1b2dadcc758aa8bc1c5e672"
   },
   {
     "path": "documentation/explanation/framework-graph-and-skill-architecture.md",
     "action": "import",
-    "sha256": "f570a00de76eff68685ca01b97c91dce56a365e15c4ef15f8f2281a3c336eb7d"
+    "sha256": "f570a00de76eff68685ca01b97c91dce56a365e15c4ef15f8f2281a3c336eb7d",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "f570a00de76eff68685ca01b97c91dce56a365e15c4ef15f8f2281a3c336eb7d"
   },
   {
     "path": "documentation/how-to/claude-code-jev-control-plane.md",
     "action": "import",
-    "sha256": "9f525356d5647da8d86ece519534e403be5ca09d7bacd566f2958412430456c4"
+    "sha256": "9f525356d5647da8d86ece519534e403be5ca09d7bacd566f2958412430456c4",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "e0524b39719c4e495d931b40a9a170a75a6222b2e78e264f1a67bde8bca49c79"
   },
   {
     "path": "documentation/reference/code-contracts.md",
     "action": "import",
-    "sha256": "855fdcd52d2902e086bcdc21687d79e537825d01079c5a0979b8d984c5c32fd8"
+    "sha256": "855fdcd52d2902e086bcdc21687d79e537825d01079c5a0979b8d984c5c32fd8",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "855fdcd52d2902e086bcdc21687d79e537825d01079c5a0979b8d984c5c32fd8"
   },
   {
     "path": "documentation/reference/skills.md",
     "action": "import",
-    "sha256": "747391c23a62a27da9831a1668d98fc809283c88279763fcb09178fc903840f6"
+    "sha256": "747391c23a62a27da9831a1668d98fc809283c88279763fcb09178fc903840f6",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "c57addb2e8f1020c4a14b4dc66cf5d05762bf1be6a12f3df676fb4fecb8cf5dc"
   },
   {
     "path": "documentation/tutorials/README.md",
     "action": "import",
-    "sha256": "de568e49ac2cf0db41524e160de2f5b75cfdfec2e380073e68a241056fb637b1"
+    "sha256": "de568e49ac2cf0db41524e160de2f5b75cfdfec2e380073e68a241056fb637b1",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "de568e49ac2cf0db41524e160de2f5b75cfdfec2e380073e68a241056fb637b1"
   },
   {
     "path": "documentation/tutorials/working-with-jev-orchestrator.md",
     "action": "import",
-    "sha256": "9d982f347e020ad0af8e412eaf7fa660dee6d8bf55279d1ae13ef99fc1c32842"
+    "sha256": "9d982f347e020ad0af8e412eaf7fa660dee6d8bf55279d1ae13ef99fc1c32842",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "9d982f347e020ad0af8e412eaf7fa660dee6d8bf55279d1ae13ef99fc1c32842"
   },
   {
     "path": "plugins/dr-jev-control/README.md",
     "action": "import",
-    "sha256": "dd7008f6cb99c8f849ffa20acc8ce6c1f1bec3420f539ee7ed13c078ecba342c"
+    "sha256": "dd7008f6cb99c8f849ffa20acc8ce6c1f1bec3420f539ee7ed13c078ecba342c",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "71518b7da484901c63b65bfb90652f69c586a2a047a7d29bcfa064cf447707e7"
   },
   {
     "path": "plugins/dr-jev-control/bin/dr-claude-jev",
     "action": "import",
-    "sha256": "79b8a513e90b9b0cbdd21b677409702e0a1d65372e34d061c007f527e4666637"
+    "sha256": "79b8a513e90b9b0cbdd21b677409702e0a1d65372e34d061c007f527e4666637",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "4779e76875fb7f3f88c99b894c8d107802a2f8444a3e967875c5b0f0c99dd5e9"
   },
   {
     "path": "plugins/dr-jev-control/bin/dr-jev",
     "action": "import",
-    "sha256": "cd5f695b9d031701c6da1c1827968c5c46def37ee11f16796105b22aae1f57fd"
+    "sha256": "cd5f695b9d031701c6da1c1827968c5c46def37ee11f16796105b22aae1f57fd",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "15bd8cf7bb4c0bab11d7fb63096b61c71e880de5e3d5008109dcd5141150454e"
   },
   {
     "path": "plugins/dr-jev-control/config/jev-control.json",
     "action": "import",
-    "sha256": "21eda5e0a9a2cc1d796cd0a10f90a8401f797e4e45a6dcb6d6a81ee2e54ed70d"
+    "sha256": "21eda5e0a9a2cc1d796cd0a10f90a8401f797e4e45a6dcb6d6a81ee2e54ed70d",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "ab52c2e6ff978aecf35f610f7f770bc4272538ee67986da8be0a335ff4f890d5"
   },
   {
     "path": "plugins/dr-jev-control/plugin.yaml",
     "action": "import",
-    "sha256": "5daefdd15347a0fa419911ec1909c9d5439e6d99fa068be0ff6b067a1049e4df"
+    "sha256": "5daefdd15347a0fa419911ec1909c9d5439e6d99fa068be0ff6b067a1049e4df",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "5daefdd15347a0fa419911ec1909c9d5439e6d99fa068be0ff6b067a1049e4df"
   },
   {
     "path": "plugins/dr-jev-control/scripts/catalog.py",
     "action": "import",
-    "sha256": "8c03fc0437a760867fc5754921e333d02654cf94caa6f124c9bb1b19a6ffa91e"
+    "sha256": "8c03fc0437a760867fc5754921e333d02654cf94caa6f124c9bb1b19a6ffa91e",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "8fc5d7dd3cacfdd0dbe5e28aa6eba1f73f211fbb744301679f05d9a7c7871bae"
   },
   {
     "path": "plugins/dr-jev-control/scripts/cli_report.py",
     "action": "import",
-    "sha256": "3d06dbf880b6ab23f8d1d85aff6661eda8b8fb18be2b739499c72c1e30599ba7"
+    "sha256": "3d06dbf880b6ab23f8d1d85aff6661eda8b8fb18be2b739499c72c1e30599ba7",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "3d06dbf880b6ab23f8d1d85aff6661eda8b8fb18be2b739499c72c1e30599ba7"
   },
   {
     "path": "plugins/dr-jev-control/scripts/components.py",
     "action": "import",
-    "sha256": "8bddc9fc0c436429546e0d36f3de195b4385c35485fac790f1e31e729dae5230"
+    "sha256": "8bddc9fc0c436429546e0d36f3de195b4385c35485fac790f1e31e729dae5230",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "8bddc9fc0c436429546e0d36f3de195b4385c35485fac790f1e31e729dae5230"
   },
   {
     "path": "plugins/dr-jev-control/scripts/doctor_api.py",
     "action": "import",
-    "sha256": "db87f25ee02988ccbc057c4655297194d7b143f5756c6099b3fe3a7433efef8e"
+    "sha256": "db87f25ee02988ccbc057c4655297194d7b143f5756c6099b3fe3a7433efef8e",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "db87f25ee02988ccbc057c4655297194d7b143f5756c6099b3fe3a7433efef8e"
   },
   {
     "path": "plugins/dr-jev-control/scripts/hook_post_tool.py",
     "action": "import",
-    "sha256": "81fa6fce3edc971f2ce6d9e3588ca12fdc11b8752c818d83a696113c541fdc5b"
+    "sha256": "81fa6fce3edc971f2ce6d9e3588ca12fdc11b8752c818d83a696113c541fdc5b",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "e6f5db630b8905a017bc6ce206831e1cda94cd10104b562282db8d23b11829f4"
   },
   {
     "path": "plugins/dr-jev-control/scripts/hook_pre_tool.py",
     "action": "import",
-    "sha256": "ad47a34eeadb6cc0499ce4fafb61e5eaf76388b6bc414d29f47c775212edfb8e"
+    "sha256": "ad47a34eeadb6cc0499ce4fafb61e5eaf76388b6bc414d29f47c775212edfb8e",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "12a0d3d55fd80eb1b638091e492ecf467df3f4dadf7248a26766dfc8c5a03638"
   },
   {
     "path": "plugins/dr-jev-control/scripts/hook_stop.py",
     "action": "import",
-    "sha256": "e951e8c30bc331248a3feae7f17cdb33ef5947d479b4ed7432827622dc4fbd34"
+    "sha256": "e951e8c30bc331248a3feae7f17cdb33ef5947d479b4ed7432827622dc4fbd34",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "e951e8c30bc331248a3feae7f17cdb33ef5947d479b4ed7432827622dc4fbd34"
   },
   {
     "path": "plugins/dr-jev-control/scripts/hook_user_prompt.py",
     "action": "import",
-    "sha256": "345a29ebc348423993226e9eaacbbe2f0b1c0ff72a40e1bafcafee4295633405"
+    "sha256": "345a29ebc348423993226e9eaacbbe2f0b1c0ff72a40e1bafcafee4295633405",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "3ee4411f1739786895113a373e8d6058b81e9fc7615cb193bb8eeb2417c89c84"
   },
   {
     "path": "plugins/dr-jev-control/scripts/install.py",
     "action": "import",
-    "sha256": "f5a8935ee76e3cdf222778697769f71b4535d7dd2e242cafe28cd627348b7977"
+    "sha256": "f5a8935ee76e3cdf222778697769f71b4535d7dd2e242cafe28cd627348b7977",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "0f185524c3707edc96a9a39b0dc794dba2c2321687a554a45dbe6759ad4af50a"
   },
   {
     "path": "plugins/dr-jev-control/scripts/jev_client.py",
     "action": "import",
-    "sha256": "3ecf6b4bf813cd5072d9d966384f41300f07d42ba42e9ad11ee8a534f7ac393b"
+    "sha256": "3ecf6b4bf813cd5072d9d966384f41300f07d42ba42e9ad11ee8a534f7ac393b",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "56d63b94af8fd2b020ebc63835fe4a5238b08b885ce35a264a22e8d9d148ab41"
   },
   {
     "path": "plugins/dr-jev-control/scripts/ledger.py",
     "action": "import",
-    "sha256": "31e70b15f52bcaf0fe2cd6e1f3c4da4baa2806cf29fc366b63075c288da90a27"
+    "sha256": "31e70b15f52bcaf0fe2cd6e1f3c4da4baa2806cf29fc366b63075c288da90a27",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "a243d102ec1cdd3c9316681695a4b76bbaa23296cfb314e5896fce4b8ab04a50"
   },
   {
     "path": "plugins/dr-jev-control/scripts/live_policy.py",
     "action": "import",
-    "sha256": "7aee1416d40d06ab6ec16a0a83b4550c8b3326c0ba2315512fb93a8496d643dc"
+    "sha256": "7aee1416d40d06ab6ec16a0a83b4550c8b3326c0ba2315512fb93a8496d643dc",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "7aee1416d40d06ab6ec16a0a83b4550c8b3326c0ba2315512fb93a8496d643dc"
   },
   {
     "path": "plugins/dr-jev-control/scripts/live_supervisor.py",
     "action": "import",
-    "sha256": "cac2e5d1b90874c423f52406ae0a94a811d8623cd5de66c2ec3ae27060ef2ee8"
+    "sha256": "cac2e5d1b90874c423f52406ae0a94a811d8623cd5de66c2ec3ae27060ef2ee8",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "a340d85030abc9bc106a17e3245a25cec189d5abc624845e34a98cce49ea7a7f"
   },
   {
     "path": "plugins/dr-jev-control/scripts/route.py",
     "action": "import",
-    "sha256": "79948b5be83ba7276429247013c54fa6b66e2e622c9893cb4a2769d8b8d9c2ff"
+    "sha256": "79948b5be83ba7276429247013c54fa6b66e2e622c9893cb4a2769d8b8d9c2ff",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "323997514db2f49eb5178a9d5f4a0b1d402a7b4df6a919398773abc4785d052f"
   },
   {
     "path": "plugins/dr-jev-control/scripts/runtimes.py",
     "action": "import",
-    "sha256": "b358029f7d68cfb557019385bfb4561b51ef952a3370a7ce0c16008e9344969c"
+    "sha256": "b358029f7d68cfb557019385bfb4561b51ef952a3370a7ce0c16008e9344969c",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "ab1372c86f4ec2b145705630deca025d3d72901e8a4947e0433d220c3fa67f50"
   },
   {
     "path": "plugins/dr-jev-control/scripts/safety_floor.py",
     "action": "import",
-    "sha256": "3a89e76e93cea7fe712a72d1eafee5b42cfd3d0dcd5c2c9ed9dc4f0030a28212"
+    "sha256": "3a89e76e93cea7fe712a72d1eafee5b42cfd3d0dcd5c2c9ed9dc4f0030a28212",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "854aab290bc69d69f55c46e6d3b8c78c92abbe76ab8d724e965fa504f576ba6d"
   },
   {
     "path": "plugins/dr-jev-control/tests/fake_codex.py",
     "action": "import",
-    "sha256": "015033c2452caf6ecd7d8c8351cd8dc9e110a7d1739f1ef627054df2e4b97f5f"
+    "sha256": "015033c2452caf6ecd7d8c8351cd8dc9e110a7d1739f1ef627054df2e4b97f5f",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "015033c2452caf6ecd7d8c8351cd8dc9e110a7d1739f1ef627054df2e4b97f5f"
   },
   {
     "path": "plugins/dr-jev-control/tests/test_live.py",
     "action": "import",
-    "sha256": "933fa37beba5dbdaa07b079baa73143ee8f0a82ae2e51ebac09eaae138f2ede0"
+    "sha256": "933fa37beba5dbdaa07b079baa73143ee8f0a82ae2e51ebac09eaae138f2ede0",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "14c3648fa11e3d7db589789db454a0e2136f292096fd891d8b6855b02ccb975d"
   },
   {
     "path": "plugins/dr-jev-control/tests/test_local.py",
     "action": "import",
-    "sha256": "b52bd3b762f722ff21fbc25397d5fe1067b13ef501b9464283a1b593760c6725"
+    "sha256": "b52bd3b762f722ff21fbc25397d5fe1067b13ef501b9464283a1b593760c6725",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "d407bbb706e837ea38b351db2cf0611ae1ef816081ff9b0574e87aa9c696527a"
   },
   {
     "path": "plugins/dr-jev-control/tests/test_runtimes.py",
     "action": "import",
-    "sha256": "a3ab4440b4a078429f975ca447741c474fadc6aa769ef97eaf089075aa0363b1"
+    "sha256": "a3ab4440b4a078429f975ca447741c474fadc6aa769ef97eaf089075aa0363b1",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "e1538a0c46413cfb00b0f1ce0553d9fbf303f0f0fb37d5040dab14ba759e37ba"
   },
   {
     "path": "plugins/dr-jev-control/tests/test_supervisor_e2e.py",
     "action": "import",
-    "sha256": "a58cc2b648a8c62aa52b43169c82d52f893b1b5bd09061aeadf2d7030906335e"
+    "sha256": "a58cc2b648a8c62aa52b43169c82d52f893b1b5bd09061aeadf2d7030906335e",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "9937e9a2bc3c95d9e6e32ce6062e66aa607153ae3ad7e29be02e22703472a2e2"
   },
   {
     "path": "scripts/lib/schema-regex.sh",
     "action": "import",
-    "sha256": "3aad13fd88cb0786df2fe1a3dc3aa6065ba389027974a6ea83392c2c11ef6333"
+    "sha256": "3aad13fd88cb0786df2fe1a3dc3aa6065ba389027974a6ea83392c2c11ef6333",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "3aad13fd88cb0786df2fe1a3dc3aa6065ba389027974a6ea83392c2c11ef6333"
   },
   {
     "path": "scripts/pre-archive-check.sh",
     "action": "import",
-    "sha256": "afd26e5fe83073382574d20f700d24b1f34261c5e8df9388a64acbb63096790a"
+    "sha256": "afd26e5fe83073382574d20f700d24b1f34261c5e8df9388a64acbb63096790a",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "fc3f18a69bd763f16a8ffad4d7fb7b31205c1a3aa2b4c06551c11d8788886e72"
   },
   {
     "path": "skills/code-contracts/SKILL.md",
     "action": "import",
-    "sha256": "f45d10346bef6e0966760997b12b6246c589902efd2ed35bda0ace360d291f67"
+    "sha256": "f45d10346bef6e0966760997b12b6246c589902efd2ed35bda0ace360d291f67",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "01b2f448b12e4044dd18b2f408bfe18324a530264d35df28c11a68f984da51ce"
   },
   {
     "path": "skills/immutability/SKILL.md",
     "action": "import",
-    "sha256": "e7b1bc60d3a8eaa2853ce28a0ed6abeafddf72a5b958319f67d11e8520716b8b"
+    "sha256": "e7b1bc60d3a8eaa2853ce28a0ed6abeafddf72a5b958319f67d11e8520716b8b",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "e7b1bc60d3a8eaa2853ce28a0ed6abeafddf72a5b958319f67d11e8520716b8b"
   },
   {
     "path": "skills/init-task-persistence/SKILL.md",
     "action": "import",
-    "sha256": "b97d309c8a07393f5905cf16bd55ba3d8cd178a3ba68628c51f63db03feb7fab"
+    "sha256": "b97d309c8a07393f5905cf16bd55ba3d8cd178a3ba68628c51f63db03feb7fab",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "62f50089ceae244e14dcdfb93b6ede22fe80a7e750c33fef02f6481b5237e1a9"
   },
   {
     "path": "skills/prod-readiness-probe/SKILL.md",
     "action": "import",
-    "sha256": "24966b2611e8dc225f4ddb5c026d684dc0bb0dedef3b9610dc7dacbc01cd6009"
+    "sha256": "24966b2611e8dc225f4ddb5c026d684dc0bb0dedef3b9610dc7dacbc01cd6009",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "24966b2611e8dc225f4ddb5c026d684dc0bb0dedef3b9610dc7dacbc01cd6009"
   },
   {
     "path": "skills/self-verification/SKILL.md",
     "action": "import",
-    "sha256": "a898285de8e35e2740bf616d64c7982ab662fa5139c86e6801ba1ba2ac4f0e68"
+    "sha256": "a898285de8e35e2740bf616d64c7982ab662fa5139c86e6801ba1ba2ac4f0e68",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "90e685d0cbb631fc44691cc0ae2c9c309c2a9619e0e9eabd137931df9da1ed67"
   },
   {
     "path": "skills/self-verification/findings-and-audit.md",
     "action": "import",
-    "sha256": "dfbae7335789fdf1c37b379c662efcbe2d07e358ee13d373ceea5477f417d5a1"
+    "sha256": "dfbae7335789fdf1c37b379c662efcbe2d07e358ee13d373ceea5477f417d5a1",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "dfbae7335789fdf1c37b379c662efcbe2d07e358ee13d373ceea5477f417d5a1"
   },
   {
     "path": "skills/tech-stack/SKILL.md",
     "action": "import",
-    "sha256": "af8fa02c65e5c29e969a9ceb0abe4aac383e54fe7d98d17ec07db59b25287a16"
+    "sha256": "af8fa02c65e5c29e969a9ceb0abe4aac383e54fe7d98d17ec07db59b25287a16",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "ce09d7c1bb90693ed9a35fffe0b77c705db7b5be735b9df46bc1c62d90fcd5e1"
   },
   {
     "path": "skills/test-env-verification/SKILL.md",
     "action": "import",
-    "sha256": "f649da9aaf414c599119c4c257d22321a8940bfa91b85767a2550cdd0164c197"
+    "sha256": "f649da9aaf414c599119c4c257d22321a8940bfa91b85767a2550cdd0164c197",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "f649da9aaf414c599119c4c257d22321a8940bfa91b85767a2550cdd0164c197"
   },
   {
     "path": "skills/visual-maps/SKILL.md",
     "action": "import",
-    "sha256": "f827f5f1bf751ffd2ae75d6245ddb86b88d7e1e064af6a84b6528453bc75699b"
+    "sha256": "f827f5f1bf751ffd2ae75d6245ddb86b88d7e1e064af6a84b6528453bc75699b",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "f827f5f1bf751ffd2ae75d6245ddb86b88d7e1e064af6a84b6528453bc75699b"
   },
   {
     "path": "skills/visual-maps/command-dependencies.md",
     "action": "import",
-    "sha256": "4c4b57899ce8bececc20bcedca35c68790397e90388cdc4736e8539a666d7766"
+    "sha256": "4c4b57899ce8bececc20bcedca35c68790397e90388cdc4736e8539a666d7766",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "4c4b57899ce8bececc20bcedca35c68790397e90388cdc4736e8539a666d7766"
   },
   {
     "path": "skills/visual-maps/framework-architecture.md",
     "action": "import",
-    "sha256": "e07202d57309897d4c28c31af5d06059af72925b78e5f5ae4ec54cc7fbf7adfd"
+    "sha256": "e07202d57309897d4c28c31af5d06059af72925b78e5f5ae4ec54cc7fbf7adfd",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "96a08c689a51d2feddaddca978ca3657cfce0ca2d54642636a84f390cd484d18"
   },
   {
     "path": "skills/visual-maps/utility-and-dependencies.md",
     "action": "import",
-    "sha256": "eb0dd0b483f1c19708a2d94218725938c9128699a80a3afc97fba99f0ac81e33"
+    "sha256": "eb0dd0b483f1c19708a2d94218725938c9128699a80a3afc97fba99f0ac81e33",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "eb0dd0b483f1c19708a2d94218725938c9128699a80a3afc97fba99f0ac81e33"
   },
   {
     "path": "tests/command-graph.bats",
     "action": "import",
-    "sha256": "323db3a20f3b526116ad901d55b0805bfe3615fb0648c14f591e50e4fe14b254"
+    "sha256": "323db3a20f3b526116ad901d55b0805bfe3615fb0648c14f591e50e4fe14b254",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "ec9e2921b7b7f0b21969b7519125cb8794aab4077f5deea2e9093fd66c31fc9b"
   },
   {
     "path": "tests/dr-orchestrate/contract/dr-orchestrate-server-guard.bats",
     "action": "import",
-    "sha256": "a8c09cccea1acdc28694b009c51e183eb4c137a0fdd6501db7314e01df65a8be"
+    "sha256": "a8c09cccea1acdc28694b009c51e183eb4c137a0fdd6501db7314e01df65a8be",
+    "final_destination": "plugins/dr-orchestrate/tests/contract/dr-orchestrate-server-guard.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "a8c09cccea1acdc28694b009c51e183eb4c137a0fdd6501db7314e01df65a8be"
   },
   {
     "path": "tests/dr-orchestrate/contract/http-server.bats",
     "action": "import",
-    "sha256": "dc4df33707cecfefdd5f9ffe10b249b4e8b3b78042865dec843784ed3bcc3326"
+    "sha256": "dc4df33707cecfefdd5f9ffe10b249b4e8b3b78042865dec843784ed3bcc3326",
+    "final_destination": "plugins/dr-orchestrate/tests/contract/http-server.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "dc4df33707cecfefdd5f9ffe10b249b4e8b3b78042865dec843784ed3bcc3326"
   },
   {
     "path": "tests/dr-orchestrate/contract/network-exposure-verifier.bats",
     "action": "import",
-    "sha256": "b19f8b4236c2d8305081f04eca95ab8f27d4795cf0159883c8f40dbcec382ea5"
+    "sha256": "b19f8b4236c2d8305081f04eca95ab8f27d4795cf0159883c8f40dbcec382ea5",
+    "final_destination": "plugins/dr-orchestrate/tests/contract/network-exposure-verifier.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "b19f8b4236c2d8305081f04eca95ab8f27d4795cf0159883c8f40dbcec382ea5"
   },
   {
     "path": "tests/dr-orchestrate/contract/orchestrator-input-migration.bats",
     "action": "import",
-    "sha256": "8674aadbc3deedb08ac004480c53db46bc996cd4b3281af3b35461beac730393"
+    "sha256": "8674aadbc3deedb08ac004480c53db46bc996cd4b3281af3b35461beac730393",
+    "final_destination": "plugins/dr-orchestrate/tests/contract/orchestrator-input-migration.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "8674aadbc3deedb08ac004480c53db46bc996cd4b3281af3b35461beac730393"
   },
   {
     "path": "tests/dr-orchestrate/contract/outbound-devbot-noop.bats",
     "action": "import",
-    "sha256": "a8024c598fc75ccee80b4b1cb2b319ba7a6f926880fc67f5b0fed3ff0c7413b2"
+    "sha256": "a8024c598fc75ccee80b4b1cb2b319ba7a6f926880fc67f5b0fed3ff0c7413b2",
+    "final_destination": "plugins/dr-orchestrate/tests/contract/outbound-devbot-noop.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "a8024c598fc75ccee80b4b1cb2b319ba7a6f926880fc67f5b0fed3ff0c7413b2"
   },
   {
     "path": "tests/dr-orchestrate/contract/outbound-hmac-sign.bats",
     "action": "import",
-    "sha256": "a46abe32495e30f9ff4e6268db6969a874b65ecb384f29e43fdfd3a6cf1c1f65"
+    "sha256": "a46abe32495e30f9ff4e6268db6969a874b65ecb384f29e43fdfd3a6cf1c1f65",
+    "final_destination": "plugins/dr-orchestrate/tests/contract/outbound-hmac-sign.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "a46abe32495e30f9ff4e6268db6969a874b65ecb384f29e43fdfd3a6cf1c1f65"
   },
   {
     "path": "tests/dr-orchestrate/contract/outbound-redis.bats",
     "action": "import",
-    "sha256": "02dd9298ae0276f582723635fcaba82602485daa08bb29c2b088da9592d3e6ef"
+    "sha256": "02dd9298ae0276f582723635fcaba82602485daa08bb29c2b088da9592d3e6ef",
+    "final_destination": "plugins/dr-orchestrate/tests/contract/outbound-redis.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "02dd9298ae0276f582723635fcaba82602485daa08bb29c2b088da9592d3e6ef"
   },
   {
     "path": "tests/dr-orchestrate/contract/redis-job-store.bats",
     "action": "import",
-    "sha256": "db61f04bdecca77f6c8404ba4c24a9f282738131a2a09bb6a0b227963c733ce9"
+    "sha256": "db61f04bdecca77f6c8404ba4c24a9f282738131a2a09bb6a0b227963c733ce9",
+    "final_destination": "plugins/dr-orchestrate/tests/contract/redis-job-store.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "db61f04bdecca77f6c8404ba4c24a9f282738131a2a09bb6a0b227963c733ce9"
   },
   {
     "path": "tests/dr-orchestrate/contract/run-schemathesis.sh",
     "action": "import",
-    "sha256": "3eef9db2a6294538132d8cf178b24bd8c9d79b699f98b5543ac4ebcbb1a2ef9e"
+    "sha256": "3eef9db2a6294538132d8cf178b24bd8c9d79b699f98b5543ac4ebcbb1a2ef9e",
+    "final_destination": "plugins/dr-orchestrate/tests/contract/run-schemathesis.sh",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "3eef9db2a6294538132d8cf178b24bd8c9d79b699f98b5543ac4ebcbb1a2ef9e"
   },
   {
     "path": "tests/dr-orchestrate/contract/sync-shortcut.bats",
     "action": "import",
-    "sha256": "cc1fbd110efed9a797f6d8e9475cb7f1cef958347ea87f73bdd0d2cde604c0b3"
+    "sha256": "cc1fbd110efed9a797f6d8e9475cb7f1cef958347ea87f73bdd0d2cde604c0b3",
+    "final_destination": "plugins/dr-orchestrate/tests/contract/sync-shortcut.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "cc1fbd110efed9a797f6d8e9475cb7f1cef958347ea87f73bdd0d2cde604c0b3"
   },
   {
     "path": "tests/dr-orchestrate/contract/tmux-endpoint.bats",
     "action": "import",
-    "sha256": "19fd1a4fb9b002a1e3e986fc082b0de4e090600d91af3d2f02df8e54db98172c"
+    "sha256": "19fd1a4fb9b002a1e3e986fc082b0de4e090600d91af3d2f02df8e54db98172c",
+    "final_destination": "plugins/dr-orchestrate/tests/contract/tmux-endpoint.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "19fd1a4fb9b002a1e3e986fc082b0de4e090600d91af3d2f02df8e54db98172c"
   },
   {
     "path": "tests/dr-orchestrate/fleet/audit-log-replay.bats",
     "action": "import",
-    "sha256": "2e9c74c3040d5d9ea4410b9bb618ea166061d5ceb9ff66419355aec7fb63864f"
+    "sha256": "2e9c74c3040d5d9ea4410b9bb618ea166061d5ceb9ff66419355aec7fb63864f",
+    "final_destination": "plugins/dr-orchestrate/tests/fleet/audit-log-replay.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "2e9c74c3040d5d9ea4410b9bb618ea166061d5ceb9ff66419355aec7fb63864f"
   },
   {
     "path": "tests/dr-orchestrate/fleet/bus-adapter-contract.bats",
     "action": "import",
-    "sha256": "88e1c766e040e7e267192c8ad1b337d2b32aa2b066996692a3b354e502d551e8"
+    "sha256": "88e1c766e040e7e267192c8ad1b337d2b32aa2b066996692a3b354e502d551e8",
+    "final_destination": "plugins/dr-orchestrate/tests/fleet/bus-adapter-contract.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "88e1c766e040e7e267192c8ad1b337d2b32aa2b066996692a3b354e502d551e8"
   },
   {
     "path": "tests/dr-orchestrate/fleet/integration/01-basic-publish.bats",
     "action": "import",
-    "sha256": "92a674525e11d2cac91eb7178836efa375615eaeef473f29896a69d045bb9acc"
+    "sha256": "92a674525e11d2cac91eb7178836efa375615eaeef473f29896a69d045bb9acc",
+    "final_destination": "plugins/dr-orchestrate/tests/fleet/integration/01-basic-publish.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "92a674525e11d2cac91eb7178836efa375615eaeef473f29896a69d045bb9acc"
   },
   {
     "path": "tests/dr-orchestrate/fleet/integration/02-reconnect.bats",
     "action": "import",
-    "sha256": "cbccf62439b498cc9d6b2e9cc8287a5f59d0c7887d786560a0e2d580c76469ca"
+    "sha256": "cbccf62439b498cc9d6b2e9cc8287a5f59d0c7887d786560a0e2d580c76469ca",
+    "final_destination": "plugins/dr-orchestrate/tests/fleet/integration/02-reconnect.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "cbccf62439b498cc9d6b2e9cc8287a5f59d0c7887d786560a0e2d580c76469ca"
   },
   {
     "path": "tests/dr-orchestrate/fleet/monitor-sla.bats",
     "action": "import",
-    "sha256": "8a025fb7114ac2abbde847bfc1fd31a8f92e6bfc414c4c007ed06009b5b626a9"
+    "sha256": "8a025fb7114ac2abbde847bfc1fd31a8f92e6bfc414c4c007ed06009b5b626a9",
+    "final_destination": "plugins/dr-orchestrate/tests/fleet/monitor-sla.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "8a025fb7114ac2abbde847bfc1fd31a8f92e6bfc414c4c007ed06009b5b626a9"
   },
   {
     "path": "tests/dr-orchestrate/fleet/obs-aggregation.bats",
     "action": "import",
-    "sha256": "5efdb55b5e8b1014fd566b57c7d402297c546b62149403a5573d99a8f20a58cd"
+    "sha256": "5efdb55b5e8b1014fd566b57c7d402297c546b62149403a5573d99a8f20a58cd",
+    "final_destination": "plugins/dr-orchestrate/tests/fleet/obs-aggregation.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "5efdb55b5e8b1014fd566b57c7d402297c546b62149403a5573d99a8f20a58cd"
   },
   {
     "path": "tests/dr-orchestrate/fleet/pm-orchestrator.bats",
     "action": "import",
-    "sha256": "1fc2716195dfb6ec446890223bf0823fe58ba2bb1b755eb597f2e794e7a7e081"
+    "sha256": "1fc2716195dfb6ec446890223bf0823fe58ba2bb1b755eb597f2e794e7a7e081",
+    "final_destination": "plugins/dr-orchestrate/tests/fleet/pm-orchestrator.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "1fc2716195dfb6ec446890223bf0823fe58ba2bb1b755eb597f2e794e7a7e081"
   },
   {
     "path": "tests/dr-orchestrate/fleet/validate-message-contract.bats",
     "action": "import",
-    "sha256": "d3fbb8903e96b9d828efee2cdf605217924b7a87f732110a3c58c64c4f32dbcf"
+    "sha256": "d3fbb8903e96b9d828efee2cdf605217924b7a87f732110a3c58c64c4f32dbcf",
+    "final_destination": "plugins/dr-orchestrate/tests/fleet/validate-message-contract.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "d3fbb8903e96b9d828efee2cdf605217924b7a87f732110a3c58c64c4f32dbcf"
   },
   {
     "path": "tests/dr-orchestrate/helpers/phase3-env.bash",
     "action": "import",
-    "sha256": "a7009fc5a3457b4f3bc300b04201a969452747019f1c4d85c04a878bb7ceaa14"
+    "sha256": "a7009fc5a3457b4f3bc300b04201a969452747019f1c4d85c04a878bb7ceaa14",
+    "final_destination": "plugins/dr-orchestrate/tests/helpers/phase3-env.bash",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "a7009fc5a3457b4f3bc300b04201a969452747019f1c4d85c04a878bb7ceaa14"
   },
   {
     "path": "tests/dr-orchestrate/integration/staging-dryrun.bats",
     "action": "import",
-    "sha256": "831f557ea7efe6201b75a1fa57bfd48a617537915e543d42bfbbd446afcf13c2"
+    "sha256": "831f557ea7efe6201b75a1fa57bfd48a617537915e543d42bfbbd446afcf13c2",
+    "final_destination": "plugins/dr-orchestrate/tests/integration/staging-dryrun.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "831f557ea7efe6201b75a1fa57bfd48a617537915e543d42bfbbd446afcf13c2"
   },
   {
     "path": "tests/dr-orchestrate/security/fleet-send-keys-injection.bats",
     "action": "import",
-    "sha256": "73ec4bb7317128c6b22700256f0c46a10557b39d4e7bc1c275764a2ff8eee8b3"
+    "sha256": "73ec4bb7317128c6b22700256f0c46a10557b39d4e7bc1c275764a2ff8eee8b3",
+    "final_destination": "plugins/dr-orchestrate/tests/security/fleet-send-keys-injection.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "73ec4bb7317128c6b22700256f0c46a10557b39d4e7bc1c275764a2ff8eee8b3"
   },
   {
     "path": "tests/dr-orchestrate/security/inbound-auth.bats",
     "action": "import",
-    "sha256": "174081d8efcf73a91e04acce4e98bca7c46430415de996d0e67e4cf1960bf3a8"
+    "sha256": "174081d8efcf73a91e04acce4e98bca7c46430415de996d0e67e4cf1960bf3a8",
+    "final_destination": "plugins/dr-orchestrate/tests/security/inbound-auth.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "174081d8efcf73a91e04acce4e98bca7c46430415de996d0e67e4cf1960bf3a8"
   },
   {
     "path": "tests/dr-orchestrate/security/path-traversal-defence.bats",
     "action": "import",
-    "sha256": "3cf2c25ce238464c343d5286e94c6985ca50107ea347166e566a5c708cd5d41f"
+    "sha256": "3cf2c25ce238464c343d5286e94c6985ca50107ea347166e566a5c708cd5d41f",
+    "final_destination": "plugins/dr-orchestrate/tests/security/path-traversal-defence.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "3cf2c25ce238464c343d5286e94c6985ca50107ea347166e566a5c708cd5d41f"
   },
   {
     "path": "tests/dr-orchestrate/test_action_gate.bats",
     "action": "import",
-    "sha256": "cc14890f09568fce241cdaab2e4718a88ce7b050a797d1de33a3b148327ed4c0"
+    "sha256": "cc14890f09568fce241cdaab2e4718a88ce7b050a797d1de33a3b148327ed4c0",
+    "final_destination": "plugins/dr-orchestrate/tests/test_action_gate.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "cc14890f09568fce241cdaab2e4718a88ce7b050a797d1de33a3b148327ed4c0"
   },
   {
     "path": "tests/dr-orchestrate/test_audit_sink.bats",
     "action": "import",
-    "sha256": "8f45aa56b1fc2971769b67ec2e0066d3bb80bcb0d6717d792803d532bfa59e5e"
+    "sha256": "8f45aa56b1fc2971769b67ec2e0066d3bb80bcb0d6717d792803d532bfa59e5e",
+    "final_destination": "plugins/dr-orchestrate/tests/test_audit_sink.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "8f45aa56b1fc2971769b67ec2e0066d3bb80bcb0d6717d792803d532bfa59e5e"
   },
   {
     "path": "tests/dr-orchestrate/test_audit_sink_additive_field_pattern.bats",
     "action": "import",
-    "sha256": "4dcb23dbe6960293a599b65e5681863866aef963c25941a0f88d8dcd59677195"
+    "sha256": "4dcb23dbe6960293a599b65e5681863866aef963c25941a0f88d8dcd59677195",
+    "final_destination": "plugins/dr-orchestrate/tests/test_audit_sink_additive_field_pattern.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "4dcb23dbe6960293a599b65e5681863866aef963c25941a0f88d8dcd59677195"
   },
   {
     "path": "tests/dr-orchestrate/test_bot_interaction.bats",
     "action": "import",
-    "sha256": "dd1ad11505efb0af465e6fb849408e81b87eb07bdf3944ba161c0f3e416adb50"
+    "sha256": "dd1ad11505efb0af465e6fb849408e81b87eb07bdf3944ba161c0f3e416adb50",
+    "final_destination": "plugins/dr-orchestrate/tests/test_bot_interaction.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "dd1ad11505efb0af465e6fb849408e81b87eb07bdf3944ba161c0f3e416adb50"
   },
   {
     "path": "tests/dr-orchestrate/test_content_consilium_fanout.bats",
     "action": "import",
-    "sha256": "b0bb28ff6feb94ca517273215db426769de462f0d6fa5d665f5d8b9fd0c25596"
+    "sha256": "b0bb28ff6feb94ca517273215db426769de462f0d6fa5d665f5d8b9fd0c25596",
+    "final_destination": "plugins/dr-orchestrate/tests/test_content_consilium_fanout.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "b0bb28ff6feb94ca517273215db426769de462f0d6fa5d665f5d8b9fd0c25596"
   },
   {
     "path": "tests/dr-orchestrate/test_content_consilium_gate.bats",
     "action": "import",
-    "sha256": "48ae59498480a94922c2acf3847db3d2045368c45ee3a40e8295f377e6cd9f90"
+    "sha256": "48ae59498480a94922c2acf3847db3d2045368c45ee3a40e8295f377e6cd9f90",
+    "final_destination": "plugins/dr-orchestrate/tests/test_content_consilium_gate.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "48ae59498480a94922c2acf3847db3d2045368c45ee3a40e8295f377e6cd9f90"
   },
   {
     "path": "tests/dr-orchestrate/test_content_consilium_judge.bats",
     "action": "import",
-    "sha256": "05f51c1004a294fd76635ceaf21a926eb7398f851115e48fc042b40abb308e67"
+    "sha256": "05f51c1004a294fd76635ceaf21a926eb7398f851115e48fc042b40abb308e67",
+    "final_destination": "plugins/dr-orchestrate/tests/test_content_consilium_judge.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "05f51c1004a294fd76635ceaf21a926eb7398f851115e48fc042b40abb308e67"
   },
   {
     "path": "tests/dr-orchestrate/test_context_builder.bats",
     "action": "import",
-    "sha256": "981676fd3f2cd271ca30421e75a5d2094ea24b11d15f82865fe0d5f5f4157894"
+    "sha256": "981676fd3f2cd271ca30421e75a5d2094ea24b11d15f82865fe0d5f5f4157894",
+    "final_destination": "plugins/dr-orchestrate/tests/test_context_builder.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "f1a6f37377b9234d6109809bceed9c84ef7f1856af7783bd4dcc52e897c8c3d8"
   },
   {
     "path": "tests/dr-orchestrate/test_context_window_controller.bats",
     "action": "import",
-    "sha256": "3829b308c2c140505eb1877a60b170c03e8fe4ed34932c60eabc2775523ccb57"
+    "sha256": "3829b308c2c140505eb1877a60b170c03e8fe4ed34932c60eabc2775523ccb57",
+    "final_destination": "plugins/dr-orchestrate/tests/test_context_window_controller.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "3829b308c2c140505eb1877a60b170c03e8fe4ed34932c60eabc2775523ccb57"
   },
   {
     "path": "tests/dr-orchestrate/test_context_window_integration.bats",
     "action": "import",
-    "sha256": "d1d905a56f6323a4fb9ba1e4e7de7bddbe1707040b81d12822181666dcce3b80"
+    "sha256": "d1d905a56f6323a4fb9ba1e4e7de7bddbe1707040b81d12822181666dcce3b80",
+    "final_destination": "plugins/dr-orchestrate/tests/test_context_window_integration.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "d1d905a56f6323a4fb9ba1e4e7de7bddbe1707040b81d12822181666dcce3b80"
   },
   {
     "path": "tests/dr-orchestrate/test_context_window_lock_race.bats",
     "action": "import",
-    "sha256": "9f7fa879f93c1a69dbad5841778ec03b36879753065ca2328438f6641e1c34fd"
+    "sha256": "9f7fa879f93c1a69dbad5841778ec03b36879753065ca2328438f6641e1c34fd",
+    "final_destination": "plugins/dr-orchestrate/tests/test_context_window_lock_race.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "9f7fa879f93c1a69dbad5841778ec03b36879753065ca2328438f6641e1c34fd"
   },
   {
     "path": "tests/dr-orchestrate/test_cooldown_concurrent.bats",
     "action": "import",
-    "sha256": "8a9bf660d4fc8a8574f0569c6d48ee99181011280c9f4dc17cd2328dd391ada4"
+    "sha256": "8a9bf660d4fc8a8574f0569c6d48ee99181011280c9f4dc17cd2328dd391ada4",
+    "final_destination": "plugins/dr-orchestrate/tests/test_cooldown_concurrent.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "8a9bf660d4fc8a8574f0569c6d48ee99181011280c9f4dc17cd2328dd391ada4"
   },
   {
     "path": "tests/dr-orchestrate/test_escalation_backend.bats",
     "action": "import",
-    "sha256": "a733dad061bc56ca9c93078390c8ff8d6889224630a401bde7e0a5b12e28f62a"
+    "sha256": "a733dad061bc56ca9c93078390c8ff8d6889224630a401bde7e0a5b12e28f62a",
+    "final_destination": "plugins/dr-orchestrate/tests/test_escalation_backend.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "a733dad061bc56ca9c93078390c8ff8d6889224630a401bde7e0a5b12e28f62a"
   },
   {
     "path": "tests/dr-orchestrate/test_fleet_concurrency.bats",
     "action": "import",
-    "sha256": "3ae6d9e8a528de45e4313bafe1d543d676be5248183f83f61432f2c178eb89d4"
+    "sha256": "3ae6d9e8a528de45e4313bafe1d543d676be5248183f83f61432f2c178eb89d4",
+    "final_destination": "plugins/dr-orchestrate/tests/test_fleet_concurrency.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "3ae6d9e8a528de45e4313bafe1d543d676be5248183f83f61432f2c178eb89d4"
   },
   {
     "path": "tests/dr-orchestrate/test_fleet_r2_migration.bats",
     "action": "import",
-    "sha256": "c63dc182f77c2eacd9f4e44a5d62b0ea2ea252823111e4cf23968aabfd1df218"
+    "sha256": "c63dc182f77c2eacd9f4e44a5d62b0ea2ea252823111e4cf23968aabfd1df218",
+    "final_destination": "plugins/dr-orchestrate/tests/test_fleet_r2_migration.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "c63dc182f77c2eacd9f4e44a5d62b0ea2ea252823111e4cf23968aabfd1df218"
   },
   {
     "path": "tests/dr-orchestrate/test_fleet_selector.bats",
     "action": "import",
-    "sha256": "5a67c489be09659c67e40e6a507934a340bfec6dd7e670edd5f906f224ca738f"
+    "sha256": "5a67c489be09659c67e40e6a507934a340bfec6dd7e670edd5f906f224ca738f",
+    "final_destination": "plugins/dr-orchestrate/tests/test_fleet_selector.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "fc22efd8171a81a3a3033d6f78eed3efd1e45a7c26b9519e0299a65fae9ecaa9"
   },
   {
     "path": "tests/dr-orchestrate/test_fleet_spawn.bats",
     "action": "import",
-    "sha256": "a1f1c39bf723ba7b69a19993b2990e97e268abd246b3644487db57539e81eb8f"
+    "sha256": "a1f1c39bf723ba7b69a19993b2990e97e268abd246b3644487db57539e81eb8f",
+    "final_destination": "plugins/dr-orchestrate/tests/test_fleet_spawn.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "a1f1c39bf723ba7b69a19993b2990e97e268abd246b3644487db57539e81eb8f"
   },
   {
     "path": "tests/dr-orchestrate/test_learned_rules.bats",
     "action": "import",
-    "sha256": "048a7a709434c3064c0f50f5d9a00c3c3da089c822213ed333a5f49c2a5a7903"
+    "sha256": "048a7a709434c3064c0f50f5d9a00c3c3da089c822213ed333a5f49c2a5a7903",
+    "final_destination": "plugins/dr-orchestrate/tests/test_learned_rules.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "048a7a709434c3064c0f50f5d9a00c3c3da089c822213ed333a5f49c2a5a7903"
   },
   {
     "path": "tests/dr-orchestrate/test_phase3_audit_recovery.bats",
     "action": "import",
-    "sha256": "f5310938bf195b6a62cc571e16f40d522cacc0a3b67298c48d35ad91a80ef563"
+    "sha256": "f5310938bf195b6a62cc571e16f40d522cacc0a3b67298c48d35ad91a80ef563",
+    "final_destination": "plugins/dr-orchestrate/tests/test_phase3_audit_recovery.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "f5310938bf195b6a62cc571e16f40d522cacc0a3b67298c48d35ad91a80ef563"
   },
   {
     "path": "tests/dr-orchestrate/test_plugin_register.bats",
     "action": "import",
-    "sha256": "54117a52210631af7db2d88af687cbb984d0b21116d0ae7e127528e9ea0336d9"
+    "sha256": "54117a52210631af7db2d88af687cbb984d0b21116d0ae7e127528e9ea0336d9",
+    "final_destination": "plugins/dr-orchestrate/tests/test_plugin_register.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "54117a52210631af7db2d88af687cbb984d0b21116d0ae7e127528e9ea0336d9"
   },
   {
     "path": "tests/dr-orchestrate/test_resolver_history.bats",
     "action": "import",
-    "sha256": "0facdfaf602694ff4775c134310592b99f672a1f4b892c4c708ef069a95c4094"
+    "sha256": "0facdfaf602694ff4775c134310592b99f672a1f4b892c4c708ef069a95c4094",
+    "final_destination": "plugins/dr-orchestrate/tests/test_resolver_history.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "0facdfaf602694ff4775c134310592b99f672a1f4b892c4c708ef069a95c4094"
   },
   {
     "path": "tests/dr-orchestrate/test_rule_first_resolution.bats",
     "action": "import",
-    "sha256": "53c11563e93efc32fe2d7e4da289234cbc8ee016398c09e64056546ea16df49a"
+    "sha256": "53c11563e93efc32fe2d7e4da289234cbc8ee016398c09e64056546ea16df49a",
+    "final_destination": "plugins/dr-orchestrate/tests/test_rule_first_resolution.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "53c11563e93efc32fe2d7e4da289234cbc8ee016398c09e64056546ea16df49a"
   },
   {
     "path": "tests/dr-orchestrate/test_rules_loader.bats",
     "action": "import",
-    "sha256": "f6a0a146d03f36e9a4c0829d234b6e7a3c0bd7d3480b47508510f8d897dec6b1"
+    "sha256": "f6a0a146d03f36e9a4c0829d234b6e7a3c0bd7d3480b47508510f8d897dec6b1",
+    "final_destination": "plugins/dr-orchestrate/tests/test_rules_loader.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "f6a0a146d03f36e9a4c0829d234b6e7a3c0bd7d3480b47508510f8d897dec6b1"
   },
   {
     "path": "tests/dr-orchestrate/test_secrets_backend.bats",
     "action": "import",
-    "sha256": "24bec0b44508bf8c1cad2806e6e711b19227f10e89d4f48d07bd085550f231f0"
+    "sha256": "24bec0b44508bf8c1cad2806e6e711b19227f10e89d4f48d07bd085550f231f0",
+    "final_destination": "plugins/dr-orchestrate/tests/test_secrets_backend.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "24bec0b44508bf8c1cad2806e6e711b19227f10e89d4f48d07bd085550f231f0"
   },
   {
     "path": "tests/dr-orchestrate/test_security.bats",
     "action": "import",
-    "sha256": "ccf9a1ddf6507a7c0ba7684eb86346d2dee1419a082deb77df540e4db2001108"
+    "sha256": "ccf9a1ddf6507a7c0ba7684eb86346d2dee1419a082deb77df540e4db2001108",
+    "final_destination": "plugins/dr-orchestrate/tests/test_security.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "ccf9a1ddf6507a7c0ba7684eb86346d2dee1419a082deb77df540e4db2001108"
   },
   {
     "path": "tests/dr-orchestrate/test_semantic_parser.bats",
     "action": "import",
-    "sha256": "f00dc51ae9e1da76a7cce1de8256a32e9d8e83e58ad161308b72a339feecf485"
+    "sha256": "f00dc51ae9e1da76a7cce1de8256a32e9d8e83e58ad161308b72a339feecf485",
+    "final_destination": "plugins/dr-orchestrate/tests/test_semantic_parser.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "f00dc51ae9e1da76a7cce1de8256a32e9d8e83e58ad161308b72a339feecf485"
   },
   {
     "path": "tests/dr-orchestrate/test_subagent_resolver.bats",
     "action": "import",
-    "sha256": "7f896b27d8ff7cbc157a1e9281626a82401cd4ada64c1ab97bf5d8a77757fef2"
+    "sha256": "7f896b27d8ff7cbc157a1e9281626a82401cd4ada64c1ab97bf5d8a77757fef2",
+    "final_destination": "plugins/dr-orchestrate/tests/test_subagent_resolver.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "7f896b27d8ff7cbc157a1e9281626a82401cd4ada64c1ab97bf5d8a77757fef2"
   },
   {
     "path": "tests/dr-orchestrate/test_tmux_manager.bats",
     "action": "import",
-    "sha256": "3dd96406a695cf3df3bb8ac4c9e733529371c4289f838f7c795192b071c18a9a"
+    "sha256": "3dd96406a695cf3df3bb8ac4c9e733529371c4289f838f7c795192b071c18a9a",
+    "final_destination": "plugins/dr-orchestrate/tests/test_tmux_manager.bats",
+    "disposition": "mapped-to-canonical-plugin-tests",
+    "final_sha256": "3dd96406a695cf3df3bb8ac4c9e733529371c4289f838f7c795192b071c18a9a"
   },
   {
     "path": "tests/framework-graph-consistency.bats",
     "action": "import",
-    "sha256": "dc69b3cf578d35d6a203ab13ebebcb948026bff2b8b2e95b3ce971353c5719ef"
+    "sha256": "dc69b3cf578d35d6a203ab13ebebcb948026bff2b8b2e95b3ce971353c5719ef",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "dc69b3cf578d35d6a203ab13ebebcb948026bff2b8b2e95b3ce971353c5719ef"
   },
   {
     "path": "validate.sh",
     "action": "import",
-    "sha256": "c8931d0df594b7798b7604ac1a772842bed8bfc45c3320308f14df99a446f91c"
+    "sha256": "c8931d0df594b7798b7604ac1a772842bed8bfc45c3320308f14df99a446f91c",
+    "disposition": "imported-and-adapted",
+    "final_sha256": "aea23c46a9f2c833b1691339dce09d355362a256b533c5af1b4752a7e2c998c9"
   }
 ]

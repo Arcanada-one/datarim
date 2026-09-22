@@ -48,6 +48,13 @@ To preview and remove managed installation files, run the installer with
 removal. Task state and credentials are retained. A protected
 `.datarim-uninstalled/` recovery bundle is retained for inspection.
 
+Updates compare shared files against their initial contents before publishing.
+Concurrent edits stop the transaction. If rollback cannot restore a shared file,
+the installer retains a private `.datarim-recovery-<id>/` bundle and prints its
+path. Its `rollback-files.json` contains the exact pre-update contents. Preserve
+that bundle until the reported files have been reconciled; it may contain private
+client configuration and must never be committed.
+
 Next: [Initialize with Jev](initialize-datarim-with-jev.md),
 [configuration](../how-to/configure-and-use-jev.md), and
 [CLI reference](../reference/jev-cli.md).
