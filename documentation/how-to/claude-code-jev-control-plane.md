@@ -38,6 +38,37 @@ API access, native AGENTS loading, session continuity, and quality/cost outcomes
 are separate checks. Prior report numbers belong to their measured revisions
 and hosts; they are not acceptance evidence for a newly installed project.
 
+## Codex: installing a hook is not enabling it
+
+Writing the hooks into `~/.codex/hooks.json` does not make Codex run them. It
+gates them behind two prompts, both in its TUI, and declining either is silent:
+
+1. **Trust the working directory.** Codex's own prompt says it plainly —
+   project-local config, hooks and exec policies do not load until you accept.
+2. **`Hooks need review — N hooks are new or changed`.** The third option is
+   `Continue without trusting (hooks won't run)`.
+
+Do not judge this from the client's hook screen. Its `Active` column counts
+hooks that are *installed*, so it reads the same either way: measured, it showed
+`UserPromptSubmit 2/2 Active` while the ledger had recorded zero such events
+over 45 minutes and the routing model had therefore classified nothing Codex was
+asked to do.
+
+Two authorities give a real answer:
+
+```sh
+jev doctor --agent=codex     # codex_hook_trust: trusted | untrusted | not_measured
+```
+
+and the ledger itself — events grouped by `hook_context.client` and
+`native_event`. A whole class of events missing while another class arrives is a
+trust gate, not a broken hook.
+
+Trust is keyed to the hook's command string, which contains `releases/<sha>`.
+A reinstall changes that path, so **gate 2 must be accepted again after every
+upgrade**. `jev doctor` reports `not_measured` — never `trusted` — when there is
+no configuration to read, because an absent file answers nothing.
+
 ## Integrity
 
 From the source checkout, verify the plugin manifest with:
