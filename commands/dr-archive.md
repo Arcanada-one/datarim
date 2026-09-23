@@ -5,6 +5,17 @@ description: Archive completed task with comprehensive documentation and Datarim
 
 # /dr-archive — Archive Task
 
+**Mandatory final evidence gate:** apply `skills/immutability/SKILL.md`
+§ Acceptance and Evidence Loop. Before closure run `check-live-evidence.sh
+--root <repo-root> --contract <acceptance.json> --evidence <evidence.json>
+--stage archive`. Every task case must now have applicable passing evidence.
+Any nonzero result blocks closure; WAITING_OPERATOR is not green. Fix gaps,
+rerun verification and downstream review. Existing production/operator gates
+remain mandatory; legacy marker inspection cannot substitute for this gate.
+Aggregate every case across the immutable selected route, including content
+write/edit/publish preparation and any later live-publication case. L1/L2 may
+legitimately omit QA/compliance where canon permits; require no fake receipts.
+
 > **Contract.** Archival performs irreversible workspace mutations — schema-gate validation of the thin-index files, staged-diff audit of foreign task-ID hunks, blob-swap recipe for non-interactive shells, prefix → archive-subdir routing, and the mandatory Operator Handoff section in the archive document. All of these protections are enforced in code (`pre-archive-check.sh`, `datarim-doctor.sh`, and the steps below), independent of how the command is invoked. Prefer the canonical slash form (`/dr-archive {TASK-ID}`) over manually staging archive files: the slash command threads through every guard described in this file; ad-hoc paths skip them.
 
 Complete and archive current task.

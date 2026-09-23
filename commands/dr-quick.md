@@ -5,6 +5,14 @@ description: Lightweight fast-lane for trivial fixes or quick lookups — assign
 
 # /dr-quick — Fast-Lane for Trivial Fixes & Lookups
 
+**Acceptance/evidence floor:** before Step 5, define falsifiable quick-stage
+cases and capture the preflight receipt per `skills/immutability/SKILL.md`
+§ Acceptance and Evidence Loop. Before Step 6 or a read-only completion, run
+`check-live-evidence.sh --root <repo-root> --contract <acceptance.json>
+--evidence <evidence.json> --stage quick`. Any nonzero result blocks closure.
+Fix the discrepancy, rerun the check, and retain each attempt. The fast lane
+skips full QA/compliance stages, never the acceptance/evidence floor.
+
 **Role**: Developer Agent (lightweight)
 **Source**: `${DATARIM_RUNTIME:?}/agents/developer.md`
 

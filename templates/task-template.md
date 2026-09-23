@@ -43,6 +43,16 @@ Schema reference: skills/datarim-system/SKILL.md § Description File Contract.
 
 ## Acceptance Criteria
 
+<!-- Before implementation, bind every criterion to cases in
+datarim/tasks/{TASK-ID}-acceptance.json and capture a preflight receipt in
+datarim/qa/{TASK-ID}-evidence.json. Follow skills/immutability/SKILL.md
+§ Acceptance and Evidence Loop: expected result/exit, required stage,
+evidence type/environment, scope, and current hashed evidence per case.
+Set workflow.complexity and workflow.task_type from this frontmatter, and pin
+workflow.route before work. L1/L2 keep valid lightweight routes; content uses
+write/edit/publish preparation stages, with mandatory QA/compliance at L3/L4.
+Missing or stale evidence is pending/blocked, never a checked acceptance box. -->
+
 - [ ] AC-1:
 - [ ] AC-2:
 

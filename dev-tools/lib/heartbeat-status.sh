@@ -28,6 +28,13 @@
 #   question_text  string?  — the hard-gate question (operator-facing)
 #   options        [string]?— the enumerated answer options; the answer channel
 #                             carries an INDEX into this list, never free text.
+#   interaction_run_id string? — opt-in run identity for consumption evidence.
+#   interaction_receipts [object]? — write-time snapshot of consumed response
+#                             identities (interactionId, decisionId, contextDigest).
+# Opt-in: set DATARIM_INTERACTION_RECEIPTS_DIR and DATARIM_INTERACTION_RUN_ID
+# together. Requires Python 3 only on this path. Invalid/oversized/symlinked
+# receipts fail closed without replacing prior heartbeat. No answer data is
+# stored. Reading a heartbeat NEVER augments it with later receipts.
 #
 # All identifiers here are schema field names, not personal data — this file is
 # part of the public shipped surface (English-only, identifier-free).
@@ -113,7 +120,14 @@ hb_write() {
     dir="$(dirname "$path")"
     mkdir -p "$dir" 2>/dev/null || { _hb_usage "cannot create $dir"; return 2; }
 
-    local now opts_json="" i
+    local now opts_json="" i receipts_json=""
+    if [ -n "${DATARIM_INTERACTION_RECEIPTS_DIR:-}${DATARIM_INTERACTION_RUN_ID:-}" ]; then
+        if [ -z "${DATARIM_INTERACTION_RECEIPTS_DIR:-}" ] || [ -z "${DATARIM_INTERACTION_RUN_ID:-}" ]; then
+            _hb_usage "both interaction receipt environment variables required"; return 2
+        fi
+        receipts_json="$(python3 "$(dirname "${BASH_SOURCE[0]}")/heartbeat-receipts.py" \
+            "$DATARIM_INTERACTION_RECEIPTS_DIR" "$DATARIM_INTERACTION_RUN_ID")" || return 2
+    fi
     now="${now_override:-$(_hb_now)}"
     if [ "${#options[@]}" -gt 0 ]; then
         opts_json=""
@@ -134,6 +148,10 @@ hb_write() {
         printf '"stage":%s,' "$(_hb_json_str "$stage")"
         printf '"updated_at":%s,' "$now"
         printf '"pid":%s' "$pid"
+        if [ -n "$receipts_json" ]; then
+            printf ',"interaction_run_id":%s' "$(_hb_json_str "$DATARIM_INTERACTION_RUN_ID")"
+            printf ',"interaction_receipts":%s' "$receipts_json"
+        fi
         if [ "$state" = "awaiting_operator" ] || [ -n "$qid$qtext" ] || [ -n "$opts_json" ]; then
             printf ',"question_id":%s' "$(_hb_json_str "$qid")"
             printf ',"question_text":%s' "$(_hb_json_str "$qtext")"

@@ -5,6 +5,16 @@ verdict: {COMPLIANT|COMPLIANT_WITH_NOTES|NON-COMPLIANT}
 scope: {optional one-line scope description}
 ---
 
+<!-- Evidence loop: cite acceptance.json, evidence.json, the exact strict
+check-live-evidence.sh --stage compliance invocation/result, tested revision,
+scope and artifact hashes, independent reviewer identity, and every pending
+later-stage case. STAGE_PASS is not full task delivery. Missing, stale, failed,
+or mock-only required live evidence is NON-COMPLIANT, never notes. -->
+
+<!-- Cite the immutable workflow.route and its canonical task type/complexity.
+Require receipts only for the selected route; canonical L3/L4 compliance stays
+mandatory, including content. Pending publication is not an accepted publish. -->
+
 <!-- allow-non-ascii-block: canonical operator-facing compliance-report section names and their Russian placeholder prose — a hard exclusion under AGENTS.md § Artifact Language Policy, which keeps these sections in the operator's language by deliberate decision -->
 
 # Compliance-отчёт: {TASK-ID} — {Title}

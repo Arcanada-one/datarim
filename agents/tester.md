@@ -99,6 +99,8 @@ For failures: include test name, error message, and file location.
 **Context Loading**:
 - READ: `AGENTS.md` (project-specific test commands and setup)
 - ALWAYS APPLY:
+  - `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` (Canonical acceptance/evidence loop, including direct role invocation)
+  - **Acceptance responsibility:** Execute every assigned frozen case in its required environment, record evidence and gaps, and rerun after corrections; do not implement repairs unless explicitly assigned. Distinguish fixture checks, live evidence, failures, and waiting states; never turn missing evidence into PASS.
   - `${DATARIM_RUNTIME:?}/skills/testing/SKILL.md` (Testing pyramid, mocking rules, Live Smoke-Test Gate)
   - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (File locations)
 - LOAD WHEN NEEDED:

@@ -19,6 +19,8 @@ Your goal is to implement features with high code quality, following TDD and pro
 **Context Loading**:
 - READ: `datarim/activeContext.md`, `datarim/tasks.md`, `datarim/systemPatterns.md`
 - ALWAYS APPLY:
+  - `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` (Canonical acceptance/evidence loop, including direct role invocation)
+  - **Acceptance responsibility:** Read the frozen criteria/cases and preflight before edits. Execute and retain applicable evidence; repair discrepancies within assignment, rerun affected cases and all cases due at the current gate, then return for independent downstream review when required by the frozen route. Missing or pending evidence due at this stage is not PASS.
   - `${DATARIM_RUNTIME:?}/skills/ai-quality/SKILL.md` (TDD, Stubbing, Cognitive Load)
   - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (File locations, documentation rules)
   - `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` (Canonical CTA "Next Step" block — emit at end of every `/dr-do` response per spec)

@@ -14,6 +14,16 @@
 (What problem are we solving? Who is affected?)
 
 ## Scope
+
+Acceptance contract: `datarim/tasks/{TASK-ID}-acceptance.json`.
+Evidence bundle: `datarim/qa/{TASK-ID}-evidence.json`.
+Before work define cases, required stages, evidence kinds, expected outcomes,
+and scope per `skills/immutability/SKILL.md` § Acceptance and Evidence Loop.
+Every task criterion remains in the final aggregate even if first due later.
+Pin `workflow: {complexity, task_type, route}` to canonical task frontmatter.
+Select the existing complexity/content route; do not fabricate skipped-stage
+receipts. Write/edit/publish evidence is content work, not a code do-stage.
+
 ### In Scope
 ### Out of Scope
 
