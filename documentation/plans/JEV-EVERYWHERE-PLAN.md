@@ -107,11 +107,29 @@ is returned. So the component advice is real and is driven by the catalogue,
 not by the prompt text.
 
 Two honest caveats. The wrapper gives the routing child **6 seconds**; the
-measured round trip was 0.6 s, but a slow network silently degrades to
-tier-only advice rather than failing loudly. And the token saving the operator
-expects is **not_measured** — the advice costs 281 input / 20 output tokens per
-prompt; whether the components it names save more than that has not been
-measured and is not claimed.
+measured round trip was 0.5–0.6 s, but a slow network silently degrades to
+tier-only advice rather than failing loudly.
+
+And the cost, measured properly on three prompts of different sizes, three runs
+each on DEV-AI:
+
+| prompt | median latency | routing cost |
+|---|---|---|
+| "Refactor the payment module and add unit tests" | 0.51 s | 3417 in / 789 out |
+| "Fix a typo in the README" | 0.54 s | 2957 in / 691 out |
+| "Design a migration plan … across three regions" | 0.52 s | 3380 in / 812 out |
+
+**Correction.** An earlier entry here put the cost at 281 in / 20 out. That
+figure came from `doctor --api`, whose probe is a trivial one-question call —
+not a routing request with the project catalogue attached. The real cost is an
+order of magnitude higher, and roughly flat across prompt sizes because the
+catalogue dominates the input.
+
+So the token saving remains **not_measured**, now with the bar stated: the
+components Jev names must save more than ~3400 input tokens per prompt to pay
+for themselves. Plausible when it loads four relevant skills instead of the
+agent reading a dozen, but plausible is not measured, and proving it needs two
+sessions on the same task with and without the advice.
 
 ### P3-9, measured correction
 

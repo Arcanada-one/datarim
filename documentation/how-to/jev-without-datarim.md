@@ -149,6 +149,32 @@ timeout, not a misconfiguration. Raise it in the host config
 { "api": { "hook_timeout_seconds": 10 } }
 ```
 
+### What the advice costs
+
+Measured on three prompts of different sizes, three runs each: **0.5 s** and
+roughly **3400 input / 790 output tokens per prompt**, near-flat across prompt
+size because the project catalogue dominates the input, not your text.
+
+Without a Datarim catalogue there is nothing to probe, so the cost is far
+lower — this section describes the catalogue case.
+
+If that is too much for your workload, the dominant term is how many catalogue
+candidates get probed:
+
+```json
+{ "routing": { "component_selection": { "candidate_probe_limit": 4 } } }
+```
+
+Measured, not assumed: dropping the limit from 8 to 2 moved one prompt from
+3417/789 to 2836/640 tokens — about 17%, not the proportional cut you might
+expect. Most of the input is the catalogue itself and the task description,
+which are sent regardless; only the per-candidate probes scale. Lower it if you
+want, but do not expect the cost to fall with the limit.
+
+Whether the advice pays for itself — fewer wrong turns and fewer irrelevant
+skills loaded, against ~3400 tokens a prompt — depends on your work, and this
+project does not claim a figure it has not measured.
+
 ## Turn it off
 
 ```sh
