@@ -238,9 +238,15 @@ Start with the walkthrough for your intended setup:
 
 - [Initialize Datarim without Jev](documentation/tutorials/initialize-datarim.md)
 - [Initialize Datarim together with Jev](documentation/tutorials/initialize-datarim-with-jev.md)
+- [Use Jev on its own, without Datarim](documentation/how-to/jev-without-datarim.md)
 - [Configure and use Jev](documentation/how-to/configure-and-use-jev.md)
 - [Use host Jev with project-local Datarim](documentation/how-to/host-jev-with-project-datarim.md)
 - [Jev command reference](documentation/reference/jev-cli.md)
+
+Jev does not require Datarim. Routing, the ledger and the deterministic safety
+floor work on a machine that has never installed the framework; what a project
+catalogue adds is skill, agent, command and template selection on top of the
+model tier.
 
 ```sh
 ./install.sh --project /absolute/path/to/project --init --with-jev
