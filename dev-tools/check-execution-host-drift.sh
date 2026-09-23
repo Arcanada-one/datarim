@@ -6,7 +6,7 @@
 # machine-local `~/.claude/local/config/execution-hosts.yml` binding for the
 # same space, and flags TTL staleness (map older than 90 days).
 #
-# Orthogonal-tools rationale (framework CLAUDE.md § Self-Evolution,
+# Orthogonal-tools rationale (framework AGENTS.md § Self-Evolution,
 # "Validation Discipline" — "New schema validations MUST NOT be added as new
 # branches inside datarim-doctor.sh... orthogonal concerns get orthogonal
 # tools"): datarim-doctor.sh's SCOPE=execution only CALLS this script and

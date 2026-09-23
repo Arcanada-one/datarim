@@ -7,7 +7,7 @@ target_aal: 2
 
 # Security Guidelines
 
-> **Companion:** canonical S1–S9 rule reference lives in [`skills/security-baseline/SKILL.md`](../security-baseline/SKILL.md) — single source of truth per CLAUDE.md § Security Mandate. This skill complements the baseline with operational recipes (git history scrub, Tailscale + VPN coexistence, recon-vs-compromise heuristics, cross-stack relative-path includes, stack-neutral phrasing for dependency audit). Load both together when planning security-relevant changes; load this one alone when investigating a live incident.
+> **Companion:** canonical S1–S9 rule reference lives in [`skills/security-baseline/SKILL.md`](../security-baseline/SKILL.md) — single source of truth per AGENTS.md § Security Mandate. This skill complements the baseline with operational recipes (git history scrub, Tailscale + VPN coexistence, recon-vs-compromise heuristics, cross-stack relative-path includes, stack-neutral phrasing for dependency audit). Load both together when planning security-relevant changes; load this one alone when investigating a live incident.
 
 ## Authentication & Authorization
 - Never hardcode secrets/keys. Use `.env`.
@@ -36,7 +36,7 @@ commands, templates), use the stack-neutral phrasing:
 
 > «package-manager-native audit command at the declared severity threshold»
 
-Concrete invocations belong in project-level `CLAUDE.md`, not the framework
+Concrete invocations belong in project-level `AGENTS.md`, not the framework
 runtime — they are stack-specific by definition.
 <!-- gate:example-only -->
 Concrete forms across ecosystems: `npm audit`, `pnpm audit`, `yarn audit`,
@@ -138,5 +138,5 @@ If you must keep a remote ref pointing at pre-scrub HEAD as a convenience marker
 
 ## Reusable Templates
 
-- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md` — stack-neutral plan for dependency-CVE / framework-version-bump / transitive-override tasks. Sections: baseline audit snapshot, target version selection, breaking-change diff, lockfile/peer-dep impact, regression test scope, rollback. Use during `/dr-plan` for any maintenance task closing security advisories.
-- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cutover-runbook-template.md` — stack-neutral atomic 8-phase cutover pattern with auto-rollback. Use during `/dr-plan` for any live-service config flip / deployment / mount-point migration where pre/post smoke comparison can guard the change.
+- `${DATARIM_RUNTIME:?}/templates/security-deps-upgrade-plan.md` — stack-neutral plan for dependency-CVE / framework-version-bump / transitive-override tasks. Sections: baseline audit snapshot, target version selection, breaking-change diff, lockfile/peer-dep impact, regression test scope, rollback. Use during `/dr-plan` for any maintenance task closing security advisories.
+- `${DATARIM_RUNTIME:?}/templates/cutover-runbook-template.md` — stack-neutral atomic 8-phase cutover pattern with auto-rollback. Use during `/dr-plan` for any live-service config flip / deployment / mount-point migration where pre/post smoke comparison can guard the change.

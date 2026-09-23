@@ -371,7 +371,7 @@ EOF
 
 # ---------- TUNE-0060 mine-by-elimination klass ----------
 #
-# Founding incident: TUNE-0059 archive — `code/datarim/CLAUDE.md` and
+# Founding incident: TUNE-0059 archive — `code/datarim/AGENTS.md` and
 # `code/datarim/README.md` (committed body has many historical task IDs)
 # version-bump 1.18.0→1.18.2 misclassified as `foreign` despite diff lines
 # being clean. With `--task-id` set + actual diff-line IDs == ∅ + body IDs ≠ ∅,
@@ -382,7 +382,7 @@ EOF
 # T26 hit: body has foreign IDs, diff lines clean (e.g., version bump on doc) → mine-by-elimination + exit 0
 @test "shared mode: body has foreign IDs + diff lines clean → mine-by-elimination (exit 0)" {
     make_marker_repo "$BATS_TEST_TMPDIR/fw"
-    # Seed CLAUDE.md-shape file: body has foreign historical task IDs
+    # Seed AGENTS.md-shape file: body has foreign historical task IDs
     make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference DEV-1210 fix and LTM-0009 benchmark."
     # Modify with content that contains NO task IDs (e.g., version-line bump)
     echo "Updated for v1.18.3 release." >> "$BATS_TEST_TMPDIR/fw/doc.md"
@@ -462,7 +462,7 @@ EOF
 # `mixed` with current TASK_ID listed, despite `git diff HEAD | grep -E
 # '^[+-][^+-]' | grep -c <TASK_ID>` returning 0 (own ID lived only in the
 # committed body or hunk-context, not in any actual diff line). Operator had
-# to manually re-verify per CLAUDE.md rule 4. Fix: own/mixed gate considers
+# to manually re-verify per AGENTS.md rule 4. Fix: own/mixed gate considers
 # only `^[+-][^+-]` diff lines (`diff_line_ids`); body/context IDs no longer
 # trigger `mixed`.
 

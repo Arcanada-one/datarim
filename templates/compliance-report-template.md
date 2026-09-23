@@ -5,7 +5,7 @@ verdict: {COMPLIANT|COMPLIANT_WITH_NOTES|NON-COMPLIANT}
 scope: {optional one-line scope description}
 ---
 
-<!-- allow-non-ascii-block: canonical operator-facing compliance-report section names and their Russian placeholder prose — a hard exclusion under CLAUDE.md § Artifact Language Policy, which keeps these sections in the operator's language by deliberate decision -->
+<!-- allow-non-ascii-block: canonical operator-facing compliance-report section names and their Russian placeholder prose — a hard exclusion under AGENTS.md § Artifact Language Policy, which keeps these sections in the operator's language by deliberate decision -->
 
 # Compliance-отчёт: {TASK-ID} — {Title}
 

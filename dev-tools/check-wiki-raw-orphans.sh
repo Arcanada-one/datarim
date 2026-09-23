@@ -3,7 +3,7 @@
 # check-wiki-raw-orphans.sh — semantic orphan-content check for `wiki/_raw_/`.
 #
 # Ships as a standalone dev-tools validator per the Validation Discipline
-# (CLAUDE.md § Self-Evolution): content validation is orthogonal to ops-file
+# (AGENTS.md § Self-Evolution): content validation is orthogonal to ops-file
 # migration and MUST NOT live inside datarim-doctor.sh.
 #
 # WHAT IT DETECTS

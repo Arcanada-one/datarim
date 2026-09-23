@@ -1,6 +1,6 @@
 ---
 name: security-baseline
-description: Canonical S1–S11 security rule reference cited from CLAUDE.md § Security Mandate. Load for plan/qa/compliance/do touching shipped artefacts.
+description: Canonical S1–S11 security rule reference cited from AGENTS.md § Security Mandate. Load for plan/qa/compliance/do touching shipped artefacts.
 current_aal: 1
 target_aal: 2
 ---
@@ -52,7 +52,7 @@ The baseline therefore optimises for **shipped-artefact correctness** over local
 
 ## S1 — Shell scripts and embedded shell blocks
 
-**Applies to:** every `*.sh` file, every <code>```bash</code> / <code>```sh</code> / <code>```shell</code> fenced block in `skills/`, `agents/`, `commands/`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/`, `documentation/`, every `${DATARIM_RUNTIME:-$HOME/.claude}/templates/*.sh.j2`-style scaffold.
+**Applies to:** every `*.sh` file, every <code>```bash</code> / <code>```sh</code> / <code>```shell</code> fenced block in `skills/`, `agents/`, `commands/`, `${DATARIM_RUNTIME:?}/templates/`, `documentation/`, every `${DATARIM_RUNTIME:?}/templates/*.sh.j2`-style scaffold.
 
 ### Required rules (MUST)
 
@@ -160,7 +160,7 @@ with os.fdopen(fd, "w") as f:
 ### Required rules
 
 1. **No hardcoded credentials** in any shipped artefact — keys, tokens, OAuth client IDs, tenant IDs, customer-specific URLs, internal IPs.
-2. **Generic env-var paths** for credential discovery: `${PROJECT_CREDS_DIR}/<service>/<file>` is the canonical reference shape in shipped templates. Project-specific locations live in the project's `CLAUDE.md`, not in framework runtime.
+2. **Generic env-var paths** for credential discovery: `${PROJECT_CREDS_DIR}/<service>/<file>` is the canonical reference shape in shipped templates. Project-specific locations live in the project's `AGENTS.md`, not in framework runtime.
 3. **Secrets sources** in declared order of preference: secret manager / Vault → process environment → operator prompt. **Never:** committed file, command-line argument visible to `ps`, container build-arg.
 4. **`.gitignore` coverage** — every shipped template's deployment recipe MUST list candidate secret-bearing paths (`.env`, `*.pem`, `*.key`, `*.token`, `**/Credentials/**`).
 5. **Rotation policy on accidental commit** — within 24h: rotate at the issuing system, scrub git history (see [`skills/security/SKILL.md`](../security/SKILL.md) § Git History Scrub Recipe), force-push, notify clones, document the incident in `documentation/archive/security/`.
@@ -169,7 +169,7 @@ with os.fdopen(fd, "w") as f:
 ### Cross-references
 
 - [`skills/security/SKILL.md`](../security/SKILL.md) § Git History Scrub Recipe — post-leak rotation playbook.
-- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md` — vault rotation cadence template.
+- `${DATARIM_RUNTIME:?}/templates/security-deps-upgrade-plan.md` — vault rotation cadence template.
 
 ---
 
@@ -183,12 +183,12 @@ ecosystem-specific Vault paths MUST NOT appear in any shipped framework artefact
 1. **No operator identity in shipped files** — personal names, usernames, handles, email addresses, and personal tool GIDs are operator-private and belong in the operator's personal config, not in framework runtime.
 2. **No ecosystem-specific hostnames** — server names, internal network aliases, and infrastructure hostnames must be parameterised via env vars with generic defaults (e.g. `${DR_SOAK_HOST:-<ops-host>}`).
 3. **No ecosystem-specific Vault paths** — Vault path templates must use generic placeholders (e.g. `kv/<tenant>/<service>/api_token`) so the framework works for any operator.
-4. **Personal config location** — operator-specific tokens and settings live in `${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal.env`, loaded by `cli/lib/load-local-config.sh`. This path is gitignored and never shipped.
+4. **Personal config location** — operator-specific tokens and settings live in `${DATARIM_LOCAL:-${DATARIM_RUNTIME:?}/local}/config/personal.env`, loaded by `cli/lib/load-local-config.sh`. This path is gitignored and never shipped.
 5. **Enforcement** — `scripts/personal-id-gate.sh` scans the shipped surface against `dev-tools/personal-id-forbidden.regex`. Run on every PR via `.github/workflows/personal-id-lint.yml`. Exit 0 = clean; exit 1 = block.
 6. **Inline exemption** — teaching counter-examples and synthetic fixtures may use the fence `<!-- gate:example-only --> ... <!-- /gate:example-only -->` to exclude specific lines from the scan.
 7. **A denylist MUST NOT contain the values it forbids.** `dev-tools/personal-id-forbidden.regex` ships in a **public** repo. Adding literal infrastructure addresses to it publishes precisely what the gate exists to suppress — the pattern file becomes its own leak, and a reader gets a ready-made role-to-address map. This applies to any shipped denylist, not only this one.
    - **Public-routable IPv4 needs no entry.** The `is_real_public_ipv4` heuristic in `scripts/personal-id-gate.sh` flags *any* globally-routable address in the shipped surface, so a new, never-listed host is caught with no edit to the pattern file. Reserved and documentation ranges are excluded there (RFC 1918, RFC 5737 TEST-NET, loopback, link-local, 100.64/10 CGNAT, 4th-octet-0 version strings).
-   - **CGNAT mesh addresses (100.64/10) are the sole exception** — deliberately outside the heuristic, since flagging the whole range would break legitimate documentation. They are supplied through the private overlay `${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal-id-forbidden.regex`, which the gate merges **additively** (it can add patterns, never suppress a shipped one). Absent overlay is fail-soft — the normal case for a fresh install. Override for tests/CI with `DATARIM_PERSONAL_ID_OVERLAY=<file>`.
+   - **CGNAT mesh addresses (100.64/10) are the sole exception** — deliberately outside the heuristic, since flagging the whole range would break legitimate documentation. They are supplied through the private overlay `${DATARIM_LOCAL:-${DATARIM_RUNTIME:?}/local}/config/personal-id-forbidden.regex`, which the gate merges **additively** (it can add patterns, never suppress a shipped one). Absent overlay is fail-soft — the normal case for a fresh install. Override for tests/CI with `DATARIM_PERSONAL_ID_OVERLAY=<file>`.
 8. **A gate's own tests MUST NOT use real values as fixtures.** A test proving "a real host is caught" needs a routable address, not *your* address — use a third-party well-known address or an RFC 5737 range, whichever the assertion requires. Tests are shipped surface too.
 
 ### Cross-references
@@ -240,7 +240,7 @@ Corrected: download the tarball, verify SHA-256 against a separately-sourced che
 
 ## S5 — Markdown documentation as executable instructions
 
-**Applies to:** every shipped `.md` (skills, agents, commands, templates, docs, README, CLAUDE.md). The premise: AI agents and humans both treat shipped Markdown as executable knowledge — copy-paste-able, prescriptive.
+**Applies to:** every shipped `.md` (skills, agents, commands, templates, docs, README, AGENTS.md). The premise: AI agents and humans both treat shipped Markdown as executable knowledge — copy-paste-able, prescriptive.
 
 ### Required rules
 
@@ -249,7 +249,7 @@ Corrected: download the tarball, verify SHA-256 against a separately-sourced che
 2. **Never prescribe an unsafe pattern** outside a counter-example fence. A skill that says "this is the canonical install — `curl | bash`" silently authorises every consumer to ship that recipe. Reword OR fence.
 <!-- /security:rule-statement -->
 3. **Counter-example fence syntax is mandatory** for any block teaching what NOT to do (see canonical syntax below).
-4. **Scope-aware claims** — a skill that names a stack (NestJS, Django, etc.) MUST live behind `<!-- gate:example-only -->` or be relocated to a project's `CLAUDE.md`. Framework runtime stays stack-agnostic per [`skills/evolution/stack-agnostic-gate.md`](../evolution/stack-agnostic-gate.md).
+4. **Scope-aware claims** — a skill that names a stack (NestJS, Django, etc.) MUST live behind `<!-- gate:example-only -->` or be relocated to a project's `AGENTS.md`. Framework runtime stays stack-agnostic per [`skills/evolution/stack-agnostic-gate.md`](../evolution/stack-agnostic-gate.md).
 
 ### Counter-example fence syntax (canonical)
 
@@ -290,7 +290,7 @@ Every shipped repo (Datarim itself + every consumer project the framework scaffo
 
 ### Sample `.github/dependabot.yml` shape
 
-The shipped baseline (`${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-workflow.yml` family) carries a Dependabot stub; consumer projects extend the manifest list to match their stack. The minimum shape:
+The shipped baseline (`${DATARIM_RUNTIME:?}/templates/security-workflow.yml` family) carries a Dependabot stub; consumer projects extend the manifest list to match their stack. The minimum shape:
 
 ```yaml
 version: 2
@@ -306,15 +306,15 @@ updates:
 
 Consumer projects add their language ecosystem (e.g. one `package-ecosystem` block per dependency manifest). Datarim itself ships only the `github-actions` ecosystem block — the framework has no language manifests in scope.
 
-`${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-workflow.yml` is the canonical drop-in for consumer projects. Reusable workflow path: `Arcanada-one/datarim/.github/workflows/reusable-security.yml@<tag>` (preferred — single source of truth, version-pinned).
+`${DATARIM_RUNTIME:?}/templates/security-workflow.yml` is the canonical drop-in for consumer projects. Reusable workflow path: `Arcanada-one/datarim/.github/workflows/reusable-security.yml@<tag>` (preferred — single source of truth, version-pinned).
 
 ### Pre-push local validation (advisory)
 
 For a brand-new repo wired to reusable CI workflows (per this section), run the local validators before the first `git push` to catch policy violations before CI does:
 
 ```bash
-${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-security-policy.sh --validate-yaml accepted-risk.yml
-${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh --verify "$TASK_ID"
+${DATARIM_RUNTIME:?}/dev-tools/check-security-policy.sh --validate-yaml accepted-risk.yml
+${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh --verify "$TASK_ID"
 actionlint .github/workflows/*.yml
 ```
 
@@ -438,7 +438,7 @@ Suppression markers (`# shellcheck disable=...`, `# nosec`, `# nosemgrep: <rule>
 
 - **shellcheck:** `# shellcheck disable=SC2086 # reason: deliberate word-splitting per S1 exception, reviewer: <name>, expires: 2026-12-31`
 - **bandit:** `# nosec B602 # reason: shell=True required for inherited PATH, sanitised via shlex.quote at line N, reviewer: <name>`
-- **semgrep:** `# nosemgrep: <rule-id> -- <one-line reason>` (matches existing `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cloudflare-nginx-setup.sh` form per `tests/security/baseline.json`)
+- **semgrep:** `# nosemgrep: <rule-id> -- <one-line reason>` (matches existing `${DATARIM_RUNTIME:?}/templates/cloudflare-nginx-setup.sh` form per `tests/security/baseline.json`)
 
 ### Review cadence
 
@@ -459,7 +459,7 @@ Watch for:
 
 ### Worked example — accepted suppression
 
-Concrete entry shape in `tests/security/baseline.json` § `suppressions[]` (mirrors the existing form for `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cloudflare-nginx-setup.sh`):
+Concrete entry shape in `tests/security/baseline.json` § `suppressions[]` (mirrors the existing form for `${DATARIM_RUNTIME:?}/templates/cloudflare-nginx-setup.sh`):
 
 ```json
 {
@@ -490,14 +490,14 @@ Loaded on demand when investigating incidents or planning operational responses.
 
 `skills/security-baseline/SKILL.md` (this document) — **canonical rule reference**. Loaded by reviewer / security agents during /dr-plan, /dr-qa, /dr-compliance touching shipped artefacts; loaded by developer during /dr-do that ships a new skill / agent / template / script.
 
-Both skills cross-link freely; neither replaces the other. CLAUDE.md § Security Mandate cites THIS document as «single source of truth» — that scope is **rules**. Operational recipes (how to scrub history, how to debug Tailscale+VPN) continue to live in `security.md`.
+Both skills cross-link freely; neither replaces the other. AGENTS.md § Security Mandate cites THIS document as «single source of truth» — that scope is **rules**. Operational recipes (how to scrub history, how to debug Tailscale+VPN) continue to live in `security.md`.
 
 ---
 
 ## Reusable Templates
 
-- [`${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-workflow.yml`](../../templates/security-workflow.yml) — drop-in CI gate for consumer projects.
-- [`${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md`](../../templates/security-deps-upgrade-plan.md) — stack-neutral plan for dependency-CVE / framework-bump tasks. See [`skills/security/SKILL.md`](../security/SKILL.md) § Reusable Templates.
+- [`${DATARIM_RUNTIME:?}/templates/security-workflow.yml`](../../templates/security-workflow.yml) — drop-in CI gate for consumer projects.
+- [`${DATARIM_RUNTIME:?}/templates/security-deps-upgrade-plan.md`](../../templates/security-deps-upgrade-plan.md) — stack-neutral plan for dependency-CVE / framework-bump tasks. See [`skills/security/SKILL.md`](../security/SKILL.md) § Reusable Templates.
 - `tests/security/finding-<N>-<slug>.bats` — regression test scaffold (S9 obligation: every fixed finding gets a regression test).
 
 ---

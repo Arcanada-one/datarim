@@ -2,9 +2,9 @@
 # test-prefix-claude-md-lookup.bats — TUNE-0030
 #
 # Verifies that datarim-doctor.sh resolves project prefixes by walking up the
-# directory tree and parsing `## Task Prefix Registry` sections in CLAUDE.md.
+# directory tree and parsing `## Task Prefix Registry` sections in AGENTS.md.
 # Universal area prefixes resolve from the runtime case-statement; project
-# prefixes resolve from the consumer's CLAUDE.md; unknown prefixes fall back
+# prefixes resolve from the consumer's AGENTS.md; unknown prefixes fall back
 # to `general`. Path-traversal and unsafe characters in Archive Subdir are
 # rejected.
 
@@ -18,7 +18,7 @@ teardown() {
     rm -rf "$TMPROOT"
 }
 
-@test "T-PFX-1 area prefix resolves without CLAUDE.md (runtime-owned)" {
+@test "T-PFX-1 area prefix resolves without AGENTS.md (runtime-owned)" {
     cd "$TMPROOT"
     run "$DOCTOR" --probe-prefix=INFRA
     [ "$status" -eq 0 ]
@@ -32,8 +32,8 @@ teardown() {
     [ "$output" = "general" ]
 }
 
-@test "T-PFX-3 project prefix resolves from CLAUDE.md in cwd" {
-    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+@test "T-PFX-3 project prefix resolves from AGENTS.md in cwd" {
+    cat > "$TMPROOT/AGENTS.md" <<'EOF'
 # Project
 
 ## Task Prefix Registry
@@ -48,8 +48,8 @@ EOF
     [ "$output" = "acme" ]
 }
 
-@test "T-PFX-4 walks up to ancestor CLAUDE.md when local has no registry" {
-    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+@test "T-PFX-4 walks up to ancestor AGENTS.md when local has no registry" {
+    cat > "$TMPROOT/AGENTS.md" <<'EOF'
 # Workspace
 
 ## Task Prefix Registry
@@ -65,8 +65,8 @@ EOF
     [ "$output" = "acme" ]
 }
 
-@test "T-PFX-5 nearer CLAUDE.md without prefix → falls through to outer registry" {
-    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+@test "T-PFX-5 nearer AGENTS.md without prefix → falls through to outer registry" {
+    cat > "$TMPROOT/AGENTS.md" <<'EOF'
 # Workspace
 
 ## Task Prefix Registry
@@ -76,7 +76,7 @@ EOF
 | OUTER | Outer project | outer |
 EOF
     mkdir -p "$TMPROOT/sub"
-    cat > "$TMPROOT/sub/CLAUDE.md" <<'EOF'
+    cat > "$TMPROOT/sub/AGENTS.md" <<'EOF'
 # Inner
 
 No registry here.
@@ -88,7 +88,7 @@ EOF
 }
 
 @test "T-PFX-6 path-traversal in Archive Subdir → rejected, falls back to general" {
-    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+    cat > "$TMPROOT/AGENTS.md" <<'EOF'
 # Project
 
 ## Task Prefix Registry
@@ -103,7 +103,7 @@ EOF
 }
 
 @test "T-PFX-7 spaces / uppercase in Archive Subdir → rejected" {
-    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+    cat > "$TMPROOT/AGENTS.md" <<'EOF'
 # Project
 
 ## Task Prefix Registry
@@ -118,7 +118,7 @@ EOF
 }
 
 @test "T-PFX-8 ### heading-level registry also parsed (Project-Specific zone)" {
-    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+    cat > "$TMPROOT/AGENTS.md" <<'EOF'
 # Project
 
 ## Project-Specific Configuration
@@ -140,8 +140,8 @@ EOF
     [ "$status" -eq 64 ]
 }
 
-@test "T-PFX-10 area prefix wins over CLAUDE.md row of the same name" {
-    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+@test "T-PFX-10 area prefix wins over AGENTS.md row of the same name" {
+    cat > "$TMPROOT/AGENTS.md" <<'EOF'
 # Project
 
 ## Task Prefix Registry

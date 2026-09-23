@@ -11,6 +11,9 @@ RESOLVER="$BATS_TEST_DIRNAME/../scripts/lib/resolve-datarim-root.sh"
 
 setup() {
     TMPROOT="$(mktemp -d)"
+    TMPROOT="$(cd "$TMPROOT" && pwd -P)"
+    mkdir -p "$TMPROOT/.datarim-runtime"
+    python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); (p/".datarim-runtime/installation.json").write_text(json.dumps({"schema":1,"project":str(p)}))' "$TMPROOT"
     # A KB carries at least one canonical operational file.
     mkdir -p "$TMPROOT/datarim"
     printf '# Tasks\n' > "$TMPROOT/datarim/tasks.md"
@@ -70,7 +73,7 @@ teardown() {
     rm -rf "$bare"
 }
 
-@test "R7 git-toplevel anchor wins over a closer sibling datarim/" {
+@test "R7 explicit project anchor wins over a closer sibling datarim/" {
     command -v git >/dev/null || skip "git not available"
     # KB at the git toplevel; a closer sibling datarim/ deeper in the tree
     git -C "$TMPROOT" init -q
@@ -83,6 +86,20 @@ teardown() {
 }
 
 # --- assert_not_nested_datarim: refuses an already-nested root --------------
+
+@test "R8 historical KB alone cannot activate a project" {
+    rm "$TMPROOT/.datarim-runtime/installation.json"
+    run bash -c '. "$1"; resolve_datarim_root "$2"' _ "$RESOLVER" "$TMPROOT"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"No project-local Datarim installation"* ]]
+}
+
+@test "R9 nested repository cannot inherit parent KB without opt-in" {
+    mkdir -p "$TMPROOT/spaces/client/.git"
+    run bash -c '. "$1"; resolve_datarim_root "$2"' _ "$RESOLVER" "$TMPROOT/spaces/client/code/src"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"not an approved project context"* ]]
+}
 
 @test "N1 a normal repo-root passes the nesting guard" {
     run bash -c '. "$1"; assert_not_nested_datarim "$2"' _ "$RESOLVER" "$TMPROOT"

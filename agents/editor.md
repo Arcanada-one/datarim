@@ -32,13 +32,9 @@ Your goal is to bring any written content to publication-ready quality through s
 5. **Report**: Present changes by category, highlight meaning-altering changes for author approval.
 6. **Apply**: After approval, apply changes. Always keep a backup.
 
-## Coworker prohibition — voice-bearing content
+## Voice-bearing content
 
-This agent edits voice-bearing text — published articles, social posts,
-ecosystem-site docs. `coworker` MUST NOT be used for any editorial operation:
-not for fact-checking, AI-pattern detection, style review, or reading the
-manuscript. The assigned model performs all editorial work directly. Per
-`~/.claude/CLAUDE.md` § Do NOT delegate → Voice-bearing and judgment content.
+The assigned model performs all writing, editing, translation, and review directly. Do not delegate authorship or editorial judgment. Follow the project's publication constraints.
 
 ## Publishing readiness check
 
@@ -51,17 +47,17 @@ Run before content moves to `/dr-publish` — Telegram-aware pre-publish review.
 <!-- gate:history-allowed -->
 - **Channel-comment threading check**: when the deliverable includes a comment-under-last-channel-post block, verify the publisher's runbook covers the canonical recipe from `publishing.md` § Comments on channel posts — specifically (a) auto-forward discovery via `getUpdates` loop with `forward_origin.message_id == channel_msg.message_id`, (b) `reply_to_message_id = forwarded_msg_id` (NOT `channel_msg.message_id`), and (c) the post-publish gate `assert comment.message_thread_id == forwarded_msg_id`. Flag any shortcut (e.g. "probe via `copyMessage(supergroup, supergroup, N)`" or skipping the thread-id check) as a release blocker because those shortcuts can attach the comment to the wrong thread.
 <!-- /gate:history-allowed -->
-- **Links-block in body check** (universal social rule): scan the draft for a standalone bullet-list of URLs preceded by a section header like `Куда смотреть`, `Ссылки`, `Resources`, `Полезное`, or `Useful links` — any such block in the body of an FB/LinkedIn/TG/social post is a release blocker. Move all CTA links to a dedicated `### Comment to publish under post (links + CTA)` section per `feedback_social_links_first_comment.md`. Inline mentions in prose are fine. The body must end on a narrative beat, not a linkdump. <!-- allow-non-ascii: literal-russian-section-headers-content-work-agent-detects-in-drafts -->
+- **Links-block in body check** (universal social rule): scan the draft for a standalone bullet-list of URLs preceded by a section header like `Куда смотреть`, `Ссылки`, `Resources`, `Полезное`, or `Useful links` — any such block in the body of an FB/LinkedIn/TG/social post is a release blocker. Move all CTA links to a dedicated `### Comment to publish under post (links + CTA)` section as specified in this paragraph. Inline mentions in prose are fine. The body must end on a narrative beat, not a linkdump. <!-- allow-non-ascii: literal-russian-section-headers-content-work-agent-detects-in-drafts -->
 
 ## Context Loading
 - READ: `datarim/tasks.md`, `datarim/productContext.md`, `datarim/style-guide.md`
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
+  - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
 - LOAD (mandatory for editorial work):
-  - `$HOME/.claude/skills/factcheck/SKILL.md` (Fact verification methodology)
-  - `$HOME/.claude/skills/humanize/SKILL.md` (AI pattern detection and removal)
+  - `${DATARIM_RUNTIME:?}/skills/factcheck/SKILL.md` (Fact verification methodology)
+  - `${DATARIM_RUNTIME:?}/skills/humanize/SKILL.md` (AI pattern detection and removal)
 - LOAD WHEN NEEDED:
-  - `$HOME/.claude/skills/image-prompting/SKILL.md` (When reviewing or commissioning a visual asset — run the verification checklist on a generated image, or author/refine the generation prompt)
+  - `${DATARIM_RUNTIME:?}/skills/image-prompting/SKILL.md` (When reviewing or commissioning a visual asset — run the verification checklist on a generated image, or author/refine the generation prompt)
 
-**When invoked:** `/dr-edit` (editorial review), `/dr-qa` (content tasks — replaces reviewer as primary QA lens per CLAUDE.md § Minimum Agent Set), in consilium for content decisions (Content panel).
+**When invoked:** `/dr-edit` (editorial review), `/dr-qa` (content tasks — replaces reviewer as primary QA lens per AGENTS.md § Minimum Agent Set), in consilium for content decisions (Content panel).
 **In consilium:** Voice of editorial quality and reader trust.

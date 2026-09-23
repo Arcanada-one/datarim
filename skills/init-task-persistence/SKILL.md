@@ -1,6 +1,6 @@
 ---
 name: init-task-persistence
-description: Init-task artefact: verbatim operator brief + append-log, mandatory read by every pipeline command. Source of truth for operator intent.
+description: "Init-task artefact: verbatim operator brief + append-log, mandatory read by every pipeline command. Source of truth for operator intent."
 current_aal: 1
 target_aal: 2
 ---
@@ -130,9 +130,9 @@ execution and reconcile any divergence in their output document:
 | `/dr-do` | verbatim brief + every append-log block | task-description § Implementation Notes |
 | `/dr-qa` | verbatim brief + every append-log block | QA report § Expectations / Plain-language summary |
 | `/dr-compliance` | verbatim brief + every append-log block | compliance report § Plain-language summary |
-| `/dr-archive` | verbatim brief + every append-log block | archive doc (section name in `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md` — folded into the "how we solved it" section per the current template) |
+| `/dr-archive` | verbatim brief + every append-log block | archive doc (section name in `${DATARIM_RUNTIME:?}/templates/archive-template.md` — folded into the "how we solved it" section per the current template) |
 
-`/dr-doctor` reads init-task **presence** (via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh"
+`/dr-doctor` reads init-task **presence** (via `"${DATARIM_RUNTIME:?}/dev-tools/check-init-task-presence.sh"
 --all`) but not content; absent init-task on a non-archived task surfaces as a
 finding scaled by per-task soft window.
 
@@ -151,7 +151,7 @@ finding scaled by per-task soft window.
 
 ## Validation
 
-`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh"` is the canonical validator.
+`"${DATARIM_RUNTIME:?}/dev-tools/check-init-task-presence.sh"` is the canonical validator.
 
 - `--task <ID>`: validate one file. Exit 0 = OK, 1 = malformed/missing, 2 = usage.
 - `--all`: scan all task-descriptions for missing init-tasks. Always exit 0;
@@ -172,7 +172,7 @@ the init-task file. Two source flows:
 Empty `## Append-log` placeholder is always written.
 
 After writing, `/dr-init` invokes
-`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" --task <ID>` and surfaces non-zero
+`"${DATARIM_RUNTIME:?}/dev-tools/check-init-task-presence.sh" --task <ID>` and surfaces non-zero
 exit as a warning (the description and operational-file work still
 continues — operator may fix the init-task manually).
 
@@ -180,7 +180,7 @@ continues — operator may fix the init-task manually).
 
 If the operator skipped `/dr-init` at task start (e.g. opened with
 `/dr-plan` directly) and a later stage needs to call
-`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh"`, the tool exits 1 with
+`"${DATARIM_RUNTIME:?}/dev-tools/append-init-task-qa.sh"`, the tool exits 1 with
 `init-task file does not exist`. The agent MUST seed the file inline
 before retrying, not block on the operator. Recipe:
 
@@ -390,15 +390,15 @@ not a verbatim operator answer.
   `/dr-qa` Layer 3b the same way operator answers are.
 - `Decided by: process-rule-artefact` — the operator clarification did
   not produce a verbatim answer or a code-pointing agent decision; it
-  produced one or more persisted rule documents (memory files, CLAUDE.md
+  produced one or more persisted rule documents (memory files, AGENTS.md
   additions, mandate docs). `Decision rationale` is replaced by a
   `Process-rule artefacts:` block enumerating each artefact path (one
   per line). The 50-character floor does not apply — artefact paths are
   terse by design. Used when the clarification's value is the rule
   itself, not the answer to one question (e.g. an operator remark that
-  becomes a canonical English-only mandate across four CLAUDE.md
+  becomes a canonical English-only mandate across four AGENTS.md
   surfaces). Required: `--rationale-file` whose body contains at least
-  one path-like token (`CLAUDE.md`, `feedback_*.md`, `~/.claude/...`,
+  one path-like token (`AGENTS.md`, `feedback_*.md`, `~/.claude/...`,
   `mandates/*.md`).
 
 ### Conflict handling
@@ -412,7 +412,7 @@ prior wish; the stage's CTA must route work back to either
 design). A matching closure entry — operator amendment or follow-up Q&A
 that resolves the conflict — is what the Layer 3b checker looks for.
 
-### Utility — `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh"`
+### Utility — `"${DATARIM_RUNTIME:?}/dev-tools/append-init-task-qa.sh"`
 
 Pipeline commands do not write the block by hand. They invoke the
 utility:
@@ -439,7 +439,7 @@ temp-file, then `mv`-s it into place.
 
 ### Validation extension
 
-`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" --task <ID>` extends the existing
+`"${DATARIM_RUNTIME:?}/dev-tools/check-init-task-presence.sh" --task <ID>` extends the existing
 structural validator with a Q&A pass. For every block whose heading
 matches `^### .+ — Q&A by /dr-[a-z-]+ \(round [0-9]+\)$`, the validator
 asserts:

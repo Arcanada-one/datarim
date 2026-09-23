@@ -15,7 +15,7 @@ This skill activates the existing mandates (`documentation/mandates/autonomous-a
 The skill is active if and only if **all three conditions** hold:
 
 1. `DATARIM_AUTO_MODE=1` is set in the agent's environment.
-2. The effective autonomous-mode marker exists and parses as YAML. The marker is per-task at `datarim/.auto/<TASK-ID>.mode` (collision-safe in a shared parallel workspace); the legacy single file `datarim/.auto-mode-active` is still honoured as a fallback for a hand-run `/dr-auto`. Resolve the effective path with `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/auto-mode-marker.sh resolve --root <DIR> --task-id <ID>` rather than hardcoding either path.
+2. The effective autonomous-mode marker exists and parses as YAML. The marker is per-task at `datarim/.auto/<TASK-ID>.mode` (collision-safe in a shared parallel workspace); the legacy single file `datarim/.auto-mode-active` is still honoured as a fallback for a hand-run `/dr-auto`. Resolve the effective path with `${DATARIM_RUNTIME:?}/dev-tools/auto-mode-marker.sh resolve --root <DIR> --task-id <ID>` rather than hardcoding either path.
 3. The `task_id` field inside that marker matches the current TASK-ID (regex `^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$`).
 
 **Spawned subagents (relaxed activation).** A subagent dispatched by `/dr-auto` does NOT inherit the `DATARIM_AUTO_MODE` environment variable (the Agent tool does not propagate the parent environment). For such a subagent the skill is active when its dispatch prompt carries an explicit auto-signal (a line naming the current stage and "autonomous mode for `<TASK-ID>`") AND conditions 2 and 3 hold (the marker file exists, parses, and its `task_id` matches the current TASK-ID). The environment variable (condition 1) is NOT required in this branch. The top-level `/dr-auto` cycle still requires all three conditions. The auto-signal only removes the env-var requirement — it never substitutes for a missing or mismatched marker file.
@@ -69,7 +69,7 @@ keystroke (a keystroke is racy and can be dropped before the CLI is ready).
 **Step-0 (before choosing `/dr-init` vs `/dr-auto`).** On receiving a bare
 task-id, the agent's first action is to resolve and read the marker:
 
-1. `path=$(${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/auto-mode-marker.sh resolve --root <DIR> --task-id <ID>)`.
+1. `path=$(${DATARIM_RUNTIME:?}/dev-tools/auto-mode-marker.sh resolve --root <DIR> --task-id <ID>)`.
 2. If the marker is **valid and autonomous** for this task-id — it parses,
    task_id matches, it is within TTL, it is untracked by git (gitignored-marker
    rule), and (when `dispatch_session` is present) it equals the agent's own
@@ -101,7 +101,7 @@ Before every `AskUserQuestion` call (or any equivalent operator prompt — phras
 | 1 | **Codebase grep / file read** | Technical question about the current code, config, schema, versions, dependencies, project layout | <1s | More than one plausible candidate with no tie-breaker → L2 |
 | 2 | **Runtime probe** (`curl localhost:3200/healthz`, `docker ps`, `git log -1`, `gh run list`, `vault kv get`, `kubectl get pods`) | State of a service, database, network, CI, deployed secrets, container health | <5s | Probe failed / no signal / timeout → L3 |
 | 3 | **MEMORY.md feedback lookup** | Operator preferences, prior decisions, gotchas, policy — `grep -r feedback_` over `MEMORY.md` | <2s | No match or contradictory matches → L4 |
-| 4 | **Coworker delegation** (`coworker ask --paths <list> --question "<question>"` — offload bulk I/O to an external LLM to save Claude tokens; see `documentation/infrastructure/Coworker.md`) | Bulk-context lookup: docs across repos, multiple large files, external-LLM reasoning over >10k tokens | <30s | External LLM does not give an unambiguous answer (or says "unknown") → L5 |
+| 4 | **Bounded native context lookup** (search headings and read the relevant sections) | Documents across repositories and multiple large files; preserve exact source references | <30s | Evidence is absent or ambiguous → L5 |
 | 5 | **Operator ask** (`AskUserQuestion`) | True ambiguity, hard-gated bypass, business strategy | a minute+ | Operator answer is the source of truth; log via `append-init-task-qa.sh --decided-by operator` |
 
 ### Pre-resolved decisions (never an operator ask)
@@ -167,7 +167,7 @@ classify by scope (a), contract impact (b), hard-gated check (c):
       HARD → emit an operator prompt via Ladder L5; do not auto-execute
 ```
 
-**Follow-up ID allocation (MANDATORY).** When the resolution is "create a backlog item" (the `L2+ or Class B` branch), allocate the new task ID by **running the canonical helper** — `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/next-free-id.sh" {PREFIX} "$DATARIM_ROOT"` (or the equivalent `/dr-init` mkdir-mutex reservation) — never a hand-computed `max+1`. The helper applies `max(claimed across archive/datarim filenames ∪ line-leading index rows in datarim/tasks.md and datarim/backlog.md) + 1` and auto-bumps on a parallel-session race (its ceiling counts structural positions only; its collision probe additionally counts prose mentions, live tmux session names and git worktree/branch names), so a task spawning a follow-up cannot collide with a concurrently-created ID (the follow-up-ID rename incident that motivated this rule). Documented fallback (helper unavailable in this runtime): compute the same formula by hand.
+**Follow-up ID allocation (MANDATORY).** When the resolution is "create a backlog item" (the `L2+ or Class B` branch), allocate the new task ID by **running the canonical helper** — `"${DATARIM_RUNTIME:?}/dev-tools/next-free-id.sh" {PREFIX} "$DATARIM_ROOT"` (or the equivalent `/dr-init` mkdir-mutex reservation) — never a hand-computed `max+1`. The helper applies `max(claimed across archive/datarim filenames ∪ line-leading index rows in datarim/tasks.md and datarim/backlog.md) + 1` and auto-bumps on a parallel-session race (its ceiling counts structural positions only; its collision probe additionally counts prose mentions, live tmux session names and git worktree/branch names), so a task spawning a follow-up cannot collide with a concurrently-created ID (the follow-up-ID rename incident that motivated this rule). Documented fallback (helper unavailable in this runtime): compute the same formula by hand.
 
 ### Inline-log contract
 
@@ -193,7 +193,7 @@ Consumed by `/dr-archive` Step 0.5 (pre-reflection): the inline-log surfaces as 
 **Carve-out (consumer mandate § Carve-out):** the consumer's `autonomous-agents.md` MAY define narrowly-scoped exceptions to this list. The reference Arcanada mandate carves out **autonomous public-package release of patch / minor versions** when every fail-closed pre-publish gate is green (`escalate=false`); `major` and any `0.x` breaking change still escalate, with a GitHub conditional `environment` as a second backstop. The machine-readable shape is `dev-tools/rules/fb-rules.yaml` § `hard_gate_carve_outs` (core path; provenance in `documentation/how-to/evolution-log.md`). Read the consumer mandate's carve-out section before treating a release action as hard-gated — do not quote the carve-out from memory.
 
 Before escalation, resolve the action through
-`${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/resolve-space-autonomy.sh gate --action <kind> --payload <json>`.
+`${DATARIM_RUNTIME:?}/dev-tools/resolve-space-autonomy.sh gate --action <kind> --payload <json>`.
 The resolver returns `0` for autonomous execution, `10` for operator
 escalation, and `2` for an invalid policy invariant. Missing or malformed
 policy always resolves to operator escalation.
@@ -248,7 +248,7 @@ Operationally:
 - **Env-var leak**: a parent shell kept `DATARIM_AUTO_MODE=1` set after `/clear`. **Mitigation:** mismatch detection (env var set, marker absent) treats the situation as non-auto and emits a warning. The 24h marker TTL prevents stale leaks from carrying further.
 - **Stale marker**: a marker survived a crashed session. **Mitigation:** the 24h TTL; any marker for a non-current task is silently purged before activation.
 - **Ladder false confidence**: L1-L4 returned an answer, but it is wrong (the grep matched a misleading line). **Mitigation:** the ambiguity rule — two or more candidates always escalate; a single candidate is treated as valid; the Q&A append-log lets the operator roll back later.
-- **Coworker context leak (L4)**: bulk-read paths accidentally include credentials. **Mitigation:** reuse the existing coworker safety contract — paths under `~/arcanada/config/credentials/` are excluded; Ladder L4 calls `coworker ask` with an explicit path list, never a wildcard.
+- **Context leak (L4):** a bulk read can accidentally include credentials. Use explicit document paths and exclude protected credential directories; do not read wildcard credential trees.
 - **Cross-project unauthorised writes**: the agent edits a repo outside the task's project scope. **Mitigation:** the cross-project boundary is hard-gated; a runtime check fires before any file write.
 - **L1 Inline Rule misclassification**: an L2 action is classified as L1 → silent contract drift. **Mitigation:** "when in doubt — classify up" is built into the decision tree; the auto-inline-log entry is mandatory so reviewers can audit.
 - **Pre-archive workspace gate over-strict on foreign untracked files**: `scripts/pre-archive-check.sh` treats parallel-session untracked files (foreign social posts, a sibling-project site, framework test fixtures owned by other TASK-IDs) as `unattributed = default-deny` and blocks the archive. **Mitigation:** for own files mixed into a foreign-attributed diff — apply the HEAD-restore-and-reapply technique (restore the HEAD version, then apply only the current task's changes, then re-stage); for genuinely foreign untracked artefacts — use a manual override (skip the script gate) and document the file list in the archive's "Operator Handoff" section. The long-term fix is tracked as a Class B backlog item.
@@ -262,13 +262,13 @@ Each of the seven pipeline commands (`dr-init`, `dr-prd`, `dr-plan`, `dr-do`, `d
 
 When auto-mode is active (env var + matching marker), this command:
 
-1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt.
+1. Consults `${DATARIM_RUNTIME:?}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt.
 2. Applies stage-specific suppression hooks:
    - <stage-specific list: e.g. for /dr-init: skip Discovery Interview round 2 if every question resolved through L1-L4>
    - <for /dr-do: apply the L1 Inline Rule against gaps discovered during execution>
    - <for /dr-archive: consume auto-inline-log.md before reflection>
 3. For any discovered gap: apply the L1 Inline Rule per `skills/autonomous-mode/SKILL.md`; log to `datarim/tasks/{TASK-ID}-auto-inline-log.md` when resolved inline.
-4. For hard-gated actions: escalate to the operator via Ladder L5, log through `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator`.
+4. For hard-gated actions: escalate to the operator via Ladder L5, log through `"${DATARIM_RUNTIME:?}/dev-tools/append-init-task-qa.sh" --decided-by operator`.
 ```
 
 ## Related

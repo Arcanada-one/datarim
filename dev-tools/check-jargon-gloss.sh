@@ -42,7 +42,7 @@ Scopes (comma-separated):
   skills    -> <root>/skills/*/SKILL.md and <root>/skills/*/*.md
   agents    -> <root>/agents/*.md
   plugins   -> <root>/plugins/*/commands/*.md, <root>/plugins/*/skills/*/SKILL.md
-  root      -> <root>/CLAUDE.md, <root>/AGENTS.md, <root>/README.md
+  root      -> <root>/AGENTS.md, <root>/AGENTS.md, <root>/README.md
 
 Exit codes: 0 PASS | 1 FAIL | 2 usage error.
 USAGE
@@ -110,8 +110,8 @@ collect_files() {
         plugins)
             find "$ROOT_ABS/plugins" -type f \( -path '*/commands/*.md' -o -path '*/skills/*/SKILL.md' -o -path '*/skills/*/*.md' \) 2>/dev/null ;;
         root)
-            for f in CLAUDE.md AGENTS.md README.md; do
-                # Resolve symlink once to avoid double-scanning AGENTS.md → CLAUDE.md.
+            for f in AGENTS.md AGENTS.md README.md; do
+                # Resolve symlink once to avoid double-scanning AGENTS.md → AGENTS.md.
                 if [ -L "$ROOT_ABS/$f" ]; then continue; fi
                 [ -f "$ROOT_ABS/$f" ] && printf '%s\n' "$ROOT_ABS/$f"
             done ;;

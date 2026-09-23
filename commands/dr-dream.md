@@ -9,7 +9,7 @@ effort: high
 # /dr-dream — Knowledge Base Maintenance
 
 **Role**: Librarian Agent
-**Source**: `$HOME/.claude/agents/librarian.md`
+**Source**: `${DATARIM_RUNTIME:?}/agents/librarian.md`
 
 > Like sleep consolidates memory in the brain, Dream consolidates knowledge in the project.
 
@@ -32,11 +32,11 @@ effort: high
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
-1.  **LOAD**: Read `$HOME/.claude/agents/librarian.md` and adopt that persona.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
+1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/librarian.md` and adopt that persona.
 2.  **LOAD SKILLS**:
-    - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always — file locations and naming rules)
-    - `$HOME/.claude/skills/dream/SKILL.md` (Knowledge base maintenance rules)
+    - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always — file locations and naming rules)
+    - `${DATARIM_RUNTIME:?}/skills/dream/SKILL.md` (Knowledge base maintenance rules)
 3.  **RESOLVE PATH**: Find `datarim/` using standard path resolution. If not found, STOP.
 4.  **DETERMINE MODE**: Parse `$ARGUMENTS`:
     - `lint` → Quick lint only (step 5)
@@ -78,7 +78,7 @@ Run all health checks from the dream skill:
 - Cross-reference symmetry (A→B but not B→A)
 - Empty directories
 - Oversized files (>500 lines)
-- **Terminal backlog entries still in `backlog.md`** — invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/prune-backlog-terminal.sh" --root "$DATARIM_ROOT" --check` and record the `prunable` / `surfaced` counts. Report surfaced IDs (terminal with no archive doc) as `warn:` findings requiring a `MAINT-*` follow-up.
+- **Terminal backlog entries still in `backlog.md`** — invoke `"${DATARIM_RUNTIME:?}/dev-tools/prune-backlog-terminal.sh" --root "$DATARIM_ROOT" --check` and record the `prunable` / `surfaced` counts. Report surfaced IDs (terminal with no archive doc) as `warn:` findings requiring a `MAINT-*` follow-up.
 
 ### Step 8: Build/Update Index
 Create or update `datarim/index.md`:
@@ -146,7 +146,7 @@ Append maintenance summary to `datarim/history/activity-log.md`.
 
 ## Next Steps (CTA)
 
-After dream-pass, the librarian agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After dream-pass, the librarian agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-dream`:**
 

@@ -8,8 +8,7 @@
 # Strategy (B3 hybrid):
 #   1. Heuristic floor — keyword + structural signals from the task brief.
 #   2. LLM fallback     — when the heuristic is ambiguous (low confidence) AND
-#                         FLEET_RESOLVER_NO_LLM is unset, delegate to coworker
-#                         (DeepSeek). Tests set FLEET_RESOLVER_NO_LLM=1 for
+#                         FLEET_RESOLVER_NO_LLM is unset, invoke an explicitly configured native client. Tests set FLEET_RESOLVER_NO_LLM=1 for
 #                         deterministic, network-free runs.
 #
 # Output (stdout): JSON {complexity, aal, confidence, reason}.
@@ -38,8 +37,7 @@ PM-override: if --override-dir is given and DIR/<task-basename>.json exists with
 {"complexity": N, "aal": M}, those values win (misclassification recovery).
 
 LLM fallback: when the heuristic confidence < 0.5 and FLEET_RESOLVER_NO_LLM is
-unset, the resolver runs FLEET_RESOLVER_LLM_CMD (default: a coworker DeepSeek
-call) and adopts its JSON verdict {complexity, aal, confidence, reason}.
+unset, the resolver runs FLEET_RESOLVER_LLM_CMD (no implicit provider call) and adopts its JSON verdict {complexity, aal, confidence, reason}.
 
 Exit codes: 0 classified | 1 task-file not found | 2 usage error.
 EOF
@@ -57,9 +55,9 @@ done
 [ -n "$TASK_FILE" ] || { echo "ERROR: --task-file is required" >&2; usage >&2; exit 2; }
 [ -f "$TASK_FILE" ] || { echo "ERROR: task-file not found: $TASK_FILE" >&2; exit 1; }
 
-# Default LLM-fallback command (cheap model via coworker). Overridable for tests.
+# Optional native LLM fallback, explicitly configured by the consumer.
 # Reads the brief on stdin; MUST emit JSON {complexity, aal, confidence, reason}.
-: "${FLEET_RESOLVER_LLM_CMD:=coworker ask --provider deepseek --profile classifier --question}"
+: "${FLEET_RESOLVER_LLM_CMD:=}"
 
 # --- PM-override (highest precedence): DIR/<task-basename>.json wins outright. ---
 if [ -n "$OVERRIDE_DIR" ]; then
@@ -161,10 +159,10 @@ PY
 # --- LLM fallback: low heuristic confidence + fallback enabled → real call. ---
 heur_conf="$(printf '%s' "$HEURISTIC_JSON" | python3 -c 'import sys,json; print(json.load(sys.stdin)["confidence"])')"
 fallback_fired=0
-if [ -z "${FLEET_RESOLVER_NO_LLM:-}" ] \
+if [ -n "$FLEET_RESOLVER_LLM_CMD" ] && [ -z "${FLEET_RESOLVER_NO_LLM:-}" ] \
    && python3 -c "import sys; sys.exit(0 if float('$heur_conf') < 0.5 else 1)"; then
     # Run the cheap-model command with the brief as its final argument
-    # (matches `coworker ask --question "<text>"`); adopt its JSON verdict.
+    # (native client prompt argument); adopt its JSON verdict.
     brief_text="$(cat "$TASK_FILE")"
     # shellcheck disable=SC2086  # FLEET_RESOLVER_LLM_CMD is an intentional command vector
     llm_raw="$($FLEET_RESOLVER_LLM_CMD "$brief_text" 2>/dev/null || true)"
@@ -180,7 +178,7 @@ def try_load(s):
         assert 1 <= c <= 5 and 1 <= a <= 4
         return {"complexity": c, "aal": a,
                 "confidence": float(d.get("confidence", 0.7)),
-                "reason": "llm-fallback: " + str(d.get("reason", "deepseek verdict"))}
+                "reason": "llm-fallback: " + str(d.get("reason", "native client verdict"))}
     except Exception:
         return None
 out = try_load(raw)

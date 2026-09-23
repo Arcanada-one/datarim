@@ -14,7 +14,7 @@
 #   1. project-init/SKILL.md declares a secrecy signal + a [REDACTED] stub rule +
 #      a public-surface prohibition.
 #   2. templates/project-docs-stubs.md ships a secrecy-aware architecture.md
-#      variant whose mechanism sections are [REDACTED — see CLAUDE.md § Secrecy].
+#      variant whose mechanism sections are [REDACTED — see AGENTS.md § Secrecy].
 #   3. templates/project-claude-md.md carries a conditional ## Secrecy block with a
 #      README-tolerant grep gate (find -name 'README*', NOT a bare grep glob that
 #      errors on absent README — reflection minor-lesson #1).
@@ -67,7 +67,7 @@ setup() {
 # ---------- 2. project-docs-stubs.md — secrecy-aware architecture variant ----------
 
 @test "project-docs-stubs ships a REDACTED secrecy-aware architecture variant" {
-    run grep -qF 'REDACTED — see CLAUDE.md § Secrecy' "${STUBS}"
+    run grep -qF 'REDACTED — see AGENTS.md § Secrecy' "${STUBS}"
     [ "$status" -eq 0 ]
 }
 

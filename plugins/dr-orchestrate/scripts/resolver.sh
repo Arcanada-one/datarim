@@ -5,9 +5,22 @@ set -euo pipefail
 umask 077
 
 DR_ORCH_DIR="${DR_ORCH_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-DR_ORCH_STATE_DIR="${DR_ORCH_STATE_DIR:-${STATE_DIR:-$HOME/.local/share/dr-orchestrate/state}}"
+# shellcheck source=lib/project-state.sh
+. "$DR_ORCH_DIR/scripts/lib/project-state.sh"
+# The resolver history and its lock live under the project state root, so
+# state is genuinely required here; refuse explicitly instead of aborting
+# inside a parameter expansion.
+if [[ -z "${DR_ORCH_STATE_DIR:-}" ]]; then
+  DR_ORCH_STATE_DIR="$(dr_orch_state_root)" || exit 2
+fi
 DR_ORCH_RULES_DEFAULT="${DR_ORCH_RULES_DEFAULT:-$DR_ORCH_DIR/rules/default.yaml}"
-DR_ORCH_RULES_USER="${DR_ORCH_RULES_USER:-$HOME/.config/dr-orchestrate/rules/user.yaml}"
+if [[ -z "${DR_ORCH_RULES_USER:-}" ]]; then
+  if [[ -z "${DATARIM_RUNTIME:-}" ]]; then
+    echo 'dr-orchestrate: project runtime required for resolver rules' >&2
+    exit 2
+  fi
+  DR_ORCH_RULES_USER="$DATARIM_RUNTIME/local/config/orchestrate-rules.yaml"
+fi
 DR_ORCH_AUDIT_FILE="${DR_ORCH_AUDIT_FILE:-$DR_ORCH_STATE_DIR/resolver-audit.jsonl}"
 DR_ORCH_LOCK_TIMEOUT="${DR_ORCH_LOCK_TIMEOUT:-5}"
 

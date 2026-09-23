@@ -14,7 +14,7 @@ Every `/dr-*` command that emits a CTA block ([definition](../cta-format/SKILL.m
 | Aspect | Value |
 |--------|-------|
 | Producer touchpoint | `skills/cta-format/SKILL.md` § Snapshot Emission (single producer, not N) |
-| Entry point (canonical) | `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh` — invoke as `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh" <flags>`. The wrapper forces a bash interpreter; the underlying function relies on `BASH_SOURCE[0]` and dies silently under a zsh-parent shell (the default on macOS), so agents MUST call the wrapper, not the function directly. |
+| Entry point (canonical) | `${DATARIM_RUNTIME:?}/dev-tools/snapshot-writer-wrapper.sh` — invoke as `bash "${DATARIM_RUNTIME:?}/dev-tools/snapshot-writer-wrapper.sh" <flags>`. The wrapper forces a bash interpreter; the underlying function relies on `BASH_SOURCE[0]` and dies silently under a zsh-parent shell (the default on macOS), so agents MUST call the wrapper, not the function directly. |
 | Underlying function | `scripts/lib/snapshot-writer.sh::write_stage_snapshot` — requires `source` under bash; do NOT exec or invoke directly from a zsh-spawned Bash-tool call. |
 | Path | `datarim/snapshots/{TASK-ID}.snapshot.md` |
 | Lock | `datarim/snapshots/.lock.{TASK-ID}` (mkdir-based, reuses `acquire_plugin_lock`) |
@@ -30,7 +30,7 @@ Every `/dr-*` command that emits a CTA block ([definition](../cta-format/SKILL.m
 All arguments are named (`--flag value`) and forwarded verbatim by the wrapper:
 
 ```bash
-bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh" \
+bash "${DATARIM_RUNTIME:?}/dev-tools/snapshot-writer-wrapper.sh" \
     --root <DATARIM_ROOT> \             # absolute path to repo root
     --task <TASK-ID> \                  # ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*$
     --stage <plan|prd|do|qa|verify|auto|...> \
@@ -105,7 +105,7 @@ truncated: false
 
 ```bash
 # From a /dr-* command after emitting the CTA block:
-bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh" \
+bash "${DATARIM_RUNTIME:?}/dev-tools/snapshot-writer-wrapper.sh" \
     --root "$REPO_ROOT" \
     --task "<TASK-ID>" \
     --stage plan \
@@ -130,13 +130,13 @@ schema" as a substitute. A hand-authored file bypasses every guarantee above
 (no atomic rename, no lock, no size cap, no permission hardening, no frontmatter
 validation) and silently diverges from the contract the consumers
 (`/dr-next`, `/dr-orchestrate`) rely on. Writer unreachable ⇒ warn-and-skip, not
-imitate. Resolve the wrapper via `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh`
+imitate. Resolve the wrapper via `${DATARIM_RUNTIME:?}/dev-tools/snapshot-writer-wrapper.sh`
 (falls back to the default symlinked runtime when `DATARIM_RUNTIME` is unset).
 
 ## Related
 
 - `skills/cta-format/SKILL.md` § Snapshot Emission — the only producer touchpoint
 - `skills/dr-next-snapshot-replay/SKILL.md` — consumer side
-- `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-stage-snapshot-on-exit.sh"` — post-CTA advisory gate
+- `"${DATARIM_RUNTIME:?}/dev-tools/check-stage-snapshot-on-exit.sh"` — post-CTA advisory gate
 - `scripts/lib/plugin-system.sh::acquire_plugin_lock` — lock primitive (reused)
 - `feedback memory feedback_no_flock_on_macos` — rationale for mkdir-lock (POSIX flock is unreliable on macOS over NFS/SMB)

@@ -2,8 +2,8 @@ schema_version: 1
 # Command dependency graph for the Datarim framework.
 # Source of truth — the derived Mermaid diagram in
 # skills/visual-maps/command-dependencies.md is generated from this file.
-# Keep in sync: when adding or changing command relationships here,
-# update the Mermaid diagram in that file as well.
+# The Mermaid view is generated. Never synchronize it by hand; run
+# `python3 dev-tools/framework-graph.py --write`.
 #
 # Fields per command:
 #   stage:       pipeline stage this command belongs to
@@ -11,6 +11,13 @@ schema_version: 1
 #   precedes:    commands that typically follow this one
 #   optional_at: complexity levels (L1/L2/L3/L4) where this command may be skipped
 #   entry:       true if the command can be invoked at any time without prerequisites
+#   delegates_when:
+#                per-agent condition under which this command delegates to that agent.
+#                The command->agent EDGE is derived automatically from the explicit
+#                agents/<name>.md reference in the command file; this field carries the
+#                CONDITION, which no reference can express. Rendered as the edge label
+#                in the generated maps. Prose remains authoritative in the command file;
+#                this is the one-line form that survives into the diagram.
 
 commands:
   dr-init:
@@ -37,6 +44,8 @@ commands:
     requires: [dr-init]
     precedes: [dr-design, dr-do]
     optional_at: [L1]
+    delegates_when:
+      strategist: "L3-4 or reductive/ambiguous scope"
 
   dr-design:
     stage: design

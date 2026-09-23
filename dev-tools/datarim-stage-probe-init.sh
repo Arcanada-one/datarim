@@ -21,11 +21,13 @@
 #   2  TASK-ID regex fail
 
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "${SCRIPT_DIR}/../scripts/lib/schema-regex.sh"
 
 TASK_ID="${1:-}"
 
-if ! [[ "$TASK_ID" =~ ^[A-Z]+-[0-9]{4,}$ ]]; then
-    printf 'init: bad TASK-ID %q (expected ^[A-Z]+-[0-9]{4,}$)\n' "$TASK_ID" >&2
+if ! printf '%s' "$TASK_ID" | grep -qE "$TASK_ID_BASE_RE"; then
+    printf 'init: bad TASK-ID %q (canonical base task-id required)\n' "$TASK_ID" >&2
     exit 2
 fi
 

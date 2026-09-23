@@ -4,7 +4,7 @@
 # Datarim instruction surface: commands/*.md, skills/<n>/SKILL.md (and
 # nested fragments), agents/*.md, plugins/*/commands/*.md, plugins/*/skills/*/SKILL.md,
 # templates/**/*.md (scaffolded into every consumer project by /dr-init),
-# and (opt-in) framework root markdown (CLAUDE.md, AGENTS.md, README.md).
+# and (opt-in) framework root markdown (AGENTS.md, AGENTS.md, README.md).
 #
 # Orthogonal companion to check-frontmatter-english.sh (which covers the
 # `description:` field). This script scans BODY content only and skips
@@ -53,7 +53,7 @@ Scopes (comma-separated):
   agents    -> <root>/agents/*.md
   plugins   -> <root>/plugins/*/commands/*.md, <root>/plugins/*/skills/*/SKILL.md
   templates -> <root>/templates/**/*.md
-  root      -> <root>/CLAUDE.md, <root>/AGENTS.md, <root>/README.md
+  root      -> <root>/AGENTS.md, <root>/AGENTS.md, <root>/README.md
   all       -> every scope token above
 
 Exit codes: 0 PASS | 1 FAIL | 2 usage error.
@@ -114,7 +114,7 @@ collect_files() {
         templates)
             find "$ROOT_ABS/templates" -type f -name '*.md' 2>/dev/null ;;
         root)
-            for f in CLAUDE.md AGENTS.md README.md; do
+            for f in AGENTS.md AGENTS.md README.md; do
                 [ -f "$ROOT_ABS/$f" ] && printf '%s\n' "$ROOT_ABS/$f"
             done ;;
     esac

@@ -57,7 +57,7 @@ setup() {
 
 @test "no shipped surface references the removed guard script" {
     run grep -rl "datarim-exec-guard" \
-        "$REPO_ROOT/commands/" "$REPO_ROOT/skills/" "$REPO_ROOT/agents/" "$REPO_ROOT/CLAUDE.md"
+        "$REPO_ROOT/commands/" "$REPO_ROOT/skills/" "$REPO_ROOT/agents/" "$REPO_ROOT/AGENTS.md"
     [ "$status" -ne 0 ]
 }
 
@@ -65,7 +65,7 @@ setup() {
     # The deny message used to tell users to run dev-tools/datarim-dispatch.sh,
     # which is not in this repo -- a documented path to a nonexistent file.
     run grep -rl "datarim-dispatch.sh" \
-        "$REPO_ROOT/commands/" "$REPO_ROOT/skills/" "$REPO_ROOT/CLAUDE.md"
+        "$REPO_ROOT/commands/" "$REPO_ROOT/skills/" "$REPO_ROOT/AGENTS.md"
     [ "$status" -ne 0 ]
 }
 
@@ -91,13 +91,13 @@ setup() {
 }
 
 @test "S10-bis records that enforcement is site policy, not shipped" {
-    run grep -q "NOT shipped" "$REPO_ROOT/CLAUDE.md"
+    run grep -q "NOT shipped" "$REPO_ROOT/AGENTS.md"
     [ "$status" -eq 0 ]
 }
 
 @test "S10-bis warns that on-host and unconfigured share exit code 0" {
     # The trap that made a missing guard look healthy. Anyone writing their own
     # hook must read this, so assert the warning survives future edits.
-    run grep -q "never infer health from silence" "$REPO_ROOT/CLAUDE.md"
+    run grep -q "never infer health from silence" "$REPO_ROOT/AGENTS.md"
     [ "$status" -eq 0 ]
 }

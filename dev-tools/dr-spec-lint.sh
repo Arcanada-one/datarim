@@ -38,6 +38,7 @@ if [ ! -f "$LIB" ]; then
 fi
 # shellcheck source=scripts/lib/spec-graph.sh
 . "$LIB"
+. "${SCRIPT_DIR}/../scripts/lib/schema-regex.sh"
 
 # ---------------------------------------------------------------------------
 # Parse flags (shared vocabulary via the lib; --task is required here).
@@ -50,7 +51,7 @@ if [ "${#SPEC_REMAINING_ARGS[@]}" -gt 0 ]; then
 fi
 
 [ -n "$SPEC_TASK" ] || usage_die "--task <ID> is required"
-if ! printf '%s' "$SPEC_TASK" | grep -qE '^[A-Z]+-[0-9]+(-[A-Za-z0-9]+)*$'; then
+if ! printf '%s' "$SPEC_TASK" | grep -qE "$TASK_ID_RE"; then
     usage_die "invalid --task id: $SPEC_TASK"
 fi
 

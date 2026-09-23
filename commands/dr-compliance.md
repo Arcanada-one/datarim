@@ -6,24 +6,24 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
 # /dr-compliance — Adaptive Post-QA Hardening
 
 **Role**: Compliance Agent
-**Source**: `$HOME/.claude/agents/compliance.md`
+**Source**: `${DATARIM_RUNTIME:?}/agents/compliance.md`
 
 ## Instructions
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
 0.  **PROVENANCE GATE (mandatory, runs first)**: Before any other logic, verify the tip being certified is still the current branch tip and the working tree is clean — i.e. nothing was rebased, amended, or committed since `/dr-qa` signed off (a known false-green class: a COMPLIANT sign-off recorded against a commit that had been rebased away). Resolve the repo root as in Step 2 (the git top-level of the touched code), then:
     ```bash
-    "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/provenance-gate.sh" \
+    "${DATARIM_RUNTIME:?}/dev-tools/provenance-gate.sh" \
         --root <repo-root> --task {TASK-ID} --stage compliance
     ```
     This asserts `git rev-parse HEAD` equals the SHA `/dr-qa` recorded in `datarim/provenance/{TASK-ID}.sha` and that the working tree is clean. If the QA evidence record is absent (QA predates this gate), fall back to `--expected-sha <SHA cited by the QA report>`; if neither is available, record the current clean tip with `--record` now and note the missing QA baseline in the report.
     -   A non-zero exit (dirty tree, drifted tip, or an evidence SHA that no longer resolves) makes the verdict **NON-COMPLIANT**: emit the gate's error verbatim and route via the FAIL-Routing CTA back to `/dr-qa {TASK-ID}` to re-certify the current tip. Exit `0` proceeds.
-1.  **LOAD**: Read `$HOME/.claude/agents/compliance.md` and adopt that persona.
-2.  **RESOLVE PATH**: Find `datarim/` using standard path resolution (see `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule). **For a task whose code lives under `Projects/<name>/code/`, NEVER probe `Projects/<name>/code/datarim/` for workflow artefacts — that path exists only for the Datarim framework's own repo (§ Path Resolution Rule point 5). Resolve `--root` to the project's git-toplevel `datarim/`.**
+1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/compliance.md` and adopt that persona.
+2.  **RESOLVE PATH**: Find `datarim/` using standard path resolution (see `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Path Resolution Rule). **For a task whose code lives under `Projects/<name>/code/`, NEVER probe `Projects/<name>/code/datarim/` for workflow artefacts — that path exists only for the Datarim framework's own repo (§ Path Resolution Rule point 5). Resolve `--root` to the project's git-toplevel `datarim/`.**
 
 ### EXECUTION HOST
 
-1. Source the resolver: `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/execution-host.sh"`.
+1. Source the resolver: `source "${DATARIM_RUNTIME:?}/dev-tools/lib/execution-host.sh"`.
 2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
 3. On **off-host** (exit code 10), AUTO-DISPATCH -- do NOT stop and hand the command back for the operator to type. The `required_host` binding IS the operator's standing authorization to run there, and dispatch (spawning a remote tmux session) is a reversible transport action; every irreversible step (prod deploy, secret rotation, force-push, public message) stays hard-gated on the remote agent downstream. Contract:
    a. **RUN vs INSPECT.** Auto-dispatch only when intent is to RUN the task (operator asked to run/execute/go, autonomous-mode marker active, or reached via `/dr-auto`). On INSPECT/read-only intent, do NOT dispatch: proceed locally read-only and surface the dispatch directive as information, not a blocking question.
@@ -36,18 +36,18 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
 
 Enforcing this binding mechanically is **site policy, and the framework ships no reference implementation**. What ships is the mechanism, not the decision: the resolver library (`dev-tools/lib/execution-host.sh`), the drift validator (`dev-tools/check-execution-host-drift.sh`) and their tests. If your setup separates a control machine from execution hosts, wire your own PreToolUse hook against that resolver and keep it in your own workspace repo — a hook that decides which host may run work encodes your topology, and a second copy of an enforcement artefact living in two repos is exactly what drifted and failed closed before. This Step-0 check is the cooperative soft layer over the same resolver.
 
-3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
+3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
 4.  **LOAD SKILLS**:
-    - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always)
-    - `$HOME/.claude/skills/compliance/SKILL.md` (Adaptive checklists)
-    - `$HOME/.claude/skills/immutability/SKILL.md` — read the `/dr-compliance Rules` fragment for compliance checklist structure immutability, anti-tautological criterion, and Return-to-Source routing.
-5.  **DETECT TASK TYPE**: Read `datarim/tasks.md` (for the resolved task) and `datarim/activeContext.md`. Determine: code, documentation, research, legal, content, infrastructure, or mixed. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the verified output MUST be surfaced in the compliance report § Plain-language summary. Missing init-task is non-blocking — flag as advisory and continue.
-5b. **VERIFY EXPECTATIONS** (mandatory when `datarim/tasks/{TASK-ID}-expectations.md` exists per `$HOME/.claude/skills/expectations-checklist/SKILL.md`):
+    - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always)
+    - `${DATARIM_RUNTIME:?}/skills/compliance/SKILL.md` (Adaptive checklists)
+    - `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` — read the `/dr-compliance Rules` fragment for compliance checklist structure immutability, anti-tautological criterion, and Return-to-Source routing.
+5.  **DETECT TASK TYPE**: Read `datarim/tasks.md` (for the resolved task) and `datarim/activeContext.md`. Determine: code, documentation, research, legal, content, infrastructure, or mixed. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `${DATARIM_RUNTIME:?}/skills/init-task-persistence/SKILL.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the verified output MUST be surfaced in the compliance report § Plain-language summary. Missing init-task is non-blocking — flag as advisory and continue.
+5b. **VERIFY EXPECTATIONS** (mandatory when `datarim/tasks/{TASK-ID}-expectations.md` exists per `${DATARIM_RUNTIME:?}/skills/expectations-checklist/SKILL.md`):
     -   Re-read the file. For each item under `## Ожидания`, run its `Как проверить (success criterion)` against the implementation and append one transition line to `#### История статусов` in the canonical format `<ISO> / <local> · /dr-compliance · <prior> → <new> · reason: <one-sentence plain ru>`. Update the item's `#### Текущий статус`. <!-- allow-non-ascii: russian-expectations-section-and-field-names-cited-from-canonical-schema -->
     -   Invoke the routing validator:
         ```bash
-        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}
-        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --verify {TASK-ID}
+        "${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}
+        "${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --verify {TASK-ID}
         ```
         -   `--task` exit 1 (structural error, e.g. `verification-not-wired` from a
             `reproducible` wish without a resolvable `evidence_artifact`) ⇒ compliance
@@ -58,12 +58,12 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
         -   `--verify` exit 1 + stdout marker `BLOCKED` ⇒ compliance verdict is **NON-COMPLIANT** regardless of the rest of the checklist. Capture the validator's `Focus items:` and `Next step:` lines verbatim into the report and surface them in the FAIL-Routing CTA.
     -   Advisory findings (`evidence-artifact-is-stub`, `verification-mode-suggested-reproducible`) appear in stderr; they do not affect the `--task` exit code and are surfaced as PASS_WITH_NOTES annotations in the compliance report.
     -   Missing expectations file on L3-L4: surface as advisory finding in the report; on L1-L2 within the 30-day soft window: non-blocking.
-5c. **ANTI-DEFERRAL PROSE GATE (HARD)** per `$HOME/.claude/skills/expectations-checklist/SKILL.md`:
+5c. **ANTI-DEFERRAL PROSE GATE (HARD)** per `${DATARIM_RUNTIME:?}/skills/expectations-checklist/SKILL.md`:
     -   Scan the QA report and the compliance report for self-deferral language — the failure mode where the agent labels its own incomplete work "out of scope / informational / not a blocker / will fix later" instead of finishing it. Unlike `/dr-qa` (advisory), at compliance this is a **hard** gate (mirrors the evidence-type advisory-at-QA / hard-at-compliance escalation):
         ```bash
-        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
+        "${DATARIM_RUNTIME:?}/dev-tools/check-deferral-prose.sh" \
             --file datarim/qa/qa-report-{TASK-ID}.md --root <repo-root>
-        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
+        "${DATARIM_RUNTIME:?}/dev-tools/check-deferral-prose.sh" \
             --file datarim/reports/compliance-report-{TASK-ID}.md --root <repo-root>
         ```
         (Skip the compliance-report scan on the first pass if the report is not yet written; run it after the report exists.)
@@ -74,7 +74,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 5d. **AUTOMATIC SPEC-GRAPH GATE**:
     -   Invoke an independent final graph check:
         ```bash
-        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/spec-graph-gate.sh" \
+        "${DATARIM_RUNTIME:?}/dev-tools/spec-graph-gate.sh" \
             --task {TASK-ID} --stage compliance --root <repo-root> --format json
         ```
     -   Include graph completeness, evaluated artifacts, trace buckets, and the report-only grade in the compliance audit addendum.
@@ -95,20 +95,20 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
     - Mirrors the stack-agnostic gate wiring at `/dr-archive` reflection sub-step (e); running the history gate here catches a provenance leak one stage earlier, while the fix is still a same-branch edit instead of a blocked archive.
     - **Newly-touched runtime files** (skills/agents/commands/templates the task created or edited): run the gate in default **full-file mode** — `scripts/task-id-gate.sh <path>` per file (or once over the touched directory). Full-file is correct here: a shipped runtime body must be clean end-to-end, not merely diff-clean.
     - **Shared-history files** (README, changelog, evolution log, pipeline docs — any file that legitimately carries pre-existing legacy task-ID baseline content): run `scripts/task-id-gate.sh --diff-only <path>` — scans only lines added by the current task (`git diff HEAD -- <path>`), suppressing pre-existing baseline matches. Legacy IDs already present in shared history are provenance record, not new leaks; full-file mode on such files would false-positive on every legacy line.
-    - Exit `1` from either invocation ⇒ compliance verdict is **NON-COMPLIANT**: capture the `path:line:id` findings verbatim into the report and route via the FAIL-Routing CTA to `/dr-do {TASK-ID}` — rephrase the leaking lines to abstract prose (provenance belongs in the evolution log / archives, not in runtime bodies) or apply the escape-hatch fence per `$HOME/.claude/skills/evolution/history-agnostic-gate.md` only when the ID is a legitimate illustrative placeholder.
+    - Exit `1` from either invocation ⇒ compliance verdict is **NON-COMPLIANT**: capture the `path:line:id` findings verbatim into the report and route via the FAIL-Routing CTA to `/dr-do {TASK-ID}` — rephrase the leaking lines to abstract prose (provenance belongs in the evolution log / archives, not in runtime bodies) or apply the escape-hatch fence per `${DATARIM_RUNTIME:?}/skills/evolution/history-agnostic-gate.md` only when the ID is a legitimate illustrative placeholder.
     - Exit `2` (invocation error — untracked file in `--diff-only` mode, missing path) is an infrastructure finding: record it in the report and continue; it never changes the verdict on its own.
-6.4. **RE-ASSERT TEST-ENVIRONMENT VERIFICATION** (MANDATORY when the task ships runtime behaviour AND the project space has a test environment): load `$HOME/.claude/skills/test-env-verification/SKILL.md`. Read the `/dr-qa` Layer 4h record from `datarim/qa/qa-report-{TASK-ID}*.md`. The change MUST have been verified on the test environment — **backend AND frontend** — autonomously, before this task may be prepared for production. If the Layer 4h verdict is `PASS`/`PASS_WITH_NOTES`/`SKIP`/`NO-TEST-ENV`, carry it forward into the compliance verdict (record verbatim). If the record is ABSENT (QA predates this gate) and the task ships behaviour to a test-env-having project, run the autonomous procedure now (ship to test via `deploy:test`, exercise backend + frontend, capture results) — a `FAIL` or a missing verification makes compliance **NON-COMPLIANT** and routes back to `/dr-qa`. `NO-TEST-ENV`/`SKIP` never block. This gate complements (does not replace) the deploy-class prod-readiness probe: test-env functional verification precedes prod-readiness, which precedes the operator-gated prod deploy.
+6.4. **RE-ASSERT TEST-ENVIRONMENT VERIFICATION** (MANDATORY when the task ships runtime behaviour AND the project space has a test environment): load `${DATARIM_RUNTIME:?}/skills/test-env-verification/SKILL.md`. Read the `/dr-qa` Layer 4h record from `datarim/qa/qa-report-{TASK-ID}*.md`. The change MUST have been verified on the test environment — **backend AND frontend** — autonomously, before this task may be prepared for production. If the Layer 4h verdict is `PASS`/`PASS_WITH_NOTES`/`SKIP`/`NO-TEST-ENV`, carry it forward into the compliance verdict (record verbatim). If the record is ABSENT (QA predates this gate) and the task ships behaviour to a test-env-having project, run the autonomous procedure now (ship to test via `deploy:test`, exercise backend + frontend, capture results) — a `FAIL` or a missing verification makes compliance **NON-COMPLIANT** and routes back to `/dr-qa`. `NO-TEST-ENV`/`SKIP` never block. This gate complements (does not replace) the deploy-class prod-readiness probe: test-env functional verification precedes prod-readiness, which precedes the operator-gated prod deploy.
 6.45. **RELEASE EVIDENCE GATES** (conditional, fail-closed):
     -   **GitHub Actions AC:** when an acceptance criterion requires GitHub Actions, run `dev-tools/check-github-actions-execution.sh` live against the actual required workflow, exact required job/status context, and full implementation SHA. Only exit `0` / `executed-success` from `evidence_source=github-api` is compliant. A follow-up task, provider outage, no-execution result, unrelated job, or successful canary cannot replace execution of the required job.
     -   **Public repository boundary:** for a new public repository or visibility transition, run `dev-tools/check-public-repository-boundary.sh` against the exact immutable ref, allowlist, canonical regex policy, and independently hashed secret-scan evidence. Also verify the provider's paginated hosted surfaces (Actions logs/artifacts, releases/assets, repository metadata, wiki/pages/issues/discussions as applicable) with redacted counts and no incomplete page. Any nonzero helper result, unscanned surface, unsupported object, or evidence drift makes the verdict **NON-COMPLIANT**.
     -   These checks are read-only. Do not print matches, tokens, signed URLs, or raw provider annotations. Secret findings route to containment/rotation; history mutation requires separate operator authorization.
-6.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during compliance verification — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh"` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log` before emitting the report.
+6.5. **APPEND Q&A IF ANY** (mandatory per `${DATARIM_RUNTIME:?}/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during compliance verification — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `"${DATARIM_RUNTIME:?}/dev-tools/append-init-task-qa.sh"` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log` before emitting the report.
     -   Write the question, answer, and rationale (when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
     -   Required flags: `--root <repo-root> --task {TASK-ID} --stage compliance --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters citing the compliance-standard rationale.
     -   On contradiction with an expectation: add `--conflict-with <wish_id>` (+ optional `--conflict-detail-file`); CTA MUST route back to `/dr-do --focus-items <wish_id>` for closure before the task can be archived.
     -   Skip if no clarification rounds occurred.
-7.  **REPORT**: Output a compliance report file using the canonical structure from `${DATARIM_RUNTIME:-$HOME/.claude}/templates/compliance-report-template.md` (frontmatter `task_id`, `date`, `verdict`, optional `scope`; four top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги» — followed by the audit addendum under `---` carrying `### Step-by-step verdicts`, `### Remaining risks`, `### Related`). <!-- allow-non-ascii: russian-archive-template-section-names-cited-from-template -->
+7.  **REPORT**: Output a compliance report file using the canonical structure from `${DATARIM_RUNTIME:?}/templates/compliance-report-template.md` (frontmatter `task_id`, `date`, `verdict`, optional `scope`; four top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги» — followed by the audit addendum under `---` carrying `### Step-by-step verdicts`, `### Remaining risks`, `### Related`). <!-- allow-non-ascii: russian-archive-template-section-names-cited-from-template -->
     -   `## Начальная задача`: one Russian sentence sourced from `tasks/{TASK-ID}-init-task.md § Operator brief (verbatim)`, compressed to a single phrase. <!-- allow-non-ascii: russian-archive-template-section-name-cited-from-template -->
     -   `## Как решили`: single-level bullet list, one item per bullet in the operator brief (original order). Each bullet: bold operator-words quotation + Russian status word («выполнено» / «частично» / «не выполнено» / «неприменимо» — never the schema enum `met`/`partial`/`missed`/`n-a`) + one or two plain-language sentences. Expectations from `tasks/{TASK-ID}-expectations.md § Ожидания` are folded into the same list with marker `(уточнение брифа)` appended to the quotation. No tables in this section. <!-- allow-non-ascii: russian-archive-template-section-name-cited-from-template -->
     -   `## Артефакты задачи`: what was verified or hardened by this compliance pass (reports, modified files, refreshed contracts). Prose + bullets allowed; no verdict tables in this top section. <!-- allow-non-ascii: russian-archive-template-section-name-cited-from-template -->
@@ -116,7 +116,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
     -   Audit addendum under `---`: `### Step-by-step verdicts` (the 7-step compliance table, wrapped in `<!-- gate:literal -->` fence to bypass the banlist on English column headings), `### Remaining risks`, `### Related`.
     -   Apply the banlist from `skills/human-summary/banlist.txt` to the prose in the top four sections; the audit addendum tables MAY use `<!-- gate:literal -->` fence when they include ASCII technical terms.
 8.  **HUMAN SUMMARY**:
-    - Load `$HOME/.claude/skills/human-summary/SKILL.md`.
+    - Load `${DATARIM_RUNTIME:?}/skills/human-summary/SKILL.md`.
     - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the verdict / report block and the CTA block ([definition](../skills/cta-format/SKILL.md)). Language follows the most recent operator message. <!-- allow-non-ascii: russian-operator-summary-section-name-cited-from-template -->
     - Source material: § Overview of the task description, per-step results from Step 6, and the verdict from Step 7.
     - Runs on every verdict (COMPLIANT, COMPLIANT_WITH_NOTES, NON-COMPLIANT). On NON-COMPLIANT the «Что не получилось» sub-section carries the failure detail in plain language and «Что дальше» paraphrases the FAIL-Routing CTA without command syntax. <!-- allow-non-ascii: literal-russian-sub-section-name-tokens-from-human-summary-skill -->
@@ -126,7 +126,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 
 8.5. **REFLECT ON A PASSING VERDICT** (runs only when the Step 7 verdict is COMPLIANT or COMPLIANT_WITH_NOTES; skipped on NON-COMPLIANT):
     - Reflection now happens here, at the point of a successful compliance pass, rather than being deferred to `/dr-archive`. This makes `/dr-compliance` the stage that captures lessons-learned + evolution proposals, so they are not lost when a task is hardened but the operator does not archive immediately.
-    - Load `$HOME/.claude/skills/reflecting/SKILL.md` and execute its workflow (single source of truth — do NOT inline the reflection steps here). It writes `datarim/reflection/reflection-{task_id}.md` and stamps `reflection_basis` from the just-written compliance report via `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reflection-freshness.sh --emit-basis datarim/reports/compliance-report-{task_id}.md`.
+    - Load `${DATARIM_RUNTIME:?}/skills/reflecting/SKILL.md` and execute its workflow (single source of truth — do NOT inline the reflection steps here). It writes `datarim/reflection/reflection-{task_id}.md` and stamps `reflection_basis` from the just-written compliance report via `${DATARIM_RUNTIME:?}/dev-tools/reflection-freshness.sh --emit-basis datarim/reports/compliance-report-{task_id}.md`.
     - **Stamp last.** Compute and write `reflection_basis` as the FINAL action, after the report file is fully written — including the Step 8 human-summary section that gets appended to `compliance-report-{task_id}.md`. Any later append to the report changes its hash and makes the just-written reflection look stale at `/dr-archive`. If the report is edited after the basis is stamped, re-stamp from the final report.
     - Class A / Class B evolution gate applies exactly as in the skill (Class A → operator approval; Class B → hold for PRD update). If the operator rejects a Class A proposal, surface it but do NOT fail the compliance verdict — reflection rejection is not a compliance failure.
     - On NON-COMPLIANT this step does not run; `/dr-archive` Step 0.5 will force-generate reflection later (the file stays absent), preserving the mandatory-reflection guarantee.
@@ -144,17 +144,17 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 
 When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND the matching per-task marker — resolved via `dev-tools/auto-mode-marker.sh resolve --root <workspace> --task-id <TASK-ID>`, per-task `datarim/.auto/<TASK-ID>.mode` with legacy `datarim/.auto-mode-active` fallback — containing this TASK-ID), this command:
 
-1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder ([definition](../skills/autonomous-mode/SKILL.md)) before any `AskUserQuestion` or equivalent operator prompt at this stage.
+1. Consults `${DATARIM_RUNTIME:?}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder ([definition](../skills/autonomous-mode/SKILL.md)) before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
    - Hardening decision points (apply Class A inline vs defer) — auto-apply L1 Class A per L1 Inline Rule; defer L2+/B with backlog item.
    - 7-step hardening readiness gates — proceed if Ladder L1-L2 confirm cleanliness; L5 only on contradictory signals.
 3. Discovered gaps → apply L1 Inline Resolution Rule ([definition](../skills/autonomous-mode/SKILL.md)) per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
-4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:?}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
 5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).
 
 ## Next Steps (CTA)
 
-After verdict, the compliance agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`. NON-COMPLIANT verdicts use the FAIL-Routing variant (see § FAIL-Routing in cta-format).
+After verdict, the compliance agent MUST emit a CTA block per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`. NON-COMPLIANT verdicts use the FAIL-Routing variant (see § FAIL-Routing in cta-format).
 
 **Routing logic for `/dr-compliance`:**
 
@@ -169,7 +169,7 @@ The CTA block MUST follow canonical FAIL-Routing format when NON-COMPLIANT — t
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
-After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
 
 - `stage`: `compliance`
 - `command`: `/dr-compliance`

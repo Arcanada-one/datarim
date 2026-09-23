@@ -15,7 +15,7 @@ runtime helpers that `/dr-*` commands shell out to (input validation,
 schema checks, presence gates, network-exposure verifier, peer-provider
 resolver, etc.). Originally a doc-fanout linter only; expanded over
 v1.21+ to a broader set of orthogonal pure-shell tools (see § Validation
-Discipline in `code/datarim/CLAUDE.md`).
+Discipline in `code/datarim/AGENTS.md`).
 
 ## Runtime consumers (incomplete list)
 
@@ -56,7 +56,7 @@ Discipline in `code/datarim/CLAUDE.md`).
    we do not want to expose.
 2. Each script self-documents its target scope in its header and is
    pure shell (no runtime deps beyond bash + grep + dev-tools sibling
-   scripts). Per § Validation Discipline in `CLAUDE.md`, orthogonal
+   scripts). Per § Validation Discipline in `AGENTS.md`, orthogonal
    concerns get orthogonal tools — no `dev-tools/` script is added as a
    branch inside `datarim-doctor.sh`.
 3. Shipping the directory closes a defect class where consumer installs

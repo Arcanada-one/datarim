@@ -129,3 +129,36 @@ EOF
     [ "$status" -eq 0 ] \
       && [[ "$output" != *'spec-graph-gate:configuration'* ]]
 }
+
+@test "malformed spec-graph JSON is a high-severity execution finding, never clean" {
+    cat >"$WORK/datarim/prd/PRD-BAD-0001.md" <<'EOF2'
+# PRD: malformed adapter fixture
+**Complexity:** Level 3
+EOF2
+    cat >"$WORK/datarim/plans/BAD-0001-plan.md" <<'EOF2'
+# Plan
+EOF2
+    fake="$WORK/fake-spec-gate.sh"
+    cat >"$fake" <<'EOF2'
+#!/usr/bin/env bash
+printf '%s\n' '{not-json'
+exit 0
+EOF2
+    chmod +x "$fake"
+    run env DATARIM_SPEC_GRAPH_GATE="$fake" "$SCRIPT" \
+        --task BAD-0001 --stage plan --workspace "$WORK"
+    [ "$status" -ge 1 ]
+    printf '%s\n' "$output" | grep -qF 'spec-graph-gate:invalid-output'
+}
+
+@test "digit-bearing task prefix is accepted by verification floor" {
+    mkdir -p "$WORK/datarim/tasks"
+    cat >"$WORK/datarim/tasks/C2M-0001-task-description.md" <<'EOF2'
+---
+task_id: C2M-0001
+complexity: L1
+---
+EOF2
+    run "$SCRIPT" --task C2M-0001 --stage do --workspace "$WORK"
+    [ "$status" -eq 0 ]
+}

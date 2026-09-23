@@ -35,7 +35,15 @@ jobs:
           DR_ORCH_INBOUND_TOKEN: ${{ secrets.DR_ORCH_INBOUND_TOKEN || 'ci-test-token' }}
           DR_ORCH_DIR: ${{ github.workspace }}/plugins/dr-orchestrate
           DR_ORCH_PORT: 8090
+          # Per-project state, explicitly. Datarim is project-local and there is
+          # no $HOME fallback any more: a handler that enqueues into the inbox
+          # refuses when no project runtime is in scope, and the server turns
+          # that refusal into a 500. Naming the state directory here gives the
+          # contract run the project context a real installation would have,
+          # instead of putting the fallback back to make the test pass.
+          DR_ORCH_STATE_DIR: /tmp/dr-orch-ci/state
         run: |
+          mkdir -p "$DR_ORCH_STATE_DIR"
           # TUNE-0295 Phase C dropped the adnanh/webhook reference impl and
           # replaced it with the internal bash HTTP server. CI starts the
           # bash server on port 8090 so the OpenAPI base-URL contract

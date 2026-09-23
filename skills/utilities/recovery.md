@@ -1,6 +1,6 @@
 # Recovering Runtime Files from Compacted Session Context
 
-**When to use:** A runtime file in `$HOME/.claude/` (skill, agent, command, template) has been overwritten or deleted in the current session, and:
+**When to use:** A runtime file in `${DATARIM_RUNTIME:?}/` (skill, agent, command, template) has been overwritten or deleted in the current session, and:
 - No git history exists for the runtime tree (typical case).
 - External backups (Time Machine, APFS snapshots, cloud sync) are unavailable or not configured.
 - The lost file was previously **invoked via the Skill tool** or **read via the Read tool** earlier in the same session.
@@ -14,7 +14,7 @@
    - `Called the Read tool with the following input: {"file_path":"<path-to-lost-file>"}` followed by its Result block (when file was read).
 2. Extract the body text verbatim. Strip the surrounding `<system-reminder>...</system-reminder>` wrapping; keep the inner markdown.
 3. Validate the extracted content: check frontmatter opens with `---` / closes with `---`, sections are intact, no truncation markers (`... (truncated`).
-4. Write back with the Write tool to `$HOME/.claude/{agents,skills,commands,templates}/<name>.md`.
+4. Write back with the Write tool to `${DATARIM_RUNTIME:?}/{agents,skills,commands,templates}/<name>.md`.
 5. Under symlink mode the write IS the commit-ready edit (runtime IS the repo by inode); under copy mode rebuild the runtime via `./install.sh --copy --force --yes` after committing the repo copy.
 
 **Limits:**

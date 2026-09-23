@@ -20,9 +20,9 @@ Load this skill when a reflection proposal, optimisation task, or new feature
 asks for any of:
 
 - A linter that runs on framework files (skills/agents/commands/templates,
-  docs, CLAUDE.md, README.md) before merge.
+  docs, AGENTS.md, README.md) before merge.
 - An audit script comparing framework state to sibling repos (e.g. a sister
-  documentation site, a project-level CLAUDE.md).
+  documentation site, a project-level AGENTS.md).
 - A generator that produces boilerplate for new framework artefacts.
 - A pre-commit hook the maintainer wants installed locally.
 - Any tool that has no value for downstream Datarim consumers.

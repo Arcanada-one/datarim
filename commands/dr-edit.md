@@ -9,19 +9,19 @@ effort: high
 # /dr-edit — Editorial Review
 
 **Role**: Editor Agent
-**Source**: `$HOME/.claude/agents/editor.md`
+**Source**: `${DATARIM_RUNTIME:?}/agents/editor.md`
 
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
-1.  **LOAD**: Read `$HOME/.claude/agents/editor.md` and adopt that persona.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
+1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/editor.md` and adopt that persona.
 2.  **LOAD SKILLS** (all mandatory for editorial work):
-    - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always)
-    - `$HOME/.claude/skills/factcheck/SKILL.md` (Fact verification methodology)
-    - `$HOME/.claude/skills/humanize/SKILL.md` (AI pattern detection and removal)
-    - `$HOME/.claude/skills/writing/SKILL.md` (Quality checklist and editorial standards)
-    - **Voice-bearing content prohibition:** `coworker` MUST NOT be used for fact-checking, editing, or AI-pattern review of voice-bearing content. The assigned model performs all editorial work directly. Per `~/.claude/CLAUDE.md` § Do NOT delegate → Voice-bearing and judgment content. The coworker hook guard (`dev-tools/coworker-hook-guard.sh`) enforces this mechanically.
+    - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always)
+    - `${DATARIM_RUNTIME:?}/skills/factcheck/SKILL.md` (Fact verification methodology)
+    - `${DATARIM_RUNTIME:?}/skills/humanize/SKILL.md` (AI pattern detection and removal)
+    - `${DATARIM_RUNTIME:?}/skills/writing/SKILL.md` (Quality checklist and editorial standards)
+    - **Voice-bearing content:** the assigned model performs writing, editing, translation, and factual review directly. Preserve the operator's authorship and publication constraints.
 3.  **READ THE CONTENT**: Read the file at the path provided in `$ARGUMENTS`. If no path given, ask the user.
 4.  **SETUP**:
     - Detect the primary language (English, Russian, or mixed).
@@ -33,7 +33,7 @@ effort: high
     - Extract all verifiable factual claims.
     - Verify each claim against authoritative sources using WebSearch and WebFetch.
     - Assign verdicts: ACCURATE, INACCURATE, OUTDATED, MISLEADING, UNVERIFIABLE, NEEDS_CONTEXT.
-    - Cross-reference source count per claim importance level — see `$HOME/.claude/skills/factcheck/SKILL.md` § Importance levels (do not restate the thresholds here; they drift independently otherwise).
+    - Cross-reference source count per claim importance level — see `${DATARIM_RUNTIME:?}/skills/factcheck/SKILL.md` § Importance levels (do not restate the thresholds here; they drift independently otherwise).
 
     ### Phase 2: AI Pattern Removal
     - Scan for AI writing patterns: banned vocabulary, structural tells, formatting artifacts.
@@ -79,11 +79,11 @@ When `--consilium` is passed as an argument (or `DATARIM_CONSILIUM=1` is set),
 **Degradation:** same rules as `/dr-write --consilium` — 2-of-3 proceeds with
 a `degradation_note`; fewer than 2 falls back to single-editor path with a warning.
 
-See `$HOME/.claude/skills/consilium/SKILL.md` § Real Multi-Vendor Mode for the full protocol.
+See `${DATARIM_RUNTIME:?}/skills/consilium/SKILL.md` § Real Multi-Vendor Mode for the full protocol.
 
 ## Next Steps (CTA)
 
-After edit pass, the editor agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After edit pass, the editor agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-edit`:**
 

@@ -1,6 +1,6 @@
 ---
 name: test-env-verification
-description: Mandatory gate: verify the change on test env (backend + frontend) autonomously before prod prep or archive. Blocks /dr-qa, /dr-compliance, /dr-archive.
+description: "Mandatory gate: verify the change on test env (backend + frontend) autonomously before prod prep or archive. Blocks /dr-qa, /dr-compliance, /dr-archive."
 current_aal: 1
 target_aal: 2
 ---

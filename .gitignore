@@ -23,6 +23,7 @@ node_modules/
 # Python bytecode caches from dev-tools/* debug sessions
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # documentation/ is TRACKED — the docs migration deliberately moved the public
 # Diátaxis tree (tutorials/how-to/reference/explanation) plus framework task
@@ -105,3 +106,8 @@ insights/
 
 # Throwaway fixture created and rm -rf'd by tests/test-role-registry.bats — must stay untracked
 skills/fleet/_test_no_budget/
+
+# Product source never carries live task state or project installations.
+/datarim/
+/.datarim-runtime/
+/config/credentials/

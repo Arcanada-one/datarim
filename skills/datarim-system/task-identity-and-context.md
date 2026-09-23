@@ -82,7 +82,7 @@ Before writing to `tasks.md` or `activeContext.md`, check file size:
 | File | Warn threshold | Hard limit | Action at limit |
 |------|---------------|------------|-----------------|
 | `tasks.md` | 3,000 lines | 5,000 lines | STOP writing. Inform user: "tasks.md exceeds 5K lines. Run `/dr-optimize` or archive completed tasks before proceeding." |
-| `activeContext.md` | 100 lines | 200 lines | Prune the recent-archives section (canonical heading in `${DATARIM_RUNTIME:-$HOME/.claude}/templates/activeContext-template.md`) to 5 most recent entries. |
+| `activeContext.md` | 100 lines | 200 lines | Prune the recent-archives section (canonical heading in `${DATARIM_RUNTIME:?}/templates/activeContext-template.md`) to 5 most recent entries. |
 
 Check command: `wc -l < datarim/tasks.md`
 
@@ -179,7 +179,7 @@ No renumbering occurs when a backlog item becomes active.
 
 #### Project Prefix Resolution
 
-Datarim is stack-agnostic and ecosystem-agnostic — it does not embed names of specific consumer projects. Project-prefix registries live in the consumer's own `CLAUDE.md`, declared as a `## Task Prefix Registry` section with a Markdown table:
+Datarim is stack-agnostic and ecosystem-agnostic — it does not embed names of specific consumer projects. Project-prefix registries live in the consumer's own `AGENTS.md`, declared as a `## Task Prefix Registry` section with a Markdown table:
 
 ```markdown
 ## Task Prefix Registry
@@ -194,10 +194,10 @@ Datarim is stack-agnostic and ecosystem-agnostic — it does not embed names of 
 Resolution algorithm (implemented in `scripts/datarim-doctor.sh`):
 
 1. **Area prefix:** look up the Area Prefixes table above. If matched → use that area subdir.
-2. **Project prefix:** walk up the directory tree from the Datarim root; for each `CLAUDE.md` encountered, parse `## Task Prefix Registry` and search for a row with the requested prefix. First match wins.
+2. **Project prefix:** walk up the directory tree from the Datarim root; for each `AGENTS.md` encountered, parse `## Task Prefix Registry` and search for a row with the requested prefix. First match wins.
 3. **Fallback:** if neither matched → `general`.
 
-Each ecosystem (or each project that owns a registry) declares its own prefixes in its own `CLAUDE.md`. Adding a new project does not require a Datarim framework change.
+Each ecosystem (or each project that owns a registry) declares its own prefixes in its own `AGENTS.md`. Adding a new project does not require a Datarim framework change.
 
 > **Area prefixes are RESERVED — a project row cannot redefine one.** Step 1 runs
 > before step 2, so a registry row naming a prefix from the Area Prefixes table
@@ -232,7 +232,7 @@ is corrected) MUST use `dev-tools/rename-task-prefix.sh`, never a hand-rolled `s
 ```bash
 # noshellcheck-extract
 # dry-run is the default — inspect the plan, then re-run with --apply
-"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/rename-task-prefix.sh" \
+"${DATARIM_RUNTIME:?}/dev-tools/rename-task-prefix.sh" \
   --old OLD --new NEW --path <file-or-dir> [--path ...] \
   [--exclude-anchor "<literal>"] [--include-anchor "<literal>"] [--collision NNNN] \
   [--rename-files] [--apply] [--verify]

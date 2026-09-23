@@ -51,7 +51,7 @@ or route, and must not claim that its `GO` bypasses Step 4 or any later gate.
 **Context Loading**:
 - READ: `datarim/tasks.md`, `datarim/activeContext.md`, `datarim/prd/*.md`
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
+  - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
 
 **When invoked:** `/dr-plan` stage (mandatory for L3-4; also mandatory at L1-L2
 when the whole scope is redundancy-only or ambiguous).

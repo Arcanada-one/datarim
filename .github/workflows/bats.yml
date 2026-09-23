@@ -36,6 +36,58 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  jev-and-project-runtime:
+    name: Jev and project runtime contracts
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux, X64]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Assert exact triggering head
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+
+      # `runs-on: [self-hosted, linux, X64]` matches nearly every runner in the
+      # fleet and they are NOT interchangeable -- the same point INFRA-0365
+      # measured for the security audit. Here it showed up as the job landing on
+      # host-www-arcanada, where `/usr/bin/python3 -m venv` cannot build an
+      # interpreter: Python 3.10 there ships no ensurepip, so the step died
+      # before a single contract ran. Measured as ci-runner, the account that
+      # runs the job: venv succeeds on host-devs (3.12), fails on host-www.
+      #
+      # Provisioned rather than pinned, following the remedy INFRA-0365 already
+      # settled on: pinning to whichever hosts happen to be equipped today
+      # shrinks the eligible pool and worsens the slot contention in INFRA-0364.
+      # setup-python brings a complete interpreter into the tool cache, so the
+      # job stops depending on what a given host was built with.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned test dependencies
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/jev-venv"
+          # --python-only: this job runs unittest and nothing else. The apt
+          # fixtures (jq, shellcheck, socat) and the bats/yq toolchain belong to
+          # the bats shards, and pulling them in here made the job fail on a
+          # runner that has no socat and no passwordless sudo -- over tools it
+          # never invokes. Measured by running the full contract set with jq,
+          # socat and bats hidden from PATH: all suites OK.
+          bash tests/ci-install-bats-deps.sh --python-only \
+            --python-bin "$RUNNER_TEMP/jev-venv/bin/python"
+      - name: Verify Jev source manifest
+        run: sha256sum -c JEV-MANIFEST.sha256
+      - name: Run offline engine and lifecycle contracts
+        run: |
+          set -euo pipefail
+          python_bin="$RUNNER_TEMP/jev-venv/bin/python"
+          "$python_bin" -m unittest discover -s plugins/dr-jev-control/tests -v
+          for pattern in 'test_jev_*.py' 'test_project_*.py' 'test_framework_*.py'; do
+            "$python_bin" -m unittest discover -s tests -p "$pattern" -v
+          done
+
   registry:
     name: exclusion registry + inventory
     runs-on: ubuntu-latest

@@ -19,7 +19,7 @@
 # the exit code) is what makes "unconfigured" visible instead of silent.
 #
 # This reports on the RESOLVER, which is what the framework ships. Whether a
-# PreToolUse hook is installed is site policy (CLAUDE.md § S10-bis); a site that
+# PreToolUse hook is installed is site policy (AGENTS.md § S10-bis); a site that
 # wires one should assert its deny path separately, in its own test suite.
 #
 # Usage:

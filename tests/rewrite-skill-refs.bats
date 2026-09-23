@@ -4,7 +4,7 @@
 #
 # Contract (per plan §6.4):
 #   - Rewrites `skills/<name>.md` → `skills/<name>/SKILL.md` in cross-refs
-#   - Scope: .md, .sh, .yaml, .yml, CLAUDE.md, AGENTS.md
+#   - Scope: .md, .sh, .yaml, .yml, AGENTS.md, AGENTS.md
 #   - Excludes documentation/archive/** (historical refs frozen)
 #   - Markdown link form `(skills/<name>.md)` rewritten to `(skills/<name>/SKILL.md)`
 #   - Bare reference `skills/<name>.md` rewritten to `skills/<name>/SKILL.md`

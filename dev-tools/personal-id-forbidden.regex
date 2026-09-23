@@ -2,7 +2,7 @@
 #
 # Patterns that MUST NOT appear in any shipped framework artefact
 # (cli/, skills/, agents/, commands/, templates/, scripts/, dev-tools/,
-# CLAUDE.md, README.md, docs/).
+# AGENTS.md, README.md, docs/).
 #
 # Format: one extended-regex pattern per non-empty, non-comment line.
 # Lines starting with `#` are comments. Each pattern is matched

@@ -35,7 +35,7 @@ Detect the project type by checking for manifest files at the project root:
 | `build.gradle` / `pom.xml` | Java/Kotlin | `./gradlew test` or `mvn test` |
 <!-- /gate:example-only -->
 
-If CLAUDE.md specifies custom test commands, use those instead.
+If AGENTS.md specifies custom test commands, use those instead.
 
 **Docker-Aware Execution**:
 
@@ -44,10 +44,10 @@ If `docker-compose.yml` or `compose.yml` exists:
 2. If running: execute tests inside the container (`docker compose exec <service> <test-command>`)
 3. If not running: run tests on host (warn that Docker is not running)
 
-Check CLAUDE.md for project-specific Docker test instructions.
+Check AGENTS.md for project-specific Docker test instructions.
 
 **Testing Decision Tree**:
-1. Read CLAUDE.md for project-specific test commands
+1. Read AGENTS.md for project-specific test commands
 2. If none found: detect project type from manifest files
 3. Choose execution environment: Docker container (if available) or host
 4. Run tests and capture output
@@ -55,14 +55,14 @@ Check CLAUDE.md for project-specific Docker test instructions.
 
 **API Smoke Tests**:
 When asked to verify a deployed service:
-1. Read CLAUDE.md or project config for health/API endpoints
+1. Read AGENTS.md or project config for health/API endpoints
 2. Run health check: `curl -sf <url>/health` or similar
 3. Test basic endpoints if specified
 4. Report status codes and response times
 
 **Web UI Testing** (website projects):
 
-Load `$HOME/.claude/skills/frontend-ui/SKILL.md` when the project is a website. Run all four sub-checks in order — a green HTTP status is necessary but **not sufficient**.
+Load `${DATARIM_RUNTIME:?}/skills/frontend-ui/SKILL.md` when the project is a website. Run all four sub-checks in order — a green HTTP status is necessary but **not sufficient**.
 
 1. **Smoke** — `curl -sf -o /dev/null -w "%{http_code}" <url>` for every public URL (including lang variants `/en/*`, `/ru/*`). All must return `200` (or expected `301/302` for redirects). Report failures with URL and status.
 2. **Content parity** — for multi-language sites, diff the key set between translation files (`content/en.php` vs `content/ru.php`, `en.json` vs `ru.json`). Report missing keys, placeholder strings (`TODO`, `FIXME`, `{{`), or orphaned keys. All content files must have the same key count and no placeholders.
@@ -97,17 +97,17 @@ Report results as a structured table:
 For failures: include test name, error message, and file location.
 
 **Context Loading**:
-- READ: `CLAUDE.md` (project-specific test commands and setup)
+- READ: `AGENTS.md` (project-specific test commands and setup)
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/testing/SKILL.md` (Testing pyramid, mocking rules, Live Smoke-Test Gate)
-  - `$HOME/.claude/skills/datarim-system/SKILL.md` (File locations)
+  - `${DATARIM_RUNTIME:?}/skills/testing/SKILL.md` (Testing pyramid, mocking rules, Live Smoke-Test Gate)
+  - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (File locations)
 - LOAD WHEN NEEDED:
-  - `$HOME/.claude/skills/frontend-ui/SKILL.md` (Web UI tasks — CSS, visual, a11y, i18n)
+  - `${DATARIM_RUNTIME:?}/skills/frontend-ui/SKILL.md` (Web UI tasks — CSS, visual, a11y, i18n)
 - OPTIONAL:
   - `documentation/archive/` (Completed task context for regression testing)
 
 **Critical Rules**:
-1. Always check CLAUDE.md first — project-specific commands override auto-detection
+1. Always check AGENTS.md first — project-specific commands override auto-detection
 2. Never modify test files without explicit instruction — your job is to RUN tests, not fix them
 3. Report all failures clearly — don't summarize away important details
 4. For Docker projects: prefer running tests inside containers to match CI environment

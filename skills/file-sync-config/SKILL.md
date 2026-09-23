@@ -24,7 +24,7 @@ Load this skill before configuring ANY two-way file-sync between multiple hosts:
 
 Founding incident (2026-04-25): the first `.stignore` for Syncthing had 28 patterns and did not cover `.venv`, `__pycache__`, `target/`, `*.db`, and did not exclude nested git repositories entirely. The result:
 
-- 1 materialised sync-conflict in production (`AI_agents/Email Agent/CLAUDE.md`) — deploy documentation would have been lost if Syncthing had not preserved a `.sync-conflict` copy.
+- 1 materialised sync-conflict in production (`AI_agents/Email Agent/AGENTS.md`) — deploy documentation would have been lost if Syncthing had not preserved a `.sync-conflict` copy.
 - 60+ sync-conflict files accumulated in the vault over one week.
 - 14 git repositories with different checked-out branches synced as plain working trees → working-tree drift between the Mac and the DEV box.
 - Cross-platform breakage risk: Python `.venv` (macOS Mach-O) vs Linux ELF binaries.
@@ -272,4 +272,4 @@ When configuring file-sync, verify each item:
 - `Areas/Architecture/file-sync-policy.md` (ADR) — vault-level convention for the Arcanada ecosystem.
 - `Areas/Infrastructure/Syncthing.md` — Syncthing deployment runbook.
 - `Areas/Infrastructure/scripts/arcanada-pull.sh` — git-pull cron with the CLI Claude conflict resolver.
-- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cli-conflict-resolver-prompt.md` — reusable Claude prompt for conflict resolution.
+- `${DATARIM_RUNTIME:?}/templates/cli-conflict-resolver-prompt.md` — reusable Claude prompt for conflict resolution.

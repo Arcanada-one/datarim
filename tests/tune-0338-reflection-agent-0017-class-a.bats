@@ -50,10 +50,15 @@ DR_DESIGN="$BATS_TEST_DIRNAME/../commands/dr-design.md"
     [ "$output" -ge 1 ]
 }
 
-@test "A2: plan-extract recommendation cites coworker" {
+@test "A2: plan-extract recommendation cites a native read, not coworker" {
+    # The recommendation originally delegated the plan distillation to coworker.
+    # Coworker delegation is retired, and the work is now a bounded native read.
+    # Assert both halves: the native form is present AND the retired one cannot
+    # come back here unnoticed.
     run grep -i 'plan-extract' "$DR_DO"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"coworker"* ]]
+    [[ "$output" == *"native read"* ]]
+    [[ "$output" != *"coworker"* ]]
 }
 
 @test "A2: plan-extract recommendation is trigger-gated on plan length (400 lines)" {

@@ -4,6 +4,17 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- Integrate directory-scoped Code Contracts as persistent implementation invariants: dependency-free `CONTRACTS` validation, `/dr-do` and `/dr-verify` workflow guidance, Layer-1 verification, upstream-compatible skill, and reference documentation.
+
+### Fixed
+
+- Fail closed when the spec-graph adapter returns malformed or schema-incompatible JSON instead of treating parse failure as a clean result; verification summaries now distinguish executed from skipped checks.
+- Scope PRD waivers in shared `tasks.md` to the current task section so a sibling task's waiver cannot authorize the active task.
+- Route remaining verification/spec/provenance/token-cost/stage-probe task-ID checks through canonical schema regexes, including digit-bearing prefixes such as `C2M`.
+- Distinguish unsupported `absent` evidence from deterministic `verified_absence`, and remove review quotas that incentivized fabricated findings.
+
 ## [2.67.5] — 2026-09-04
 
 ### Fixed

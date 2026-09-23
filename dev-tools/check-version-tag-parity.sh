@@ -8,7 +8,7 @@
 # *looks* released (manifest says X.Y.Z) while no tag, no release workflow, no
 # tarball, no SBOM, no signature and no GitHub Release exist.
 #
-# Contract (per CLAUDE.md § Validation Discipline):
+# Contract (per AGENTS.md § Validation Discipline):
 #   pure shell; --check mode; exit 0 = PASS, exit 1 = FAIL, exit 2 = usage/setup.
 #
 # The merge→tag window is legitimate: the tag is created by the operator or the

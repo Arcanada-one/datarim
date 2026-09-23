@@ -14,7 +14,13 @@ HOOK="$BATS_TEST_DIRNAME/../dev-tools/coworker-hook-guard.sh"
 setup() {
     command -v jq >/dev/null || skip "jq required"
     TMPROOT="$(mktemp -d)"
-    mkdir -p "$TMPROOT/datarim"
+    TMPROOT="$(cd "$TMPROOT" && pwd -P)"
+    mkdir -p "$TMPROOT/datarim" "$TMPROOT/.datarim-runtime"
+    python3 - "$TMPROOT" <<'PY_SCOPE'
+import json, pathlib, sys
+root=pathlib.Path(sys.argv[1]).resolve()
+(root/'.datarim-runtime/installation.json').write_text(json.dumps({'schema':1,'project':str(root),'contexts':[]}))
+PY_SCOPE
     printf '# Tasks\n' > "$TMPROOT/datarim/tasks.md"
     printf 'BACKLOG ORIGINAL\nline2\n' > "$TMPROOT/datarim/backlog.md"
     command -v git >/dev/null && git -C "$TMPROOT" init -q

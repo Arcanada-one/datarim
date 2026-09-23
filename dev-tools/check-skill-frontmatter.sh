@@ -15,7 +15,7 @@
 # script is safe to run during the migration hybrid window. Reserved
 # skills/.system/ namespace (Constraint C3) is skipped.
 #
-# Companion: AGENTS.md MUST be a symlink → CLAUDE.md (AC-7 carry-over).
+# Companion: regular AGENTS.md is canonical; CLAUDE.md adapters are forbidden.
 #
 # Usage: check-skill-frontmatter.sh [--root <repo-root>]
 # Exit 0 PASS, 1 FAIL.
@@ -147,12 +147,9 @@ for skill_md in skills/*/SKILL.md; do
     check_file "$skill_md" "$parent/SKILL.md"
 done
 
-# Companion check: AGENTS.md symlink integrity (TUNE-0114 AC-7).
-if [[ ! -L AGENTS.md ]]; then
-    echo "FAIL AGENTS.md not a symlink"
-    fail=1
-elif [[ "$(readlink AGENTS.md)" != "CLAUDE.md" ]]; then
-    echo "FAIL AGENTS.md target != CLAUDE.md (got: $(readlink AGENTS.md))"
+# AGENTS.md is the sole canonical project instruction file.
+if [[ ! -f AGENTS.md || -L AGENTS.md || -e CLAUDE.md || -L CLAUDE.md ]]; then
+    echo "FAIL expected regular AGENTS.md and no CLAUDE.md adapter"
     fail=1
 fi
 

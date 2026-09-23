@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # check-component-counts.bats — V-AC matrix for the framework component
 # counts-drift enforcer (TUNE-0174). Each test builds a throwaway fixture
-# root (CLAUDE.md + README.md + commands/agents/skills/templates dirs) and
+# root (AGENTS.md + README.md + commands/agents/skills/templates dirs) and
 # asserts detector behaviour. Repo-self-consistency only — no registry, no
 # cross-repo dependency (contrast with check-repo-site-sync.bats).
 
@@ -19,10 +19,10 @@ setup() {
 
 teardown() { rm -rf "$KB"; }
 
-# Helper: write CLAUDE.md + README.md with parenthesized count claims.
+# Helper: write AGENTS.md + README.md with parenthesized count claims.
 write_docs() {  # $1=commands $2=agents $3=skills $4=templates
-    cat > "$KB/CLAUDE.md" <<EOF
-# CLAUDE.md fixture
+    cat > "$KB/AGENTS.md" <<EOF
+# AGENTS.md fixture
 Agent files: \`\$HOME/.claude/agents/{name}.md\` ($2 agents)
 Skill files: \`\$HOME/.claude/skills/{name}/SKILL.md\` ($3 skills, fixture)
 Command files: \`\$HOME/.claude/commands/{name}.md\` ($1 commands, fixture)
@@ -49,8 +49,8 @@ EOF
     [ "$status" -eq 2 ]
 }
 
-@test "missing root (no CLAUDE.md) exits 3" {
-    rm -f "$KB/CLAUDE.md"
+@test "missing root (no AGENTS.md) exits 3" {
+    rm -f "$KB/AGENTS.md"
     run bash "$DETECTOR" --check --root "$KB"
     [ "$status" -eq 3 ]
 }
@@ -93,8 +93,8 @@ EOF
 }
 
 @test "no parenthesized claim present: not a drift (skip), exits 0" {
-    cat > "$KB/CLAUDE.md" <<EOF
-# CLAUDE.md fixture with no count claims at all
+    cat > "$KB/AGENTS.md" <<EOF
+# AGENTS.md fixture with no count claims at all
 Nothing to see here.
 EOF
     cat > "$KB/README.md" <<EOF
@@ -104,7 +104,7 @@ EOF
     [ "$status" -eq 0 ]
 }
 
-@test "--root defaults to walking up from cwd to find CLAUDE.md" {
+@test "--root defaults to walking up from cwd to find AGENTS.md" {
     mkdir -p "$KB/nested/deeper"
     run bash -c "cd '$KB/nested/deeper' && bash '$DETECTOR' --check"
     [ "$status" -eq 0 ]

@@ -1,6 +1,6 @@
 ---
 name: project-init
-description: Project scaffolding — creates CLAUDE.md, documentation/, datarim/ for new or existing projects. Loaded by /dr-init when project intent is detected.
+description: Project scaffolding — creates AGENTS.md, documentation/, datarim/ for new or existing projects. Loaded by /dr-init when project intent is detected.
 current_aal: 1
 target_aal: 2
 ---
@@ -8,7 +8,7 @@ target_aal: 2
 # Project Init — Scaffolding Skill
 
 > **Loaded by:** `/dr-init` (Step 0, when project intent detected)
-> **Purpose:** Create a standardized project structure with CLAUDE.md, documentation, and Datarim workflow state.
+> **Purpose:** Create a standardized project structure with AGENTS.md, documentation, and Datarim workflow state.
 
 ## When This Skill Activates
 
@@ -26,9 +26,9 @@ If none of these signals are present, `/dr-init` follows the standard task flow.
 
 Ask the user (if not already provided in the prompt):
 
-1. **Project name** — used in CLAUDE.md header and directory name
+1. **Project name** — used in AGENTS.md header and directory name
 2. **One-line description** — what the project does
-3. **Project type** — determines tech stack (see `$HOME/.claude/skills/tech-stack/SKILL.md` § Stack Selection Decision Tree)
+3. **Project type** — determines tech stack (see `${DATARIM_RUNTIME:?}/skills/tech-stack/SKILL.md` § Stack Selection Decision Tree)
 
 If the user provided enough context in the initial prompt, extract these values without asking. Only ask for what is missing.
 
@@ -42,9 +42,9 @@ Verify the target exists or create it.
 
 ### Step 3: Determine Tech Stack
 
-Load `$HOME/.claude/skills/tech-stack/SKILL.md` and match the project type to the required stack. This determines:
+Load `${DATARIM_RUNTIME:?}/skills/tech-stack/SKILL.md` and match the project type to the required stack. This determines:
 - `.gitignore` contents
-- Build commands for CLAUDE.md
+- Build commands for AGENTS.md
 - Dependencies and toolchain
 
 If the project type is unclear, ask the user. If the project is documentation/research-only, skip tech stack detection.
@@ -55,22 +55,22 @@ Create the following structure following the **Diátaxis Documentation Taxonomy 
 
 ```
 <project-root>/
-├── CLAUDE.md                    # From template: $HOME/.claude/templates/project-claude-md.md
+├── AGENTS.md                    # From template: ${DATARIM_RUNTIME:?}/templates/project-claude-md.md
 ├── .gitignore                   # Standard for detected stack
 │
 ├── documentation/                        # Diátaxis 4-category split (mandate per skills/diataxis-docs/SKILL.md)
 │   ├── tutorials/               # Learning-oriented (newcomer end-to-end)
-│   │   └── README.md            # From template: $HOME/.claude/templates/documentation-diataxis/tutorials/README.md
+│   │   └── README.md            # From template: ${DATARIM_RUNTIME:?}/templates/documentation-diataxis/tutorials/README.md
 │   ├── how-to/                  # Problem-solving (task recipes)
-│   │   ├── README.md            # From template: $HOME/.claude/templates/documentation-diataxis/how-to/README.md
+│   │   ├── README.md            # From template: ${DATARIM_RUNTIME:?}/templates/documentation-diataxis/how-to/README.md
 │   │   ├── testing.md           # Legacy stub mapped to how-to per Diátaxis
 │   │   ├── deployment.md        # Legacy stub mapped to how-to
 │   │   └── gotchas.md           # Legacy stub mapped to how-to
 │   ├── reference/               # Information-oriented (lookup, catalogue)
-│   │   ├── README.md            # From template: $HOME/.claude/templates/documentation-diataxis/reference/README.md
+│   │   ├── README.md            # From template: ${DATARIM_RUNTIME:?}/templates/documentation-diataxis/reference/README.md
 │   │   └── architecture.md      # Legacy stub mapped to reference (system map)
 │   └── explanation/             # Understanding-oriented (background, why)
-│       └── README.md            # From template: $HOME/.claude/templates/documentation-diataxis/explanation/README.md
+│       └── README.md            # From template: ${DATARIM_RUNTIME:?}/templates/documentation-diataxis/explanation/README.md
 │
 ├── documentation/ephemeral/              # Transient working material (may be gitignored or committed per preference)
 │   ├── plans/                   # Implementation plans
@@ -78,7 +78,7 @@ Create the following structure following the **Diátaxis Documentation Taxonomy 
 │   └── reviews/                 # QA reports and reviews
 │
 ├── datarim/                     # Workflow state (created via standard /dr-init logic)
-│   ├── backlog.md               # From template: $HOME/.claude/templates/backlog-template.md
+│   ├── backlog.md               # From template: ${DATARIM_RUNTIME:?}/templates/backlog-template.md
 │   ├── activeContext.md          # Active task tracking
 │   └── tasks.md                 # Task details
 │
@@ -99,13 +99,13 @@ If neither is present, skip this step — the scaffold is unchanged (byte-identi
 
 **In secrecy-aware mode:**
 
-1. **Mechanism-free reference stub.** Write `documentation/reference/architecture.md` from the **secrecy-aware variant** in `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-docs-stubs.md`: its Overview / Components / Data Flow / Security Model bodies carry `[REDACTED — see CLAUDE.md § Secrecy]` instead of a "describe the system" TODO.
+1. **Mechanism-free reference stub.** Write `documentation/reference/architecture.md` from the **secrecy-aware variant** in `${DATARIM_RUNTIME:?}/templates/project-docs-stubs.md`: its Overview / Components / Data Flow / Security Model bodies carry `[REDACTED — see AGENTS.md § Secrecy]` instead of a "describe the system" TODO.
 2. **No mechanism on the public surface.** Do NOT populate any file under the public Diátaxis surface (`documentation/{tutorials,how-to,reference,explanation}/`) or any `README*` with the secret mechanism's lexicon. The secret lives only in the private code and, if needed, in `documentation/ephemeral/` (excluded from the public surface). This is the direct root-cause fix for the scaffold-leak pattern (precedent: a QA blocker on an earlier secrecy-bearing project — the scaffold committed the full mechanism into `documentation/reference/architecture.md` before secrecy was codified).
-3. **Emit the secrecy gate now.** When filling CLAUDE.md (Step 5), include the conditional `## Secrecy` block from the template (the `<!-- SECRECY-BLOCK … -->` section) — the secrecy declaration plus the README-tolerant grep gate — so the gate exists at scaffold time, not as a post-hoc fix.
+3. **Emit the secrecy gate now.** When filling AGENTS.md (Step 5), include the conditional `## Secrecy` block from the template (the `<!-- SECRECY-BLOCK … -->` section) — the secrecy declaration plus the README-tolerant grep gate — so the gate exists at scaffold time, not as a post-hoc fix.
 
-### Step 5: Fill CLAUDE.md Template
+### Step 5: Fill AGENTS.md Template
 
-Read `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-claude-md.md` and replace placeholders:
+Read `${DATARIM_RUNTIME:?}/templates/project-claude-md.md` and replace placeholders:
 
 | Placeholder | Source |
 |-------------|--------|
@@ -116,7 +116,7 @@ Read `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-claude-md.md` and repl
 | `__BUILD_COMMANDS__` | From tech-stack.md detection (Step 3) |
 | `__GITIGNORE_PATTERNS__` | From tech-stack.md detection (Step 3) |
 
-**Diátaxis taxonomy in CLAUDE.md.** When the project's CLAUDE.md is generated, include a one-liner reference to `documentation/{tutorials,how-to,reference,explanation}/` so that future contributors discover the mandate from the project root, not only from Datarim framework docs.
+**Diátaxis taxonomy in AGENTS.md.** When the project's AGENTS.md is generated, include a one-liner reference to `documentation/{tutorials,how-to,reference,explanation}/` so that future contributors discover the mandate from the project root, not only from Datarim framework docs.
 
 For placeholders the agent cannot fill (components, terminology, gotchas), leave them as `[TODO: ...]` markers for the user.
 
@@ -138,7 +138,7 @@ Location: <target-path>
 Stack: <detected-stack or "none (documentation project)">
 
 Created (Diátaxis 4-category split per skills/diataxis-docs/SKILL.md):
-  ✓ CLAUDE.md
+  ✓ AGENTS.md
   ✓ documentation/tutorials/README.md         (learning-oriented)
   ✓ documentation/how-to/README.md            (problem-solving)
   ✓ documentation/how-to/testing.md           (legacy stub mapped to how-to)
@@ -156,7 +156,7 @@ Skipped (already existed):
   - <list of skipped files, if any>
 
 Next steps:
-  1. Review and customize CLAUDE.md — fill in [TODO] placeholders
+  1. Review and customize AGENTS.md — fill in [TODO] placeholders
   2. Review .gitignore
   3. git add -A && git commit -m "scaffold: initial project structure"
   4. /dr-init <first task description>  — start your first task
@@ -173,7 +173,7 @@ Next steps:
 
 When run in an existing project (that already has some files):
 
-1. Scan for existing CLAUDE.md — if found, skip it
+1. Scan for existing AGENTS.md — if found, skip it
 2. Scan for existing documentation/ — create only missing stubs
 3. Scan for existing datarim/ — skip entirely (already initialized)
 4. Create only what is missing from the standard structure

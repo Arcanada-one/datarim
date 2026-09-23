@@ -51,25 +51,25 @@
 > 🔒 **Secret-core project.** The internal mechanism is REDACTED from this public
 > reference. Do not describe the algorithm / encoding / mechanism here or anywhere
 > under `documentation/{tutorials,how-to,reference,explanation}/` or `README*`.
-> See CLAUDE.md § Secrecy for the disclosure boundary and the pre-publish gate.
+> See AGENTS.md § Secrecy for the disclosure boundary and the pre-publish gate.
 
 ## Overview
 
-[REDACTED — see CLAUDE.md § Secrecy]
+[REDACTED — see AGENTS.md § Secrecy]
 
 ## Components
 
 | Component | Path | Language | Purpose |
 |-----------|------|----------|---------|
-| [internal] | `src/` | [internal] | [REDACTED — see CLAUDE.md § Secrecy] |
+| [internal] | `src/` | [internal] | [REDACTED — see AGENTS.md § Secrecy] |
 
 ## Data Flow
 
-[REDACTED — see CLAUDE.md § Secrecy]
+[REDACTED — see AGENTS.md § Secrecy]
 
 ## Security Model
 
-[REDACTED — see CLAUDE.md § Secrecy]
+[REDACTED — see AGENTS.md § Secrecy]
 ```
 
 ---

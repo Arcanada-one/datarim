@@ -112,7 +112,7 @@ _autonomy_operator() {
 _autonomy_rules() {
   # Default to the core path so the floor resolves without the dr-orchestrate
   # plugin. Override by setting DR_AUTONOMY_RULES to an absolute path.
-  local rules="${DR_AUTONOMY_RULES:-${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/rules/fb-rules.yaml}"
+  local rules="${DR_AUTONOMY_RULES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/rules/fb-rules.yaml}"
   [[ -n "$rules" && -s "$rules" ]] || return 1
   yq eval -e '.hard_gated_actions | type == "!!seq" and length > 0' "$rules" >/dev/null 2>&1 \
     || return 1

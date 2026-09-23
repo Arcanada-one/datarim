@@ -7,18 +7,19 @@ argument-hint: [topic or file path]
 # /dr-write — Create Content
 
 **Role**: Writer Agent
-**Source**: `$HOME/.claude/agents/writer.md`
+**Source**: `${DATARIM_RUNTIME:?}/agents/writer.md`
 
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
-1.  **LOAD**: Read `$HOME/.claude/agents/writer.md` and adopt that persona.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
+1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/writer.md` and adopt that persona.
 2.  **LOAD SKILLS**:
-    - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always)
-    - `$HOME/.claude/skills/writing/SKILL.md` (Writing workflow and quality checklist)
-    - `$HOME/.claude/skills/humanize/SKILL.md` (Reference for avoiding AI patterns from the start)
-    - **Voice-bearing content prohibition:** `coworker` MUST NOT be used for writing, translating, editing, or checking articles and social posts. The assigned model performs all work directly — voice-bearing content goes through `coworker` at no stage. Per `~/.claude/CLAUDE.md` § Do NOT delegate → Voice-bearing and judgment content. The coworker hook guard (`dev-tools/coworker-hook-guard.sh`) enforces this mechanically.
+    - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always)
+    - `${DATARIM_RUNTIME:?}/skills/writing/SKILL.md` (Writing workflow and quality checklist)
+    - `${DATARIM_RUNTIME:?}/skills/artifact-context/SKILL.md` (Artifact format and exact contract quotations)
+    - `${DATARIM_RUNTIME:?}/skills/humanize/SKILL.md` (Reference for avoiding AI patterns from the start)
+    - **Voice-bearing content:** the assigned model performs writing, editing, translation, and factual review directly. Preserve the operator's authorship and publication constraints.
 3.  **RESOLVE PATH**: Find `datarim/` directory using standard path resolution. If not found, content work can proceed without it — not all writing requires a Datarim project context.
 4.  **UNDERSTAND THE REQUEST**:
     - What type of content? (article, blog post, docs, research, social media, legal, report)
@@ -54,11 +55,11 @@ When `--consilium` is passed as an argument (or `DATARIM_CONSILIUM=1` is set),
 **Degradation:** if fewer than 3 vendors complete, 2-of-3 proceeds; fewer than 2
 exits non-zero and falls back to the standard single-agent path with a warning.
 
-See `$HOME/.claude/skills/consilium/SKILL.md` § Real Multi-Vendor Mode for the full protocol.
+See `${DATARIM_RUNTIME:?}/skills/consilium/SKILL.md` § Real Multi-Vendor Mode for the full protocol.
 
 ## Next Steps (CTA)
 
-After draft, the writer agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After draft, the writer agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-write`:**
 

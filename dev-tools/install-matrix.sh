@@ -11,8 +11,8 @@
 # Options:
 #   --report <file>   Write Markdown report to <file> (default: stdout only)
 #   --images <list>   Comma-separated list of Docker images to test
-#                     (default: the pinned 7-image canonical list)
-#   --vendor <flag>   install.sh vendor flag (default: --with-claude)
+#                     (default: the 7-image distribution list)
+#   --vendor <flag>   install.sh vendor flag (default: claude)
 #   --no-pull         Skip docker pull (use cached images)
 #   --help            Print this help and exit 0
 #
@@ -36,11 +36,11 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ---------- defaults ----------------------------------------------------------
 
 REPORT_FILE=""
-VENDOR_FLAG="--with-claude"
+VENDOR_FLAG="claude"
 NO_PULL=false
 GIT_CLONE=false   # set --git-clone to do a real `git clone` instead of cp from mount
 
-# Canonical pinned image list (V-AC-1: minimum 7 images).
+# Distribution image list (tags may move) (V-AC-1: minimum 7 images).
 DEFAULT_IMAGES=(
     "rockylinux:9"
     "almalinux:9"
@@ -71,6 +71,7 @@ while [ $# -gt 0 ]; do
 done
 
 [ "${#IMAGES[@]}" -eq 0 ] && IMAGES=("${DEFAULT_IMAGES[@]}")
+case "$VENDOR_FLAG" in claude|codex|cursor) ;; *) echo "error: --vendor must be claude, codex, or cursor" >&2; exit 2 ;; esac
 
 # ---------- pre-flight --------------------------------------------------------
 
@@ -135,18 +136,18 @@ _install_bats_from_git() {
 
 # ---- package setup ----
 if command -v dnf >/dev/null 2>&1; then
-    dnf install -y -q git bash >/dev/null 2>&1 || true
+    dnf install -y -q git bash python3 >/dev/null 2>&1 || true
     _install_bats_from_git
 elif command -v microdnf >/dev/null 2>&1; then
-    microdnf install -y git bash >/dev/null 2>&1 || true
+    microdnf install -y git bash python3 >/dev/null 2>&1 || true
     _install_bats_from_git
 elif command -v apt-get >/dev/null 2>&1; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq >/dev/null 2>&1 || true
-    apt-get install -y -q git bats bash >/dev/null 2>&1 || true
+    apt-get install -y -q git bats bash python3 >/dev/null 2>&1 || true
     _install_bats_from_git
 elif command -v apk >/dev/null 2>&1; then
-    apk add --quiet git bash bats >/dev/null 2>&1 || true
+    apk add --quiet git bash bats python3 >/dev/null 2>&1 || true
     _install_bats_from_git
 fi
 
@@ -162,47 +163,12 @@ else
     echo "[lane] repo copied from mount: $(ls /opt/datarim/install.sh)"
 fi
 
-# ---- vendor-aware target dir setup ----
-# Each vendor installs into a different directory.  The harness must set the
-# correct env var so install.sh writes to a known scratch path, then expose
-# TARGET_DIR so post-install.bats knows where to look.
-VENDOR_FLAG_VALUE="VENDOR_FLAG_PLACEHOLDER"
-case "$VENDOR_FLAG_VALUE" in
-    --with-claude)
-        export CLAUDE_DIR=/tmp/fake-claude
-        mkdir -p "$CLAUDE_DIR"
-        export TARGET_DIR="$CLAUDE_DIR"
-        ;;
-    --with-codex)
-        # fanout_runtime codex resolves the target as: ${CODEX_DIR:-~/.codex}.
-        # Set CODEX_DIR to a scratch path and leave CLAUDE_DIR unset (or
-        # pointing elsewhere) so the two runtimes never share a dir.
-        export CODEX_DIR=/tmp/fake-codex
-        mkdir -p "$CODEX_DIR"
-        export TARGET_DIR="$CODEX_DIR"
-        ;;
-    --with-cursor)
-        # setup_cursor_runtime uses ${CURSOR_DIR:-~/.cursor}.
-        export CURSOR_DIR=/tmp/fake-cursor
-        mkdir -p "$CURSOR_DIR"
-        export TARGET_DIR="$CURSOR_DIR"
-        ;;
-    *)
-        # Unknown vendor — fall back to claude semantics.
-        export CLAUDE_DIR=/tmp/fake-claude
-        mkdir -p "$CLAUDE_DIR"
-        export TARGET_DIR="$CLAUDE_DIR"
-        ;;
-esac
-
-# ---- run install ----
-bash /opt/datarim/install.sh VENDOR_FLAG_PLACEHOLDER
-echo "[lane] install.sh exited: $?"
-
-# ---- run post-install assertions ----
+# ---- project-local installation ----
+export TARGET_DIR=/tmp/consumer-project
+mkdir -p "$TARGET_DIR"
+sh /opt/datarim/install.sh --project "$TARGET_DIR" --with-jev --init
 export INSTALL_REPO=/opt/datarim
 export VENDOR_FLAG="VENDOR_FLAG_PLACEHOLDER"
-# TARGET_DIR already exported above — bats reads it instead of CLAUDE_DIR.
 bats /opt/datarim/tests/install-matrix/post-install.bats
 CONTAINERSCRIPT
 )

@@ -6,7 +6,7 @@ description: Diagnose and repair Datarim operational files — migrate to thin o
 # /dr-doctor — Datarim Structural Doctor
 
 **Role**: Planner Agent (compact)
-**Source**: `$HOME/.claude/agents/planner.md`
+**Source**: `${DATARIM_RUNTIME:?}/agents/planner.md`
 **Tool**: `scripts/datarim-doctor.sh`
 
 ## When to Run
@@ -20,9 +20,9 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
 
 ## Instructions
 
-1. **LOAD**: Read `$HOME/.claude/agents/planner.md` and adopt that persona.
-2. **RESOLVE PATH**: Walk up from cwd to find `datarim/`. If not found anywhere → tell user to run `/dr-init`. Do NOT create. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
-3. **LOAD SKILL**: Read `$HOME/.claude/skills/datarim-doctor/SKILL.md` for schema spec, conflict resolution, and edge-case handling.
+1. **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/planner.md` and adopt that persona.
+2. **RESOLVE PATH**: Walk up from cwd to find `datarim/`. If not found anywhere → tell user to run `/dr-init`. Do NOT create. See `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Path Resolution Rule.
+3. **LOAD SKILL**: Read `${DATARIM_RUNTIME:?}/skills/datarim-doctor/SKILL.md` for schema spec, conflict resolution, and edge-case handling.
 4. **PARSE ARGS** (passed by user or by `/dr-init` Step 2.4):
     - `--fix` — apply migration. Default: dry-run (report findings only).
     - `--scope=<scope>` — `tasks|backlog|active|progress|descriptions|all`. Default `all`.
@@ -62,14 +62,14 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
     - Confirm `progress.md` is gone (if it existed before).
     - Confirm `tasks.md` and `backlog.md` line count shrank to one-liner-per-task.
 10. **BACKLOG TERMINAL-TASK CLEANUP** (orthogonal pass, separate from schema migration):
-    - Invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/prune-backlog-terminal.sh" --root "$DATARIM_ROOT" --check`.
+    - Invoke `"${DATARIM_RUNTIME:?}/dev-tools/prune-backlog-terminal.sh" --root "$DATARIM_ROOT" --check`.
     - The tool reports `prunable: P  surfaced: S  kept: K`:
       - `prunable` — terminal entries (`done`/`archived`/`completed`, or `cancelled` with an archive doc) that can be safely removed.
       - `surfaced` — terminal entries WITHOUT a corresponding `documentation/archive/{area}/archive-{ID}.md`; these are **never silently dropped** — preserved in `backlog.md` and reported here for operator attention. Route each surfaced ID as a `MAINT-*` follow-up to create the missing archive doc.
       - `kept` — non-terminal entries (`pending`, `blocked-pending`, or transient `cancelled`) left untouched.
     - **Dry-run only** (no `--fix`): report the counts in the 5-row table row; do NOT apply changes yet.
     - **When `--fix` is set** (Step 8 apply path or user explicitly passes `--fix`): also invoke with `--fix` to atomically rewrite `backlog.md`, removing only the prunable entries. Surfaced entries are preserved; the tool emits one `surfaced: {ID}` line per preserved entry.
-    - The cleanup is kept **orthogonal** to `scripts/datarim-doctor.sh` (schema migrator) per CLAUDE.md § Validation Discipline — do NOT add prune logic inside `datarim-doctor.sh`.
+    - The cleanup is kept **orthogonal** to `scripts/datarim-doctor.sh` (schema migrator) per AGENTS.md § Validation Discipline — do NOT add prune logic inside `datarim-doctor.sh`.
 
 11. **REPORT**: Produce a migration summary:
     - Files rewritten: `tasks.md`, `backlog.md`, `activeContext.md` (if touched).
@@ -79,23 +79,23 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
     - Idempotency confirmed (second dry-run exit 0).
 
 12. **INIT-TASK PRESENCE ADVISORY** (orthogonal content validator, MUST run after the migration summary; never blocks):
-    - Invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" --all --root "$DATARIM_ROOT"`.
+    - Invoke `"${DATARIM_RUNTIME:?}/dev-tools/check-init-task-presence.sh" --all --root "$DATARIM_ROOT"`.
     - Stream the findings list to the operator. Each line carries the severity prefix and the task ID:
       - `info: <ID> init-task missing (task age <30d; rolling 30d soft window)` — fresh task without init-task, soft-window protected.
       - `warn: <ID> init-task missing (task age ≥30d; rolling 30d soft window)` — stale task without init-task, operator may retro-backfill.
     - `--all` mode is **advisory-only** — exit code is always 0; never block `/dr-init` Step 2.4 self-heal or `/dr-doctor` itself.
-    - The validator is the canonical Init-Task Presence pass per `skills/init-task-persistence/SKILL.md` § Validation. Kept orthogonal to `scripts/datarim-doctor.sh` per CLAUDE.md § Validation Discipline (operational-file migration ↔ content validation are separate concerns).
+    - The validator is the canonical Init-Task Presence pass per `skills/init-task-persistence/SKILL.md` § Validation. Kept orthogonal to `scripts/datarim-doctor.sh` per AGENTS.md § Validation Discipline (operational-file migration ↔ content validation are separate concerns).
 
 13. **DOCS-MIGRATION SELF-HEAL** (orthogonal pass, 2.49.0+; offers `docs/` → `documentation/` migration for a consumer repo that has not yet adopted the renamed canon):
     - **Why:** as of 2.49.0 the canonical documentation root is `documentation/`, and the `/dr-optimize` drift detector hard-flips — a repo still on legacy `docs/` is flagged as drift. This pass is the remediation path so the operator is not merely told they "drift".
-    - **Boundary:** this is a SEPARATE concern from the `datarim/` operational-file migration above. It operates on the repo's product-docs (`<repo>/docs/`), which lives OUTSIDE `$DATARIM_ROOT`. Per CLAUDE.md § Validation Discipline it MUST stay a sibling executor — it is NOT a `--scope` of `scripts/datarim-doctor.sh`.
-    - Invoke the detector (dry-run): `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/docs-migrate.sh" --repo "<repo-root>" --check --quiet`.
+    - **Boundary:** this is a SEPARATE concern from the `datarim/` operational-file migration above. It operates on the repo's product-docs (`<repo>/docs/`), which lives OUTSIDE `$DATARIM_ROOT`. Per AGENTS.md § Validation Discipline it MUST stay a sibling executor — it is NOT a `--scope` of `scripts/datarim-doctor.sh`.
+    - Invoke the detector (dry-run): `"${DATARIM_RUNTIME:?}/dev-tools/docs-migrate.sh" --repo "<repo-root>" --check --quiet`.
       - exit 0 → `documentation/` already canonical (or no docs) — no-op, say nothing.
       - exit 1 → legacy `docs/` found. Report it in the findings table (`docs-migration: legacy docs/ → documentation/ available`).
       - exit 2 → BOTH `docs/` and `documentation/` present — manual review required; report, do NOT offer auto-fix.
     - **CONFIRMATION GATE** (interactive sessions only — `[ -t 0 ]`): on exit 1, prompt «Migrate `docs/` → `documentation/` now? (git mv + Diátaxis-split + reference rewrite, rollback-safe) [Y/n]» — default Y. On Y → re-invoke with `--fix`. On `n` or non-tty → report only, never mutate.
     - **Idempotent + rollback-safe:** `--fix` tarball-backs-up before any write and restores on a reference-check failure (exit 2); a second `--fix` on a migrated repo is a no-op. Contract + fixtures: `tests/test-docs-migrate.bats`.
-    - Kept orthogonal to `scripts/datarim-doctor.sh` per CLAUDE.md § Validation Discipline.
+    - Kept orthogonal to `scripts/datarim-doctor.sh` per AGENTS.md § Validation Discipline.
 
 ## Read
 
@@ -132,7 +132,7 @@ Never touches `documentation/archive/`, `datarim/prd/`, `datarim/plans/`, `datar
 
 ## Next Steps (CTA)
 
-After `/dr-doctor` finishes, emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After `/dr-doctor` finishes, emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-doctor`:**
 

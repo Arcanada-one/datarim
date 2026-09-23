@@ -4,7 +4,7 @@ A reusable 7-step probe checklist for legacy embedded Linux integrations (router
 IoT gateways running vendor-frozen firmware). Run this **before** committing to an architectural
 approach in `/dr-plan` — a 30-minute probe replaces speculative toolchain assumptions with facts.
 
-Reference: `$HOME/.claude/skills/probing.md`.
+Reference: `${DATARIM_RUNTIME:?}/skills/probing.md`.
 
 ---
 

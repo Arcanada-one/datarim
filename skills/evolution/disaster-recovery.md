@@ -1,11 +1,11 @@
 ---
 name: evolution/disaster-recovery
-description: Recovery checklist for lost runtime files. Load when files in $HOME/.claude/ are lost or corrupted.
+description: Recovery checklist for lost runtime files. Load when files in ${DATARIM_RUNTIME:?}/ are lost or corrupted.
 ---
 
 # Disaster Recovery for Lost Runtime Files
 
-When runtime files in `$HOME/.claude/` are lost or corrupted (overwrite, accidental `install.sh --force`, deletion), do NOT declare them "unrecoverable" until the following checklist has been run. A prior recovery pass found 4 files that an earlier archive had declared impossible to reconstruct — the difference was exhaustive source discovery.
+When runtime files in `${DATARIM_RUNTIME:?}/` are lost or corrupted (overwrite, accidental `install.sh --force`, deletion), do NOT declare them "unrecoverable" until the following checklist has been run. A prior recovery pass found 4 files that an earlier archive had declared impossible to reconstruct — the difference was exhaustive source discovery.
 
 ## Recovery Checklist (apply in order, ~5 minutes per channel)
 

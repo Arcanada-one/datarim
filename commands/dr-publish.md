@@ -9,17 +9,17 @@ argument-hint: [file path to approved content]
 > **This command PREPARES ready-to-publish payloads (platform-adapted text, `sendMessage`/`sendPhoto` JSON bodies, curl recipes, Playwright steps) — it does NOT send anything.** Publishing to a channel, site, or social network is a **hard-gated action** under `documentation/mandates/autonomous-agents.md` § Hard-gated actions (NEVER auto-execute): public communications (Telegram posts, blog posts, social media) never auto-execute and stay operator-approved per Supreme Directive Law 2. The actual dispatch runs **only through Publisher** (`Projects/Publisher/code/arcanada-publisher` — the sole channel for all external publishing), never as an ad-hoc script from this command. `/dr-publish` stops at the payload; the operator gates the send.
 
 **Role**: Writer Agent
-**Source**: `$HOME/.claude/agents/writer.md`
+**Source**: `${DATARIM_RUNTIME:?}/agents/writer.md`
 
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
-1.  **LOAD**: Read `$HOME/.claude/agents/writer.md` and adopt that persona.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
+1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/writer.md` and adopt that persona.
 2.  **LOAD SKILLS**:
-    - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always)
-    - `$HOME/.claude/skills/publishing/SKILL.md` (Platform rules, limits, formatting, workflow)
-    - **Voice-bearing content prohibition:** `coworker` MUST NOT be used for adapting, formatting, or preparing voice-bearing content for publication. The assigned model performs all publish preparation directly. Per `~/.claude/CLAUDE.md` § Do NOT delegate → Voice-bearing and judgment content. The coworker hook guard (`dev-tools/coworker-hook-guard.sh`) enforces this mechanically.
+    - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always)
+    - `${DATARIM_RUNTIME:?}/skills/publishing/SKILL.md` (Platform rules, limits, formatting, workflow)
+    - **Voice-bearing content:** the assigned model performs writing, editing, translation, and factual review directly. Preserve the operator's authorship and publication constraints.
 3.  **READ THE CONTENT**: Read the file at the path provided in `$ARGUMENTS`. If no path given, ask the user.
 4.  **CONFIRM READINESS**:
     - Has the content been through `/dr-edit`? If not, warn: "This content hasn't been editorially reviewed. Proceed anyway or run `/dr-edit` first?"
@@ -42,10 +42,10 @@ argument-hint: [file path to approved content]
     - Prepare images/media in platform-optimal dimensions if applicable.
     - For websites: verify OG tags, meta description, canonical URL, heading hierarchy.
     - For Telegram: use UTF-16 unit counter from `publishing.md` § Character counting. For photo + text >1024 → photo+reply Pattern A (≤5096 total) or Pattern C (>5096 → photo + N text parts, each `[i/N]`-prefixed). For comments on channel posts → use `forward_origin.message_id` polling recipe.
-    - **Telegram post structure — canonical two-message shape:** a TG channel post for an article is TWO messages — (1) video + caption *teaser* (article title + ~3 short summary paragraphs + "full text below 👇"), then (2) a self-contained *long-read retelling* (~2000 chars, 4 micro-headed sense-blocks) ending with the article link as an **embedded hyperlink** (`parse_mode=HTML`, `<a href="https://arcanada.ai/<lang>/blog/<slug>">Read the full article on arcanada.ai</a>` — visible anchor phrase, hidden URL, channel-language article), in the channel language. The long-read link is at the END of message 2, NOT a separate first comment (TG-specific exception). Before publishing, `forwardMessage` the previous cycle post into the test channel and copy its structure verbatim — do not improvise from memory. See `$HOME/.claude/skills/publishing/SKILL.md` § Telegram post structure.
+    - **Telegram post structure — canonical two-message shape:** a TG channel post for an article is TWO messages — (1) video + caption *teaser* (article title + ~3 short summary paragraphs + "full text below 👇"), then (2) a self-contained *long-read retelling* (~2000 chars, 4 micro-headed sense-blocks) ending with the article link as an **embedded hyperlink** (`parse_mode=HTML`, `<a href="https://arcanada.ai/<lang>/blog/<slug>">Read the full article on arcanada.ai</a>` — visible anchor phrase, hidden URL, channel-language article), in the channel language. The long-read link is at the END of message 2, NOT a separate first comment (TG-specific exception). Before publishing, `forwardMessage` the previous cycle post into the test channel and copy its structure verbatim — do not improvise from memory. See `${DATARIM_RUNTIME:?}/skills/publishing/SKILL.md` § Telegram post structure.
     - Present each platform version to the user for approval.
-    - **Video attachment — animated-cover cycle (house style):** when the post has a cover + narration, attach the animated screensaver video (cover ~2 s → new effect every ~3 s, shuffled pool, smooth crossfades, full narration length) generated by `Projects/Publisher/code/arcanada-publisher/dev-tools/video/make-cycle-video.sh <cover> <audio> <out.mp4>` — NOT a static cover or a plain cover+audio clip, and NOT a full-frame audio-waveform visualizer (a bottom audio-amplitude STRIP over the cycle is the default and allowed — see § Video standard for social posts). Order is re-shuffled each run; the intro frame is always the post cover; no audio → ~30 s cover-only cycle. FB feed → use static cover (Reels-forced); X long-form + LinkedIn → take the MP4. See `$HOME/.claude/skills/publishing/SKILL.md` § Video standard for social posts.
-    - **Manual browser publishing (no script):** if posting by hand through Claude-in-Chrome, follow `$HOME/.claude/skills/publishing/SKILL.md` § Manual browser publishing — paste media first (clipboard), then text, then read-back the field before the irreversible click; FB forces video into Reels (use a photo cover for FB feed posts, keep video for X/LinkedIn); X is Premium (full long-form + video); one tab per platform, close when done.
+    - **Video attachment — animated-cover cycle (house style):** when the post has a cover + narration, attach the animated screensaver video (cover ~2 s → new effect every ~3 s, shuffled pool, smooth crossfades, full narration length) generated by `Projects/Publisher/code/arcanada-publisher/dev-tools/video/make-cycle-video.sh <cover> <audio> <out.mp4>` — NOT a static cover or a plain cover+audio clip, and NOT a full-frame audio-waveform visualizer (a bottom audio-amplitude STRIP over the cycle is the default and allowed — see § Video standard for social posts). Order is re-shuffled each run; the intro frame is always the post cover; no audio → ~30 s cover-only cycle. FB feed → use static cover (Reels-forced); X long-form + LinkedIn → take the MP4. See `${DATARIM_RUNTIME:?}/skills/publishing/SKILL.md` § Video standard for social posts.
+    - **Manual browser publishing (no script):** if posting by hand through Claude-in-Chrome, follow `${DATARIM_RUNTIME:?}/skills/publishing/SKILL.md` § Manual browser publishing — paste media first (clipboard), then text, then read-back the field before the irreversible click; FB forces video into Reels (use a photo cover for FB feed posts, keep video for X/LinkedIn); X is Premium (full long-form + video); one tab per platform, close when done.
 7.  **PRE-PUBLISH CHECKLIST**:
     - [ ] Text within platform limits
     - [ ] Formatting renders correctly (no raw HTML/Markdown)
@@ -97,12 +97,12 @@ This gate is enforced by the `dr-orchestrate` plugin FB-rules hard-gate entry
 
 **Degradation:** same rules as `/dr-write --consilium`.
 
-See `$HOME/.claude/skills/consilium/SKILL.md` § Real Multi-Vendor Mode for the full protocol.
-See `$HOME/.claude/skills/publishing/SKILL.md` § Recurring-mistakes pre-publish checklist before every publish.
+See `${DATARIM_RUNTIME:?}/skills/consilium/SKILL.md` § Real Multi-Vendor Mode for the full protocol.
+See `${DATARIM_RUNTIME:?}/skills/publishing/SKILL.md` § Recurring-mistakes pre-publish checklist before every publish.
 
 ## Next Steps (CTA)
 
-After publish, the writer/editor agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After publish, the writer/editor agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-publish`:**
 

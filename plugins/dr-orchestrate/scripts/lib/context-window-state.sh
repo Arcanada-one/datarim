@@ -3,7 +3,7 @@
 # Private-state primitives for context-window self-clearing.
 
 ctx_state_root() {
-  printf '%s\n' "${DR_ORCH_CONTEXT_STATE:-${DR_ORCH_STATE_DIR:-$HOME/.local/share/datarim-orchestrate/state}/context-window}"
+  printf '%s\n' "${DR_ORCH_CONTEXT_STATE:-${DR_ORCH_STATE_DIR:-${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate/state}/context-window}"
 }
 
 ctx_state_init() {

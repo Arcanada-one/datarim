@@ -23,11 +23,11 @@ Your goal is to ensure systems are reliable, observable, and recoverable in prod
 **Context Loading**:
 - READ: `datarim/tasks.md`, `datarim/systemPatterns.md`, `datarim/techContext.md`
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
-  - `$HOME/.claude/skills/performance/SKILL.md` (Optimization patterns)
+  - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
+  - `${DATARIM_RUNTIME:?}/skills/performance/SKILL.md` (Optimization patterns)
 - LOAD WHEN NEEDED:
-  - `$HOME/.claude/skills/security/SKILL.md` (Security-related reliability concerns)
-  - `$HOME/.claude/skills/infra-automation/SKILL.md` (Remote measurement, incident triage, infrastructure debugging)
+  - `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` (Security-related reliability concerns)
+  - `${DATARIM_RUNTIME:?}/skills/infra-automation/SKILL.md` (Remote measurement, incident triage, infrastructure debugging)
 
 **When invoked:** `/dr-design` (reliability requirements), `/dr-qa` (load/resilience review), `/dr-archive` Step 0.5 (postmortem analysis during reflection).
 **In consilium:** Voice of reliability -- "will this survive production?"

@@ -3,8 +3,8 @@ name: dr-wizard
 description: Guided, one-question-at-a-time interactive task-spec wizard — drill into sub-questions with auto-context-capture, convene consilium on demand, track mid-flow re-scope, and emit a knowledge/dependency graph. Co-authors a PRD with the operator.
 globs:
   - datarim/projectbrief.md
-  - $HOME/.claude/skills/discovery/SKILL.md
-  - $HOME/.claude/skills/consilium/SKILL.md
+  - ${DATARIM_RUNTIME:?}/skills/discovery/SKILL.md
+  - ${DATARIM_RUNTIME:?}/skills/consilium/SKILL.md
 ---
 
 # /dr-wizard — Interactive Task-Spec Wizard
@@ -26,14 +26,14 @@ cross-session persistence) is owned by the agent-system track; the graph sink is
 ## Instructions
 
 **Stage Header (mandatory)**: emit `**{TASK-ID} · {title}**` as the first line of your
-response. See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
+response. See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
 
 0. **RESOLVE PATH**: before any read/write to `datarim/`, walk up from cwd to find it.
    If absent, STOP and tell the user to run `/dr-init`. Only `/dr-init` may create
-   `datarim/`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
+   `datarim/`. See `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Path Resolution Rule.
 
 1. **SOURCE THE ENGINE**:
-   `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/wizard-state.sh"`, then
+   `source "${DATARIM_RUNTIME:?}/dev-tools/lib/wizard-state.sh"`, then
    `wizard_init <TASK-ID> --root <KB-root>`. All state lives in the gitignored
    `datarim/wizard/{TASK-ID}.wizard.jsonl` (interview log) and
    `datarim/wizard/{TASK-ID}.graph.jsonl` (graph). Re-running `/dr-wizard` on an
@@ -41,7 +41,7 @@ response. See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
    interview from scratch. Read `wizard_status <TASK-ID> --root <KB-root>` first.
 
 2. **RUN THE INTERVIEW** (compose `discovery`): pick the mode (Quick/Standard/Deep) by
-   complexity per `$HOME/.claude/skills/discovery/SKILL.md`. For each question:
+   complexity per `${DATARIM_RUNTIME:?}/skills/discovery/SKILL.md`. For each question:
    - Propose an answer from context (Codebase-First Rule). Emit ONE question at a time.
    - On the operator's reply, persist it:
      `wizard_add_question <TASK-ID> <qid> <category> "<text>" --root <root>` then
@@ -63,7 +63,7 @@ response. See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
    nest; every push must be matched by a pop.
 
 4. **CONSILIUM ON DEMAND** (compose `consilium`): for a hard architectural decision, run
-   a panel per `$HOME/.claude/skills/consilium/SKILL.md`, then record the verdict as a
+   a panel per `${DATARIM_RUNTIME:?}/skills/consilium/SKILL.md`, then record the verdict as a
    `decision` graph node plus a `resolves` edge from the decision to the question it
    settles. Do NOT re-implement the panel here.
 
@@ -84,9 +84,9 @@ response. See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
 
 When auto-mode is active (env var + matching marker), this command:
 
-1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md`
+1. Consults `${DATARIM_RUNTIME:?}/skills/autonomous-mode/SKILL.md`
    § Question Suppression Ladder before any operator prompt — resolve each interview
-   question through L1–L4 (codebase/runtime/memory/coworker) and only surface the
+   question through L1–L4 (codebase/runtime/memory/native consultation) and only surface the
    genuinely ambiguous ones. A wizard that suppresses every question is a plain
    discovery pass; that is acceptable — persist the L1–L4-resolved answers to the log.
 2. Runs a consilium autonomously for L3–L4 hard decisions instead of asking the operator.
@@ -96,6 +96,6 @@ When auto-mode is active (env var + matching marker), this command:
 
 ## Next Steps (CTA)
 
-After `wizard_finalize`, emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`:
+After `wizard_finalize`, emit a CTA block per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`:
 primary `/dr-prd {TASK-ID}` (it consumes the finalized wizard artefact — requirements +
 graph — instead of a fresh discovery interview). Escape hatch: `/dr-status`.

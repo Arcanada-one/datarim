@@ -6,7 +6,7 @@
 # first, then LLM): Aider --auto-lint/--auto-test, Cursor build-verify.
 #
 # Inputs:
-#   --task <ID>        Mandatory. Task identifier (regex ^[A-Z]+-[0-9]+$).
+#   --task <ID>        Mandatory. Canonical Datarim task identifier.
 #   --stage <stage>    prd|plan|do|all. Default: all.
 #   --workspace <path> Workspace root. Default: $PWD. Walks up to find datarim/.
 #
@@ -65,8 +65,9 @@ if [ -z "$TASK_ID" ]; then
     echo "dr-verify-floor: --task <TASK-ID> required" >&2
     exit 2
 fi
-if ! printf '%s' "$TASK_ID" | grep -qE '^[A-Z]+-[0-9]+$'; then
-    echo "dr-verify-floor: invalid task-id (regex ^[A-Z]+-[0-9]+\$): $TASK_ID" >&2
+. "$(cd "$(dirname "$0")/.." && pwd)/scripts/lib/schema-regex.sh"
+if ! printf '%s' "$TASK_ID" | grep -qE "$TASK_ID_RE"; then
+    echo "dr-verify-floor: invalid task-id (canonical task-id required): $TASK_ID" >&2
     exit 2
 fi
 case "$STAGE" in
@@ -104,6 +105,11 @@ fi
 
 FINDING_COUNTER=0
 HIGH_SEVERITY_COUNT=0
+CHECKS_RUN=0
+CHECKS_SKIPPED=0
+
+mark_run() { CHECKS_RUN=$((CHECKS_RUN + 1)); }
+mark_skip() { CHECKS_SKIPPED=$((CHECKS_SKIPPED + 1)); }
 
 emit_finding() {
     # Args: severity category check_name artifact_ref ac_csv ev_type ev_source ev_excerpt
@@ -154,8 +160,9 @@ check_ac_coverage() {
     local prd_file="$DATARIM_ROOT/prd/PRD-${TASK_ID}.md"
     if [ ! -f "$prd_file" ]; then
         echo "[ac_coverage_grep] SKIP: $prd_file not found" >&2
-        return 0
+        mark_skip; return 0
     fi
+    mark_run
     echo "[ac_coverage_grep] scanning $prd_file" >&2
 
     # Extract AC labels (AC-N or TV-N)
@@ -207,8 +214,9 @@ check_file_touched() {
     local plan_file="$DATARIM_ROOT/plans/${TASK_ID}-plan.md"
     if [ ! -f "$plan_file" ]; then
         echo "[file_touched_audit] SKIP: $plan_file not found" >&2
-        return 0
+        mark_skip; return 0
     fi
+    mark_run
     echo "[file_touched_audit] scanning $plan_file" >&2
 
     local file_refs
@@ -263,9 +271,10 @@ check_test_presence() {
 
     if [ ${#manifests[@]} -eq 0 ]; then
         echo "[test_presence_parse] SKIP: no manifest detected at $WORKSPACE" >&2
-        return 0
+        mark_skip; return 0
     fi
 
+    mark_run
     echo "[test_presence_parse] manifests: ${manifests[*]}" >&2
 }
 
@@ -276,7 +285,7 @@ check_test_presence() {
 check_shellcheck() {
     if ! command -v shellcheck >/dev/null 2>&1; then
         echo "[shellcheck] SKIP: shellcheck not installed" >&2
-        return 0
+        mark_skip; return 0
     fi
 
     local roots=()
@@ -301,6 +310,7 @@ check_shellcheck() {
         return 0
     fi
 
+    mark_run
     echo "[shellcheck] scanning ${#scripts[@]} scripts" >&2
     local hits=0
     for s in "${scripts[@]}"; do
@@ -334,17 +344,18 @@ check_shellcheck() {
 # ---------------------------------------------------------------------------
 
 check_spec_graph() {
-    local gate="${SCRIPT_DIR:-$(cd "$(dirname "$0")" && pwd)}/spec-graph-gate.sh"
+    local gate="${DATARIM_SPEC_GRAPH_GATE:-${SCRIPT_DIR:-$(cd "$(dirname "$0")" && pwd)}/spec-graph-gate.sh}"
     if [ ! -x "$gate" ] && [ ! -f "$gate" ]; then
         echo "[spec_graph] SKIP: spec-graph-gate.sh not found" >&2
-        return 0
+        mark_skip; return 0
     fi
     local prd_file="$DATARIM_ROOT/prd/PRD-${TASK_ID}.md"
     local plan_file="$DATARIM_ROOT/plans/${TASK_ID}-plan.md"
     if [ ! -f "$prd_file" ] && [ ! -f "$plan_file" ]; then
         echo "[spec_graph] SKIP: no PRD/plan for $TASK_ID" >&2
-        return 0
+        mark_skip; return 0
     fi
+    mark_run
     echo "[spec_graph] running spec-graph-gate for $TASK_ID" >&2
 
     local gate_tmp gate_rc gate_json lint_json
@@ -363,12 +374,18 @@ check_spec_graph() {
     fi
     gate_json="$(cat "$gate_tmp")"
     rm -f "$gate_tmp"
-    lint_json="$(printf '%s' "$gate_json" | python3 -c '
+    # A malformed/empty adapter payload is an execution failure, never a clean result.
+    if ! lint_json="$(printf '%s' "$gate_json" | python3 -c '
 import json, sys
 obj = json.load(sys.stdin)
-for finding in obj.get("findings", []):
+if not isinstance(obj, dict) or "findings" not in obj or not isinstance(obj["findings"], list):
+    raise SystemExit(3)
+for finding in obj["findings"]:
     print(json.dumps(finding))
-' 2>/dev/null || true)"
+' 2>/dev/null)"; then
+        emit_finding "high" "correctness" "spec-graph-gate:invalid-output"             "${TASK_ID}" "" "test_output" "spec-graph-gate"             "spec-graph adapter returned malformed or schema-incompatible JSON"
+        return 0
+    fi
     [ -n "$lint_json" ] || { echo "[spec_graph] clean" >&2; return 0; }
 
     local line
@@ -391,7 +408,10 @@ ev_s = ev.get("source", "")
 ev_e = ev.get("excerpt", "")
 # tab-separated for the shell to split
 print("\t".join([sev, cat, chk, art, ac, ev_t, ev_s, ev_e]))
-' 2>/dev/null || true)"
+' 2>/dev/null)" || {
+            emit_finding "high" "correctness" "spec-graph-gate:invalid-finding" "${TASK_ID}" "" "test_output" "spec-graph-gate" "finding could not be normalized"
+            continue
+        }
         [ -n "$mapped" ] || continue
         local sev cat chk art ac ev_t ev_s ev_e
         IFS=$'\t' read -r sev cat chk art ac ev_t ev_s ev_e <<< "$mapped"
@@ -400,27 +420,61 @@ print("\t".join([sev, cat, chk, art, ac, ev_t, ev_s, ev_e]))
 }
 
 # ---------------------------------------------------------------------------
+# Sub-check: persistent code-contract syntax. This validator is dependency-free
+# and covers Datarim's directory-scoped CONTRACTS files. It complements (rather
+# than vendors) upstream cc-check, whose declaration extractors require Node 24+.
+# ---------------------------------------------------------------------------
+
+check_code_contracts() {
+    local checker="${SCRIPT_DIR:-$(cd "$(dirname "$0")" && pwd)}/check-code-contracts.sh"
+    if [ ! -x "$checker" ]; then
+        echo "[code_contracts] SKIP: checker unavailable" >&2
+        mark_skip; return 0
+    fi
+    mark_run
+    local out rc
+    out="$("$checker" --root "$WORKSPACE" --format json 2>&1)"; rc=$?
+    if [ "$rc" -eq 2 ] && printf '%s' "$out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o == {"files":0,"contracts":0,"errors":[],"status":"not_measured"}' >/dev/null 2>&1; then
+        echo "[code_contracts] NOT_MEASURED: no contract files in this workspace" >&2
+        CHECKS_RUN=$((CHECKS_RUN - 1))
+        mark_skip; return 0
+    fi
+    if [ "$rc" -ne 0 ]; then
+        emit_finding "high" "consistency" "code-contracts:format" \
+            "CONTRACTS" "" "test_output" "check-code-contracts.sh" "$out"
+        return 0
+    fi
+    if ! printf '%s' "$out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o.get("status")=="clean" and isinstance(o.get("contracts"),int)' >/dev/null 2>&1; then
+        emit_finding "high" "correctness" "code-contracts:invalid-output" \
+            "CONTRACTS" "" "test_output" "check-code-contracts.sh" \
+            "code-contract validator returned malformed or schema-incompatible JSON"
+        return 0
+    fi
+    echo "[code_contracts] clean" >&2
+}
+
+# ---------------------------------------------------------------------------
 # Main dispatch
 # ---------------------------------------------------------------------------
 
 case "$STAGE" in
-    prd)  check_ac_coverage ;;
-    plan) check_ac_coverage; check_file_touched; check_spec_graph ;;
-    do)   check_file_touched; check_test_presence; check_shellcheck ;;
-    all)  check_ac_coverage; check_file_touched; check_test_presence; check_shellcheck; check_spec_graph ;;
+    prd)  check_ac_coverage; check_code_contracts ;;
+    plan) check_ac_coverage; check_file_touched; check_spec_graph; check_code_contracts ;;
+    do)   check_file_touched; check_test_presence; check_shellcheck; check_code_contracts ;;
+    all)  check_ac_coverage; check_file_touched; check_test_presence; check_shellcheck; check_spec_graph; check_code_contracts ;;
 esac
 
 # Warn if zero findings were emitted AND shellcheck produced no hits (all checks were SKIP).
 # This prevents a silent all-SKIP run from appearing as a clean pass to the operator.
 # Typical cause: script invoked from a directory whose walk-up finds a datarim/ that does not
 # contain PRD/plan files for the target task (e.g. Projects/Datarim/ instead of workspace root).
-if [ "$FINDING_COUNTER" -eq 0 ]; then
+if [ "$CHECKS_RUN" -eq 0 ]; then
     echo "[WARN] dr-verify-floor: all checks SKIPped or produced 0 findings." >&2
     echo "[WARN] Ensure --workspace points to the workspace root containing datarim/prd/PRD-${TASK_ID}.md." >&2
     echo "[WARN] DATARIM_ROOT resolved to: $DATARIM_ROOT" >&2
 fi
 
-echo "[summary] findings=$FINDING_COUNTER high_severity=$HIGH_SEVERITY_COUNT" >&2
+echo "[summary] findings=$FINDING_COUNTER high_severity=$HIGH_SEVERITY_COUNT checks_run=$CHECKS_RUN checks_skipped=$CHECKS_SKIPPED" >&2
 
 # Cap exit code at 250 to stay within bash 0..255 range and avoid 251..255 reserved bands.
 if [ "$HIGH_SEVERITY_COUNT" -gt 250 ]; then

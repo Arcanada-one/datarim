@@ -24,8 +24,7 @@
 
 set -euo pipefail
 
-: "${DATARIM_RUNTIME:=$HOME/.claude}"
-: "${DR_AUTONOMY_RULES:=$DATARIM_RUNTIME/dev-tools/rules/fb-rules.yaml}"
+: "${DR_AUTONOMY_RULES:=${DATARIM_RUNTIME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/dev-tools/rules/fb-rules.yaml}"
 
 # _fb_src — resolve the source path for accessors; $1 overrides DR_AUTONOMY_RULES.
 _fb_src() {

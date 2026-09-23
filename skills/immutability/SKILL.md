@@ -1,6 +1,6 @@
 ---
 name: immutability
-description: Immutability contract for all pipeline stages: artefact freeze, V-AC parity, non-code parity, anti-tautological rule, and return-to-source transition.
+description: "Immutability contract for all pipeline stages: artefact freeze, V-AC parity, non-code parity, anti-tautological rule, and return-to-source transition."
 model: inherit
 current_aal: 1
 target_aal: 1

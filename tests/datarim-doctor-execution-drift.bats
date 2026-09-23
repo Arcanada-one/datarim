@@ -6,7 +6,7 @@
 # (b) dev-tools/check-execution-host-drift.sh (canon space.yml § execution
 # vs. machine-local execution-hosts.yml map + TTL 90-day staleness).
 #
-# Per Validation Discipline (framework CLAUDE.md § Self-Evolution — "New
+# Per Validation Discipline (framework AGENTS.md § Self-Evolution — "New
 # schema validations MUST NOT be added as new branches inside
 # datarim-doctor.sh... orthogonal concerns get orthogonal tools"), the drift
 # comparison logic lives entirely in the standalone script; the doctor only

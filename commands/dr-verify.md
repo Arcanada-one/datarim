@@ -1,6 +1,6 @@
 ---
 name: dr-verify
-description: Standalone self-verification of a Datarim artifact (PRD/plan/do output). Tri-layer architecture (v2): Layer 1 deterministic floor (shell pipeline, no LLM cost) + Layer 2 cross-model peer-review (DeepSeek via coworker, ~14× cheaper than Sonnet) + Layer 3 native runtime dispatch (Claude 3-agent parallel; Codex single-prompt retained as [experimental] fallback). Findings-only mode.
+description: Standalone self-verification of a Datarim artifact (PRD/plan/do output). Tri-layer architecture (v2): Layer 1 deterministic floor (shell pipeline, no LLM cost) + Layer 2 cross-model peer-review (native isolated agent context) + Layer 3 native runtime dispatch (Claude 3-agent parallel; Codex single-prompt retained as [experimental] fallback). Findings-only mode.
 ---
 
 # /dr-verify - Standalone Self-Verification (Tri-Layer)
@@ -10,9 +10,12 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
 
 ## Instructions
 
+**Persistent contracts:** when the workspace contains `CONTRACTS`, include all directory contracts applicable to touched files in the verification context. Syntax/identity validation is part of Layer 1 via `check-code-contracts.sh`; semantic compliance remains a reviewer responsibility and does not replace deterministic tests. A changed or removed contract is itself review-relevant.
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
-1. **LOAD**: Read skill file `~/.claude/skills/self-verification/SKILL.md` (symlink) or canonical `Projects/Datarim/code/datarim/skills/self-verification/SKILL.md`. Adopt orchestrator persona.
+
+
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
+1. **LOAD**: Read skill file `${DATARIM_RUNTIME:?}/skills/self-verification/SKILL.md` (symlink) or canonical `Projects/Datarim/code/datarim/skills/self-verification/SKILL.md`. Adopt orchestrator persona.
 2. **RESOLVE PATH**: Walk up directories from cwd to find `datarim/`. STOP if not found, tell user to run `/dr-init`.
 3. **TASK RESOLUTION**: Apply Task Resolution Rule from `datarim-system.md`. Use resolved task ID for all subsequent steps.
 4. **ARGUMENT PARSING**:
@@ -32,7 +35,7 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
    - `all` → all of above + AC list extracted from PRD
 6. **TRI-LAYER DISPATCH** (canonical v2 order — fastest+cheapest first, fail-fast on Layer 1):
    - **6.1 Layer 1 — Deterministic floor.** Invoke `bash code/datarim/dev-tools/dr-verify-floor.sh --task {TASK-ID} --stage {stage} --workspace <project-root>`. Capture JSONL findings on stdout, progress on stderr. Each finding carries `source_layer: "floor"`. If `--floor-only` passed, skip 6.2 and 6.3. The floor delegates spec-traceability to `dev-tools/spec-graph-gate.sh`, which applies the requested verify stage automatically; findings are re-emitted with `source_layer: "floor"` and `check_name: "dr-spec-lint:<rule>"` (`error→high`, `warning→medium`, `info→low`). Adapter exit `2` is fail-closed, never a clean floor.
-   - **6.2 Layer 2 — Provider resolution + cross-model peer-review.** First invoke `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/resolve-peer-provider.sh" [--peer-provider <flag>] [--project-config ./datarim/config.yaml] [--user-config ~/.config/datarim/config.yaml]` to resolve `provider`, `peer_review_mode`, `source_layer` (3 lines on stdout; exit 0 success / 1 invalid / 2 cost-cap). Then dispatch by mode:
+   - **6.2 Layer 2 — Provider resolution + cross-model peer-review.** First invoke `bash "${DATARIM_RUNTIME:?}/dev-tools/resolve-peer-provider.sh" [--peer-provider <flag>] [--project-config ./datarim/config.yaml] [--user-config ~/.config/datarim/config.yaml]` to resolve `provider`, `peer_review_mode`, `source_layer` (3 lines on stdout; exit 0 success / 1 invalid / 2 cost-cap). Then dispatch by mode:
      - `cross_claude_family` → spawn `agents/peer-reviewer.md` subagent (model: sonnet, readonly tools)
      - `same_model_isolated` → fall through to Layer 3 single-prompt loop (or Codex degraded path)
      The `--task-id {TASK-ID}` propagation is **MANDATORY** at all dispatch paths — without it the token-cost tool cannot filter logs by task. Each finding tagged `source_layer: "peer_review"`, `peer_review_provider: <name>`, `peer_review_mode: <enum>`, `peer_review_provider_source_layer: <chain-step-tag>`.
@@ -196,7 +199,7 @@ Before exiting `/dr-verify`:
 
 ## Next Steps (CTA)
 
-After verdict, MUST emit CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After verdict, MUST emit CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-verify`**:
 - **PASS / CONDITIONAL** → primary `/dr-compliance {TASK-ID}` (proceed to final hardening) or `/dr-archive {TASK-ID}` if compliance already done

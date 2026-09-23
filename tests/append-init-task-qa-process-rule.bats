@@ -59,7 +59,7 @@ teardown() {
 
 @test "process-rule-artefact happy path appends Process-rule artefacts heading" {
     cat > "$R" <<'EOF'
-- ~/.claude/CLAUDE.md § English-Only Shipped Instruction Surface
+- ~/.claude/AGENTS.md § English-Only Shipped Instruction Surface
 - memory/feedback_english_only_shipped_instruction_surface.md
 EOF
     run "$SCRIPT" --root "$WORK" --task TUNE-9999 --stage compliance --round 1 \

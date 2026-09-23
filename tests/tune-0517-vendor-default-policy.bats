@@ -38,7 +38,7 @@ teardown() {
 }
 
 @test "consumer surfaces cross-link the canonical policy" {
-    grep -Fq "skills/datarim-system/model-assignment.md" "$REPO_ROOT/CLAUDE.md" \
+    grep -Fq "skills/datarim-system/model-assignment.md" "$REPO_ROOT/AGENTS.md" \
         || return 1
     grep -Fq "skills/datarim-system/model-assignment.md" \
         "$REPO_ROOT/commands/dr-orchestrate.md"

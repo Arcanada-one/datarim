@@ -10,9 +10,40 @@ set -euo pipefail
 
 : "${DR_ORCH_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 : "${DR_ORCH_RULES_DEFAULT:=$DR_ORCH_DIR/rules/default.yaml}"
-: "${DR_ORCH_RULES_USER:=$HOME/.config/dr-orchestrate/rules/user.yaml}"
-: "${DR_ORCH_STATE_DIR:=${STATE_DIR:-$HOME/.local/share/dr-orchestrate/state}}"
-: "${DR_ORCH_RULES_LEARNED:=$DR_ORCH_STATE_DIR/learned-rules.yaml}"
+
+# Project state is resolved lazily. Reading the bundled default.yaml needs no
+# project state at all, so demanding $DATARIM_RUNTIME at load time would refuse
+# a bounded read-only invocation that never touches per-project files. The
+# refusal stays for every path that genuinely needs state; it is just deferred
+# to the moment a state path is actually built. This is NOT a reinstated home
+# fallback: without a runtime and without explicit overrides, user/learned
+# resolve to nothing and are skipped, never to $HOME.
+_state_dir() {
+  local resolved="${DR_ORCH_STATE_DIR:-${STATE_DIR:-}}"
+  if [[ -z "$resolved" ]]; then
+    resolved="${DATARIM_RUNTIME:?Project runtime required}/state/orchestrate"
+  fi
+  printf '%s\n' "$resolved"
+}
+
+# Resolve a per-project rules file. An explicit override is honoured unchanged.
+# Without one, the path is built from project state — and when no state exists,
+# the caller gets an empty path, which _extract treats as a missing file.
+_state_rules_path() {
+  local explicit="$1" suffix="$2"
+  if [[ -n "$explicit" ]]; then
+    printf '%s\n' "$explicit"
+    return 0
+  fi
+  if [[ -z "${DR_ORCH_STATE_DIR:-${STATE_DIR:-}}" && -z "${DATARIM_RUNTIME:-}" ]]; then
+    printf '%s\n' ''
+    return 0
+  fi
+  printf '%s/%s\n' "$(_state_dir)" "$suffix"
+}
+
+DR_ORCH_RULES_USER="$(_state_rules_path "${DR_ORCH_RULES_USER:-}" 'config/user.yaml')"
+DR_ORCH_RULES_LEARNED="$(_state_rules_path "${DR_ORCH_RULES_LEARNED:-}" 'learned-rules.yaml')"
 
 # Resolve the core policy loader (dev-tools/fb-policy-loader.sh). CORE-ONLY:
 # the one-cycle deprecation fallback to a plugin-local fb-rules copy was
@@ -20,7 +51,7 @@ set -euo pipefail
 # documentation/how-to/evolution-log.md). Resolution order: runtime install
 # ($DATARIM_RUNTIME) first, then the repo-relative core path (the plugin
 # lives inside the framework repo). Both point at the same canonical file.
-_RUNTIME_FB_LOADER="${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/fb-policy-loader.sh"
+_RUNTIME_FB_LOADER="${DATARIM_RUNTIME:-$DR_ORCH_DIR/../..}/dev-tools/fb-policy-loader.sh"
 _REPO_FB_LOADER="$DR_ORCH_DIR/../../dev-tools/fb-policy-loader.sh"
 if [[ -f "$_RUNTIME_FB_LOADER" ]]; then
   _FB_LOADER="$_RUNTIME_FB_LOADER"
@@ -33,7 +64,7 @@ fi
 # Resolve the fb-rules.yaml source for accessors. Core canonical only —
 # prefer the runtime install, else the repo-relative core path. An explicit
 # DR_ORCH_FB_RULES (e.g. a test fixture) is honoured unchanged.
-_RUNTIME_FB_RULES="${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/rules/fb-rules.yaml"
+_RUNTIME_FB_RULES="${DATARIM_RUNTIME:-$DR_ORCH_DIR/../..}/dev-tools/rules/fb-rules.yaml"
 _REPO_FB_RULES="$DR_ORCH_DIR/../../dev-tools/rules/fb-rules.yaml"
 if [[ -n "${DR_ORCH_FB_RULES:-}" ]]; then
   # Honour explicit caller override (e.g. test fixtures) unchanged.

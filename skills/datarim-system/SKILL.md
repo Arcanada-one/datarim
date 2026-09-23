@@ -18,7 +18,7 @@ target_aal: 2
 - Use task IDs in `{PREFIX}-{NNNN}` format across the whole lifecycle.
 - Keep `datarim/` for local workflow state and `documentation/archive/` for committed long-term archives.
 - Never create `documentation/tasks/`.
-- Use `$HOME/.claude/` or project-relative paths, not absolute machine-specific paths.
+- Use `${DATARIM_RUNTIME:?}/` or project-relative paths, not absolute machine-specific paths.
 - **Operational state is line-oriented**: `tasks.md` and `activeContext.md` are strict thin indexes with one pointer per task; `backlog.md` is the pending-work ledger and may carry a single-line inline description without a pointer. Full active-task content lives in `tasks/{TASK-ID}-task-description.md`. `progress.md` is **abolished**. See § Operational File Schema below.
 
 ## Operational File Schema (v1.19.0+)
@@ -126,7 +126,7 @@ source: /dr-init             # /dr-init | backlog
 ```
 
 Two mandatory body headings: `## Operator brief (verbatim)`, `## Append-log
-(operator amendments)`. Validator: `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh"
+(operator amendments)`. Validator: `"${DATARIM_RUNTIME:?}/dev-tools/check-init-task-presence.sh"
 --task <ID>`. Multi-task scan with soft 30-day window:
 `... --all`. Full contract: `skills/init-task-persistence/SKILL.md`.
 
@@ -184,40 +184,18 @@ Load only the fragment needed for the current sub-problem:
 
 Before writing any file to `datarim/`:
 
-1. Check whether `datarim/` exists in the current working directory.
-2. If not, walk up the directory tree until a parent containing `datarim/` is found.
-3. If no such directory exists, stop and instruct the user to run `/dr-init`.
+1. Resolve the explicit installation with `scripts/project_scope.py`.
+2. Respect physical paths and nested repository context grants.
+3. Use only `<resolved-project>/datarim/`; historical state never activates a project. See `path-and-storage.md`.
 
 ## Large-Plan Read Strategy (L3+ tasks)
 
-When `/dr-do` enters an L3+ task whose plan, PRD, and supporting INSIGHTS read
-together exceed ~600 lines, the default first move SHOULD be a single
-external-context delegation rather than a sequential read of every artefact:
-
-1. **Delegate the bulk read.** Issue one `coworker ask` call (or the project's
-   equivalent external-context channel — see CLAUDE.md § Coworker Delegation /
-   the runtime's external-LLM contract) against PRD + plan + INSIGHTS, with a
-   question that asks for per-step / per-V-AC / per-file structured output.
-2. **Read the structured summary, not the raw artefacts.** Apply the summary
-   to drive implementation order, file paths, V-AC ↔ step mapping, and MOD
-   touchpoints. Re-enter the raw artefacts only when the summary is
-   ambiguous on a specific point.
-3. **Re-use the same summary at `/dr-qa` and `/dr-compliance`.** The QA and
-   compliance layers should reuse the structured spec — re-delegating
-   produces drift between the implementation summary and the verification
-   summary.
-
-**When NOT to apply:** plans under 600 lines (direct read is cheaper);
-tasks where exact line numbers and code-block fidelity matter more than
-structure (literal `Edit` operations against the plan-quoted code).
-
-**Rationale.** A 1.6k-line plan + PRD + INSIGHTS read costs ~50% of a
-working context window if loaded raw, and forces re-reads at every
-verification stage. One delegated call returns a stable specification that
-anchors every subsequent decision and survives session compaction. This
-pattern was canonicalised in v2 of the orchestrator plan (775-line plan, 436-line PRD,
-431-line INSIGHTS) shipped end-to-end without ever reading the plan body
-into the main context, with zero V-AC misses.
+When a plan and its supporting documents exceed the available context, locate
+relevant headings with `rg -n` and read bounded sections. Keep a phase checklist
+with exact source paths and acceptance-criterion references. Read the original
+passage again whenever a summary is ambiguous. Native subagents may perform
+independent bounded reads when project policy permits delegation. Coworker and
+RTK are not runtime dependencies.
 
 ## Upstream API Audit Before Code Hardening
 
@@ -239,7 +217,7 @@ When the question is «is THIS code generating bad data?» for an integration th
 
 ## Runtime / Canonical Identity (symlink-default)
 
-Under the default install (v1.17.0+ symlink mode), `$HOME/.claude/{skills,agents,commands,templates}/{name}.md` and the corresponding `code/datarim/<scope>/{name}.md` in the cloned framework repo are **the same file** — same inode, same content, same writes. Verify with `stat -f %i <runtime-path> <repo-path>` (macOS) or `stat -c %i` (GNU); identical inode numbers confirm symlink-mode.
+Under the default install (v1.17.0+ symlink mode), `${DATARIM_RUNTIME:?}/{skills,agents,commands,templates}/{name}.md` and the corresponding `code/datarim/<scope>/{name}.md` in the cloned framework repo are **the same file** — same inode, same content, same writes. Verify with `stat -f %i <runtime-path> <repo-path>` (macOS) or `stat -c %i` (GNU); identical inode numbers confirm symlink-mode.
 
 Implications when editing a runtime artefact:
 
@@ -309,10 +287,10 @@ the parent symlink at the current framework clone
 
 Skills, agents, commands, and templates load from two layers:
 
-1. **Framework layer:** `$HOME/.claude/{skills,agents,commands,templates}/{name}.md`.
+1. **Framework layer:** `${DATARIM_RUNTIME:?}/{skills,agents,commands,templates}/{name}.md`.
    In symlink-mode (default since v1.17.0) this resolves to the
    cloned datarim repo. In copy-mode it resolves to local copies.
-2. **Local overlay:** `$HOME/.claude/local/{skills,agents,commands,templates}/{name}.md`.
+2. **Local overlay:** `${DATARIM_RUNTIME:?}/local/{skills,agents,commands,templates}/{name}.md`.
    User-private. Gitignored. Created empty by `install.sh`.
 
 **Conflict resolution:** if a name collides between layer 1 and layer 2, the
@@ -328,7 +306,7 @@ security and workflow invariants and MUST NOT be shadowed from `local/`:
 - `skills/ai-quality/SKILL.md`
 - `skills/evolution/SKILL.md`
 
-If `$HOME/.claude/local/skills/<name>.md` matches any of the above, `validate.sh`
+If `${DATARIM_RUNTIME:?}/local/skills/<name>.md` matches any of the above, `validate.sh`
 emits `ERROR: critical skill ... cannot be overridden via local/ overlay
 (security contract)` and exits **1**. The blocklist is path-scoped to `skills/`;
 identically named files under `local/agents/`, `local/commands/`, or
@@ -344,14 +322,14 @@ skills you actually wanted to keep tracking upstream.
 
 Skills push the agent out of default behavior into a disciplined process. They only help if loaded *before* you act.
 
-**The Rule:** invoke relevant skills BEFORE any response or action — including clarifying questions. Even a 1% chance a skill applies means check first; an unfit skill can be dropped, but decisions made without one cannot be undone. Discovery: `$HOME/.claude/skills/` (or the runtime's skill tool); `/dr-help` lists `dr-*` commands.
+**The Rule:** invoke relevant skills BEFORE any response or action — including clarifying questions. Even a 1% chance a skill applies means check first; an unfit skill can be dropped, but decisions made without one cannot be undone. Discovery: `${DATARIM_RUNTIME:?}/skills/` (or the runtime's skill tool); `/dr-help` lists `dr-*` commands.
 
 **Instruction Priority** when skills, project memory, and default behavior conflict:
-1. User's explicit instructions (`CLAUDE.md` / `AGENTS.md` / conversation) — highest. The user is in control.
+1. User's explicit instructions (`AGENTS.md` / `AGENTS.md` / conversation) — highest. The user is in control.
 2. Datarim skills and framework rules — override default behavior in their domain.
 3. Default runtime behavior — lowest.
 
-If `CLAUDE.md` says "don't use TDD" and a skill says "always use TDD", follow `CLAUDE.md`.
+If `AGENTS.md` says "don't use TDD" and a skill says "always use TDD", follow `AGENTS.md`.
 
 **Skill Priority** when multiple apply: process skills first (`brainstorming`, `systematic-debugging`, `writing-plans`) decide *how*; implementation skills (`frontend-ui`, `infra-automation`, `ai-quality`) execute under that process. "Let's build X" → brainstorming first; "Fix this bug" → systematic-debugging first.
 

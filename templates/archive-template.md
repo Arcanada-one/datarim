@@ -41,7 +41,7 @@ verification_outcome field semantics:
 Canonical contract — skills/self-verification/SKILL.md § Findings Schema.
 -->
 
-<!-- allow-non-ascii-block: canonical operator-facing archive section names and their Russian placeholder prose — a hard exclusion under CLAUDE.md § Artifact Language Policy, which keeps these sections in the operator's language by deliberate decision -->
+<!-- allow-non-ascii-block: canonical operator-facing archive section names and their Russian placeholder prose — a hard exclusion under AGENTS.md § Artifact Language Policy, which keeps these sections in the operator's language by deliberate decision -->
 
 # Архив: {TASK-ID} — {Title}
 

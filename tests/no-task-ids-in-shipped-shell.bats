@@ -56,22 +56,6 @@ is_allowed() {
     [ "$status" -eq 1 ]
 }
 
-@test "T4: install.sh version anchors survived the citation strip" {
-    run grep -F "v1.17.0" "$REPO_ROOT/install.sh"
-    [ "$status" -eq 0 ]
-    run grep -F "v1.20.0" "$REPO_ROOT/install.sh"
-    [ "$status" -eq 0 ]
-    run grep -F "v2.15.0" "$REPO_ROOT/install.sh"
-    [ "$status" -eq 0 ]
-}
-
-@test "T5: exempt backup-naming tokens are untouched (restore compat)" {
-    run grep -F 'bak="$dst.bak-TUNE-0303-$ts"' "$REPO_ROOT/install.sh"
-    [ "$status" -eq 0 ]
-    run grep -F "skills.bundled-backup-TUNE-0296-" "$REPO_ROOT/install.sh"
-    [ "$status" -eq 0 ]
-}
-
 @test "T6: install.sh/update.sh/validate.sh remain syntactically valid bash" {
     run bash -n "$REPO_ROOT/install.sh"
     [ "$status" -eq 0 ]

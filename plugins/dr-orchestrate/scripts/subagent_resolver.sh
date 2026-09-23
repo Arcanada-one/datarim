@@ -10,7 +10,7 @@
 #
 # Public env knobs:
 #   DR_ORCH_SUBAGENT_CHAIN     — space-separated backend names. Default:
-#                                "coworker-deepseek claude codex".
+#                                "claude codex cursor".
 #   DR_ORCH_RESOLVER_TIMEOUT_S — per-backend wall-clock budget (default 15).
 #   STATE_DIR                  — dedup dir for "backend missing" warnings.
 #   DR_FLEET_VERSION_HINTS     - set to 1 for best-effort CLI version advice.
@@ -18,11 +18,20 @@
 set -euo pipefail
 
 : "${DR_ORCH_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-: "${DR_ORCH_SUBAGENT_CHAIN:=coworker-deepseek claude codex}"
+: "${DR_ORCH_SUBAGENT_CHAIN:=claude codex cursor}"
 : "${DR_ORCH_RESOLVER_TIMEOUT_S:=15}"
 : "${DR_FLEET_VERSION_TIMEOUT_S:=2}"
-: "${STATE_DIR:=$HOME/.local/share/dr-orchestrate/state}"
-mkdir -p "$STATE_DIR"
+# shellcheck source=lib/project-state.sh
+. "$DR_ORCH_DIR/scripts/lib/project-state.sh"
+# STATE_DIR is used for exactly one thing: a sentinel file that stops the
+# "backend missing" warning repeating. That is a convenience, not a capability,
+# so resolution itself must not require a project runtime — refusing here would
+# make the resolver unusable outside an installed project in order to protect a
+# de-duplication marker. Without state the warning simply repeats.
+if [[ -z "${STATE_DIR:-}" ]]; then
+  STATE_DIR="$(dr_orch_state_root_or_empty)"
+fi
+[[ -n "$STATE_DIR" ]] && mkdir -p "$STATE_DIR"
 
 # shellcheck source=rules_loader.sh
 source "$DR_ORCH_DIR/scripts/rules_loader.sh"
@@ -58,10 +67,9 @@ _with_timeout() {
 # stdin and passed as the last argument by _invoke_backend.
 _resolve_backend() {
   case "$1" in
-    coworker-deepseek) echo coworker; echo ask; echo --provider; echo deepseek; echo --profile; echo classifier; echo --question ;;
-    coworker-groq)     echo coworker; echo ask; echo --provider; echo groq;     echo --profile; echo classifier; echo --question ;;
     claude)            echo claude; echo --print; echo --output-format=json ;;
     codex)             echo codex; echo exec; echo --output-last-message; echo - ;;
+    cursor)            echo cursor-agent; echo --print; echo --output-format=json ;;
     mock-*)            echo "dr-orch-mock-${1#mock-}" ;;
     *)                 return 2 ;;
   esac
@@ -78,16 +86,15 @@ _backend_present() {
 # _resolve_fleet_backend prints the interactive launch command vector (one arg
 # per line). ARAS is a deferred slot (never resolves until implemented).
 
-# Fleet backend chain (priority): Claude → Codex → Cursor → Gemini → Coworker.
-: "${DR_FLEET_BACKEND_CHAIN:=claude codex cursor gemini coworker}"
+# Fleet backend chain (priority): Claude → Codex → Cursor → Gemini.
+: "${DR_FLEET_BACKEND_CHAIN:=claude codex cursor gemini}"
 
 _resolve_fleet_backend() {
   case "$1" in
     claude)   echo claude ;;
     codex)    echo codex ;;
-    cursor)   echo cursor ;;
+    cursor)   echo cursor-agent ;;
     gemini)   echo gemini ;;
-    coworker) echo coworker ;;   # bulk-I/O L1/L2 delegated call (not a live REPL)
     aras)     return 2 ;;        # deferred slot — treated as unavailable
     *)        return 2 ;;
   esac
@@ -181,6 +188,12 @@ PY
 
 _warn_missing_once() {
   local backend="$1"
+  if [[ -z "${STATE_DIR:-}" ]]; then
+    # No project state to remember the warning in; warn every time rather than
+    # staying silent, since the warning is the useful half.
+    echo "WARN backend-missing backend=${backend}" >&2
+    return 0
+  fi
   local sentinel="$STATE_DIR/.warned.${backend}"
   [[ -f "$sentinel" ]] && return 0
   echo "WARN backend-missing backend=${backend}" >&2
@@ -192,7 +205,7 @@ _warn_missing_once() {
 _normalize() {
   local backend="$1"; local raw="$2"
   case "$backend" in
-    claude)
+    claude|cursor)
       local r
       r="$(printf '%s' "$raw" | jq -r '.result // empty' 2>/dev/null)"
       if [[ -n "$r" ]]; then printf '%s' "$r"; else printf '%s' "$raw"; fi
@@ -290,10 +303,9 @@ resolve() {
     printf '%s' "$json" | jq -e '.action and (.confidence | type == "number")' >/dev/null 2>&1 || continue
     model=""
     case "$backend" in
-      coworker-deepseek) model="deepseek-chat" ;;
-      coworker-groq)     model="groq-llama" ;;
-      claude)            model="claude-opus-4-7" ;;
-      codex)             model="codex" ;;
+      claude)            model="client-default" ;;
+      codex)             model="client-default" ;;
+      cursor)            model="client-default" ;;
       mock-*)            model="$backend" ;;
     esac
     printf '%s' "$json" | jq -c \

@@ -14,6 +14,7 @@ STATE_SH="$BATS_TEST_DIRNAME/../scripts/tdd-enforcement-state.sh"
 
 setup() {
     TMPROOT="$(mktemp -d)"
+    TMPROOT="$(cd "$TMPROOT" && pwd -P)"
     mkdir -p "$TMPROOT/datarim/tasks"
     mkdir -p "$TMPROOT/code/datarim"
 
@@ -21,7 +22,9 @@ setup() {
     cp "$BATS_TEST_DIRNAME/../VERSION" "$TMPROOT/code/datarim/VERSION"
 
     export DR_PLUGIN_WORKSPACE="$TMPROOT"
-    export DR_PLUGIN_RUNTIME_ROOT="$TMPROOT/local-claude"
+    export DR_PLUGIN_RUNTIME_ROOT="$TMPROOT/.datarim-runtime/local"
+    mkdir -p "$TMPROOT/.datarim-runtime"
+    python3 -c 'import json,sys;json.dump({"schema":1,"project":sys.argv[1]},open(sys.argv[1]+"/.datarim-runtime/installation.json","w"))' "$TMPROOT"
     mkdir -p "$DR_PLUGIN_RUNTIME_ROOT"/{skills,agents,commands,templates}
 
     MANIFEST="$TMPROOT/datarim/enabled-plugins.md"

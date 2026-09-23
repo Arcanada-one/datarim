@@ -3,11 +3,11 @@
 ROOT="$BATS_TEST_DIRNAME/.."
 
 @test "/dr-init owns runtime-qualified baseline capture" {
-  grep -qF '${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/capture-framework-version-baseline.sh' "$ROOT/commands/dr-init.md"
+  grep -qF '${DATARIM_RUNTIME:?}/dev-tools/capture-framework-version-baseline.sh' "$ROOT/commands/dr-init.md"
 }
 
 @test "/dr-do unconditionally runs the runtime-qualified checker as a hard transition" {
-  grep -qF '${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-framework-version-accountability.sh' "$ROOT/commands/dr-do.md" \
+  grep -qF '${DATARIM_RUNTIME:?}/dev-tools/check-framework-version-accountability.sh' "$ROOT/commands/dr-do.md" \
     && grep -qF 'exit 1 or exit 2' "$ROOT/commands/dr-do.md" \
     && grep -qF 'route to `/dr-do`' "$ROOT/commands/dr-do.md"
 }
@@ -18,7 +18,7 @@ ROOT="$BATS_TEST_DIRNAME/.."
 }
 
 @test "/dr-qa independently runs the same checker and blocks PASS routes" {
-  grep -qF '${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-framework-version-accountability.sh' "$ROOT/commands/dr-qa.md" \
+  grep -qF '${DATARIM_RUNTIME:?}/dev-tools/check-framework-version-accountability.sh' "$ROOT/commands/dr-qa.md" \
     && grep -qF 'overall QA result is **FAIL**' "$ROOT/commands/dr-qa.md" \
     && grep -qF 'route to `/dr-do`' "$ROOT/commands/dr-qa.md"
 }
@@ -38,4 +38,14 @@ ROOT="$BATS_TEST_DIRNAME/.."
 @test "new wiring contains no prohibited network or release command" {
   ! sed -n '/FRAMEWORK VERSION ACCOUNTABILITY/,/^[0-9].*\*\*/p' "$ROOT/commands/dr-do.md" "$ROOT/commands/dr-qa.md" \
     | grep -Eq 'git (push|fetch|tag)|gh release|deploy\.sh'
+}
+
+@test "the retired home fallback cannot return to the wired commands" {
+  # Datarim is project-local: a runtime that silently resolves to $HOME is the
+  # global-scope behaviour this migration removed. Assert its absence so an edit
+  # cannot quietly reintroduce it in the three commands wired above.
+  for file in commands/dr-init.md commands/dr-do.md commands/dr-qa.md; do
+    run grep -F 'DATARIM_RUNTIME:-$HOME' "$ROOT/$file"
+    [ "$status" -ne 0 ]
+  done
 }

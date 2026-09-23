@@ -18,14 +18,16 @@ print('ok: valid YAML with commands and schema_version')
     [ "$status" -eq 0 ]
 }
 
-@test "command-graph.yaml has at least 24 commands" {
+@test "command-graph.yaml exactly matches commands directory" {
     run python3 -c "
 import yaml, sys
 with open('$GRAPH') as f:
     data = yaml.safe_load(f)
-n = len(data['commands'])
-print(f'commands: {n}')
-assert n >= 24, f'expected >= 24 commands, got {n}'
+from pathlib import Path
+declared=set(data['commands'])
+files={p.stem for p in Path('$GRAPH').parent.parent.joinpath('commands').glob('*.md')}
+print(f'commands: {len(declared)}')
+assert declared == files, f'graph/files drift: graph-only={sorted(declared-files)} files-only={sorted(files-declared)}'
 "
     [ "$status" -eq 0 ]
 }
@@ -45,7 +47,7 @@ print('ok: all core pipeline commands present')
 }
 
 @test "command-dependencies.md contains pipeline graph reference" {
-    run grep -c 'dr-do --> dr-qa' "$MERMAID"
+    run grep -Ec 'dr-do(\[[^]]*\])? --> dr-qa(\[[^]]*\])?'  "$MERMAID"
     [ "$status" -eq 0 ]
     [ "$output" -ge 1 ]
 }

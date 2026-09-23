@@ -27,7 +27,7 @@ _fake_bin() { printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_BIN/$1"; chmod +x "
 @test "cursor backend is mapped for fleet" {
     run bash "$RESOLVER" _resolve_fleet_backend cursor
     [ "$status" -eq 0 ]
-    [ "$(echo "$output" | head -1)" = "cursor" ]
+    [ "$(echo "$output" | head -1)" = "cursor-agent" ]
 }
 
 @test "gemini backend is mapped for fleet" {
@@ -36,10 +36,9 @@ _fake_bin() { printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_BIN/$1"; chmod +x "
     [ "$(echo "$output" | head -1)" = "gemini" ]
 }
 
-@test "generic coworker provider is mapped for fleet bulk-I/O" {
+@test "retired coworker provider cannot be selected" {
     run bash "$RESOLVER" _resolve_fleet_backend coworker
-    [ "$status" -eq 0 ]
-    [ "$(echo "$output" | head -1)" = "coworker" ]
+    [ "$status" -ne 0 ]
 }
 
 @test "select_fleet_backend health-checks and skips an absent backend" {

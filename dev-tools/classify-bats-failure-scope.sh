@@ -123,7 +123,7 @@ for scope in "${scopes[@]}"; do
 done
 
 # Defensive invariant: wording above is bound to verdict_block; the exit code
-# below must match (per CLAUDE.md § Defensive Invariants for state<->wording
+# below must match (per AGENTS.md § Defensive Invariants for state<->wording
 # contracts).
 if [ "$verdict_block" -ne 0 ] && [ "$verdict_block" -ne 1 ]; then
     printf 'classify-bats-failure-scope: internal invariant violated: verdict_block=%s\n' "$verdict_block" >&2

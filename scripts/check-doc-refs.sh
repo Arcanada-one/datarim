@@ -109,7 +109,7 @@ matches_baseline() {
 }
 
 # --- file enumeration ---------------------------------------------------------
-# We scan ROOT/CLAUDE.md, ROOT/README.md, plus
+# We scan ROOT/AGENTS.md, ROOT/README.md, plus
 # ROOT/{skills,agents,commands,templates,documentation}/**/*.md.
 #
 # NOTE: `docs/` was renamed to `documentation/` at v2.49.0. This scan list
@@ -124,7 +124,7 @@ matches_baseline() {
 # (`/api/documentation/...`) are not file references — pruned to keep the linter scoped
 # to Datarim's own shipped surface.
 SCAN_TARGETS=()
-[ -f "$ROOT/CLAUDE.md" ] && SCAN_TARGETS+=("$ROOT/CLAUDE.md")
+[ -f "$ROOT/AGENTS.md" ] && SCAN_TARGETS+=("$ROOT/AGENTS.md")
 [ -f "$ROOT/README.md" ] && SCAN_TARGETS+=("$ROOT/README.md")
 for _sub in skills agents commands templates documentation; do
     if [ -d "$ROOT/$_sub" ]; then

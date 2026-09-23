@@ -29,7 +29,7 @@ target_aal: 2
 
 ### EXECUTION HOST
 
-1. Source the resolver: `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/execution-host.sh"`.
+1. Source the resolver: `source "${DATARIM_RUNTIME:?}/dev-tools/lib/execution-host.sh"`.
 2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
 3. On **off-host** (exit code 10), AUTO-DISPATCH -- do NOT stop and hand the command back for the operator to type. The `required_host` binding IS the operator's standing authorization to run there, and dispatch (spawning a remote tmux session) is a reversible transport action; every irreversible step (prod deploy, secret rotation, force-push, public message) stays hard-gated on the remote agent downstream. Contract:
    a. **RUN vs INSPECT.** Auto-dispatch only when intent is to RUN the task (operator asked to run/execute/go, autonomous-mode marker active, or reached via `/dr-auto`). On INSPECT/read-only intent, do NOT dispatch: proceed locally read-only and surface the dispatch directive as information, not a blocking question.
@@ -51,7 +51,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - Export `DATARIM_AUTO_MODE=1` for the rest of the session.
    - Write the per-task marker at `datarim/.auto/<TASK-ID>.mode` (collision-safe in a shared workspace) by running the helper — do not hand-write the path:
      ```
-     ${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/auto-mode-marker.sh reassert --root <workspace> --task-id <TASK-ID> --space <resolved-space-name>
+     ${DATARIM_RUNTIME:?}/dev-tools/auto-mode-marker.sh reassert --root <workspace> --task-id <TASK-ID> --space <resolved-space-name>
      ```
      which produces a marker containing:
      ```yaml
@@ -65,18 +65,18 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
      from the workspace path. An absent or invalid value remains fail-closed.
    - The marker is removed at the terminal step (successful `/dr-compliance` + reflection, or a hard stop that surrenders control to the operator). If the env var is set without a matching marker, downstream stages treat the session as non-autonomous (fail-safe).
 
-4. **Load the operating rules.** Read the autonomous-mode skill at `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md`. It defines the decision rules every stage uses: how to handle minor gaps inline, when to walk through the question-suppression checks before prompting the operator, and which actions are always operator-gated regardless of mode.
+4. **Load the operating rules.** Read the autonomous-mode skill at `${DATARIM_RUNTIME:?}/skills/autonomous-mode/SKILL.md`. It defines the decision rules every stage uses: how to handle minor gaps inline, when to walk through the question-suppression checks before prompting the operator, and which actions are always operator-gated regardless of mode.
 
 5. **Dispatch the pipeline as subagents.** For each stage that needs running, spawn the matching agent via the Agent tool, pass it the resolved task state, wait for its result, then summarise that result and decide the next stage. Stage → agent map: prd/design → `architect`, plan → `planner`, do → `developer`, qa → `reviewer`, compliance → `compliance`. The orchestrator itself does not perform stage work — it dispatches, summarises, and routes.
    - **Re-assert the marker before each dispatch (mandatory pre-dispatch gate).** Before spawning any stage subagent you MUST run the re-assert helper as the first action of every per-stage dispatch — skipping this step means skipping the dispatch gate:
      ```
-     ${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/auto-mode-marker.sh reassert --root <workspace> --task-id <TASK-ID> --space <resolved-space-name>
+     ${DATARIM_RUNTIME:?}/dev-tools/auto-mode-marker.sh reassert --root <workspace> --task-id <TASK-ID> --space <resolved-space-name>
      ```
      If the marker file (located via the helper's `MARKER_RELPATH` constant — do not hard-code the filename) is absent, unparseable, holds a different task ID, or is stale, the helper rewrites it for the current task. If a valid current marker already exists the call is a no-op. The helper exits 0 when the marker is valid afterward; proceed to spawn the subagent only after exit 0.
    - **Carry the auto-signal in the subagent prompt.** Include an explicit line in every stage subagent's prompt: "You run stage `<stage>` in autonomous mode for `<TASK-ID>`." The spawned subagent activates the autonomous-mode skill from this signal plus the re-asserted marker, without the (un-inherited) environment variable — see `skills/autonomous-mode/SKILL.md` § When this skill is active, Spawned subagents (relaxed activation).
    - **Resume mode:** read the last stage snapshot for the task (via `/dr-next` semantics) and continue from there.
      -   **Description-vs-oneliner consistency probe (MANDATORY before dispatching `/dr-do`).** A reused task ID can leave a stale `datarim/tasks/{TASK-ID}-task-description.md` § Overview describing a different scope than the current `tasks.md` one-liner for that ID. Compare the two before continuing: if § Overview and the one-liner describe materially different work, STOP and flag the mismatch to the operator instead of proceeding into `/dr-do` against the stale description. Precedent: a prior resume incident — § Overview described a landing-page task while the one-liner had been reassigned to a DNS-cutover task; resuming without this check would have run `/dr-do` against the wrong scope.
-   - **Bootstrap mode:** run the stages in order, applying the complexity routing from the framework's CLAUDE.md: `/dr-init` always runs; prd/design are added for L3+ tasks; plan/do/qa/compliance run as their gates require.
+   - **Bootstrap mode:** run the stages in order, applying the complexity routing from the framework's AGENTS.md: `/dr-init` always runs; prd/design are added for L3+ tasks; plan/do/qa/compliance run as their gates require.
    - **L1 doc-only fast-path (narrow class).** When the task is classified L1 AND all three conditions hold — (a) the diff touches exactly one documentation file (markdown), (b) the change is small (no structural split, no new sections requiring architectural review), and (c) the change carries no runtime behaviour (no code, no configuration, no migration) — then instead of silently skipping `/dr-qa`, the orchestrator runs a lightweight inline check: style/banlist scan of the added lines plus a cross-reference grep (internal links resolve, no stale references introduced). If both checks pass, write a minimal `qa-stub` artefact (`datarim/qa/qa-stub-{TASK-ID}.md`) recording the checks performed and their outcomes. This stub counts as the QA artefact for this class (see `skills/compliance/SKILL.md` § Documentation Checklist). This fast-path does NOT apply to real code or infrastructure L1 tasks — those keep the normal routing and the full `/dr-qa` stage.
    - **Terminal point:** the pipeline stops after a **successful `/dr-compliance`** (COMPLIANT or COMPLIANT_WITH_NOTES), which now writes the reflection internally (see `commands/dr-compliance.md` Step 8.5). `/dr-auto` does **not** dispatch an archive subagent — archival is left to the operator.
    - **Stage-replay is normal.** Re-entering an already-completed stage (e.g. after a `/dr-qa` or `/dr-compliance` finding routes work back) updates or append-merges the existing stage artefact rather than failing "already done". The same task may pass through the same stage many times across review rounds; treat each pass as an update to that stage's artefact, not a fresh creation.
@@ -89,7 +89,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - The stage's resolution rules above did not produce an unambiguous answer.
    - The action falls into the **always-gated** list (see below).
 
-   When this happens, the stage uses `AskUserQuestion` to prompt the operator, and records the round in the task's init-task append-log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator --stage <current-stage>`.
+   When this happens, the stage uses `AskUserQuestion` to prompt the operator, and records the round in the task's init-task append-log via `"${DATARIM_RUNTIME:?}/dev-tools/append-init-task-qa.sh" --decided-by operator --stage <current-stage>`.
 
 9. **Terminal cleanup.** On success (a passing `/dr-compliance` + reflection) or a hard stop:
    - Remove the per-task marker `datarim/.auto/<TASK-ID>.mode` (resolve via `auto-mode-marker.sh resolve --root <workspace> --task-id <TASK-ID>`; also clear the legacy `datarim/.auto-mode-active` if it was written by a hand-run for this task-id).
@@ -103,7 +103,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 
 ## Actions that ask the operator
 
-Before asking, call `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/resolve-space-autonomy.sh gate` with the
+Before asking, call `${DATARIM_RUNTIME:?}/dev-tools/resolve-space-autonomy.sh gate` with the
 canonical action kind and any required discriminator payload. Exit `0` means
 execute autonomously; exit `10` means ask the operator; exit `2` means the
 policy is invalid and therefore also asks the operator.
@@ -129,7 +129,7 @@ violations. Other operational actions ask only when the resolved
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
-At the terminal cleanup step (step 9 above), after emitting the CTA block, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
+At the terminal cleanup step (step 9 above), after emitting the CTA block, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
 
 - `stage`: `auto`
 - `command`: `/dr-auto`

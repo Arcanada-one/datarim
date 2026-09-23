@@ -23,7 +23,7 @@ Use `/dr-save` when:
 
 ### Step 1 — Load the producer skill
 
-Read `${DATARIM_RUNTIME:-$HOME/.claude}/skills/session-handoff-writer/SKILL.md`
+Read `${DATARIM_RUNTIME:?}/skills/session-handoff-writer/SKILL.md`
 and apply the producer-awareness clause: the session WILL be destroyed.
 Capture everything needed to resume from zero.
 
@@ -68,7 +68,7 @@ Generate a session ID and call the wrapper:
 SESSION_ID="SESSION-$(date -u +%Y%m%d-%H%M%S)"
 REPO_ROOT="$(git -C . rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
 
-bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/session-handoff-writer-wrapper.sh" \
+bash "${DATARIM_RUNTIME:?}/dev-tools/session-handoff-writer-wrapper.sh" \
     --root "${REPO_ROOT}" \
     --session "${SESSION_ID}" \
     --captured-by agent \
@@ -108,7 +108,7 @@ A fresh session + /dr-continue is the only safe resume path.
 
 When auto-mode is active (env var + matching marker), this command:
 
-1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md`
+1. Consults `${DATARIM_RUNTIME:?}/skills/autonomous-mode/SKILL.md`
    § Question Suppression Ladder before any operator prompt.
 2. Applies L1-resolution for the current task's git state (git rev-parse + status
    are deterministic probes — no question needed).
@@ -122,7 +122,7 @@ When auto-mode is active (env var + matching marker), this command:
 After writing, run:
 
 ```bash
-bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-session-handoff.sh" \
+bash "${DATARIM_RUNTIME:?}/dev-tools/check-session-handoff.sh" \
     --validate-frontmatter \
     --session "${SESSION_ID}" \
     --root "${REPO_ROOT}"

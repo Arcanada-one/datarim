@@ -24,6 +24,15 @@
 #                       order differs, so it is kept as its own literal (aliasing
 #                       would silently change the byte content of this constant).
 
+
+# Canonical task identifiers. Keep these literals here so gates, probes and
+# verification adapters do not silently diverge. TASK_ID_RE accepts the
+# optional compound suffix used by follow-up tasks; TASK_ID_BASE_RE is for
+# surfaces that intentionally require the base task only.
+TASK_ID_BASE_RE='^[A-Z][A-Z0-9]{1,9}-[0-9]{4,}$'
+TASK_ID_RE='^[A-Z][A-Z0-9]{1,9}-[0-9]{4,}(-[A-Za-z0-9][A-Za-z0-9-]{0,63})?$'
+PREFIX_RE='^[A-Z][A-Z0-9]{1,9}$'
+
 ONELINER_RE='^- [A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not_started|pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · .+ → tasks/[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*-(task-description|init-task)\.md$'
 BACKLOG_ITEM_RE='^- [A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not_started|pending|blocked-pending|cancelled|superseded|absorbed|deferred) · [*]{0,2}P[0-4][*]{0,2} · [*]{0,2}L[1-4][*]{0,2} · .+$'
 SCHEMA_TASKS_RE='^- [A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not_started|pending|blocked-pending|cancelled) · [*]{0,2}P[0-4][*]{0,2} · [*]{0,2}L[1-4][*]{0,2} · .+ → tasks/[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*-(task-description|init-task)\.md$'
