@@ -190,6 +190,18 @@ def safe_path(root, relative):
     return target
 
 
+def prune_empty_parents(root, target):
+    """Remove directories a deleted file leaves empty, below the client's own
+    top-level directory (`.claude/`, `.agents/`, ...), which is never removed."""
+    for parent in target.parents:
+        if parent == root or parent.parent == root:
+            return
+        try:
+            parent.rmdir()
+        except OSError:  # not empty, or already gone
+            return
+
+
 def atomic_bytes(target, data):
     """Publish complete bytes, retaining an existing file's access mode."""
     fd, temporary = tempfile.mkstemp(prefix='.datarim-write-', dir=target.parent)
@@ -483,6 +495,7 @@ def _install(args):
             if current != snapshots[name]:
                 raise ValueError(f'Concurrent modification: {name}')
             target.unlink(missing_ok=True)
+            prune_empty_parents(root, target)
             published[name] = None
         if args.with_jev:
             key.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -588,6 +601,7 @@ def _uninstall(args):
             target.write_text(private_ignores(original or ''))
         elif original is None:
             target.unlink(missing_ok=True)
+            prune_empty_parents(root, target)
         else:
             target.write_text(original)
     # Keys, task state and the recovery bundle stay, so they stay hidden too.

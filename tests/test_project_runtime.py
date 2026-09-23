@@ -148,6 +148,28 @@ class InstallationLifecycleTests(unittest.TestCase):
         project_install.install(self.args)
         self.assertTrue((self.project/'.claude/skills/testing/SKILL.md').is_file())
 
+    def test_retiring_exposed_skills_leaves_no_empty_directories(self):
+        """Measured on a real project: withdrawing the skills left 105 empty
+        `.claude/skills/<name>/` directories behind."""
+        project_install.install(Namespace(**{**vars(self.args), 'expose_skills': True}))
+        manifest = json.loads((self.project/'.datarim-runtime/installation.json').read_text())
+        manifest['expose_skills'] = False  # as recorded by a release before the flag
+        (self.project/'.datarim-runtime/installation.json').write_text(json.dumps(manifest))
+        (self.project/'.claude/skills/mine').mkdir()
+        (self.source/'VERSION').write_text('next\n')
+        project_install.install(self.args)
+        self.assertFalse((self.project/'.claude/skills/testing').exists())
+        self.assertTrue((self.project/'.claude/skills/mine').is_dir(), 'a directory we did not empty stays')
+        self.assertTrue((self.project/'.claude').is_dir(), 'the client directory itself stays')
+
+    def test_uninstall_leaves_no_empty_directories_it_created(self):
+        project_install.install(self.args)
+        project_install.uninstall(self.args)
+        empty = [str(d.relative_to(self.project)) for d in self.project.rglob('*')
+                 if d.is_dir() and d.parent != self.project and not any(d.iterdir())
+                 and '.datarim-uninstalled' not in d.parts]  # the backup is kept whole
+        self.assertEqual(empty, [])
+
     def test_an_older_install_releases_agents_md_and_gitignore_without_deleting_them(self):
         """Earlier releases managed both files; files that leave management are
         otherwise deleted. These two are the project's own and must survive."""
