@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # tune-0240-partial-milestone-closure.bats — TUNE-0240
 #
-# Verifies the shipped framework entry file (CLAUDE.md) documents the
+# Verifies the shipped framework entry file (AGENTS.md) documents the
 # Partial Milestone Closure Pattern for AAL milestones split across child
 # tasks. Prose-content assertions (V-AC-1..5) plus an English-only gate
 # on the shipped root surface (V-AC-6).
@@ -9,12 +9,12 @@
 # Contract under test: PRD-TUNE-0240 § 3 (pattern definition) + § 4 (V-AC).
 
 REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
-CLAUDE_MD="$REPO_ROOT/CLAUDE.md"
+CLAUDE_MD="$REPO_ROOT/AGENTS.md"
 ENGLISH="$REPO_ROOT/dev-tools/check-body-english.sh"
 
 # Byte range of the pattern section (heading -> next `## ` heading), so token
 # assertions are scoped to the new section and cannot be satisfied by
-# incidental matches elsewhere in CLAUDE.md.
+# incidental matches elsewhere in AGENTS.md.
 section() {
     awk '
         /^## Partial Milestone Closure Pattern/ { grab=1; print; next }
@@ -23,7 +23,7 @@ section() {
     ' "$CLAUDE_MD"
 }
 
-@test "T1 (V-AC-1): CLAUDE.md has a Partial Milestone Closure Pattern section" {
+@test "T1 (V-AC-1): AGENTS.md has a Partial Milestone Closure Pattern section" {
     grep -qE '^## Partial Milestone Closure Pattern' "$CLAUDE_MD"
 }
 

@@ -1,0 +1,11 @@
+schema_version: 1
+id: dr-jev-control
+title: "Datarim Jev Control Plane for Claude Code"
+version: 1.4.0
+author: "Datarim Contributors"
+license: MIT
+description: "TypeSafe Jev System-One routing for Claude Code and Codex, with dynamic mid-task model/effort switching, multi-component suggestions with confidence thresholds, a config-independent destructive-command floor, an operator kill switch, and decision telemetry."
+categories:
+  - scripts
+  - productivity
+homepage: https://docs.typesafe.ai/agent-skill

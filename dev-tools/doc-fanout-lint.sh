@@ -2,7 +2,7 @@
 # doc-fanout-lint.sh — N-way consumer-surface drift detector
 #
 # Detects asymmetric drift between a canonical artefact directory
-# (e.g. commands/dr-*.md) and N consumer surfaces (CLAUDE.md mention,
+# (e.g. commands/dr-*.md) and N consumer surfaces (AGENTS.md mention,
 # README.md mention, documentation/ table row, sister-site PHP file existence,
 # count fields).
 #

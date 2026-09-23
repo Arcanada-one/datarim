@@ -83,7 +83,7 @@ file declares `schema_version: 3` or `4`; all sub-v3 files are unchanged.
 
 **Schema v2 (legacy, accepted):** adds required `evidence_type` field per wish item
 (enum: `empirical | static | measurement`). Validator
-(`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh"`) rejects items without
+(`"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh"`) rejects items without
 `evidence_type` in v2 mode.
 
 **Schema v1 (legacy):** accepted by validator until **2027-05-23** (12 months
@@ -325,7 +325,7 @@ Incorrect (4-space, silently ignored by the validator):
 | `n-a` | item became inapplicable (scope changed, environment drift) | non-blocking |
 | `deleted` | operator dropped the wish (history retained) | non-blocking |
 
-> **Glossary note.** `closed` is NOT an enum value here, although the word often appears in QA/PRD prose to mean "success criterion verified". The correct enum for that semantics is `met`. The validator (`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task <ID>`) rejects `closed` as a structural error so the mistake is caught before `/dr-compliance --verify`.
+> **Glossary note.** `closed` is NOT an enum value here, although the word often appears in QA/PRD prose to mean "success criterion verified". The correct enum for that semantics is `met`. The validator (`"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --task <ID>`) rejects `closed` as a structural error so the mistake is caught before `/dr-compliance --verify`.
 
 ### Numeric literals in success criteria
 
@@ -426,7 +426,7 @@ QA pass), the remaining `pending` items are reconciled to `met` /
 ## Verify-routing contract
 
 `/dr-qa` and `/dr-compliance` both invoke
-`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --verify <ID>` after running
+`"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --verify <ID>` after running
 their own structural checks. Three verdicts (single source of truth: the
 validator's stdout markers):
 
@@ -479,7 +479,7 @@ knowing the decision is recorded.
 
 ## Validation
 
-`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh"` is the canonical validator.
+`"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh"` is the canonical validator.
 
 - `--task <ID>`: structural validation. Exit 0 / 1 / 2.
   - `verification-not-wired: <wish_id>` — `reproducible` wish whose

@@ -306,7 +306,7 @@ Load only the fragment needed for the current sub-problem:
 
 ## Reusable Templates
 
-- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/docker-smoke-checklist.md` — 5-step reusable checklist for cross-container smoke (Compose validity → container health → endpoint smoke → end-to-end action with post-conditions → rollback). Reference this when applying the Live Docker Smoke gate.
+- `${DATARIM_RUNTIME:?}/templates/docker-smoke-checklist.md` — 5-step reusable checklist for cross-container smoke (Compose validity → container health → endpoint smoke → end-to-end action with post-conditions → rollback). Reference this when applying the Live Docker Smoke gate.
 
 ## Quick Routing Heuristic
 

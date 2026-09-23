@@ -2,10 +2,10 @@
 # version-consistency-check.sh — pre-archive version-consistency gate (TUNE-0080).
 #
 # Contract: when the framework's `VERSION` file changed in HEAD->working-tree,
-# all consumer files (CLAUDE.md, README.md, documentation/) must reference the new
+# all consumer files (AGENTS.md, README.md, documentation/) must reference the new
 # version. If any still cite the old version, archive is blocked.
 #
-# Source: recurring class — VERSION bumped but README/CLAUDE.md left stale
+# Source: recurring class — VERSION bumped but README/AGENTS.md left stale
 # (caught manually in prior archive cycles; cheap one-liner closes the gap).
 #
 # Usage:
@@ -27,7 +27,7 @@ Usage:
   version-consistency-check.sh [--allow-version-lag] REPO_PATH
 
 If REPO_PATH/VERSION changed in HEAD->working-tree, scan
-REPO_PATH/{CLAUDE.md,README.md,documentation/} for the old version string. Any hit
+REPO_PATH/{AGENTS.md,README.md,documentation/} for the old version string. Any hit
 blocks the archive (exit 1). Use --allow-version-lag to override (exit 0
 with stderr warning).
 
@@ -89,14 +89,14 @@ if [ -z "$old" ]; then
 fi
 
 # VERSION bumped. Scan consumers for the OLD version string.
-# Targets: CLAUDE.md, README.md (top-of-file version refs).
+# Targets: AGENTS.md, README.md (top-of-file version refs).
 # `documentation/` is intentionally excluded: evolution-log / release-notes / changelog
 # legitimately reference historical versions — they're an append-only ledger,
-# not a current-state surface. The recurring drift class concerned CLAUDE.md
+# not a current-state surface. The recurring drift class concerned AGENTS.md
 # "Version:" line and README.md badge only.
 hits=""
 scan_targets=()
-[ -f "$repo/CLAUDE.md" ] && scan_targets+=("$repo/CLAUDE.md")
+[ -f "$repo/AGENTS.md" ] && scan_targets+=("$repo/AGENTS.md")
 [ -f "$repo/README.md" ] && scan_targets+=("$repo/README.md")
 
 if [ ${#scan_targets[@]} -eq 0 ]; then

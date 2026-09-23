@@ -6,7 +6,7 @@ description: Lightweight fast-lane for trivial fixes or quick lookups — assign
 # /dr-quick — Fast-Lane for Trivial Fixes & Lookups
 
 **Role**: Developer Agent (lightweight)
-**Source**: `$HOME/.claude/agents/developer.md`
+**Source**: `${DATARIM_RUNTIME:?}/agents/developer.md`
 
 Use this command for tiny, self-contained edits or quick information lookups that do not merit the full heavyweight pipeline. It deliberately bypasses PRD, planning, design, QA, and compliance stages to minimize overhead.
 
@@ -24,7 +24,7 @@ Note: title defaults to English unless the operator's configured content languag
 
 ### EXECUTION HOST
 
-1. Source the resolver: `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/execution-host.sh"`.
+1. Source the resolver: `source "${DATARIM_RUNTIME:?}/dev-tools/lib/execution-host.sh"`.
 2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
 3. On **off-host** (exit code 10), the routing decision depends on this QCK's intent -- and for the fast-lane that intent is only settled at Step 5 (apply-a-fix vs report-a-lookup), which runs AFTER this block. The dispatch decision is therefore **deferred and re-evaluated once intent is known at Step 5**; the two fixed outcomes are:
    - **READ-ONLY QCK** (a lookup / "where is X" / "does Y exist" -- Step 5 only *reports* the located item: touches no files, switches no branch, writes no archive): proceed LOCALLY in read-only mode -- do NOT dispatch (dispatching an observational command to the very host the laptop is meant to monitor buys nothing). Surface the delegation directive (your site's dispatch tooling, if any -- the framework ships none) as information only, never as a blocking question.
@@ -41,7 +41,7 @@ Note: title defaults to English unless the operator's configured content languag
 Enforcing this binding mechanically is **site policy, and the framework ships no reference implementation**. What ships is the mechanism, not the decision: the resolver library (`dev-tools/lib/execution-host.sh`), the drift validator (`dev-tools/check-execution-host-drift.sh`) and their tests. If your setup separates a control machine from execution hosts, wire your own PreToolUse hook against that resolver and keep it in your own workspace repo — a hook that decides which host may run work encodes your topology, and a second copy of an enforcement artefact living in two repos is exactly what drifted and failed closed before. This Step-0 check is the cooperative soft layer over the same resolver.
 2. **Assign the next free `QCK-XXXX` id — probe-before-emit (MANDATORY):**
    - Run the canonical helper (do NOT compute `max+1` mentally):
-     `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/next-free-id.sh" QCK "$DATARIM_ROOT"`
+     `"${DATARIM_RUNTIME:?}/dev-tools/next-free-id.sh" QCK "$DATARIM_ROOT"`
      where `$DATARIM_ROOT` is the workspace root (parent of `datarim/`). The helper applies the canonical formula
      `max(claimed across archive/datarim filenames ∪ line-leading index rows in datarim/tasks.md and datarim/backlog.md) + 1`
      and auto-bumps on a parallel-session race, printing the chosen `QCK-NNNN` to stdout. Its CEILING counts only
@@ -55,7 +55,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 
 ## Stage Header (mandatory)
 
-After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {title}**` as the first line of the post-Step-2 message block, per `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header. Do NOT emit the header before the ID is known (before the probe completes). Single occurrence per command invocation.
+After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {title}**` as the first line of the post-Step-2 message block, per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header. Do NOT emit the header before the ID is known (before the probe completes). Single occurrence per command invocation.
 3. Append a thin one-liner task line to `tasks.md` and mirror it into `activeContext.md` § Active Tasks. Short English title. By convention the fast-lane uses status `in_progress`, priority `P3`, complexity `L1` (it is for L1-sized work; if the work turns out larger, STOP and recommend `/dr-init` for the full pipeline). Emit the bare VALUES in their positional slots — writing the field NAMES into the line (`· status in_progress · priority P3 · complexity L1 ·`) does not match `ONELINER_RE` and fails the doctor:
 
 <!-- gate:history-allowed -->
@@ -70,7 +70,7 @@ After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {t
 6. **CLOSURE REACHABILITY GATE** (MANDATORY before Step 7, for every git repository this QCK changed; skip only for a READ-ONLY QCK, which touches no repository). The fast-lane skips PRD, plan, QA and compliance — it does NOT skip the check that the work exists where consumers can reach it. A QCK that edits files on a branch, writes its archive and flips `done` while the branch never lands produces exactly the defect the slow lane's `/dr-archive` Step 0.13 exists to prevent, and produces it faster.
 
    ```bash
-   "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/closure-gate.sh" \
+   "${DATARIM_RUNTIME:?}/dev-tools/closure-gate.sh" \
        --root <repo-path> --branch <task-branch> --task QCK-XXXX
    ```
 
@@ -96,4 +96,4 @@ After the short archive, emit a CTA block per the cta-format skill. Primary reco
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
-After the CTA block, perform snapshot emission per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission, bound for this command: `stage: quick`, `command: /dr-quick`, `captured-by: agent`, `recommended-next` = primary CTA option. Fail-closed: on non-zero writer exit, emit a single stderr warning line and continue. Kill switch `DATARIM_DISABLE_SNAPSHOT=1` is handled inside the library.
+After the CTA block, perform snapshot emission per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Snapshot Emission, bound for this command: `stage: quick`, `command: /dr-quick`, `captured-by: agent`, `recommended-next` = primary CTA option. Fail-closed: on non-zero writer exit, emit a single stderr warning line and continue. Kill switch `DATARIM_DISABLE_SNAPSHOT=1` is handled inside the library.

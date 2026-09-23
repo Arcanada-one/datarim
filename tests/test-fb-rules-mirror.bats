@@ -9,10 +9,15 @@ setup() {
   CHECKER="$REPO_ROOT/scripts/check-fb-rules-mirror.sh"
   PLUGIN_SH="$REPO_ROOT/scripts/dr-plugin.sh"
 
-  TMP="$(mktemp -d)"
+  # Physical temp root: the scope resolver resolves symlinks, and /var -> /private/var
+  # on macOS would otherwise make the manifest's project path mismatch.
+  TMP="$(cd "$(mktemp -d)" && pwd -P)"
   export DR_PLUGIN_WORKSPACE="$TMP"
-  export DR_PLUGIN_RUNTIME_ROOT="$TMP/runtime"
-  mkdir -p "$TMP/datarim" "$TMP/runtime"
+  # dr-plugin is project-scoped: the runtime root is the project's own local dir,
+  # and an override that names anything else is refused by design.
+  export DR_PLUGIN_RUNTIME_ROOT="$TMP/.datarim-runtime/local"
+  mkdir -p "$TMP/datarim" "$TMP/.datarim-runtime/local"
+  python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); (p/".datarim-runtime/installation.json").write_text(json.dumps({"schema":1,"project":str(p),"contexts":[]}))' "$TMP"
 
   # A minimal valid-category plugin fixture that opts into the gate.
   PLG="$TMP/fixture-plugin"
@@ -44,64 +49,64 @@ teardown() {
 }
 
 @test "checker exits 2 when consumer file is missing" {
-  run "$CHECKER" /no/such/CLAUDE.md
+  run "$CHECKER" /no/such/AGENTS.md
   [ "$status" -eq 2 ]
 }
 
 # ── checker: drift vs in-sync ───────────────────────────────────────────────
 
 @test "checker exits 1 when anchor is absent" {
-  printf 'FB-1 FB-2 FB-3 FB-4 FB-5 FB-5a FB-6 FB-7 FB-8\n' > "$TMP/CLAUDE.md"
-  run "$CHECKER" --quiet "$TMP/CLAUDE.md"
+  printf 'FB-1 FB-2 FB-3 FB-4 FB-5 FB-5a FB-6 FB-7 FB-8\n' > "$TMP/AGENTS.md"
+  run "$CHECKER" --quiet "$TMP/AGENTS.md"
   [ "$status" -eq 1 ]
 }
 
 @test "checker exits 1 when a rule id is not cited" {
   # Anchor present, but FB-6 omitted.
-  printf '## Autonomous Agent Operating Rules\nFB-1 FB-2 FB-3 FB-4 FB-5 FB-5a FB-7 FB-8\n' > "$TMP/CLAUDE.md"
-  run "$CHECKER" --quiet "$TMP/CLAUDE.md"
+  printf '## Autonomous Agent Operating Rules\nFB-1 FB-2 FB-3 FB-4 FB-5 FB-5a FB-7 FB-8\n' > "$TMP/AGENTS.md"
+  run "$CHECKER" --quiet "$TMP/AGENTS.md"
   [ "$status" -eq 1 ]
 }
 
 @test "checker exits 0 for a full mirror" {
-  printf '## Autonomous Agent Operating Rules\nFB-1 FB-2 FB-3 FB-4 FB-5 FB-5a FB-6 FB-7 FB-8\n' > "$TMP/CLAUDE.md"
-  run "$CHECKER" --quiet "$TMP/CLAUDE.md"
+  printf '## Autonomous Agent Operating Rules\nFB-1 FB-2 FB-3 FB-4 FB-5 FB-5a FB-6 FB-7 FB-8\n' > "$TMP/AGENTS.md"
+  run "$CHECKER" --quiet "$TMP/AGENTS.md"
   [ "$status" -eq 0 ]
 }
 
 @test "checker honours FB_RULES_CONSUMER_CLAUDE env fallback" {
-  printf '## Autonomous Agent Operating Rules\nFB-1 FB-2 FB-3 FB-4 FB-5 FB-5a FB-6 FB-7 FB-8\n' > "$TMP/CLAUDE.md"
-  FB_RULES_CONSUMER_CLAUDE="$TMP/CLAUDE.md" run "$CHECKER" --quiet
+  printf '## Autonomous Agent Operating Rules\nFB-1 FB-2 FB-3 FB-4 FB-5 FB-5a FB-6 FB-7 FB-8\n' > "$TMP/AGENTS.md"
+  FB_RULES_CONSUMER_CLAUDE="$TMP/AGENTS.md" run "$CHECKER" --quiet
   [ "$status" -eq 0 ]
 }
 
 # ── enable gate ─────────────────────────────────────────────────────────────
 
-@test "enable refuses when consumer CLAUDE.md is missing" {
+@test "enable refuses when consumer AGENTS.md is missing" {
   run "$PLUGIN_SH" enable "$PLG"
   [ "$status" -ne 0 ]
   [ ! -f "$TMP/datarim/enabled-plugins.md" ] || ! grep -q 'id: fixture-autonomy' "$TMP/datarim/enabled-plugins.md"
 }
 
 @test "enable refuses on drift and does not mutate the manifest" {
-  printf '# no anchor here\n' > "$TMP/CLAUDE.md"
+  printf '# no anchor here\n' > "$TMP/AGENTS.md"
   run "$PLUGIN_SH" enable "$PLG"
   [ "$status" -ne 0 ]
   [ ! -f "$TMP/datarim/enabled-plugins.md" ] || ! grep -q 'id: fixture-autonomy' "$TMP/datarim/enabled-plugins.md"
 }
 
 @test "enable succeeds when the consumer mirrors the canonical rules" {
-  printf '## Autonomous Agent Operating Rules\nFB-1 FB-2 FB-3 FB-4 FB-5 FB-5a FB-6 FB-7 FB-8\n' > "$TMP/CLAUDE.md"
+  printf '## Autonomous Agent Operating Rules\nFB-1 FB-2 FB-3 FB-4 FB-5 FB-5a FB-6 FB-7 FB-8\n' > "$TMP/AGENTS.md"
   run "$PLUGIN_SH" enable "$PLG"
   [ "$status" -eq 0 ]
   grep -q 'id: fixture-autonomy' "$TMP/datarim/enabled-plugins.md"
 }
 
 @test "enable is ungated for a plugin without requires_fb_rules_mirror" {
-  # Drop the opt-in flag; enable must not consult the consumer CLAUDE.md at all.
+  # Drop the opt-in flag; enable must not consult the consumer AGENTS.md at all.
   sed '/requires_fb_rules_mirror/d' "$PLG/plugin.yaml" > "$PLG/plugin.yaml.tmp"
   mv "$PLG/plugin.yaml.tmp" "$PLG/plugin.yaml"
-  # No CLAUDE.md in the workspace; enable should still succeed.
+  # No AGENTS.md in the workspace; enable should still succeed.
   run "$PLUGIN_SH" enable "$PLG"
   [ "$status" -eq 0 ]
   grep -q 'id: fixture-autonomy' "$TMP/datarim/enabled-plugins.md"

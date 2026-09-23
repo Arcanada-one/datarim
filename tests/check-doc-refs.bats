@@ -18,7 +18,7 @@ SCRIPT="${BATS_TEST_DIRNAME}/../scripts/check-doc-refs.sh"
 setup() {
     cd "$BATS_TEST_TMPDIR"
     mkdir -p tree/skills tree/agents tree/commands tree/templates tree/docs
-    cat > tree/CLAUDE.md <<'EOF'
+    cat > tree/AGENTS.md <<'EOF'
 # Root entry point.
 EOF
 }

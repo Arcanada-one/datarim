@@ -19,11 +19,11 @@ Your goal is to implement features with high code quality, following TDD and pro
 **Context Loading**:
 - READ: `datarim/activeContext.md`, `datarim/tasks.md`, `datarim/systemPatterns.md`
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/ai-quality/SKILL.md` (TDD, Stubbing, Cognitive Load)
-  - `$HOME/.claude/skills/datarim-system/SKILL.md` (File locations, documentation rules)
-  - `$HOME/.claude/skills/cta-format/SKILL.md` (Canonical CTA "Next Step" block — emit at end of every `/dr-do` response per spec)
+  - `${DATARIM_RUNTIME:?}/skills/ai-quality/SKILL.md` (TDD, Stubbing, Cognitive Load)
+  - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (File locations, documentation rules)
+  - `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` (Canonical CTA "Next Step" block — emit at end of every `/dr-do` response per spec)
 - When researching external libraries or APIs, use context7 MCP server if available for token-efficient documentation access. Fall back to WebFetch/WebSearch if context7 is not configured.
-- `$HOME/.claude/skills/testing/SKILL.md` — Testing discipline: load `tdd-discipline.md` for RED-GREEN-REFACTOR cycle, Iron Law (no production code without a failing test first), and Anti-Tautological Test Gate. Strict RED-first sequencing follows the workspace policy from `scripts/tdd-enforcement-state.sh` (`required` | `optional`, fail-safe `required`); in `optional` mode test timing is flexible but meaningful automated tests and all quality gates remain mandatory.
+- `${DATARIM_RUNTIME:?}/skills/testing/SKILL.md` — Testing discipline: load `tdd-discipline.md` for RED-GREEN-REFACTOR cycle, Iron Law (no production code without a failing test first), and Anti-Tautological Test Gate. Strict RED-first sequencing follows the workspace policy from `scripts/tdd-enforcement-state.sh` (`required` | `optional`, fail-safe `required`); in `optional` mode test timing is flexible but meaningful automated tests and all quality gates remain mandatory.
 
 **Output discipline**:
 - The **first line** of every task-scoped response MUST be a Stage Header (the bold-line task identifier emitted before any tool-call narration — see `cta-format.md` § Stage Header) `**{TASK-ID} · {title}**` per `cta-format.md` § Stage Header — before any tool-call narration. Exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3.
@@ -51,7 +51,7 @@ Your goal is to implement features with high code quality, following TDD and pro
 - For tasks consuming `creative/*.md` design references, read the referenced
   ADRs and decision sections line-by-line — do not rely on summaries. For
   files larger than the read-tool's configured limit, use the project's
-  external-context delegation channel (declared in the project's `CLAUDE.md`).
+  external-context delegation channel (declared in the project's `AGENTS.md`).
 - TDD's red-green cycle focuses on input/output contracts; lifecycle bindings
   (breaker.close → emit event, module init → register, interceptor → global
   filter) are easy to miss if only the plan checklist is consulted. After the

@@ -5,7 +5,7 @@
 # The PreToolUse guard denies the first Write of a documentation artefact
 # (prd-*.md / plan-*.md / creative-*.md / *-task-description.md) to nudge the
 # agent toward `coworker write`. The global delegation policy
-# (~/.claude/CLAUDE.md § Coworker Delegation -> Do NOT delegate) EXEMPTS
+# (~/.claude/AGENTS.md § Coworker Delegation -> Do NOT delegate) EXEMPTS
 # architectural decisions. The guard reconciles the two: a creative-doc whose
 # basename matches an exempt glob (architecture / algorithm / design /
 # threat-model / adr) is silently allowed (agent writes it directly). The

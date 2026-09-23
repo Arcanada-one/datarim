@@ -6,6 +6,7 @@ setup() {
     DELIVERY_SKILL="${REPO_ROOT}/skills/customer-delivery/SKILL.md"
     EXPECTATIONS_SKILL="${REPO_ROOT}/skills/expectations-checklist/SKILL.md"
     EXPECTATIONS_TEMPLATE="${REPO_ROOT}/templates/expectations-template.md"
+    LEGACY_ROOT="${REPO_ROOT}/tests/fixtures/legacy-expectations"
     SKILLS_REFERENCE="${REPO_ROOT}/documentation/reference/skills.md"
 }
 
@@ -1231,10 +1232,10 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
 }
 
 @test "tracked schema v2 repo-root parent paths remain read-compatible" {
-    run "$CHECK_EXPECTATIONS" --task TUNE-0574 --root "$REPO_ROOT"
+    run "$CHECK_EXPECTATIONS" --task TUNE-0574 --root "$LEGACY_ROOT"
     [ "$status" -eq 0 ] || return 1
 
-    run "$CHECK_EXPECTATIONS" --verify TUNE-0574 --root "$REPO_ROOT"
+    run "$CHECK_EXPECTATIONS" --verify TUNE-0574 --root "$LEGACY_ROOT"
     [ "$status" -eq 0 ] && [[ "$output" == *"PASS"* ]]
 }
 
@@ -1445,19 +1446,19 @@ EOF
     base_accepted_ids="$(printf '%s\n' \
         TUNE-0516 TUNE-0517 TUNE-0530 TUNE-0574)"
 
-    for file in "$REPO_ROOT"/datarim/tasks/*-expectations.md; do
+    for file in "$LEGACY_ROOT"/datarim/tasks/*-expectations.md; do
         schema="$(sed -nE 's/^schema_version:[[:space:]]*([123])$/\1/p' "$file")"
         [ -n "$schema" ] || continue
         id="$(sed -nE 's/^task_id:[[:space:]]*([^[:space:]]+)$/\1/p' "$file")"
         actual_tracked_ids="${actual_tracked_ids}${actual_tracked_ids:+$'\n'}${id}"
         printf '%s\n' "$base_accepted_ids" | grep -qxF "$id" || continue
 
-        run "$CHECK_EXPECTATIONS" --task "$id" --root "$REPO_ROOT"
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$LEGACY_ROOT"
         if [ "$status" -ne 0 ]; then
             echo "tracked legacy ${id} failed task validation: ${output}" >&2
             return 1
         fi
-        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$REPO_ROOT"
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$LEGACY_ROOT"
         if [ "$status" -ne 0 ]; then
             echo "tracked legacy ${id} failed verify validation: ${output}" >&2
             return 1

@@ -7,7 +7,7 @@ setup() {
     ARCHIVE_RULES="$REPO_ROOT/skills/datarim-system/command-and-archive-rules.md"
     ORCHESTRATE="$REPO_ROOT/commands/dr-orchestrate.md"
     AUTO="$REPO_ROOT/commands/dr-auto.md"
-    CLAUDE="$REPO_ROOT/CLAUDE.md"
+    CLAUDE="$REPO_ROOT/AGENTS.md"
 }
 
 @test "parallel orchestration is the canonical default" {

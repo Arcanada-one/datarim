@@ -43,6 +43,30 @@ $QUIET || echo "Repo:       $REPO_DIR"
 $QUIET || echo "Invariants: $INVARIANTS_REL"
 $QUIET || echo ""
 
+# Match a required token in a derived file.
+#
+# Plain tokens keep the strict fixed-string match. Mermaid edge tokens
+# ("a --> b") are matched with an expression that tolerates an optional node
+# label after either endpoint, because the generated map renders nodes as
+# `dr-do["/dr-do"] --> dr-qa["/dr-qa"]`. Without this the check reports drift
+# for edges that are present in both the graph source and the rendered map —
+# a false positive about the matcher's format assumption, not about routing.
+# The edge itself stays strict: both endpoints and their direction must match.
+_token_present() {
+    local token="$1" target="$2" left right pattern
+    if [[ "$token" == *" --> "* ]]; then
+        left="${token%% --> *}"
+        right="${token##* --> }"
+        # Endpoints are bare identifiers; anything else falls back to fixed match.
+        if [[ "$left" =~ ^[A-Za-z0-9_-]+$ && "$right" =~ ^[A-Za-z0-9_-]+$ ]]; then
+            pattern="(^|[^A-Za-z0-9_-])${left}(\[[^]]*\])?[[:space:]]*-->[[:space:]]*${right}([^A-Za-z0-9_-]|$)"
+            grep -qE -- "$pattern" "$target"
+            return
+        fi
+    fi
+    grep -qF -- "$token" "$target"
+}
+
 FAILURES=0
 ROW_COUNT=0
 in_mapping=false
@@ -72,7 +96,7 @@ while IFS= read -r line || [ -n "$line" ]; do
         FAILURES=$((FAILURES + 1))
         continue
     fi
-    if ! grep -qF -- "$token" "$target"; then
+    if ! _token_present "$token" "$target"; then
         $QUIET || echo "$path:$level: missing token \"$token\" ($label)"
         FAILURES=$((FAILURES + 1))
     fi

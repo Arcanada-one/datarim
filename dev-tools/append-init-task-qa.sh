@@ -71,7 +71,7 @@ Allowed --decided-by values: operator | agent | process-rule-artefact.
 
 Required when --decided-by is agent: --rationale-file (body >= 50 chars).
 Required when --decided-by is process-rule-artefact: --rationale-file
-  enumerating at least one persisted-artefact path token (e.g. CLAUDE.md,
+  enumerating at least one persisted-artefact path token (e.g. AGENTS.md,
   feedback_*.md, mandates/*.md, ~/.claude/...). No 50-char floor.
 
 Environment:
@@ -191,7 +191,7 @@ fi
 if [ "$DECIDED_BY" = "process-rule-artefact" ]; then
     [ -n "$RATIONALE_FILE" ] || fail_io "process-rule-artefact requires --rationale-file enumerating artefact paths"
     if ! grep -qE '(\.md\b|\.txt\b|/|~/|CLAUDE)' "$RATIONALE_FILE"; then
-        fail_io "process-rule-artefact rationale must contain at least one artefact path (e.g. CLAUDE.md, feedback_*.md, ~/.claude/...)"
+        fail_io "process-rule-artefact rationale must contain at least one artefact path (e.g. AGENTS.md, feedback_*.md, ~/.claude/...)"
     fi
 fi
 

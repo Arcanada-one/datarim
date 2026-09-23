@@ -54,7 +54,7 @@ Define the question clearly before assembling the panel.
 
 ## Step 2: ASSEMBLE
 
-Select agents based on the question domain. Load each agent's file from `$HOME/.claude/agents/{name}.md`.
+Select agents based on the question domain. Load each agent's file from `${DATARIM_RUNTIME:?}/agents/{name}.md`.
 
 ### Preset Panels
 

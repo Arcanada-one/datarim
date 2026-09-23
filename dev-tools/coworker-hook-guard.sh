@@ -130,7 +130,7 @@ emit_session_message() {
 #
 # Protected: wiki/*, Social Media/*, prd-*.md, plan-*.md, creative-*.md,
 # *-task-description.md. Exempt by omission: archive-*.md, reflection-*.md
-# (operator decision 2026-05-24 — see CLAUDE.md § Exempt).
+# (operator decision 2026-05-24 — see AGENTS.md § Exempt).
 # Resolve the exempt-patterns allowlist path. Default: sibling of this script's
 # real path (works under symlink/copy/project-install — _GUARD_SRC is already
 # readlink-resolved above). Per-project override via COWORKER_GUARD_EXEMPT_FILE.
@@ -180,7 +180,7 @@ check_write_protected() {
   local base
   base=$(basename "$f")
   # Voice-bearing paths are NOT delegation-gated — the assigned model writes
-  # them itself per the global mandate (~/.claude/CLAUDE.md § Do NOT delegate
+  # them itself per the global mandate (~/.claude/AGENTS.md § Do NOT delegate
   # → Voice-bearing and judgment content). They return 1 (allow native write).
   # missing read targets fail closed; allowing them would invert the mandate.
   case "$base" in
@@ -249,12 +249,12 @@ emit_write_deny() {
   local f="$1"
   local base
   base=$(basename "$f")
-  emit_deny "Создаёшь $base — это документационный артефакт. Per CLAUDE.md MANDATORY: первый draft через coworker write --profile datarim-write --spec \"...\" --context <refs> --target \"$f\", потом surgical edits. Approve только если уже сгенерирован coworker'ом. Если это АРХИТЕКТУРНОЕ решение (ADR / threat-model / design) — global rule «Do NOT delegate → Architectural decisions» разрешает писать напрямую: добавь glob имени в coworker-delegation-exempt.patterns (рядом с хуком) ИЛИ пиши через Bash heredoc (хук не гейтит Bash). Делегируй coworker'у только настоящие черновики, НЕ имитируй compliance пустышкой."
+  emit_deny "Создаёшь $base — это документационный артефакт. Per AGENTS.md MANDATORY: первый draft через coworker write --profile datarim-write --spec \"...\" --context <refs> --target \"$f\", потом surgical edits. Approve только если уже сгенерирован coworker'ом. Если это АРХИТЕКТУРНОЕ решение (ADR / threat-model / design) — global rule «Do NOT delegate → Architectural decisions» разрешает писать напрямую: добавь glob имени в coworker-delegation-exempt.patterns (рядом с хуком) ИЛИ пиши через Bash heredoc (хук не гейтит Bash). Делегируй coworker'у только настоящие черновики, НЕ имитируй compliance пустышкой."
 }
 
 emit_deny_voice_bearing() {
   local f="$1"
-  emit_deny "Voice-bearing content must be written natively by the assigned model, not delegated to coworker. Per CLAUDE.md § Do NOT delegate → Voice-bearing and judgment content — the point of running such work on a specific agent is to get *that model's* voice and judgment; routing the draft through coworker silently substitutes the delegate LLM's prose and defeats the purpose. Target: $f"
+  emit_deny "Voice-bearing content must be written natively by the assigned model, not delegated to coworker. Per AGENTS.md § Do NOT delegate → Voice-bearing and judgment content — the point of running such work on a specific agent is to get *that model's* voice and judgment; routing the draft through coworker silently substitutes the delegate LLM's prose and defeats the purpose. Target: $f"
 }
 
 emit_deny_no_coworker_zone() {
@@ -547,7 +547,7 @@ case "$tool" in
       *"| head"*|*"| tail"*|*"| wc"*|*"| grep"*|*"| sed"*|*"| awk"*|*"--stat"*|*"--name-only"*|*"--name-status"*|*"--shortstat"*|*"--no-pager"*|*" > "*) trigger=0 ;;
     esac
     if [ "$trigger" = "1" ]; then
-      emit_deny "Команда '${cmd}' может вернуть >200 строк diff/log. Per CLAUDE.md MANDATORY: пайпь в coworker ask — например '${cmd} | coworker ask --question \"summarize changes\"'. Approve если уверен, что output короткий."
+      emit_deny "Команда '${cmd}' может вернуть >200 строк diff/log. Per AGENTS.md MANDATORY: пайпь в coworker ask — например '${cmd} | coworker ask --question \"summarize changes\"'. Approve если уверен, что output короткий."
     fi
     exit 0
     ;;

@@ -22,7 +22,14 @@
 set -euo pipefail
 
 : "${DR_ORCH_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-: "${DR_ORCH_INBOX_DIR:=$HOME/.local/share/datarim-orchestrate/inbox}"
+# shellcheck source=lib/project-state.sh
+. "$DR_ORCH_DIR/scripts/lib/project-state.sh"
+# This handler enqueues into the inbox, so project state is genuinely
+# required; refuse with a message rather than aborting mid-expansion.
+if [[ -z "${DR_ORCH_INBOX_DIR:-}" ]]; then
+  _dr_state_root="$(dr_orch_state_root)" || exit 2
+  DR_ORCH_INBOX_DIR="$_dr_state_root/inbox"
+fi
 : "${DR_ORCH_INBOUND_TOKEN:=}"
 
 # Whitelisted commands for sync shortcut (V-AC-5/6).

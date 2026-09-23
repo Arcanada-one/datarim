@@ -45,7 +45,7 @@ When archiving a task, map the prefix to the destination subdirectory.
 | `QCK` | `quick/` |
 | *(unknown)* | resolved via Project Prefix lookup, else `general/` |
 
-**Project prefixes** (ecosystem- or project-specific) are NOT defined in the Datarim runtime. They are declared by the consumer in the nearest `CLAUDE.md` `## Task Prefix Registry` section and resolved by `scripts/datarim-doctor.sh` walking up from the Datarim root. See `skills/datarim-system/task-identity-and-context.md` § Project Prefix Resolution.
+**Project prefixes** (ecosystem- or project-specific) are NOT defined in the Datarim runtime. They are declared by the consumer in the nearest `AGENTS.md` `## Task Prefix Registry` section and resolved by `scripts/datarim-doctor.sh` walking up from the Datarim root. See `skills/datarim-system/task-identity-and-context.md` § Project Prefix Resolution.
 
 Archive path:
 
@@ -72,11 +72,11 @@ This allows parallel local workflow state with committed shared archives.
 
 When `/dr-init` detects project-creation intent (English keywords "create project" / "new project" or their Russian equivalents — full trigger list lives in `skills/project-init/SKILL.md`):
 
-1. Load `$HOME/.claude/skills/project-init/SKILL.md`.
-2. Create full project structure: `CLAUDE.md`, `documentation/`, `documentation/ephemeral/`, `datarim/`, `documentation/archive/`, `.gitignore`.
-3. Fill `CLAUDE.md` from template `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-claude-md.md` with project-specific placeholders.
-4. Create doc stubs from template `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-docs-stubs.md`.
-5. Detect tech stack via `$HOME/.claude/skills/tech-stack/SKILL.md` and apply to templates.
+1. Load `${DATARIM_RUNTIME:?}/skills/project-init/SKILL.md`.
+2. Create full project structure: `AGENTS.md`, `documentation/`, `documentation/ephemeral/`, `datarim/`, `documentation/archive/`, `.gitignore`.
+3. Fill `AGENTS.md` from template `${DATARIM_RUNTIME:?}/templates/project-claude-md.md` with project-specific placeholders.
+4. Create doc stubs from template `${DATARIM_RUNTIME:?}/templates/project-docs-stubs.md`.
+5. Detect tech stack via `${DATARIM_RUNTIME:?}/skills/tech-stack/SKILL.md` and apply to templates.
 6. Idempotent: skip existing files, create only what is missing.
 
 Project mode exits after scaffolding — it does not continue to the task flow.
@@ -87,10 +87,10 @@ Any plan or documentation that references component counts (skills, agents, comm
 
 ```bash
 # Authoritative counts
-ls $HOME/.claude/skills/*.md | wc -l    # skills
-ls $HOME/.claude/agents/*.md | wc -l    # agents
-ls $HOME/.claude/commands/*.md | wc -l  # commands
-ls $HOME/.claude/templates/*.md | wc -l # templates
+ls ${DATARIM_RUNTIME:?}/skills/*.md | wc -l    # skills
+ls ${DATARIM_RUNTIME:?}/agents/*.md | wc -l    # agents
+ls ${DATARIM_RUNTIME:?}/commands/*.md | wc -l  # commands
+ls ${DATARIM_RUNTIME:?}/templates/*.md | wc -l # templates
 ```
 
 Source: prior incident — plan stated "24→25 skills" but actual count was 20→21. README had stale counts (24 skills, 5 templates). Disk-first verification catches this.
@@ -103,7 +103,7 @@ Source: prior incident — plan stated "24→25 skills" but actual count was 20�
 4. `activeContext.md` must stay current.
 5. Backlog uses the active + archive split.
 6. Path resolution happens before any write.
-7. Use `$HOME/.claude/` or project-relative paths, not machine-specific absolute paths.
+7. Use `${DATARIM_RUNTIME:?}/` or project-relative paths, not machine-specific absolute paths.
 8. When updating site blog registries, update ALL registry files (primary `pages/blog/registry.php` AND secondary `pages/blog/posts/registry.php`). prior incident: secondary was missed → 404 on blog post.
 9. **`/dr-archive` Step 0.1 nested git scan** — clean-git check MUST cover ALL nested repos under workspace, not only the workspace root. Use:
    ```sh

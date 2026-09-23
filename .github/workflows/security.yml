@@ -488,7 +488,7 @@ jobs:
             documentation/reference \
             documentation/explanation \
             documentation/tutorials \
-            CLAUDE.md \
+            AGENTS.md \
             README.md; do
             bash scripts/task-id-gate.sh "$target"
           done

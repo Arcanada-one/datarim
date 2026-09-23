@@ -102,7 +102,7 @@ _classify() {
     for tok in $tgt; do
         stripped="$(_strip_prefix "$tok")"
         case "$stripped" in
-            skills/*|agents/*|commands/*|templates/*|CLAUDE.md) set +f; printf 'evolution'; return ;;
+            skills/*|agents/*|commands/*|templates/*|AGENTS.md) set +f; printf 'evolution'; return ;;
         esac
     done
     set +f

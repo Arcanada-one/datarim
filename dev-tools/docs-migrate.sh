@@ -24,7 +24,7 @@
 #   -- option terminators where applicable; umask 077 on tarball; chmod 0600.
 # Single responsibility: ONLY migrates product docs (docs/→documentation/).
 #   Never touches $DATARIM_ROOT runtime state — that is datarim-doctor.sh's domain
-#   (see CLAUDE.md § Validation Discipline, creative-INFRA-0306-architecture).
+#   (see AGENTS.md § Validation Discipline, creative-INFRA-0306-architecture).
 #
 # INFRA-0306 Phase 5 — implements D-REQ-07, covers V-AC-10, V-AC-11.
 #

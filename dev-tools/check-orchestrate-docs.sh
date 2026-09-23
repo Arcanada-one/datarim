@@ -19,7 +19,7 @@ files=(
   plugins/dr-orchestrate/plugin.yaml
   plugins/dr-orchestrate/README.md
   README.md
-  CLAUDE.md
+  AGENTS.md
   CHANGELOG.md
 )
 context_files=(
@@ -54,7 +54,7 @@ for file in "${context_files[@]}"; do
 done
 
 context_corpus="$(mktemp)"
-for file in "${context_files[@]}" commands/dr-orchestrate.md plugins/dr-orchestrate/README.md README.md CLAUDE.md CHANGELOG.md; do
+for file in "${context_files[@]}" commands/dr-orchestrate.md plugins/dr-orchestrate/README.md README.md AGENTS.md CHANGELOG.md; do
   cat "$ROOT/$file" >>"$context_corpus"
 done
 grep -qF 'trust_same_uid_runtime' "$context_corpus" || { echo 'FAIL: same-UID opt-in missing' >&2; exit 1; }

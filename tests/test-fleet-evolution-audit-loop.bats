@@ -46,26 +46,29 @@ EOF
     export REDIS_CLI_BIN="$MOCK"
     export REDIS_MOCK_DATA="$DATA"
 
-    # Minimal coworker mock (write copies a small valid skill; ask scores).
-    CW="$TMP/coworker-mock.sh"
+    # Minimal native client mock (write copies a small valid skill; ask scores).
+    CW="$TMP/native-mock.sh"
     cat > "$CW" <<'EOF'
 #!/usr/bin/env bash
-cmd=$1; shift; target=""; prev=""
-for a in "$@"; do case "$prev" in --target) target=$a ;; esac; prev=$a; done
-if [ "$cmd" = "write" ]; then
-    cat > "$target" <<'SKILL'
+prompt="$(cat)"
+[ -z "${NATIVE_INPUT_LOG:-}" ] || printf '%s\n' "$prompt" >> "$NATIVE_INPUT_LOG"
+case "$prompt" in
+    Score*) echo 0.8 ;;
+    *) cat <<'SKILL'
 ---
 name: fleet-l1-basic
 metadata:
+  fleet_level: 1
   context_budget_tokens: 200
 ---
-# Fleet L1 — Basic (evolved)
-One step only.
+# Fleet L1 - Basic (evolved)
+Execute the task in one step. If it needs analysis, stop and report level-mismatch.
 SKILL
-elif [ "$cmd" = "ask" ]; then echo "0.8"; fi
+    ;;
+esac
 EOF
     chmod +x "$CW"
-    export COWORKER_BIN="$CW"
+    export FLEET_NATIVE_BIN="$CW"
 }
 
 @test "loop dispatches a redis:// source (does not reject it as a missing path)" {

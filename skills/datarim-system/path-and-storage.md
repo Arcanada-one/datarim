@@ -6,57 +6,46 @@
 
 ### Path Resolution Rule
 
-Before writing any file to `datarim/`, you MUST resolve the correct path. The contract is **«one KB per git repository»** — the canonical `datarim/` lives at the git-root of the current repository and is identifiable by KB markers (`tasks.md`, `backlog.md`).
+Before writing task state, resolve an explicitly installed consumer project.
+A directory named `datarim/`, including a historical KB, does not enable Datarim.
 
-1. If `pwd` is inside a git repository, prefer `<toplevel>/datarim/` when it both (a) exists and (b) carries at least one KB marker (`tasks.md` OR `backlog.md`). This is the **canonical anchor** — it returns the KB of the current repo regardless of nested or sibling `datarim/` directories.
-2. Otherwise (outside git, or the git-root has no KB-marked `datarim/`), walk up the directory tree from `pwd` and use the **first** parent containing a KB-marked `datarim/` (must have `tasks.md` or `backlog.md`). A plain `datarim/` directory without markers is **not** a KB — most commonly this is the framework source-tree (`code/datarim/skills/...`), which must not be mistaken for a KB.
-3. If still not found, stop. Do not create the directory unless you are explicitly running `/dr-init`.
-4. If more than one KB-marked `datarim/` is found in the parent chain **above** the resolved one (without each having its own `.git/` boundary), emit a `WARN:` line to stderr listing both paths — this signals a misplaced KB and should be reported to the operator.
-5. **`code/datarim/` is NOT a general convention — never assume it for a code-project task.** Only the Datarim framework's own repository ships a `code/datarim/` (its `skills/agents/commands/templates/` source-tree). For any other project whose code lives under a `code/` sub-path (e.g. `Projects/<name>/code/`), Datarim workflow artefacts (task descriptions, expectations files, QA/compliance reports) resolve under that project's own `--root` (its git-toplevel `datarim/`, rule 1 above) — NOT under `Projects/<name>/code/datarim/`, which does not exist. A subagent that pattern-matches "this task's code has `code/` in its path → look under `code/datarim/`" is applying the framework-specific exception where the general rule (rule 1) already applies. Precedent: a prior QA incident — `/dr-qa` searched for the expectations file under a consumer project's non-existent `code/datarim/` and returned a false `BLOCKED "expectations file missing"`; the file was present at the correct `--root`-resolved path all along.
-
-**Why:** In monorepos and nested workspaces with multiple projects under one `.git/`, the historical walk-upward («first match wins») resolved to whichever `datarim/` happened to be closest to `pwd` — that picked up rogue/per-project `datarim/` directories instead of the canonical root one, fragmenting the KB. Anchoring to the git toplevel restores «one KB per git repo» and makes the resolver deterministic regardless of CWD inside the tree. Sub-projects with their own `.git/` (sub-repo / sibling clone) retain their own canonical `datarim/` — the git-root anchor naturally respects that boundary. The KB-marker check (`tasks.md` / `backlog.md` presence) disambiguates an actual KB from a same-named source-tree directory (e.g. `code/datarim/` contains the framework's `skills/agents/commands/templates/` source, not workflow state).
+1. Resolve the physical working directory and find the closest ancestor with
+   `.datarim-runtime/installation.json`.
+2. Require its recorded `project` to equal that physical ancestor. Copied
+   installations and symlinked runtime directories are rejected.
+3. Every nested Git repository crossed during this walk must appear in the
+   installation's explicit `contexts` list. Otherwise stop at that boundary.
+4. Task state is `<resolved-project>/datarim/`. It must already have `tasks.md`
+   or `backlog.md`, except when explicitly initializing that project.
+5. Never fall back to the user's home, a parent workspace KB, or the framework
+   source checkout. A new worktree needs its own explicit installation.
+6. **`code/datarim/` is NOT a general convention — never assume it for a
+   code-project task.** Only the Datarim framework's own repository ships a
+   `code/datarim/` source-tree. For any other project whose code lives under a
+   `code/` sub-path, workflow artefacts resolve under that project's own
+   installed root (rule 4), not under `code/datarim/`, which does not exist
+   there. An agent that pattern-matches "this task's code path contains
+   `code/` → look under `code/datarim/`" is applying a framework-specific
+   exception where the general rule already applies.
+   Precedent: a prior QA incident — `/dr-qa` searched for an expectations file
+   under a consumer project's non-existent `code/datarim/` and returned a false
+   `BLOCKED "expectations file missing"`; the file was present at the correctly
+   resolved path all along. Explicit installation makes the wrong path
+   unresolvable rather than merely discouraged, but the pattern-match is what
+   produced the false verdict, so the warning is kept.
 
 ### Quick Shell Check
 
 ```bash
-_dr_is_kb() {
-    # A real KB carries at least one of the canonical operational files.
-    [ -d "$1" ] && { [ -f "$1/tasks.md" ] || [ -f "$1/backlog.md" ]; }
-}
-
-DR_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-DR_DIR=""
-if [ -n "$DR_ROOT" ] && _dr_is_kb "$DR_ROOT/datarim"; then
-    DR_DIR="$DR_ROOT"
-else
-    CUR=$(pwd)
-    while [ "$CUR" != "/" ]; do
-        if _dr_is_kb "$CUR/datarim"; then
-            DR_DIR="$CUR"
-            break
-        fi
-        CUR=$(dirname "$CUR")
-    done
-fi
-
-if [ -z "$DR_DIR" ]; then
-    printf 'ERROR: datarim/ not found (no directory with tasks.md or backlog.md)\n' >&2
-    exit 1
-fi
-
-# advisory: warn if more than one KB-marked datarim/ is visible below the chosen anchor
-EXTRA=$(find "$DR_DIR" -mindepth 2 -maxdepth 5 -type d -name datarim \
-    -not -path '*/.git/*' 2>/dev/null \
-    | while read -r d; do _dr_is_kb "$d" && printf '%s\n' "$d"; done | head -n 5)
-if [ -n "$EXTRA" ]; then
-    printf 'WARN: multiple KB-marked datarim/ visible — using %s/datarim; also seen:\n%s\n' \
-        "$DR_DIR" "$EXTRA" >&2
-fi
-
-printf '%s/datarim\n' "$DR_DIR"
+source "${DATARIM_RUNTIME:?}/scripts/lib/resolve-datarim-root.sh"
+DR_ROOT=$(resolve_datarim_root "$PWD") || exit 1
+printf '%s/datarim\n' "$DR_ROOT"
 ```
 
-This rule is implemented once, canonically, in `scripts/lib/resolve-datarim-root.sh` — `resolve_datarim_root [start]` echoes the **repo-root** (the parent of the KB-marked `datarim/`), and `assert_not_nested_datarim <root>` rejects a root already inside a `datarim/` (the `datarim/datarim/` nesting vector). Every consumer that needs the KB location (the snapshot writer, `datarim-doctor.sh`, the `dev-tools/check-*.sh` validators) sources this file rather than re-implementing the walk-up — three divergent re-implementations were the root cause of nested directories and a missed `docs→history` migration. The `--root` argument means **repo-root** everywhere.
+The shell resolver shares `scripts/project_scope.py` with the Jev dispatcher.
+`resolve_datarim_root` returns the project root, and `--root` always means that
+root rather than the `datarim/` directory itself. Multiple KB directories below
+an enabled project produce an advisory; they never change the selected root.
 
 ## Negative-Claim Scope Precondition
 
@@ -161,25 +150,17 @@ documentation/
     └── general/
 ```
 
-## Symlink Architecture
+## Pinned Project Runtime
 
-The framework runtime directories in `$HOME/.claude/` are **symlinks** pointing to the Datarim git repository. This means edits to skills/commands/agents/templates in runtime are automatically tracked by git.
+The installer copies the reviewed framework into `<project>/.datarim-runtime/`.
+Its manifest records the source revision, content digest, project binding, and
+managed discovery files. Runtime edits do not modify the framework source.
+Propose reusable changes in the source repository through a pull request, then
+update each consumer explicitly. Home directories are never an installation target.
 
-| Runtime path | Symlink target |
-|-------------|---------------|
-| `$HOME/.claude/skills/` | `Projects/Datarim/code/datarim/skills/` |
-| `$HOME/.claude/commands/` | `Projects/Datarim/code/datarim/commands/` |
-| `$HOME/.claude/agents/` | `Projects/Datarim/code/datarim/agents/` |
-| `${DATARIM_RUNTIME:-$HOME/.claude}/templates/` | `Projects/Datarim/code/datarim/templates/` |
-
-**Implications:**
-- `git diff` in the Datarim repo shows runtime changes to skills/commands/agents/templates
-- No manual sync needed for these 4 directories — symlinks keep them identical
-- `install.sh` is needed only for first-time setup or rollback from backup
-- Backup of pre-symlink originals: `$HOME/.claude/backups/pre-symlink-2026-04-22/`
-- If the repo path changes, symlinks must be recreated
-
-**Established:** 2026-04-22.
+The installer exposes native skills in `.agents/skills/`, `.claude/skills/`, and
+`.cursor/skills/`. All project instructions live in `AGENTS.md`. Jev key material
+lives separately in `config/credentials/jev/api-key`, not in runtime snapshots.
 
 ## Documentation Storage Rules
 

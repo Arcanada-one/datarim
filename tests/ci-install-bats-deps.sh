@@ -66,14 +66,48 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$PYTHON_ONLY" != true ]; then
-    SUDO=""
-    if [ "$(id -u)" -ne 0 ]; then
-        SUDO="sudo"
+    # Install only what is missing, and only when this account can actually
+    # install. A self-hosted runner is a long-lived machine whose tools are
+    # already there: measured on arcana-devs-3, the ci-runner account already
+    # had jq, shellcheck and bats under ~/.local/bin and has no passwordless
+    # sudo, so the unconditional `sudo apt-get` failed the job before a single
+    # test ran -- over packages that did not need installing.
+    # An array, so the package list carries no leading blank. Built as a string
+    # it started with a space, and the unquoted expansion then handed apt-get an
+    # empty first argument: "E: Unable to locate package  socat".
+    missing=()
+    for tool in jq shellcheck socat; do
+        command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
+    done
+
+    # An array, not a string: `SUDO="sudo -n"` expands to a single word and is
+    # looked up as a command named "sudo -n", which does not exist. The old code
+    # happened to survive `SUDO="sudo"` only because that is one word.
+    #
+    # Resolved here rather than inside the apt branch: the bats-core and yq
+    # installs below write to $PREFIX and need the same elevation even when no
+    # apt package is missing. Scoping it to the apt branch left those two
+    # commands running unelevated.
+    sudo_cmd=()
+    if [ "$(id -u)" -ne 0 ] && sudo -n true 2>/dev/null; then
+        # `sudo -n` fails rather than prompting, so a runner without passwordless
+        # sudo never hangs on a password prompt no one can answer.
+        sudo_cmd=(sudo -n)
     fi
 
-    echo "==> apt fixtures (jq, shellcheck, socat)"
-    $SUDO apt-get update -qq
-    $SUDO apt-get install -y --no-install-recommends jq shellcheck socat
+    if [ "${#missing[@]}" -eq 0 ]; then
+        echo "==> apt fixtures (jq, shellcheck, socat): already present"
+    else
+        if [ "$(id -u)" -ne 0 ] && [ "${#sudo_cmd[@]}" -eq 0 ]; then
+            echo "ERROR: missing fixtures: ${missing[*]}" >&2
+            echo "       this account cannot apt-get install (no passwordless sudo)." >&2
+            echo "       Install them on the runner, or run as root." >&2
+            exit 1
+        fi
+        echo "==> apt fixtures (installing: ${missing[*]})"
+        "${sudo_cmd[@]}" apt-get update -qq
+        "${sudo_cmd[@]}" apt-get install -y --no-install-recommends "${missing[@]}"
+    fi
 
 echo "==> bats-core ${BATS_HUMAN_VERSION} @ ${BATS_SHA}"
 workdir="$(mktemp -d)"
@@ -88,7 +122,7 @@ if [ "$actual_sha" != "$BATS_SHA" ]; then
     echo "ERROR: bats-core checkout is ${actual_sha}, expected ${BATS_SHA}" >&2
     exit 1
 fi
-$SUDO "$workdir/bats-core/install.sh" "$PREFIX"
+"${sudo_cmd[@]}" "$workdir/bats-core/install.sh" "$PREFIX"
 
 echo "==> yq ${YQ_VERSION}"
 yq_tmp="${workdir}/yq_linux_amd64"
@@ -96,7 +130,7 @@ curl -fsSL --proto '=https' --tlsv1.2 \
      -o "$yq_tmp" \
      "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
 echo "${YQ_SHA256}  ${yq_tmp}" | sha256sum -c -
-    $SUDO install -m 0755 "$yq_tmp" "${PREFIX}/bin/yq"
+    "${sudo_cmd[@]}" install -m 0755 "$yq_tmp" "${PREFIX}/bin/yq"
 fi
 
 echo "==> python test deps"

@@ -6,30 +6,30 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 # /dr-qa - Multi-Layer Quality Verification
 
 **Role**: Reviewer Agent
-**Source**: `$HOME/.claude/agents/reviewer.md`
+**Source**: `${DATARIM_RUNTIME:?}/agents/reviewer.md`
 
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
 0.  **PROVENANCE GATE (mandatory, runs first)**: Before any other logic, assert that the tip being certified **is** the current branch tip and the working tree is clean, so a QA sign-off can never be recorded against a stale or rebased-away commit (a known false-green class: a sign-off recorded on a commit that is later rebased away, leaving the certification pinned to a tree that is no longer the branch state). Resolve the repo root first — the git top-level of the touched code (for a task whose code lives under `Projects/<name>/code/`, that nested repo, NOT the workspace root).
     -   **Pin what will be certified** (records the current HEAD to `datarim/provenance/{TASK-ID}.sha` and blocks on a dirty tree):
         ```bash
-        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/provenance-gate.sh" \
+        "${DATARIM_RUNTIME:?}/dev-tools/provenance-gate.sh" \
             --root <repo-root> --record --task {TASK-ID} --stage qa
         ```
     -   **Re-verify immediately before writing the QA report (Step 7)** that nothing rebased, amended, or committed over the tip mid-review:
         ```bash
-        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/provenance-gate.sh" \
+        "${DATARIM_RUNTIME:?}/dev-tools/provenance-gate.sh" \
             --root <repo-root> --task {TASK-ID} --stage qa
         ```
     -   A non-zero exit (dirty tree, drifted tip, or an evidence SHA that no longer resolves) STOPS the command: emit the gate's error verbatim and route back to `/dr-do {TASK-ID}` to re-run against the current tip. Exit `0` proceeds. The recorded SHA is the tip the QA report certifies — cite it in the report.
-1.  **LOAD**: Read `$HOME/.claude/agents/reviewer.md` and adopt that persona.
-2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule. **For a task whose code lives under `Projects/<name>/code/`, NEVER probe `Projects/<name>/code/datarim/` for workflow artefacts — that path exists only for the Datarim framework's own repo (see § Path Resolution Rule point 5). Resolve `--root` to the project's git-toplevel `datarim/`.**
+1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/reviewer.md` and adopt that persona.
+2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Path Resolution Rule. **For a task whose code lives under `Projects/<name>/code/`, NEVER probe `Projects/<name>/code/datarim/` for workflow artefacts — that path exists only for the Datarim framework's own repo (see § Path Resolution Rule point 5). Resolve `--root` to the project's git-toplevel `datarim/`.**
 
 ### EXECUTION HOST
 
-1. Source the resolver: `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/execution-host.sh"`.
+1. Source the resolver: `source "${DATARIM_RUNTIME:?}/dev-tools/lib/execution-host.sh"`.
 2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
 3. On **off-host** (exit code 10), AUTO-DISPATCH -- do NOT stop and hand the command back for the operator to type. The `required_host` binding IS the operator's standing authorization to run there, and dispatch (spawning a remote tmux session) is a reversible transport action; every irreversible step (prod deploy, secret rotation, force-push, public message) stays hard-gated on the remote agent downstream. Contract:
    a. **RUN vs INSPECT.** Auto-dispatch only when intent is to RUN the task (operator asked to run/execute/go, autonomous-mode marker active, or reached via `/dr-auto`). On INSPECT/read-only intent, do NOT dispatch: proceed locally read-only and surface the dispatch directive as information, not a blocking question.
@@ -42,11 +42,11 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 
 Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library.
 
-3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
-4.  **SKILL**: Read `$HOME/.claude/skills/security/SKILL.md` and `$HOME/.claude/skills/testing/SKILL.md`. Also load `$HOME/.claude/skills/immutability/SKILL.md` — read the `/dr-qa Rules` fragment for QA criterion immutability, Layer structure freeze, and Return-to-Source routing.
-5.  **CONTEXT**: Read `datarim/tasks.md` to get the resolved task's implementation plan. Read `datarim/activeContext.md` for current state. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the implementation MUST be flagged in the QA report § Expectations / § Plain-language summary. Missing init-task is non-blocking — flag as advisory and continue.
+3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
+4.  **SKILL**: Read `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` and `${DATARIM_RUNTIME:?}/skills/testing/SKILL.md`. Also load `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` — read the `/dr-qa Rules` fragment for QA criterion immutability, Layer structure freeze, and Return-to-Source routing.
+5.  **CONTEXT**: Read `datarim/tasks.md` to get the resolved task's implementation plan. Read `datarim/activeContext.md` for current state. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `${DATARIM_RUNTIME:?}/skills/init-task-persistence/SKILL.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the implementation MUST be flagged in the QA report § Expectations / § Plain-language summary. Missing init-task is non-blocking — flag as advisory and continue.
 6.  **ACTION**: Execute the verification layers below in order. Layers 1, 2, 3, 4 are the classical multi-layer review; Layer 3b is the expectations-verification gate (runs after Layer 3 when `datarim/tasks/{TASK-ID}-expectations.md` exists). Skip layers whose artifacts do not exist.
-6.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during the review — either operator answer or autonomous agent-decision under FB-1..FB-5 (the Feedback Behaviour rules governing autonomous decisions, [definition](../skills/autonomous-mode/SKILL.md)) — invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh"` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log` before emitting the QA report.
+6.5. **APPEND Q&A IF ANY** (mandatory per `${DATARIM_RUNTIME:?}/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during the review — either operator answer or autonomous agent-decision under FB-1..FB-5 (the Feedback Behaviour rules governing autonomous decisions, [definition](../skills/autonomous-mode/SKILL.md)) — invoke `"${DATARIM_RUNTIME:?}/dev-tools/append-init-task-qa.sh"` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log` before emitting the QA report.
     -   Write the question, answer, and rationale (when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
     -   Required flags: `--root <repo-root> --task {TASK-ID} --stage qa --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of best-practice rationale. Layer 3b will verify each agent-decision against the implementation.
@@ -54,7 +54,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     -   Skip if no clarification rounds occurred.
 7.  **OUTPUT**: Write `datarim/qa/qa-report-{task-id}.md` with results, including the § Deferred Items (session-scoped) table below (empty/`None` by default; populate whenever a layer identifies a gap that this pass is knowingly not fixing).
 8.  **HUMAN SUMMARY**:
-    - Load `$HOME/.claude/skills/human-summary/SKILL.md`.
+    - Load `${DATARIM_RUNTIME:?}/skills/human-summary/SKILL.md`.
     - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the QA-report write and the CTA block ([definition](../skills/cta-format/SKILL.md)). Language follows the most recent operator message. <!-- allow-non-ascii: literal-russian-section-name-token-from-human-summary-skill -->
     - Source material: § Overview of the task description, per-layer verdicts, expectations checklist statuses (if Layer 3b ran), and the overall verdict.
     - Runs on every overall verdict (ALL_PASS, CONDITIONAL_PASS, BLOCKED). On BLOCKED the «Что не получилось» sub-section carries the failure detail in plain language and «Что дальше» paraphrases the FAIL-Routing target layer name (without command syntax — the CTA below carries that verbatim). <!-- allow-non-ascii: literal-russian-section-name-token-from-human-summary-skill -->
@@ -147,7 +147,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 
 ## Layer 3b: Expectations Verification
 
-**Condition:** Execute when `datarim/tasks/{TASK-ID}-expectations.md` exists (mandatory for L3-L4 tasks per `$HOME/.claude/skills/expectations-checklist/SKILL.md`; optional for L1-L2 within the 30-day soft window).
+**Condition:** Execute when `datarim/tasks/{TASK-ID}-expectations.md` exists (mandatory for L3-L4 tasks per `${DATARIM_RUNTIME:?}/skills/expectations-checklist/SKILL.md`; optional for L1-L2 within the 30-day soft window).
 
 **Checks:**
 
@@ -159,11 +159,11 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
   - **(Per-wish report contract, mandatory for schema_version=2)** write a detailed per-wish block to `datarim/qa/qa-report-{TASK-ID}.md` per the **Per-Wish Detailed Block Template** below. The block records what was tested + what command was run + what was measured, so the operator can audit how the task was implemented, which tests and measurements were run, and what result came back — without re-running QA. Evidence_type rules:
     - `empirical` — block MUST contain a runtime command invocation <!-- gate:example-only -->(curl, bats, pytest, docker exec, sample-tool execution)<!-- /gate:example-only --> + actual stdout/stderr/exit code. Static grep alone does NOT satisfy `empirical`.
     - `measurement` — block MUST contain a numeric value + comparison to expected (e.g. «latency p95 = 87ms < budget 100ms»). Plain prose alone does NOT satisfy `measurement`.
-    - `static` — block MAY contain only `grep` / `test -f` / `wc -l` / file-presence checks. Validator emits an advisory warning if ALL wishes in a task are `static` (per `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --all`).
+    - `static` — block MAY contain only `grep` / `test -f` / `wc -l` / file-presence checks. Validator emits an advisory warning if ALL wishes in a task are `static` (per `"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --all`).
     - Legacy `schema_version=1` items: write the block on best-effort basis (no evidence_type rule enforcement); validator deprecation warning surfaces the migration prompt.
 - After all items are updated, invoke the routing validator:
   ```bash
-  "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --verify {TASK-ID}
+  "${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --verify {TASK-ID}
   ```
   - Exit 0 + stdout marker `PASS` ⇒ Layer 3b verdict **PASS**;
   - Exit 0 + stdout marker `CONDITIONAL_PASS` ⇒ Layer 3b verdict **PASS_WITH_NOTES** (every partial/missed item carries an operator override ≥10 chars);
@@ -172,7 +172,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 - **Anti-deferral prose scan (ADVISORY at QA).** After the routing validator, scan the QA report just written for self-deferral language — the failure mode where the agent labels its own incomplete work "out of scope / informational / not a blocker / will fix later" instead of finishing it.
   - **Auto-derive `--extra-repo` for dual-repo topologies** (convenience — the flag itself already works when passed explicitly, per `/dr-compliance` Step 5c): before invoking the scanner, run `find <repo-root> -maxdepth 6 -name .git -type d` — the same nested-repo discovery `/dr-archive` Step 0.1 already performs — and, for every match other than `<repo-root>/.git` itself, pass its parent directory as one repeatable `--extra-repo <path>` flag. This keeps the QA-time advisory self-scan covering the same touched-set as the compliance-time hard gate without the agent having to notice the dual-repo topology by hand.
   ```bash
-  "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
+  "${DATARIM_RUNTIME:?}/dev-tools/check-deferral-prose.sh" \
       --file datarim/qa/qa-report-{TASK-ID}.md --root <repo-root> \
       [--extra-repo <nested-repo-path>]...
   ```
@@ -247,7 +247,7 @@ A FAIL at Layer 3b makes the overall verdict **BLOCKED** regardless of other lay
 
 ### Q&A round-trip verification (additional sub-check)
 
-When `datarim/tasks/{TASK-ID}-init-task.md § Append-log` contains one or more `### <ISO> — Q&A by /dr-<stage> (round N)` blocks (contract: `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract), Layer 3b extends its verification with two additional checks. The Q&A pass runs after the per-item expectation walk above and is gated on the same Layer 3b verdict ladder.
+When `datarim/tasks/{TASK-ID}-init-task.md § Append-log` contains one or more `### <ISO> — Q&A by /dr-<stage> (round N)` blocks (contract: `${DATARIM_RUNTIME:?}/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract), Layer 3b extends its verification with two additional checks. The Q&A pass runs after the per-item expectation walk above and is gated on the same Layer 3b verdict ladder.
 
 1. **Agent-decision implementation grep.** For every block whose `**Decided by:** agent` line is present, extract the `Summary` text and grep the implementation surface (changed files for this task, the task description, the archive draft if any) for the salient token(s) of the summary. The decision is **reflected** when a textual or semantic match exists in the implementation artefacts; **not reflected** otherwise. Findings format: `Q&A round-trip: agent-decision <round-N> not reflected in implementation`.
 2. **Conflict closure verification.** For every block carrying `**Conflict with existing wish:** <wish_id> — …` (non-`none`), the Append-log MUST also contain a closure entry — either an operator amendment (`amendment by …`) or a later Q&A round on the same `wish_id` that resolves the contradiction. An **unclosed Conflict** raises Layer 3b verdict **BLOCKED**; finding format: `Q&A round-trip: unclosed Conflict on <wish_id> — operator returns task via /dr-do --focus-items <wish_id>`.
@@ -269,7 +269,7 @@ The Q&A round-trip findings appear in the same Layer 3b table under a dedicated 
 Invoke:
 
 ```
-"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/spec-graph-gate.sh" \
+"${DATARIM_RUNTIME:?}/dev-tools/spec-graph-gate.sh" \
     --task {TASK-ID} --stage qa --root <repo-root> --format json
 ```
 
@@ -291,7 +291,7 @@ Invoke:
 - If tests fail, list failures with file and line
 
 ### 4b. Security
-- Apply checks from `$HOME/.claude/skills/security/SKILL.md`
+- Apply checks from `${DATARIM_RUNTIME:?}/skills/security/SKILL.md`
 - Scan for hardcoded secrets, exposed endpoints, missing input validation
 - Check dependency vulnerabilities if lockfile exists (use the project's package-manager-native audit command at the declared severity threshold)
 
@@ -303,14 +303,14 @@ Invoke:
 - Console.log / print statements left in production code
 
 ### 4d. Live Smoke-Test Gate (raw SQL / cross-DB / cross-instance)
-- If the changed code uses `$queryRaw`, `raw()`, `sequelize.query()`, or any path that bypasses the ORM type-checker — a **live smoke test** against the actual target datasource is **mandatory**. Mocked/unit tests do not satisfy this gate (see `$HOME/.claude/skills/testing/SKILL.md` § Live Smoke-Test Gate).
+- If the changed code uses `$queryRaw`, `raw()`, `sequelize.query()`, or any path that bypasses the ORM type-checker — a **live smoke test** against the actual target datasource is **mandatory**. Mocked/unit tests do not satisfy this gate (see `${DATARIM_RUNTIME:?}/skills/testing/SKILL.md` § Live Smoke-Test Gate).
 - In multi-datasource projects (e.g. aio-v2: `PrismaService` → `stats` mysql5 vs `PrismaBiService` → `bi_aggregate` mysql8), verify the correct client is injected for the target table. A wrong-client `$queryRaw` compiles clean and fails at runtime.
 - **Record in QA report:** the exact smoke-test command, the datasource hit, and the result (row count / expected empty / error). No smoke test ⇒ Layer 4 verdict is **FAIL**, not PASS_WITH_NOTES.
 - **Gate:** the pre-archive gate `dev-tools/check-raw-sql-smoke-test.sh` enforces this mechanically — when a diff carries raw-SQL patterns, it checks the QA report for smoke-test result markers and blocks archive on absence. Run it at `/dr-qa` Step 7 (self-check) and at `/dr-archive` Step 0.x (pre-archive gate).
 
 ### 4d-bis. Agentic Entrypoint Wiring + Live-Run Gate
 
-**Condition:** the task ships a service/daemon/cron/agent whose declared purpose is to invoke an external CLI/LLM/subprocess (e.g. `claude -p`, `gh`, `aws`) and act on its output. Apply per `$HOME/.claude/skills/testing/live-smoke-gates.md` § Gate 7.
+**Condition:** the task ships a service/daemon/cron/agent whose declared purpose is to invoke an external CLI/LLM/subprocess (e.g. `claude -p`, `gh`, `aws`) and act on its output. Apply per `${DATARIM_RUNTIME:?}/skills/testing/live-smoke-gates.md` § Gate 7.
 
 - **Entrypoint-reachability (both ways):** prove the *real* entrypoint (`__main__` / systemd `ExecStart` / cron command / queue consumer) actually calls the declared function — static call-graph grep (entrypoint imports AND invokes the orchestrator/lane, not merely that it exists) **and** a runtime probe showing the function was entered. An orchestrator/lane reachable only from tests is **dead code in prod**: the wish is **missed**, Layer 4 = **FAIL** → `/dr-do`.
 - **One live tool-run:** run the agent **once for real** with the feature enabled and the tool present, against realistic input; capture the real tool's stdout/exit + the resulting side-effect (audit record / notification / MR / file change). Pair with the Auth Probe and PATH check (the tool must be on the *service's* PATH, not just the login shell's).
@@ -341,7 +341,7 @@ Invoke:
 
 ### 4f. Browser-based Frontend QA (Playwright pass)
 
-**Condition:** Execute only when the changed-files set for the task contains frontend markup per `$HOME/.claude/skills/playwright-qa/SKILL.md` § Frontend touch detection. Skip silently otherwise.
+**Condition:** Execute only when the changed-files set for the task contains frontend markup per `${DATARIM_RUNTIME:?}/skills/playwright-qa/SKILL.md` § Frontend touch detection. Skip silently otherwise.
 
 **Steps:**
 
@@ -349,12 +349,12 @@ Invoke:
 2.  Acquire the per-task lock at `datarim/qa/playwright-{TASK-ID}/.lock` (`flock --timeout 30`, fallback to atomic `mkdir`). Lock-timeout ⇒ finding `playwright-lock-timeout`, continue without the pass.
 3.  Resolve the tool:
     ```bash
-    "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/detect-playwright-tooling.sh" [--headed | --headed-strict] --json
+    "${DATARIM_RUNTIME:?}/dev-tools/detect-playwright-tooling.sh" [--headed | --headed-strict] --json
     ```
     Parse `tool` / `headed` / `display` / optional `finding` from the JSON line. Exit code 2 ⇒ FAIL (strict headed without display); exit code 1 ⇒ should not occur here (no `--require`); exit code 0 with `tool: none` ⇒ finding `playwright-tooling-missing`, skip the pass.
 4.  Create the per-run directory `datarim/qa/playwright-{TASK-ID}/run-$(date -u +%Y%m%dT%H%M%SZ)/`.
 5.  Invoke the resolved tool against the project's local dev surface (default) or a static fixture identified in the init-task. Capture `screenshot.png` + `trace.zip` (CLI/MCP only) + combined stdout/stderr to `run.log`.
-6.  Write `summary.md` per the shape defined in `$HOME/.claude/skills/playwright-qa/SKILL.md` § Artifact layout (tool / headed mode / display / target URL / viewport / exit code / findings list).
+6.  Write `summary.md` per the shape defined in `${DATARIM_RUNTIME:?}/skills/playwright-qa/SKILL.md` § Artifact layout (tool / headed mode / display / target URL / viewport / exit code / findings list).
 7.  Update the `latest` symlink (copy-fallback on filesystems without symlink support).
 8.  Release the lock.
 
@@ -372,7 +372,7 @@ Invoke:
 ### 4g. Prod-Readiness Gate (deploy-class tasks — blocking before merge)
 
 **Condition:** Execute only when the task is **deploy-class**, i.e.
-`bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deploy-class.sh" --task-description datarim/tasks/{TASK-ID}-task-description.md`
+`bash "${DATARIM_RUNTIME:?}/dev-tools/check-deploy-class.sh" --task-description datarim/tasks/{TASK-ID}-task-description.md`
 exits 0 (the task touches a deploy surface — systemd units, sudoers, CI cutover,
 `.env-deploy`). On exit 1 the gate verdict is **SKIP** and this layer is a no-op.
 
@@ -385,7 +385,7 @@ recommend merging an unverified cutover.
 
 **Steps:**
 
-1.  Load `$HOME/.claude/skills/prod-readiness-probe/SKILL.md` and run the probe
+1.  Load `${DATARIM_RUNTIME:?}/skills/prod-readiness-probe/SKILL.md` and run the probe
     in read-only mode against the test and prod runners.
 2.  **Hybrid:** if the project authored `datarim/deploy-readiness.yml` (validate
     with `dev-tools/check-deploy-readiness.sh --validate-yaml`), run the
@@ -415,7 +415,7 @@ predicted production impact and the operator remediation required.
 
 **Condition:** Execute when the task ships runtime behaviour (code/config/migration —
 not docs-only or framework-only) AND the project space has a test environment, per
-`$HOME/.claude/skills/test-env-verification/SKILL.md` § When this skill is active.
+`${DATARIM_RUNTIME:?}/skills/test-env-verification/SKILL.md` § When this skill is active.
 Resolution chain: space registry `spaces/<space>/space.yml` → `test_environments[]`
 (authoritative) → CI `deploy:test` heuristic (fallback) → else `NO-TEST-ENV`.
 
@@ -428,7 +428,7 @@ this skill pre-resolves that decision to "yes".
 
 **Steps (autonomous):**
 
-1.  Load `$HOME/.claude/skills/test-env-verification/SKILL.md`.
+1.  Load `${DATARIM_RUNTIME:?}/skills/test-env-verification/SKILL.md`.
 2.  Resolve the test environment(s) + record the source that resolved them.
 3.  Ship the change to the test env via the project's `deploy:test` CI (integrate
     onto the triggering branch — cherry-pick-onto-`dev` when the feature was cut
@@ -460,7 +460,7 @@ the shared checker unconditionally and independently of `/dr-do`:
 
 ```bash
 # nosec-extract
-"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-framework-version-accountability.sh" \
+"${DATARIM_RUNTIME:?}/dev-tools/check-framework-version-accountability.sh" \
   --task {TASK-ID} --workspace <workspace-root> --repo <framework-repo>
 ```
 
@@ -547,12 +547,12 @@ evaporating with this report.
 
 When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND the matching per-task marker — resolved via `dev-tools/auto-mode-marker.sh resolve --root <workspace> --task-id <TASK-ID>`, per-task `datarim/.auto/<TASK-ID>.mode` with legacy `datarim/.auto-mode-active` fallback — containing this TASK-ID), this command:
 
-1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
+1. Consults `${DATARIM_RUNTIME:?}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
    - Stage failure routing (back to /dr-do vs proceed with caveats) — resolved through Ladder L2 (re-run test, runtime probe) before L5 escalation.
    - V-AC (verifiable acceptance criterion — an acceptance criterion paired with a concrete runnable check, [definition](../skills/v-ac-feasibility/SKILL.md)) ambiguity (partial pass vs full pass) — strict ambiguity rule applies: ≥2 plausible verdicts → L5.
 3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
-4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:?}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
 5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).
 
 ## Next Steps
@@ -584,7 +584,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND the matching per-tas
 
 ## Next Steps (CTA)
 
-After verdict, the reviewer agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`. BLOCKED verdicts MUST use the FAIL-Routing variant.
+After verdict, the reviewer agent MUST emit a CTA block per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`. BLOCKED verdicts MUST use the FAIL-Routing variant.
 
 **Routing logic for `/dr-qa`:**
 
@@ -630,7 +630,7 @@ Before proceeding to next stage:
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
-After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
 
 - `stage`: `qa`
 - `command`: `/dr-qa`

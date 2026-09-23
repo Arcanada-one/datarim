@@ -6,7 +6,7 @@
 #   --check                    Presence-gate: SECURITY.md at repo root.
 #   --validate-yaml <FILE>     Schema v1 validation of accepted-risk.yml.
 #
-# Contract source: consumer ecosystem CLAUDE.md
+# Contract source: consumer ecosystem AGENTS.md
 # § Arcanada Ecosystem Security Policy Mandate.
 #
 # Exit codes:

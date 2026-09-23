@@ -60,7 +60,7 @@ The researcher works with whatever tools are available. No hard dependency on an
 If no web tools or MCP servers are configured, research falls back to:
 - Codebase analysis (Grep, Glob, Read) — existing patterns, dependencies from package.json/requirements.txt
 - Git history — past decisions, migration commits
-- Local documentation — README, CLAUDE.md, datarim/ docs
+- Local documentation — README, AGENTS.md, datarim/ docs
 - Agent's training knowledge (with caveat: may be outdated, flag uncertainty)
 
 Mark affected checkpoints as `[OFFLINE — based on local context only]` in the insights document.
@@ -187,7 +187,7 @@ Real incident: ~30 minutes of Groq integration test scaffolding had to be redone
 
 ## Output Format
 
-Use the insights template at `${DATARIM_RUNTIME:-$HOME/.claude}/templates/insights-template.md`.
+Use the insights template at `${DATARIM_RUNTIME:?}/templates/insights-template.md`.
 
 Create the document at: `datarim/insights/INSIGHTS-{task-id}.md`
 

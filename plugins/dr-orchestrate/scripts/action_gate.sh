@@ -12,7 +12,7 @@ REPO_ROOT="$(cd "$DR_ORCH_DIR/../.." && pwd)"
 RESOLVER="${DR_AUTONOMY_RESOLVER:-$REPO_ROOT/dev-tools/resolve-space-autonomy.sh}"
 
 # Core canonical fb-rules only (runtime install first, repo-relative second).
-_RUNTIME_FB_RULES="${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/rules/fb-rules.yaml"
+_RUNTIME_FB_RULES="${DATARIM_RUNTIME:-$REPO_ROOT}/dev-tools/rules/fb-rules.yaml"
 _REPO_FB_RULES="$REPO_ROOT/dev-tools/rules/fb-rules.yaml"
 if [[ -z "${DR_AUTONOMY_RULES:-}" ]]; then
   if [[ -f "$_RUNTIME_FB_RULES" ]]; then

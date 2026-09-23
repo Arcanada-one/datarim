@@ -78,7 +78,7 @@ is_shipped_path() {
   case "$1" in
     tests/*|*/tests/*|*/test/*|*/fixtures/*|.github/*|.datarim/*|VERSION|CHANGELOG.md|documentation/archive/*|documentation/evolution/*|documentation/ephemeral/*|documentation/release-audit/*) return 1 ;;
     commands/*|skills/*|agents/*|templates/*|plugins/*|cli/*|scripts/*|dev-tools/*|config/*|documentation/tutorials/*|documentation/how-to/*|documentation/reference/*|documentation/explanation/*) return 0 ;;
-    install.sh|update.sh|validate.sh|accepted-risk-aal.yml|CLAUDE.md|README.md|CONTRIBUTING.md|SECURITY.md) return 0 ;;
+    install.sh|update.sh|validate.sh|accepted-risk-aal.yml|AGENTS.md|README.md|CONTRIBUTING.md|SECURITY.md) return 0 ;;
     *) return 1 ;;
   esac
 }

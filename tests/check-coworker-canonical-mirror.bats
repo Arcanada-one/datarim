@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# check-coworker-canonical-mirror.bats — unit matrix for the coworker
-# Type-Signature Mirror Guard linter (scripts/check-coworker-canonical-mirror.sh).
+# check-artifact-canonical-mirror.bats — unit matrix for the coworker
+# Type-Signature Mirror Guard linter (scripts/check-artifact-canonical-mirror.sh).
 #
 # Contract under test (see skills/coworker-context/SKILL.md
 # § Type-Signature Mirror Guard):
@@ -16,7 +16,7 @@
 # The DoD case is T2: a synthetic spec that quotes types but ships NO verbatim
 # canonical block MUST be caught (guard unmet, exit 1).
 
-SCRIPT="${BATS_TEST_DIRNAME}/../scripts/check-coworker-canonical-mirror.sh"
+SCRIPT="${BATS_TEST_DIRNAME}/../scripts/check-artifact-canonical-mirror.sh"
 
 setup() {
     D="$(mktemp -d)"
@@ -127,9 +127,9 @@ EOF
     [ "$status" -eq 2 ]
 }
 
-# T9: COWORKER_MIRROR_FILE env supplies the target when no positional arg.
-@test "T9 COWORKER_MIRROR_FILE env resolves the target → exit 0" {
+# T9: ARTIFACT_MIRROR_FILE env supplies the target when no positional arg.
+@test "T9 ARTIFACT_MIRROR_FILE env resolves the target → exit 0" {
     write_good
-    COWORKER_MIRROR_FILE="$D/draft.md" run bash "$SCRIPT" --quiet
+    ARTIFACT_MIRROR_FILE="$D/draft.md" run bash "$SCRIPT" --quiet
     [ "$status" -eq 0 ]
 }

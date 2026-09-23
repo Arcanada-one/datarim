@@ -18,7 +18,12 @@
 
 load_local_config() {
     local local_root file key val rest
-    local_root="${DATARIM_LOCAL:-$HOME/.claude/local}"
+    [ -n "${DATARIM_RUNTIME:-}" ] || return 0
+    local_root="$DATARIM_RUNTIME/local"
+    if [ -n "${DATARIM_LOCAL:-}" ] && [ "$DATARIM_LOCAL" != "$local_root" ]; then
+        printf 'Local config override must remain inside the project runtime\n' >&2
+        return 1
+    fi
     file="${local_root}/config/personal.env"
 
     # Fail-soft: missing or unreadable file is not an error.

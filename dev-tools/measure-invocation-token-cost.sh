@@ -9,7 +9,7 @@
 # `gen_ai.usage.output_tokens`. Output JSON.
 #
 # Inputs:
-#   --task <ID>                 Mandatory. Task identifier (regex ^[A-Z]+-[0-9]+$).
+#   --task <ID>                 Mandatory. Canonical base task identifier.
 #   --since <duration|date>     Optional. Default 7d. Accepts:
 #                                 NNd  → mtime ≥ now() - NNd
 #                                 YYYY-MM-DD → daily file ≥ that date
@@ -27,6 +27,9 @@
 # enforced" guarantee. The python heredoc handles all I/O errors via try/except. Omitting -e
 # preserves the exit-0-always invariant. -u and pipefail are retained.
 set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "${SCRIPT_DIR}/../scripts/lib/schema-regex.sh"
 
 TASK_ID=""
 SINCE="7d"
@@ -59,8 +62,8 @@ if [ -z "$TASK_ID" ]; then
     echo "measure-invocation-token-cost: --task <TASK-ID> required" >&2
     exit 2
 fi
-if ! printf '%s' "$TASK_ID" | grep -qE '^[A-Z]+-[0-9]+$'; then
-    echo "measure-invocation-token-cost: invalid task-id (regex ^[A-Z]+-[0-9]+\$): $TASK_ID" >&2
+if ! printf '%s' "$TASK_ID" | grep -qE "$TASK_ID_BASE_RE"; then
+    echo "measure-invocation-token-cost: invalid canonical task-id: $TASK_ID" >&2
     exit 2
 fi
 

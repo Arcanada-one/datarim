@@ -6,7 +6,7 @@ description: Pre-apply gate rejecting stack-specific content for Datarim runtime
 # Stack-Agnostic Gate — Runtime Contract
 
 The Datarim framework is **stack-neutral by contract**. Skills, agents,
-commands, and templates installed under `$HOME/.claude/{skills,agents,commands,templates}/`
+commands, and templates installed under `${DATARIM_RUNTIME:?}/{skills,agents,commands,templates}/`
 must not name a specific framework, package manager, or runtime library —
 otherwise projects on a different stack inherit irrelevant or actively
 misleading guidance.
@@ -28,10 +28,10 @@ Load and run this gate at the apply step of:
 
 Any text about to be written to:
 
-- `$HOME/.claude/skills/*.md` and `$HOME/.claude/skills/*/*.md`
-- `$HOME/.claude/agents/*.md`
-- `$HOME/.claude/commands/*.md`
-- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/*.md`
+- `${DATARIM_RUNTIME:?}/skills/*.md` and `${DATARIM_RUNTIME:?}/skills/*/*.md`
+- `${DATARIM_RUNTIME:?}/agents/*.md`
+- `${DATARIM_RUNTIME:?}/commands/*.md`
+- `${DATARIM_RUNTIME:?}/templates/*.md`
 
 …with the exceptions listed in Whitelist below.
 
@@ -155,7 +155,7 @@ reachable from the current working directory):
    - 1+ hits → FAIL. **Do not write the file.** Two outcomes:
      - (a) Reword the proposal in stack-neutral terms and re-run the gate.
      - (b) Escalate to user: "Proposal is stack-specific — the right home is
-       `CLAUDE.md` of the relevant project, not the framework runtime."
+       `AGENTS.md` of the relevant project, not the framework runtime."
 
 ## Exit Codes (script form)
 
@@ -177,7 +177,7 @@ advisory into enforceable.
 
 - **Historical content cleanup** — the gate is forward-looking. Pre-existing
   stack-specific content in framework files (e.g. `skills/ai-quality/deployment-patterns.md`,
-  `${DATARIM_RUNTIME:-$HOME/.claude}/templates/docker-smoke-checklist.md`) is tracked as separate backlog items;
+  `${DATARIM_RUNTIME:?}/templates/docker-smoke-checklist.md`) is tracked as separate backlog items;
   the gate surfaces them but does not auto-fix.
 - **Whitespace / Unicode bypass** — accepted residual risk. Bypass requires
   intentional malice; reflection follow-up + memory rule provide redundancy.
@@ -189,7 +189,7 @@ calendar quarter. Each entry: date · scope · baseline · decisions.
 
 Methodology per review (3 passes):
 
-1. **Coverage** — run gate on full `~/.claude/skills/` corpus, expect PASS.
+1. **Coverage** — run gate on full `${DATARIM_RUNTIME:?}/skills/` corpus, expect PASS.
    If FAIL → triage hits as either real leak (escape-hatch / whitelist /
    reword) or denylist false-positive (escape-hatch / whitelist).
 2. **New-leak scan** — `grep -riwl <candidate>` over the corpus for common
@@ -205,4 +205,4 @@ Append next entry at the bottom; do not rewrite history.
 
 | Date | Files scanned | Bats | Coverage | New-leak candidates | Dead-entry sweep | Net change |
 |------|---------------|------|----------|---------------------|------------------|------------|
-| 2026-05-05 | `~/.claude/skills/` (recursive `*.md`) | 10/10 GREEN | PASS clean | scanned: React, Vue, Rails, Redis, Tailwind, PostgreSQL, MySQL, pino, TypeORM, Sequelize, Mongoose, Knex, Webpack, Vite, Rollup, esbuild, GraphQL, Apollo, Kafka, RabbitMQ, Celery, Sidekiq, Hibernate, Symfony, CodeIgniter — all hits either escape-hatched (`testing.md` Vitest/React inside `<!-- gate:example-only -->`), abstract-example (`Redis`/`PostgreSQL` in discovery/perf as one of many), CLI-tool-specific (`mysql`/`redis-cli` in bash-pitfalls — pitfall semantics intrinsic), or false-positive English ("rails" as metaphor in datarim-doctor) | no entries lost ecosystem relevance | none — baseline preserved |
+| 2026-05-05 | `${DATARIM_RUNTIME:?}/skills/` (recursive `*.md`) | 10/10 GREEN | PASS clean | scanned: React, Vue, Rails, Redis, Tailwind, PostgreSQL, MySQL, pino, TypeORM, Sequelize, Mongoose, Knex, Webpack, Vite, Rollup, esbuild, GraphQL, Apollo, Kafka, RabbitMQ, Celery, Sidekiq, Hibernate, Symfony, CodeIgniter — all hits either escape-hatched (`testing.md` Vitest/React inside `<!-- gate:example-only -->`), abstract-example (`Redis`/`PostgreSQL` in discovery/perf as one of many), CLI-tool-specific (`mysql`/`redis-cli` in bash-pitfalls — pitfall semantics intrinsic), or false-positive English ("rails" as metaphor in datarim-doctor) | no entries lost ecosystem relevance | none — baseline preserved |

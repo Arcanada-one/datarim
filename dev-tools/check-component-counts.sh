@@ -4,7 +4,7 @@
 # Repo-self-consistency check, distinct from check-repo-site-sync.sh's
 # repo-vs-site drift detection (which needs an external cross-repo registry).
 # This script has NO cross-repo dependency: it enforces that the component
-# counts claimed in THIS repo's own CLAUDE.md / README.md ("NN agents",
+# counts claimed in THIS repo's own AGENTS.md / README.md ("NN agents",
 # "NN skills", "NN commands", "NN templates") match the actual on-disk
 # counts. Two claim forms are recognised:
 #
@@ -41,7 +41,7 @@
 #   0  clean (all claims match actual counts, or no claims found)
 #   1  at least one category has a claim/actual mismatch
 #   2  usage error
-#   3  root not found (no CLAUDE.md / README.md at resolved root)
+#   3  root not found (no AGENTS.md / README.md at resolved root)
 #
 # Read-only: no writes, no network.
 
@@ -57,7 +57,7 @@ Usage: $SCRIPT_NAME [--check | --report] [--root <dir>]
 
   --check        exit 0 = all counts match, 1 = drift found (default)
   --report       human-readable per-category findings
-  --root <dir>   repo root (default: walk up from cwd to find CLAUDE.md)
+  --root <dir>   repo root (default: walk up from cwd to find AGENTS.md)
   --help         this message
 
 Exit: 0 clean | 1 drift | 2 usage error | 3 root not found
@@ -79,12 +79,12 @@ done
 if [ -z "$ROOT" ]; then
     d="$PWD"
     while [ "$d" != "/" ]; do
-        if [ -f "$d/CLAUDE.md" ]; then ROOT="$d"; break; fi
+        if [ -f "$d/AGENTS.md" ]; then ROOT="$d"; break; fi
         d="$(dirname "$d")"
     done
 fi
-if [ -z "$ROOT" ] || [ ! -f "$ROOT/CLAUDE.md" ]; then
-    echo "ERROR: repo root not found (no CLAUDE.md)" >&2
+if [ -z "$ROOT" ] || [ ! -f "$ROOT/AGENTS.md" ]; then
+    echo "ERROR: repo root not found (no AGENTS.md)" >&2
     exit 3
 fi
 
@@ -137,7 +137,7 @@ claimed_counts() {  # $1=file $2=category
 FINDINGS=""   # accumulates "<file>|<category>|<claimed>|<actual>"
 add_finding() { FINDINGS="${FINDINGS}${1}|${2}|${3}|${4}"$'\n'; }
 
-for doc in "$ROOT/CLAUDE.md" "$ROOT/README.md"; do
+for doc in "$ROOT/AGENTS.md" "$ROOT/README.md"; do
     [ -f "$doc" ] || continue
     doc_name="$(basename "$doc")"
     for cat in $CATEGORIES; do

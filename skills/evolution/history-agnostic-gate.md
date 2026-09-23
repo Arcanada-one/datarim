@@ -18,7 +18,7 @@ runtime instructions.
 
 This gate runs **before any Class A apply step** writes to the framework
 runtime. It is the executable enforcement of the rule documented in
-`code/datarim/CLAUDE.md` § Critical Rules. Sibling pattern:
+`code/datarim/AGENTS.md` § Critical Rules. Sibling pattern:
 `skills/evolution/stack-agnostic-gate.md` (stack-agnostic policy).
 
 ## Trigger
@@ -49,7 +49,7 @@ CI invokes the one-target gate separately for these exact roots:
 - `documentation/reference/`
 - `documentation/explanation/`
 - `documentation/tutorials/`
-- root `CLAUDE.md`
+- root `AGENTS.md`
 - root `README.md`
 
 Directory targets recursively scan regular text files ending in `.md`, `.sh`,

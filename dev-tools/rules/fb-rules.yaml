@@ -1,6 +1,6 @@
 # fb-rules.yaml — Autonomous Agent Operating Rules (FB-1..FB-8) policy block.
 # FB means Feedback Behaviour; it is unrelated to Facebook or Publisher.
-# Canonical text: consumer ecosystem CLAUDE.md § Autonomous Agent Operating Rules Mandate.
+# Canonical text: consumer ecosystem AGENTS.md § Autonomous Agent Operating Rules Mandate.
 # Source insight:  Projects/Datarim/datarim/insights/ (FB-rules autonomy research; see documentation/how-to/evolution-log.md for provenance).
 # Consumer: dev-tools/fb-policy-loader.sh (core) + plugins/dr-orchestrate/scripts/rules_loader.sh (shim).
 # Location: dev-tools/rules/fb-rules.yaml (core path — see documentation/how-to/evolution-log.md for provenance).
@@ -9,7 +9,7 @@
 #   rules:
 #     - rule_id: FB-N                    # FB-1..FB-8, exact case
 #       title: <short label>             # ≤ 60 chars
-#       enforcement_layer: <int 1-6>     # see CLAUDE.md § AAL Mandate target operating model
+#       enforcement_layer: <int 1-6>     # see AGENTS.md § AAL Mandate target operating model
 #       tier: <rule-based|subagent|escalation>
 #       default_action: <auto|escalate|refuse>
 #       reversibility_required: <bool>   # false where the rule is decision-only
@@ -108,7 +108,7 @@ rules:
     conflicts_with_law: null
 
 # Hard-gated actions (NEVER auto-execute regardless of FB-5).
-# Mirror of CLAUDE.md § Hard-gated actions; consumer compares planned action.kind.
+# Mirror of AGENTS.md § Hard-gated actions; consumer compares planned action.kind.
 hard_gated_actions:
   - prod_deploy
   - secret_rotation

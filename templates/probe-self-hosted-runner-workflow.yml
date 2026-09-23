@@ -8,7 +8,7 @@
 # write-probe, network egress to configurable endpoints, optional VPN state.
 #
 # Discardable: delete the workflow file after the migration stabilises.
-# Pair with the runner-discovery contract documented in the project's CLAUDE.md.
+# Pair with the runner-discovery contract documented in the project's AGENTS.md.
 #
 # Replace the inputs.* defaults and the egress/webroot lists with values
 # appropriate to the project. The workflow is stack-neutral — it only

@@ -2,8 +2,8 @@
 # evolution-loop.sh — Bash-native fleet skill-evolution loop.
 #
 # Pipeline: collect signals (registered adapters) -> generate N candidates
-# (coworker write) -> run all constraint gates on each -> select the best
-# gate-passing candidate by judged success-rate (coworker ask) -> open a PR
+# (native text generation) -> run all constraint gates on each -> select the best
+# gate-passing candidate by estimated quality score (native judge) -> open a PR
 # branch. Never auto-merges.
 #
 # Usage:
@@ -17,9 +17,9 @@
 #   -h|--help                this help
 #
 # Env overrides (testability):
-#   COWORKER_BIN   path to a coworker shim (default: coworker on PATH)
+#   FLEET_NATIVE_BIN path to native Claude CLI (default: claude on PATH)
 #   GIT_BIN        path to git (default: git on PATH)
-#   COWORKER_TIMEOUT  per-call seconds (default 60; ignored if no `timeout`)
+#   FLEET_NATIVE_TIMEOUT per-call seconds (default 60)
 
 set -o pipefail
 
@@ -27,9 +27,7 @@ PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/jsonl.sh
 source "$PLUGIN_DIR/lib/jsonl.sh"
 
-COWORKER_BIN="${COWORKER_BIN:-coworker}"
 GIT_BIN="${GIT_BIN:-git}"
-COWORKER_TIMEOUT="${COWORKER_TIMEOUT:-60}"
 
 # Fixed, constant instruction strings (never carry data — Security S1).
 GEN_SPEC='Improve this fleet starter skill using the eval dataset. Keep changes minimal and keep the YAML frontmatter intact. Output ONLY the new SKILL.md content.'
@@ -38,15 +36,6 @@ SCORE_Q='Score how well this skill would handle the eval dataset. Output ONLY a 
 log() { echo "evolution-loop: $*" >&2; }
 
 usage() { sed -n '3,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
-
-# Run coworker with an optional timeout wrapper (timeout is absent on macOS).
-_coworker() {
-    if command -v timeout >/dev/null 2>&1; then
-        timeout "$COWORKER_TIMEOUT" "$COWORKER_BIN" "$@"
-    else
-        "$COWORKER_BIN" "$@"
-    fi
-}
 
 # Expand ~ and a whitelisted set of ${VAR}/${VAR:-default} in a config
 # source-path. Security S1: NEVER `eval` config-file content — a crafted
@@ -134,9 +123,6 @@ main() {
     trap 'rm -rf "$work"' EXIT
 
     # Stage 1: collect.
-    # NOTE: .txt extension (not .jsonl) is mandatory — `coworker` rejects
-    # non-text extensions in --context/--paths (file-type policy, exit 6).
-    # The content is JSONL; the extension only satisfies the coworker gate.
     local dataset="$work/eval.txt"
     collect_dataset "$conf" "$dataset"
     local n; n=$(grep -c . "$dataset" 2>/dev/null || echo 0)
@@ -150,10 +136,9 @@ main() {
     local i passed=() cand
     for i in $(seq 1 "$candidates"); do
         cand="$work/candidate-$i.md"
-        if _coworker write --provider deepseek --profile datarim-write \
-                --spec "$GEN_SPEC" \
+        if python3 "$PLUGIN_DIR/native_text.py" --instruction "$GEN_SPEC" \
                 --context "$skill_md" "$dataset" \
-                --target "$cand" >/dev/null 2>&1 && [ -s "$cand" ]; then
+                --output "$cand" >/dev/null 2>&1 && [ -s "$cand" ]; then
             : # generated
         else
             log "candidate $i generation failed (skip)"
@@ -172,13 +157,11 @@ main() {
         exit 1
     fi
 
-    # Stage 4: select best by judged success-rate; ties -> smaller size.
+    # Stage 4: select by estimated quality (not empirical success); ties -> size.
     local best="" best_score="-1" best_size="" c score size
     for c in "${passed[@]}"; do
-        score=$(_coworker ask --provider deepseek --profile classifier \
-                    --paths "$c" "$dataset" --question "$SCORE_Q" 2>/dev/null \
-                | grep -oE '[0-9]+\.[0-9]+|[0-9]+' | head -n1)
-        [ -n "$score" ] || score="0"
+        score=$(python3 "$PLUGIN_DIR/native_text.py" --context "$c" "$dataset" \
+                    --instruction "$SCORE_Q" --score 2>/dev/null) || continue
         size=$(wc -c < "$c")
         if awk "BEGIN{exit !($score > $best_score)}"; then
             best="$c"; best_score="$score"; best_size="$size"
@@ -186,6 +169,7 @@ main() {
             best="$c"; best_size="$size"
         fi
     done
+    [ -n "$best" ] || { log "no valid judge result — no PR"; exit 1; }
     log "selected best candidate (score=$best_score, size=$best_size)"
 
     # Stage 5: open PR branch (never auto-merge).

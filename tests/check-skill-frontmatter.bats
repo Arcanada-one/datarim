@@ -14,17 +14,15 @@
 # Backward compat: TUNE-0114 baseline (runtime: + current_aal: + target_aal:
 # as top-level) is no longer required.
 #
-# Companion check: AGENTS.md symlink integrity preserved from TUNE-0114 AC-7.
+# Companion check: only a regular AGENTS.md is accepted; adapters are retired.
 
 SCRIPT="${BATS_TEST_DIRNAME}/../dev-tools/check-skill-frontmatter.sh"
 
 setup() {
     TMPROOT="$(mktemp -d)"
     mkdir -p "$TMPROOT/skills/alpha"
-    # Pre-stage minimal AGENTS.md symlink so the companion check passes
-    # in all positive test cases.
-    : >"$TMPROOT/CLAUDE.md"
-    ln -s CLAUDE.md "$TMPROOT/AGENTS.md"
+    # The canonical instruction file is regular, with no companion.
+    : >"$TMPROOT/AGENTS.md"
 }
 
 teardown() {
@@ -179,14 +177,15 @@ description: ok
     [ "$status" -eq 0 ]
 }
 
-@test "FAIL when AGENTS.md not a symlink (AC-7 retained)" {
+@test "FAIL when AGENTS.md is a legacy symlink adapter" {
     write_skill_md "$TMPROOT/skills/alpha/SKILL.md" \
 "---
 name: alpha
 description: ok
 ---"
     rm "$TMPROOT/AGENTS.md"
-    : >"$TMPROOT/AGENTS.md"
+    : >"$TMPROOT/CLAUDE.md"
+    ln -s CLAUDE.md "$TMPROOT/AGENTS.md"
     run "$SCRIPT" --root "$TMPROOT"
     [ "$status" -eq 1 ]
     [[ "$output" == *"AGENTS.md"* ]]

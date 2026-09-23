@@ -15,6 +15,9 @@
 PIPELINE="$BATS_TEST_DIRNAME/../skills/visual-maps/pipeline-routing.md"
 STAGES="$BATS_TEST_DIRNAME/../skills/visual-maps/stage-process-flows.md"
 DEPS="$BATS_TEST_DIRNAME/../skills/visual-maps/utility-and-dependencies.md"
+# The agent/skill relationship inventory moved out of the hand-drawn fragment
+# and is now generated from the repository itself.
+ARCH="$BATS_TEST_DIRNAME/../skills/visual-maps/framework-architecture.md"
 INDEX="$BATS_TEST_DIRNAME/../skills/visual-maps/SKILL.md"
 
 # --- Pipeline-routing fragment ---------------------------------------------
@@ -63,28 +66,35 @@ INDEX="$BATS_TEST_DIRNAME/../skills/visual-maps/SKILL.md"
 
 # --- Utility-and-dependencies fragment -------------------------------------
 
-@test "V11 dependencies map carries init-task-persistence skill node" {
-    grep -q 'init_task\["init-task-persistence"\]' "$DEPS"
+@test "V11 generated map carries init-task-persistence skill node" {
+    grep -q 'init-task-persistence' "$ARCH"
 }
 
-@test "V12 dependencies map carries expectations-checklist skill node" {
-    grep -q 'expect_sk\["expectations-checklist"\]' "$DEPS"
+@test "V12 generated map carries expectations-checklist skill node" {
+    grep -q 'expectations-checklist' "$ARCH"
 }
 
-@test "V13 dependencies map carries playwright-qa skill node" {
-    grep -q 'play_sk\["playwright-qa"\]' "$DEPS"
+@test "V13 generated map carries playwright-qa skill node" {
+    grep -q 'playwright-qa' "$ARCH"
 }
 
-@test "V14 dependencies map carries human-summary skill node" {
-    grep -q 'human_sk\["human-summary"\]' "$DEPS"
+@test "V14 generated map carries human-summary skill node" {
+    grep -q 'human-summary' "$ARCH"
 }
 
-@test "V15 reviewer links to all four new skills" {
-    # The reviewer line should reference each of init_task, expect_sk, play_sk, human_sk on one line.
-    grep -E '^[[:space:]]*reviewer --> ' "$DEPS" | grep -q 'init_task'
-    grep -E '^[[:space:]]*reviewer --> ' "$DEPS" | grep -q 'expect_sk'
-    grep -E '^[[:space:]]*reviewer --> ' "$DEPS" | grep -q 'play_sk'
-    grep -E '^[[:space:]]*reviewer --> ' "$DEPS" | grep -q 'human_sk'
+@test "V15 the four skills are loaded by the pipeline commands that own them" {
+    # This replaces an assertion that the reviewer agent loads all four skills.
+    # It did not, on this tree or on the pre-migration baseline: agents/reviewer.md
+    # references security, testing, datarim-system and cta-format, and none of
+    # these four. The hand-drawn map was the only place that relationship existed,
+    # so generating the map from the repository exposed the claim as unbacked
+    # rather than breaking it. The real owners are the commands below, which load
+    # the skills and then delegate to the reviewer.
+    local root="$BATS_TEST_DIRNAME/.."
+    grep -q 'skills/init-task-persistence/SKILL.md' "$root/commands/dr-qa.md"
+    grep -q 'skills/expectations-checklist/SKILL.md' "$root/commands/dr-qa.md"
+    grep -q 'skills/playwright-qa/SKILL.md' "$root/commands/dr-qa.md"
+    grep -q 'skills/human-summary/SKILL.md' "$root/commands/dr-qa.md"
 }
 
 # --- Index file ------------------------------------------------------------
@@ -95,11 +105,18 @@ INDEX="$BATS_TEST_DIRNAME/../skills/visual-maps/SKILL.md"
     grep -q 'playwright-run' "$INDEX"
 }
 
-@test "V17 index file mentions the new skill nodes" {
-    grep -q 'init-task-persistence' "$INDEX"
-    grep -q 'expectations-checklist' "$INDEX"
-    grep -q 'playwright-qa' "$INDEX"
-    grep -q 'human-summary' "$INDEX"
+@test "V17 index routes skill-relationship questions to the generated map" {
+    # The index used to list the skill nodes itself. It is now a router: it says
+    # which fragment answers which question and deliberately stops duplicating
+    # inventories, because a hand-copied inventory is exactly what drifted from
+    # the repository before. So assert the routing, and assert the inventory is
+    # really where the index sends the reader.
+    grep -q 'framework-architecture.md' "$INDEX"
+    grep -qi 'never edit it by hand' "$INDEX"
+    grep -q 'init-task-persistence' "$ARCH"
+    grep -q 'expectations-checklist' "$ARCH"
+    grep -q 'playwright-qa' "$ARCH"
+    grep -q 'human-summary' "$ARCH"
 }
 
 # --- Node-count cap (PRD Q6: each NEW diagram < 25 nodes) ------------------

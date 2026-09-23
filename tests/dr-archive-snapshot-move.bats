@@ -46,11 +46,11 @@ setup() {
 }
 
 @test "default fallback subdir 'general' for unknown prefix" {
-    # Simulate consumer-side workspace CLAUDE.md walk failing to find prefix.
+    # Simulate consumer-side workspace AGENTS.md walk failing to find prefix.
     local tmp="$BATS_TEST_TMPDIR/no-claude-md"
     mkdir -p "$tmp"
     cd "$tmp"
     # Without a Task Prefix Registry, an unknown prefix resolves to "general".
-    run bash -c "cd '$tmp' && grep -l 'Task Prefix Registry' CLAUDE.md 2>/dev/null"
+    run bash -c "cd '$tmp' && grep -l 'Task Prefix Registry' AGENTS.md 2>/dev/null"
     [ "$status" -ne 0 ]
 }

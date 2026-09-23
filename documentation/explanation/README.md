@@ -47,4 +47,4 @@ working material). See `skills/diataxis-docs/SKILL.md` § Reserved Sibling Names
 ---
 
 Category definition: `skills/diataxis-docs/SKILL.md`. See also the
-[Documentation Taxonomy Mandate](../../CLAUDE.md) in `CLAUDE.md`.
+[Documentation Taxonomy Mandate](../../AGENTS.md) in `AGENTS.md`.

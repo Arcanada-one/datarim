@@ -503,13 +503,13 @@ replace_field() {
 
 @test "[docs] shipped references describe the same mandatory redundancy gate" {
     for file in \
-        CLAUDE.md \
+        AGENTS.md \
         README.md \
         documentation/explanation/pipeline.md \
         documentation/reference/agents.md \
         documentation/reference/commands.md \
         documentation/tutorials/getting-started.md \
-        skills/visual-maps/utility-and-dependencies.md; do
+        skills/visual-maps/framework-architecture.md; do
         grep -Eqi 'redundancy|reductive' "$REPO_ROOT/$file"
         grep -Eqi 'strategist' "$REPO_ROOT/$file"
     done

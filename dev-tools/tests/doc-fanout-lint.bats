@@ -54,7 +54,7 @@ EOF
 # -------------------------------------------------------------------- T1, T2
 @test "T1: linter accepts bundled-shape config and runs to completion" {
     mk_artefact "skills/foo.md"
-    mk_consumer "CLAUDE.md" "mentions foo here"
+    mk_consumer "AGENTS.md" "mentions foo here"
     mk_consumer "docs/skills.md" "1 reusable skill: foo"
     write_cfg 'version: 1
 artifacts:
@@ -63,7 +63,7 @@ artifacts:
     consumers:
       - id: framework_claude
         kind: grep_in_file
-        file: CLAUDE.md
+        file: AGENTS.md
         pattern: "{name}"
         severity: error
 counts:
@@ -137,7 +137,7 @@ counts: []'
 # -------------------------------------------------------------------- T5, T6
 @test "T5: grep_in_file pattern present → exit 0" {
     mk_artefact "skills/foo.md"
-    mk_consumer "CLAUDE.md" "see foo for details"
+    mk_consumer "AGENTS.md" "see foo for details"
     write_cfg 'version: 1
 artifacts:
   - glob: skills/*.md
@@ -145,7 +145,7 @@ artifacts:
     consumers:
       - id: cl
         kind: grep_in_file
-        file: CLAUDE.md
+        file: AGENTS.md
         pattern: "{name}"
         severity: error'
     run "$LINT" --root "$TMPROOT" --quiet
@@ -154,7 +154,7 @@ artifacts:
 
 @test "T6: grep_in_file pattern missing → ERR + grep-missing" {
     mk_artefact "skills/foo.md"
-    mk_consumer "CLAUDE.md" "no mention here"
+    mk_consumer "AGENTS.md" "no mention here"
     write_cfg 'version: 1
 artifacts:
   - glob: skills/*.md
@@ -162,7 +162,7 @@ artifacts:
     consumers:
       - id: cl
         kind: grep_in_file
-        file: CLAUDE.md
+        file: AGENTS.md
         pattern: "{name}"
         severity: error'
     run "$LINT" --root "$TMPROOT" --quiet
@@ -273,7 +273,7 @@ EOF
 # -------------------------------------------------------------------- T12
 @test "T12: default format emits one line per violation" {
     mk_artefact "skills/foo.md"
-    mk_consumer "CLAUDE.md" "empty"
+    mk_consumer "AGENTS.md" "empty"
     write_cfg 'version: 1
 artifacts:
   - glob: skills/*.md
@@ -281,19 +281,19 @@ artifacts:
     consumers:
       - id: cl
         kind: grep_in_file
-        file: CLAUDE.md
+        file: AGENTS.md
         pattern: "{name}"
         severity: error'
     run "$LINT" --root "$TMPROOT" --quiet
     # Expect ERR <art> -> <surface>: <msg> [<rc>]
-    [[ "$output" == *"ERR skills/foo.md -> CLAUDE.md"* ]]
+    [[ "$output" == *"ERR skills/foo.md -> AGENTS.md"* ]]
     [[ "$output" == *"[grep-missing]"* ]]
 }
 
 # -------------------------------------------------------------------- T13
 @test "T13: --verbose emits multi-line output" {
     mk_artefact "skills/foo.md"
-    mk_consumer "CLAUDE.md" "empty"
+    mk_consumer "AGENTS.md" "empty"
     write_cfg 'version: 1
 artifacts:
   - glob: skills/*.md
@@ -301,7 +301,7 @@ artifacts:
     consumers:
       - id: cl
         kind: grep_in_file
-        file: CLAUDE.md
+        file: AGENTS.md
         pattern: "{name}"
         severity: error'
     run "$LINT" --root "$TMPROOT" --verbose --quiet
@@ -313,7 +313,7 @@ artifacts:
 @test "T14: SUMMARY line lists errors, warnings, violations, artefacts" {
     mk_artefact "skills/a.md"
     mk_artefact "skills/b.md"
-    mk_consumer "CLAUDE.md" ""
+    mk_consumer "AGENTS.md" ""
     write_cfg 'version: 1
 artifacts:
   - glob: skills/*.md
@@ -321,7 +321,7 @@ artifacts:
     consumers:
       - id: cl
         kind: grep_in_file
-        file: CLAUDE.md
+        file: AGENTS.md
         pattern: "{name}"
         severity: error'
     run "$LINT" --root "$TMPROOT"

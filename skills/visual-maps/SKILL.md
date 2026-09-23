@@ -20,8 +20,12 @@ Load only the fragment relevant to the question:
   Use for stage-specific flows from `/dr-init` through `/dr-archive`, including Layer 3b expectations verification and Layer 4f `playwright-run` in `/dr-qa`.
 - `content-and-management-flows.md`
   Use for `/dr-write`, `/dr-edit`, `/factcheck`, `/humanize`, `/dr-addskill`, `/dr-optimize`, and `/dr-dream`.
+- `framework-architecture.md`
+  Generated canonical inventory and explicit command→agent / agent→skill relationships. Use this first for framework topology; never edit it by hand.
+- `command-dependencies.md`
+  Generated command sequencing and complete command inventory from `dev-tools/command-graph.yaml`.
 - `utility-and-dependencies.md`
-  Use for utility command flows, command-agent relationships, and agent-skill dependencies (includes `init-task-persistence`, `expectations-checklist`, `playwright-qa`, `human-summary` nodes since v2.8.0).
+  Use for human-oriented utility flow explanations. Relationship inventories live in the generated framework map.
 - `panels-and-quality.md`
   Use for Consilium panel layouts and stage-to-quality rule mapping.
 

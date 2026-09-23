@@ -1,19 +1,19 @@
 # /dr-plugin — Datarim Plugin System CLI
 
 **Source:** plugin-system core PRD and plan (see workspace `datarim/prd/` and `datarim/plans/` indexes).
-**Status:** `list` + first-run bootstrap, `enable`, `disable`, `sync`, and `doctor` are all implemented and covered by `tests/dr-plugin.bats` + `tests/dr-plugin-coverage.bats`. Git-URL clone for `enable` (Phase A4) remains the only deferred path. `enable dr-orchestrate` additionally refuses (exit 1) unless the consumer workspace's `CLAUDE.md` already contains the string "Autonomous Agent Operating Rules" — the plugin ships FB-rules enforcement and assumes the mandate text is already mirrored at rank-1 level.
+**Status:** `list` + first-run bootstrap, `enable`, `disable`, `sync`, and `doctor` are all implemented and covered by `tests/dr-plugin.bats` + `tests/dr-plugin-coverage.bats`. Git-URL clone for `enable` (Phase A4) remains the only deferred path. `enable dr-orchestrate` additionally refuses (exit 1) unless the consumer workspace's `AGENTS.md` already contains the string "Autonomous Agent Operating Rules" — the plugin ships FB-rules enforcement and assumes the mandate text is already mirrored at rank-1 level.
 
 ## Purpose
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
 Manage opt-in plugins for the Datarim framework. The current Datarim shipping set (skills, agents, commands, templates) is migrated into a single protected `datarim-core` entry on first run. Third-party plugins are installed as symlinks from `datarim/plugin-storage/<id>/` into `~/.claude/local/{skills,agents,commands,templates}/<plugin-id>/`.
 
 Two manifest layers:
 - `plugin-storage/<id>/plugin.yaml` — static, per-plugin (under git in plugin repo).
 - `datarim/enabled-plugins.md` — runtime, per-workspace (under git in workspace).
 
-Templates: `${DATARIM_RUNTIME:-$HOME/.claude}/templates/plugin.yaml.template`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/enabled-plugins.md.template`.
+Templates: `${DATARIM_RUNTIME:?}/templates/plugin.yaml.template`, `${DATARIM_RUNTIME:?}/templates/enabled-plugins.md.template`.
 
 ## Subcommands
 
@@ -82,7 +82,7 @@ Helpers in `scripts/lib/plugin-system.sh`:
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `DR_PLUGIN_WORKSPACE` | Workspace root containing `datarim/` | walk-up from cwd |
-| `DR_PLUGIN_RUNTIME_ROOT` | Symlink target root | `$HOME/.claude/local` |
+| `DR_PLUGIN_RUNTIME_ROOT` | Symlink target root | `${DATARIM_RUNTIME:?}/local` |
 
 ## Tests
 
@@ -95,5 +95,5 @@ Helpers in `scripts/lib/plugin-system.sh`:
 - **Phase C** — ✅ done. snapshot/rollback + `sync`.
 - **Phase D** — ✅ done. `doctor` (8 checks).
 - **Phase A4** — `enable` from a git URL (clone-and-activate). Deferred.
-- **Phase E** — Class B public surface (CLAUDE.md, README, datarim.club).
+- **Phase E** — Class B public surface (AGENTS.md, README, datarim.club).
 - **Phase F** — author guide + bats coverage ≥80%.

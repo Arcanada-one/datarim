@@ -63,7 +63,7 @@ Datarim framework itself has `PRD-datarim-sdlc-framework.md` as the contract art
 For consumer projects, PRD substitutes in priority order:
 
 1. **Project-level PRD** at `datarim/prd/PRD-{project-id}.md` — if the project has one covering the area the proposal touches, update it.
-2. **Project `CLAUDE.md`** — the top-level project contract. Changes to source-of-truth direction, sync semantics, or core conventions must update `CLAUDE.md` with the new rule and a rationale comment.
+2. **Project `AGENTS.md`** — the top-level project contract. Changes to source-of-truth direction, sync semantics, or core conventions must update `AGENTS.md` with the new rule and a rationale comment.
 3. **Architectural decision records** (`datarim/creative/*.md` or project's ADR directory) — if the change reflects a design decision, record it there with "supersedes ADR-N" linkage.
 4. **None of the above** — then the proposal is really a framework-level Class B change disguised as a project-level one. Escalate to Datarim framework PRD update (`PRD-datarim-sdlc-framework.md`) instead of inlining into the project.
 
@@ -122,7 +122,7 @@ under this rule.
 
 ## Founding incident
 
-Prior research concluded "repo-first operating model should replace runtime-first" based on research-level reasoning. This was treated as a regular proposal and approved through the normal reflection gate. A follow-up execution task then applied it — bumping VERSION, rewriting README Operating Model section, rewriting wrapper CLAUDE.md to a repo-first workflow — without reconciling against `PRD-datarim-sdlc-framework.md`, which explicitly specified runtime-first via `/dr-reflect` (the command existing at the time; consolidated into `/dr-archive` Step 0.5 in v1.10.0).
+Prior research concluded "repo-first operating model should replace runtime-first" based on research-level reasoning. This was treated as a regular proposal and approved through the normal reflection gate. A follow-up execution task then applied it — bumping VERSION, rewriting README Operating Model section, rewriting wrapper AGENTS.md to a repo-first workflow — without reconciling against `PRD-datarim-sdlc-framework.md`, which explicitly specified runtime-first via `/dr-reflect` (the command existing at the time; consolidated into `/dr-archive` Step 0.5 in v1.10.0).
 
 The PRD was the load-bearing contract. The reflection gate had no way to see that. Result:
 

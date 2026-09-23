@@ -8,7 +8,7 @@
 #   belong to — and is any commit left unclassified (an "orphan")?
 #
 # WHY THIS EXISTS
-#   The repo bumps its version in the CLAUDE.md header (and, since the VERSION
+#   The repo bumps its version in the AGENTS.md header (and, since the VERSION
 #   file was introduced, there too) but did not always cut a matching CHANGELOG
 #   section. That lets VERSION and CHANGELOG drift by several releases. This
 #   script reconstructs the true per-version commit boundaries from the version
@@ -16,7 +16,7 @@
 #   from memory.
 #
 # METHOD (no magic constants — boundaries are derived, not hardcoded)
-#   1. Walk every commit that touched CLAUDE.md, in chronological order.
+#   1. Walk every commit that touched AGENTS.md, in chronological order.
 #   2. Read the declared version at each such commit.
 #   3. A commit where the declared version CHANGES is that version's boundary
 #      (its "cut" commit).
@@ -58,11 +58,11 @@ is_documented() {
 }
 
 # ---------------------------------------------------------------------------
-# Step 2 — derive version boundaries from the CLAUDE.md version header history.
+# Step 2 — derive version boundaries from the AGENTS.md version header history.
 # ---------------------------------------------------------------------------
 version_at() {
     # Declared version at a given commit; empty if the header is absent there.
-    git show "$1:CLAUDE.md" 2>/dev/null \
+    git show "$1:AGENTS.md" 2>/dev/null \
         | sed -n 's/^> \*\*Version:\*\* *//p' | head -1 | tr -d '[:space:]'
 }
 
@@ -78,11 +78,11 @@ while read -r sha; do
         prev_version="$v"
     fi
 done <<EOF
-$(git log --reverse --format='%H' -- CLAUDE.md)
+$(git log --reverse --format='%H' -- AGENTS.md)
 EOF
 
 if [ -z "$boundaries" ]; then
-    echo "ERROR: could not derive any version boundary from CLAUDE.md history" >&2
+    echo "ERROR: could not derive any version boundary from AGENTS.md history" >&2
     exit 2
 fi
 
@@ -206,7 +206,7 @@ case "$MODE" in
     fi
     echo "Commits ${base_sha}..HEAD           : $total_commits"
     echo
-    echo "Derived version sections (boundaries from CLAUDE.md header history):"
+    echo "Derived version sections (boundaries from AGENTS.md header history):"
     printf '%s' "$report" | while IFS=$'\t' read -r v range n; do
         [ -z "$v" ] && continue
         printf '  %-10s %-22s %4s commits\n' "$v" "$range" "$n"

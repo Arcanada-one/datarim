@@ -158,7 +158,7 @@ main() {
     audit_file="$(write_audit "${GATE_AUDIT_DIR:-$repo/documentation/release-audit}" "$version" "$bump" "$registry" "$gates" "$rationale_line")"
     git -C "$repo" tag -a "v${version}" -m "$(printf 'release %s\n\n%s' "$version" "$stamp")"
 
-    # Defensive invariant: the tag MUST exist now (CLAUDE.md § Defensive Invariants).
+    # Defensive invariant: the tag MUST exist now (AGENTS.md § Defensive Invariants).
     if ! git -C "$repo" rev-parse -q --verify "refs/tags/v${version}" >/dev/null; then
         echo "ERROR: internal invariant violated: gates passed but tag v${version} was not created" >&2
         exit 2

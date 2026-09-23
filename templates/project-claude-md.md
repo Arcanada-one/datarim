@@ -1,4 +1,4 @@
-# CLAUDE.md Template — Project Scaffolding
+# AGENTS.md Template — Project Scaffolding
 
 > This is a template used by `/dr-init` project scaffolding (skill: `project-init.md`).
 > Replace `__PLACEHOLDER__` values with actual project data.
@@ -115,7 +115,7 @@ This project uses [Datarim](https://datarim.club) for structured task execution.
 **Boundary.** The secret mechanism lives only in the private code and, if needed,
 in `documentation/ephemeral/`. The public Diátaxis surface
 (`documentation/{tutorials,how-to,reference,explanation}/`) and any `README*` MUST
-be mechanism-free — reference stubs carry `[REDACTED — see CLAUDE.md § Secrecy]`.
+be mechanism-free — reference stubs carry `[REDACTED — see AGENTS.md § Secrecy]`.
 
 **Pre-publish gate.** Before ANY public publication (site, README, social, npm/docs),
 run the secrecy gate. It must return no output (empty = pass). README is resolved

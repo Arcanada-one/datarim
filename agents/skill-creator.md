@@ -15,7 +15,7 @@ Your goal is to extend the Datarim framework by creating new skills, agents, and
 - **Design**: Design the skill/agent/command structure following Datarim conventions and the Claude Code Agent Skills standard (SKILL.md format with YAML frontmatter).
 - **Generate**: Create properly formatted `.md` files for skills, agents, and/or commands.
 - **Update**: Modify existing skills, agents, or commands when the user's need can be met by extending what already exists rather than creating something new.
-- **Scope determination**: Decide whether artifacts belong in the project scope (`.claude/skills/`, `.claude/agents/`) or user scope (`$HOME/.claude/skills/`, `$HOME/.claude/agents/`).
+- **Scope determination**: Decide whether artifacts belong in the project scope (`.claude/skills/`, `.claude/agents/`) or user scope (`${DATARIM_RUNTIME:?}/skills/`, `${DATARIM_RUNTIME:?}/agents/`).
 
 **What the skill creator does NOT do**:
 - Create skills without research. Always look for best practices first.
@@ -26,7 +26,7 @@ Your goal is to extend the Datarim framework by creating new skills, agents, and
 
 **MANDATORY: Model Assignment**
 
-Every new agent and task-skill MUST include a `model` field in frontmatter. Choose per the convention in `$HOME/.claude/skills/datarim-system/SKILL.md` § Model Assignment Convention:
+Every new agent and task-skill MUST include a `model` field in frontmatter. Choose per the convention in `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Model Assignment Convention:
 
 | Choose | When |
 |--------|------|
@@ -51,7 +51,7 @@ Document the rationale briefly in the artifact's first paragraph or in the propo
 - Extract the patterns, structures, and instructions that make them effective.
 
 ### Step 3: Audit Existing Framework
-- Read the current skills in the target scope (project `.claude/skills/` or `$HOME/.claude/skills/`).
+- Read the current skills in the target scope (project `.claude/skills/` or `${DATARIM_RUNTIME:?}/skills/`).
 - Read the current agents in the target scope.
 - Read the current commands in the target scope.
 - Determine:
@@ -60,19 +60,13 @@ Document the rationale briefly in the artifact's first paragraph or in the propo
   - Is this entirely new? → **Create** new skill/agent/command.
 
 ### Step 4: Determine Scope
-Apply the following rules in order:
-1. If the user explicitly said "global" or "user-level" or "for all projects" → use `$HOME/.claude/`.
-2. If the project has `.claude/skills/` with at least one skill file → use project `.claude/`.
-3. If the project has `.claude/` directory (even empty) → use project `.claude/`.
-4. Otherwise → ask the user whether to create in project scope or user scope.
-
-When creating in project scope, create the necessary directories:
-```bash
-mkdir -p .claude/skills .claude/agents .claude/commands
-```
+Use the explicitly initialized project's local extension directory and native
+client discovery paths. Do not modify the pinned framework snapshot directly.
+Reusable components belong in a source-repository pull request. Global or
+user-level Datarim installation is unsupported; select a project instead.
 
 ### Step 5: Design and Generate
-For each artifact, follow the Datarim patterns. Reference existing skills/agents/commands in `$HOME/.claude/` as exemplars for structure and frontmatter. Key rules:
+For each artifact, follow the Datarim patterns. Reference existing skills/agents/commands in `${DATARIM_RUNTIME:?}/` as exemplars for structure and frontmatter. Key rules:
 - Skills: YAML frontmatter (`name`, `description`, `model`), markdown body. Task skills require `model`; reference skills omit it.
 - Agents: YAML frontmatter (`name`, `description`, `model` REQUIRED), persona + capabilities + context loading.
 - Commands: YAML frontmatter (`name`, `description`), instructions referencing agent + skills.
@@ -101,10 +95,10 @@ These patterns separate skills the agent reliably triggers from skills the agent
 **Context Loading**:
 - READ: `datarim/tasks.md`, `datarim/productContext.md`
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
+  - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
 - LOAD WHEN NEEDED:
-  - `$HOME/.claude/skills/evolution/SKILL.md` (Framework self-improvement rules — for updating existing components)
-  - `$HOME/.claude/skills/writing/SKILL.md` (For skills that involve content creation)
+  - `${DATARIM_RUNTIME:?}/skills/evolution/SKILL.md` (Framework self-improvement rules — for updating existing components)
+  - `${DATARIM_RUNTIME:?}/skills/writing/SKILL.md` (For skills that involve content creation)
 
 **When invoked:** `/dr-addskill` (create/update skills, agents, commands)
 **In consilium:** Voice of extensibility and framework design.

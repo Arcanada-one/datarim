@@ -7,14 +7,14 @@
 # S11 rule text, its six probing dimensions, the CI-green-insufficient
 # clause, and the ARAS-0049 source citation are present across the three
 # artefacts that carry the gate — the canonical rule (security-baseline),
-# the review vehicle (self-verification), and the entry point (CLAUDE.md).
+# the review vehicle (self-verification), and the entry point (AGENTS.md).
 #
 # Exit codes: 0 PASS, 1 FAIL.
 
 REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
 SB="${REPO_ROOT}/skills/security-baseline/SKILL.md"
 SV="${REPO_ROOT}/skills/self-verification/SKILL.md"
-CM="${REPO_ROOT}/CLAUDE.md"
+CM="${REPO_ROOT}/AGENTS.md"
 
 # ---------------------------------------------------------------------------
 # security-baseline/SKILL.md — canonical S11 rule
@@ -72,13 +72,13 @@ CM="${REPO_ROOT}/CLAUDE.md"
 }
 
 # ---------------------------------------------------------------------------
-# CLAUDE.md — Security Mandate entry point
+# AGENTS.md — Security Mandate entry point
 # ---------------------------------------------------------------------------
 
-@test "S11: CLAUDE.md rule clusters include S11" {
+@test "S11: AGENTS.md rule clusters include S11" {
     grep -qE "^- \*\*S11\*\* — Untrusted-content boundary review gate" "$CM"
 }
 
-@test "S11: CLAUDE.md single-source-of-truth pointer bumped to S1-S11" {
+@test "S11: AGENTS.md single-source-of-truth pointer bumped to S1-S11" {
     grep -q "§ S1–S11" "$CM"
 }

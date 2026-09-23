@@ -14,7 +14,7 @@ severity: high | medium | low
 category: correctness | completeness | consistency | safety
 drift_subtype: scope_creep | spec_decay | execution_skew | orphaned_requirements   # OPTIONAL — only when category=consistency
 evidence:
-  type: file_quote | test_output | absent
+  type: file_quote | test_output | verified_absence | absent
   source: <file:line> OR <command-or-test-name>   # required when type ≠ absent
   excerpt: <verbatim text, ≤200 chars>            # required when type ≠ absent
 suggested_fix: <optional, free-text ≤500 chars>
@@ -30,15 +30,16 @@ verified_at: <RFC 3339 / ISO 8601 timestamp>
 agent_origin: reviewer | tester | security | codex_single | floor_pipeline | peer_review_external
 ```
 
-### 7 Validator Rules
+### 8 Validator Rules
 
 1. `category=consistency` ⟺ `drift_subtype` may be set; otherwise `drift_subtype` MUST be absent.
-2. `evidence.type=absent` ⟹ `source` AND `excerpt` MUST be absent → `discarded=true, discard_reason=no_evidence_provided`.
-3. `evidence.type ∈ {file_quote, test_output}` ⟹ `source` AND `excerpt` MUST be present.
-4. `excerpt` length ≤200 chars (truncate with suffix `"[truncated]"`).
-5. `severity ∈ {high, medium, low}` (strict enum).
-6. `ac_criteria` MUST be array (may be empty `[]`).
-7. `suggested_fix` length ≤500 chars (optional).
+2. `evidence.type=absent` means **no evidence was supplied**; `source` AND `excerpt` MUST be absent → `discarded=true, discard_reason=no_evidence_provided`.
+3. `evidence.type=verified_absence` means a required artifact/value was deterministically searched for and confirmed missing; `source` and `excerpt` MUST identify the check/search performed. It is evidence and MUST NOT be auto-discarded.
+4. `evidence.type ∈ {file_quote, test_output, verified_absence}` ⟹ `source` AND `excerpt` MUST be present.
+5. `excerpt` length ≤200 chars (truncate with suffix `"[truncated]"`).
+6. `severity ∈ {high, medium, low}` (strict enum).
+7. `ac_criteria` MUST be array (may be empty `[]`).
+8. `suggested_fix` length ≤500 chars (optional).
 
 ## Severity Anchors
 
@@ -67,7 +68,7 @@ agent_origin: reviewer | tester | security | codex_single | floor_pipeline | pee
 
 ### Auto-Discard Rule
 
-`type=absent` → finding logged with `discarded=true, discard_reason=no_evidence_provided`; it is NOT counted in the summary verdict.
+`type=absent` → finding logged with `discarded=true, discard_reason=no_evidence_provided`; it is NOT counted in the summary verdict. `type=verified_absence` is retained and counted like other evidence-backed findings.
 
 ### Verifiability Rule (post-write)
 

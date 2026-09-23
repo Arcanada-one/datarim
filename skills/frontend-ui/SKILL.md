@@ -126,9 +126,9 @@ Before generating lists of framework components (agents, skills, commands, use c
 
 1. **Query the filesystem** — never rely on cached numbers from previous sessions:
    ```bash
-   ls $HOME/.claude/agents/*.md | wc -l    # actual agent count
-   ls $HOME/.claude/commands/*.md | wc -l  # actual command count
-   ls $HOME/.claude/skills/*.md | wc -l    # actual skill count
+   ls ${DATARIM_RUNTIME:?}/agents/*.md | wc -l    # actual agent count
+   ls ${DATARIM_RUNTIME:?}/commands/*.md | wc -l  # actual command count
+   ls ${DATARIM_RUNTIME:?}/skills/*.md | wc -l    # actual skill count
    ```
 2. **Check source docs** for use cases, features, capabilities:
    - `documentation/tutorials/use-cases.md` in the Datarim repo for the canonical use case list
@@ -143,7 +143,7 @@ Before generating lists of framework components (agents, skills, commands, use c
 
 When the task changes any file under § 1–4 above, `/dr-qa` runs an
 automated Playwright pass against the local dev surface or a static
-fixture. Contract: `$HOME/.claude/skills/playwright-qa/SKILL.md` (resolution
+fixture. Contract: `${DATARIM_RUNTIME:?}/skills/playwright-qa/SKILL.md` (resolution
 chain CLI → MCP → env-browser, three headed states, per-task flock,
 `datarim/qa/playwright-{ID}/run-<ts>/` artifact layout). Missing tooling
 is a finding, not a block; `--headed-strict` without a display fails the

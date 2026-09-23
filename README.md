@@ -18,7 +18,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 19 specialized agents, 78 reusable skills, and 28 commands that guide
+It includes 19 specialized agents, 79 reusable skills, and 28 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -97,7 +97,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   cross-Claude-family fallback). Each agent has a defined role, capabilities,
   and the stages where it operates.
 
-- **78 reusable skills** — modular knowledge units that agents load on demand,
+- **79 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
@@ -116,7 +116,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 - **Plugin system (v1.23.0+)** — opt-in extension mechanism. `datarim-core`
   ships built-in; additional skills/agents/commands/templates are enabled via
   `/dr-plugin enable <source>` against a `plugin.yaml` manifest. Runtime symlinks
-  per-plugin namespace under `~/.claude/<category>/<plugin-id>/`; root-position via
+  per-plugin namespace under `.datarim-runtime/<category>/<plugin-id>/`; root-position via
   `overrides:`. `dr-plugin doctor` runs 9 health checks (manifest-syntax,
   inventory-consistency, broken-symlinks, orphan-files, override-integrity,
   dependency-graph, git-state, snapshot-cleanup, skill-registry).
@@ -126,7 +126,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   rule-based runner with security floor (whitelist, byte-0x1b escape block,
   500 ms micro + 60 s decision cooldown, 5-violations/hr → 1 h pane block,
   fail-closed); Phase 2 (v2.4.0+) adds a multi-backend subagent inference; v2.5.0 ships a bot-interaction interface (OpenAPI 3.1 + adnanh/webhook + HMAC-SHA256/Redis outbound, gated activation). Phase 2 baseline
-  layer (coworker → claude → codex, lenient JSON parse, FD-3 close, fail-
+  layer (claude → codex → cursor, lenient JSON parse, FD-3 close, fail-
   closed threshold gate) for unknown prompts and bumps plugin autonomy from
   L1 (manual) to L2 (assisted). Flock-race-safe cooldown on Linux, audit
   schema v2 with confidence + backend metadata, hash-only matched text
@@ -139,19 +139,11 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   Codex sessions preserves task pointers and snapshot phase before fixed
   `/compact` or `/clear`, then resumes with snapshot-first `/dr-next`.
 
-- **Multi-runtime coworker delegation enforcement** — `dev-tools/coworker-hook-guard.sh`
-  is a PreToolUse hook that denies direct bulk I/O when the MANDATORY
-  delegation rules apply (>400-line reads, ≥3-file ask, bootstrap
-  multi-file load, `git diff`/`git log -p` over ~200 lines, protected
-  write paths). Covers Claude tool names (`Read`, `Write`, `Bash`) AND
-  Codex CLI native tool names (`view`, `apply_patch`, `shell`,
-  `exec_command`). Single source of truth for the delegation rules text
-  is `templates/coworker-delegation-fragment.md`; `install.sh
-  --with-codex` prepends it into `~/.codex/AGENTS.override.md`. Codex
-  hooks.json wiring is operator-maintained per machine — see
-  `documentation/how-to/codex-cli-coworker-hooks.md`. Companion Stop-side
-  validator: `dev-tools/hooks/dr-output-stop.{py,sh}` enforces Stage
-  Header + human-summary structure on `/dr-do` transcripts.
+- **Explicit project scope** — Datarim instructions, skills, and task state
+  belong to the installed project. Native agents perform bounded reads and
+  reviews according to project policy. Coworker and RTK are retired runtime
+  dependencies. Optional Jev classification has separate native hooks for
+  Claude, Codex, and Cursor; see the [host/project guide](documentation/how-to/host-jev-with-project-datarim.md).
 
 - **Autonomous Agent Operating Rules contract** — the core ships
   `dev-tools/rules/fb-rules.yaml` (FB-1..FB-8 policy block with
@@ -160,9 +152,9 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   `dev-tools/fb-policy-loader.sh` `load_fb_policy()` entry point; the
   `dr-orchestrate` plugin's `rules_loader.sh` is a thin shim that delegates
   to it. Consumers mirror the canonical rule text in their own ecosystem
-  `CLAUDE.md` (Datarim ships the contract surface, not the canonical text —
+  `AGENTS.md` (Datarim ships the contract surface, not the canonical text —
   the text is ecosystem-owned and audit-tagged per consumer). See
-  `dev-tools/rules/fb-rules.yaml` header and the framework's `CLAUDE.md`
+  `dev-tools/rules/fb-rules.yaml` header and the framework's `AGENTS.md`
   § Autonomous Agent Operating Rules (cross-link).
 
 - **Self-evolving framework** — after every task, `/dr-archive` Step 0.5 (reflecting
@@ -208,7 +200,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   closed; a valid `GO` unlocks only the next existing planning gate.
 
 - **Project scaffolding** — `/dr-init create project "Name"` creates a complete
-  project structure: CLAUDE.md with Laws of Robotics and Datarim pipeline, documentation/
+  project structure: AGENTS.md with Laws of Robotics and Datarim pipeline, documentation/
   stubs (architecture, testing, deployment, gotchas), ephemeral working directories,
   and Datarim workflow state. Tech stack auto-detected. Idempotent — safe to run on
   existing projects.
@@ -221,219 +213,59 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ## Runtimes
 
-Datarim is runtime-agnostic. Three AI coding runtimes are supported with different integration levels: Claude Code (primary, native hook integration, full `coworker rtk` token-economy support), Codex CLI (parity via shim), and Cursor (parity — native `beforeShellExecution` hook via `coworker rtk enable`). See the canonical [Runtime support matrix](documentation/tutorials/use-cases.md#runtime-support) for details.
-
----
+Datarim uses project-local `AGENTS.md` instructions with Codex, Claude Code,
+and Cursor. Claude Code requires version 2.1.277 or newer with its native
+AGENTS loader available. No CLAUDE instruction files or import adapters are
+installed. Coworker and RTK are not required.
 
 ## Prerequisites
 
-- **bash ≥ 4** — install.sh requires bash. Invoke it as `bash install.sh` (explicit) or `sh install.sh` (auto-re-execs under bash when bash is on PATH). If bash is absent you get an actionable error and exit 2.
-- **git** — required for cloning the repo.
-- **At least one supported vendor agent**, installed and authenticated:
-  - [Claude Code](https://code.claude.com/documentation/en/overview) (primary) — `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux/WSL) or `irm https://claude.ai/install.ps1 | iex` (Windows PowerShell). Install with `./install.sh --with-claude`.
-  - [Codex CLI](https://developers.openai.com/codex/cli) — parity via the `coworker rtk` shim. Install with `./install.sh --with-codex`.
-  - [Cursor](https://cursor.com) — parity via the native `beforeShellExecution` hook. Install with `./install.sh --with-cursor`.
-  - See the [Runtime support matrix](documentation/tutorials/use-cases.md#runtime-support) for per-vendor hook integration and token-economy details.
-- **Recommended:** [context7](https://github.com/upstash/context7) MCP server for
-  token-efficient documentation access (reduces context usage when looking up library
-  docs)
-
----
+- Python 3.10 or newer and Git.
+- An installed, authenticated agent client: Codex CLI, Claude Code, or Cursor CLI.
+- A project directory you explicitly want to enable.
+- For optional Jev classification: a separate Jev API key for each host.
 
 ## Operating Model
 
-**`~/.claude/` is the living system — the source of truth for running
-instructions.** This repository is a curated snapshot: it holds clean, fresh
-versions of the framework that can be installed into any new project or
-machine.
-
-The living system evolves. Different projects use `~/.claude/` daily and, via
-`/dr-archive` Step 0.5 (reflecting skill), propose updates to skills, agents,
-and commands. Approved updates land in `~/.claude/` first, then get curated
-back into this repo so the next person who clones it gets the current state.
-
-**Direction of sync: runtime → repo (with curation).**
-
-### How to update the framework
-
-1. Edit the file in `~/.claude/` — that is where the change goes first. Usually
-   this happens through `/dr-archive` Step 0.5 after a task surfaces a lesson.
-2. After the human approves the change, commit it in this repository by
-   copying the updated file from `~/.claude/` into the repo tree.
-3. Run `./validate.sh` to confirm runtime symlinks point at the repo.
-4. Bump `VERSION` if the change is significant enough to warrant a release.
-
-`install.sh` is for seeding a fresh machine — it wires this repo's content into
-`~/.claude/`. **It requires an explicit runtime flag**: with no
-`--with-claude` / `--with-codex` / `--with-cursor` / `--project DIR` argument it
-only prints usage and exits 0 without touching anything.
-
-`install.sh --force` applies to **copy mode only**. Under the default symlink
-topology it is a semantic no-op — the installer prints
-`Already symlinked … nothing to update` and exits 0. In copy mode on a live
-system it refuses to run without an explicit `yes` confirmation (or
-`--yes` / `DATARIM_INSTALL_YES=1`) and then takes a timestamped backup into
-`~/.claude/backups/force-*/`. Note the three paths that return **without** a
-backup: an already-symlinked runtime (early exit), symlink mode over an
-existing copy install (consent and the `migrate-*` snapshot are handled by the
-migration prompt instead), and a fresh empty target. Use with intention; the
-guard exists because `--force` previously destroyed 9 runtime evolutions.
-
----
+This repository is the framework source. Changes are reviewed and merged here;
+projects receive a pinned copy under `.datarim-runtime/`. No runtime is installed
+in user home directories, and no shell startup file is modified. Task knowledge
+belongs to the consumer project, never to this source repository.
 
 ## Installation
 
-> **Releases are signed.** Every tagged release ships a cosign-signed source tarball, a CycloneDX SBOM, and a SLSA L2 build provenance attestation. Verify before installing — see [`documentation/how-to/release-verification.md`](documentation/how-to/release-verification.md).
+Start with the walkthrough for your intended setup:
 
-### First install on a new machine
+- [Initialize Datarim without Jev](documentation/tutorials/initialize-datarim.md)
+- [Initialize Datarim together with Jev](documentation/tutorials/initialize-datarim-with-jev.md)
+- [Configure and use Jev](documentation/how-to/configure-and-use-jev.md)
+- [Use host Jev with project-local Datarim](documentation/how-to/host-jev-with-project-datarim.md)
+- [Jev command reference](documentation/reference/jev-cli.md)
 
-```bash
-git clone https://github.com/Arcanada-one/datarim.git
-cd datarim
-chmod +x install.sh
-./install.sh --with-claude
+```sh
+./install.sh --project /absolute/path/to/project --init --with-jev
+cd /absolute/path/to/project
+source .datarim-runtime/activate.sh
+jev doctor
 ```
 
-**A runtime flag is required.** Bare `./install.sh` prints usage and exits 0
-without installing anything. Pick at least one of:
+The installer preserves existing project instructions, creates a protected empty
+key file, and refuses conflicts. Add the host's key using an editor, then run
+`jev doctor --api` to check the connection. Omit `--with-jev` to use Datarim alone.
 
-| Flag | Effect |
-|------|--------|
-| `--with-claude` | Claude Code runtime — symlinks scopes into `~/.claude/` (default mode) |
-| `--with-codex` | Codex CLI runtime — symlinks into `~/.codex/`, plus `AGENTS.md` and the SKILL.md wrappers (`--no-codex-ux` opts out) |
-| `--with-cursor` | Cursor IDE — flat `.md` mirror of each `SKILL.md` into `~/.cursor/skills/` |
-| `--project DIR` | Project-local **copy** install into `DIR/.datarim` (no symlinks) |
+All four entrypoints share project checks and the same configuration:
 
-Flags combine: `./install.sh --with-claude --with-codex` installs both
-runtimes in one pass. Other useful flags: `--dry-run` (print the planned
-mutations and exit), `--copy` (real files instead of symlinks), `--help`.
-
-By default this is **symlink** mode: the scope directories in `~/.claude/`
-become symlinks to the cloned repo, so a `git pull` is the update. Copy mode
-(`--copy`, or auto-detected on Windows) writes real files instead.
-
-#### What the installer touches outside `~/.claude/<scope>/`
-
-Beyond the scope symlinks the installer has three side effects worth knowing
-about before you run it:
-
-- **`~/.local/bin/`** — symlinks three hook guards from `dev-tools/`:
-  `coworker-hook-guard`, `branch-integration-guard`, and
-  `session-execution-drift-warn`. An existing regular file at any of those
-  paths is backed up once (`.bak-<UTC-timestamp>`) before the symlink replaces
-  it. Registering the hooks in your `settings.json` stays a manual, machine-local
-  step — the installer never edits the hooks array.
-- **`$CLAUDE_DIR/CLAUDE.md`** — on a `--with-claude` install the coworker
-  delegation fragment is synced into your own `CLAUDE.md` between the
-  `<!-- coworker-fragment:begin -->` / `<!-- coworker-fragment:end -->`
-  sentinel lines. Everything outside the sentinels is your hand-written
-  content and is never touched; if the sentinels are absent the installer
-  prints instructions and leaves the file alone.
-- **`~/.claude/local/{skills,agents,commands,templates}/`** — real (gitignored)
-  directories created for personal overrides that should not be committed
-  upstream.
-
-`--profile orchestrator` is a separate, standalone action: it writes only
-`~/.config/datarim-orchestrate/local.yaml` (mode 0600) and installs no scopes.
-
-### Verifying the install
-
-```bash
-./validate.sh
+```sh
+jevcodex "Investigate the failing test"
+jevclaude "Review this change"
+jevcursor "Explain this module"
+jev --agent=codex "Investigate the failing test"
 ```
 
-Verifies that the installed scopes resolve to the canonical Datarim repo
-(symlink mode) or contain the expected fileset (copy mode). Under symlink
-topology drift is impossible by construction — runtime IS the repo by inode.
-
-The scope list lives in `install.sh INSTALL_SCOPES` and has **seven** entries:
-`agents/`, `skills/`, `commands/`, `templates/`, `scripts/`, `tests/`, and
-`dev-tools/`. The last three are runtime-required — several `/dr-*` commands
-shell out to `dev-tools/` and `scripts/` helpers at runtime, so they are
-installed rather than repo-only. Only root files (`install.sh`, `update.sh`,
-`validate.sh`, `VERSION`, `CLAUDE.md`, `README.md`, `LICENSE`) stay
-repo-only. See [documentation/tutorials/getting-started.md](documentation/tutorials/getting-started.md#installer-contract)
-for the full installer contract.
-
-### Symlink-default operating model
-
-Since v1.17.0, `install.sh` defaults to **symlink** mode — the
-`symlink-default` operating model. It links all seven scope directories
-(`agents/`, `skills/`, `commands/`, `templates/`, `scripts/`, `tests/`,
-`dev-tools/`) from `~/.claude/` into the cloned Datarim repo, so every
-`git pull` instantly refreshes runtime with no copy step and no drift. Copy
-mode (`install.sh --copy`) is the documented fallback for filesystems without
-symlink support (FAT, exFAT, Windows native without Developer Mode). Copy mode
-is also where the merge semantics apply: it skips any file that already exists
-unless you pass `--force`. See [`documentation/explanation/symlinks.md`](documentation/explanation/symlinks.md) for
-the full operating model, copy-mode migration recipe, and limitations.
-
-### Windows (WSL / Git Bash)
-
-```bash
-# From WSL or Git Bash terminal:
-git clone https://github.com/Arcanada-one/datarim.git
-cd datarim
-./install.sh --with-claude
-```
-
-The same installer works under WSL and Git Bash — and the same rule applies:
-without a `--with-*` / `--project` flag it only prints usage. Under Git Bash
-(`MINGW*` / `MSYS*` / `CYGWIN*`) the installer auto-detects that symlinks are
-unavailable and falls back to copy mode. Native PowerShell is not supported.
-
-### Manual Installation
-
-If you prefer to install manually or need to customize the locations, use
-recursive copies so supporting fragments are preserved:
-
-```bash
-mkdir -p ~/.claude/{agents,skills,commands,templates,scripts,tests,dev-tools}
-cp -R agents/.     ~/.claude/agents/
-cp -R skills/.     ~/.claude/skills/
-cp -R commands/.   ~/.claude/commands/
-cp -R templates/.  ~/.claude/templates/
-cp -R scripts/.    ~/.claude/scripts/
-cp -R tests/.      ~/.claude/tests/
-cp -R dev-tools/.  ~/.claude/dev-tools/
-```
-
-A manual copy skips the installer's other side effects — the `~/.local/bin/`
-hook-guard symlinks, the `CLAUDE.md` delegation fragment, and the `local/`
-overlay directories. Add those by hand if you need them.
-
-### Updating an existing installation
-
-```bash
-cd /path/to/datarim              # your cloned repo
-./update.sh                      # pull + (copy-mode) reinstall
-```
-
-`update.sh` branches on the runtime topology it detects:
-
-- **Symlink mode (default):** runs `git pull origin main` and exits. The
-  runtime IS the repo, so the pull *is* the install — nothing is copied and
-  no backup is taken.
-- **Copy mode:** `git pull origin main`, then
-  `./install.sh --copy --force --yes` to overwrite `~/.claude/`.
-
-Use `./update.sh --dry-run` to preview what would change without writing
-anything. `update.sh` does not run `validate.sh` — run it yourself if you
-want to confirm the topology afterwards.
-
-### Activate in Your Project
-
-```bash
-cp CLAUDE.md /path/to/your/project/
-```
-
-The `CLAUDE.md` file contains the framework rules that Claude Code reads on startup.
-The file has two sections:
-
-1. **Framework section** (top) — pipeline definitions, agent roster, skill
-   references, and behavioral rules. Do not modify this section.
-2. **Project section** (bottom) — your project description, tech stack, conventions,
-   and custom rules. Customize this freely.
+Run `./update.sh --project /absolute/path/to/project --with-jev` from the reviewed
+source checkout to update a project. Follow the walkthrough for backup handling
+and uninstall. Activation is limited to the current shell; each invocation
+checks its actual working directory, including after you leave the project.
 
 ---
 
@@ -443,13 +275,13 @@ The file has two sections:
 # Navigate to your project
 cd your-project
 
-# Option A: Scaffold a new project (creates CLAUDE.md, documentation/, datarim/ automatically)
+# Option A: Scaffold a new project (creates AGENTS.md, documentation/, datarim/ automatically)
 claude
 /dr-init create project "My API Service"
 
-# Option B: Set up manually in an existing project
-cp /path/to/datarim/CLAUDE.md .
-# Edit the project-specific section at the bottom of CLAUDE.md
+# Initialize an existing project from a reviewed source checkout
+/path/to/datarim/install.sh --project "$PWD" --init
+# The installer preserves existing AGENTS.md content.
 
 # Start Claude Code
 claude
@@ -548,17 +380,17 @@ involve most of the nineteen agents across different stages.
 | **humanize** | AI artifact removal, voice preservation, natural language patterns | Editor, Writer |
 | **publishing** | Multi-platform publishing rules, formatting, limits, workflow | Writer (on demand) |
 | **session-handoff-writer** | Producer contract for session handoff — 5-layer body, claim provenance, secret redaction | /dr-save |
-| **project-init** | Project scaffolding: CLAUDE.md, documentation/, datarim/ structure for new projects | /dr-init (project mode) |
+| **project-init** | Project scaffolding: AGENTS.md, documentation/, datarim/ structure for new projects | /dr-init (project mode) |
 | **research-workflow** | Structured research methodology — checklist, tool selection, gap discovery protocol | Researcher |
 | **reflecting** | Post-task reflection: lessons learned, evolution proposals, Class A/B gate | /dr-archive (Step 0.5) |
 
 The table above is a representative sample, not the full catalogue — the
-complete list of all 78 skills is in
+complete list of all 79 skills is in
 [`documentation/reference/skills.md`](documentation/reference/skills.md).
 
 Skills are modular. Each one is a directory containing a `SKILL.md` (plus any
 supporting fragment files) that agents load when they need specific
-capabilities. Add your own by creating `~/.claude/local/skills/<name>/SKILL.md`
+capabilities. Add your own by creating `.datarim-runtime/local/skills/<name>/SKILL.md`
 — the `local/` overlay is gitignored and wins over a framework skill of the
 same name.
 
@@ -586,7 +418,7 @@ same name.
 | `/dr-doctor` | Maintenance | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md. |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize files, build index, cross-reference, flag contradictions, archive stale content. |
 | `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
-| `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `~/.claude/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
+| `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `.datarim-runtime/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
 | `/dr-orchestrate` | Maintenance | Self-driving pipeline runner. The command and its autonomy policy are core; the tmux/bot transport runner is the opt-in `dr-orchestrate` plugin. Whitelisted actions only, JSONL audit, hard-gated floor. |
 | `/dr-quick` | Any | Fast lane for trivial fixes and quick lookups — assigns a `QCK-XXXX` id, scans the knowledge base, applies the change, writes a short archive. Skips PRD, plan, design, QA, and compliance. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
@@ -764,16 +596,14 @@ and commands based on a natural language description of what you need.
 
 **Scope rules:**
 
-| Condition | Creates in |
-|-----------|-----------|
-| You said "global" or "for all projects" | `~/.claude/` (user-level) |
-| Project has `.claude/skills/` with files | Project `.claude/` |
-| Project has `.claude/` directory | Project `.claude/` |
-| No project `.claude/` | Asks you, defaults to project |
+| Requested scope | Result |
+|-----------------|--------|
+| Current initialized project | Project-local extensions and native client discovery |
+| Reusable framework component | Change the source repository through a pull request |
+| Global Datarim installation | Unsupported; select an explicit project |
 
-Project-level skills are portable and version-controlled. User-level skills apply
-everywhere. The framework prefers project scope to keep skills close to where they
-are used.
+Datarim instructions and skills are project-local. Independent host Jev hooks
+can classify work in other directories without loading the Datarim catalog.
 
 ---
 
@@ -791,8 +621,8 @@ lean by auditing, pruning, and consolidating components.
 # Audit only the project scope
 /dr-optimize project
 
-# Audit only the user-level installation
-/dr-optimize global
+# Audit the framework source repository
+/dr-optimize framework
 ```
 
 **What the optimizer checks:**
@@ -802,7 +632,7 @@ lean by auditing, pruning, and consolidating components.
 | Unused components | Skills no agent loads, agents no command invokes |
 | Oversized skills | Any skill over 500 lines (should use supporting files) |
 | Duplicate coverage | Two skills covering the same domain |
-| Broken references | Skills referenced in CLAUDE.md but missing from disk |
+| Broken references | Skills referenced in AGENTS.md but missing from disk |
 | Doc count mismatch | Documentation says 15 agents but disk has 12 |
 | Description budget | Total descriptions exceed context budget |
 
@@ -906,7 +736,7 @@ at every step.
 
 2. **Propose** — Based on the reflection, the evolution skill generates concrete
    proposals: update a skill's instructions, adjust an agent's behavior, add a new
-   pattern to CLAUDE.md, modify complexity routing thresholds. For **Class B
+   pattern to AGENTS.md, modify complexity routing thresholds. For **Class B
    proposals** (operating-model / contract-change), an entry is automatically
    spawned in `backlog.md` so the change goes through a full `/dr-prd` →
    `/dr-plan` → `/dr-do` review rather than landing as an inline tweak. The
@@ -931,7 +761,7 @@ at every step.
   routing rules are adjusted.
 - **Pipeline stages** — if a stage is consistently skipped at a certain level, the
   routing is updated to reflect actual practice.
-- **CLAUDE.md rules** — if project-specific patterns emerge, they are codified into
+- **AGENTS.md rules** — if project-specific patterns emerge, they are codified into
   the framework rules.
 
 ### What does not evolve
@@ -959,7 +789,7 @@ four orthogonal categories: tutorials (learning), how-to guides
 (problem-solving), reference (lookup), explanation (understanding). The
 framework's own docs live in `documentation/`; consumer projects bootstrap
 `documentation/{tutorials,how-to,reference,explanation}/` per the Documentation
-Taxonomy Mandate (mandate text in the consumer's ecosystem CLAUDE.md;
+Taxonomy Mandate (mandate text in the consumer's ecosystem AGENTS.md;
 the contract surface ships with the framework as `skills/diataxis-docs/SKILL.md`).
 
 ### Reference docs
@@ -985,7 +815,7 @@ readiness roadmap.
 
 ## Project Configuration
 
-When you copy `CLAUDE.md` into your project, you get a file with two distinct
+When you copy `AGENTS.md` into your project, you get a file with two distinct
 sections:
 
 ### Framework Section (Do Not Modify)
@@ -1092,11 +922,11 @@ and why it exists.
 ```
 datarim/
   agents/            # Agent personas (19 agents)
-  skills/            # Knowledge modules (78 skills)
+  skills/            # Knowledge modules (79 skills)
   commands/          # Slash commands (28 commands)
-  templates/         # Task and document templates (29 templates)
+  templates/         # Task and document templates (28 templates)
   documentation/              # Extended documentation and use cases
-  CLAUDE.md          # Framework rules (copy to your project)
+  AGENTS.md          # Framework rules (copy to your project)
   install.sh         # Automated installer
   LICENSE            # MIT license
   README.md          # This file
@@ -1122,7 +952,7 @@ Contributions are welcome. To contribute:
   when to load, and the knowledge content.
 - **New commands:** Follow the structure in existing command `.md` files. Define
   stage, prerequisites, actions, and outputs.
-- **Framework changes:** Update `CLAUDE.md`, relevant docs, and this README.
+- **Framework changes:** Update `AGENTS.md`, relevant docs, and this README.
 - **Keep it universal:** No project-specific content, no hardcoded paths, no
   technology assumptions.
 
