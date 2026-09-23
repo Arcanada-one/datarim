@@ -40,6 +40,20 @@ graph. It is updated as work lands; each item carries a measured verdict
   settings, and renamed the rest to `.datarim-uninstalled` rather than deleting
   it — recoverable by design, not a leftover.
 
+### Safety floor, verified on both newly-installed machines
+
+15 commands through the real hook on arcana-devs and DEV-AI, 15/15 correct:
+blocked `dd`/`mkfs` to a block device, `rm -rf /`, `/*`, and the spelling
+variants `-fr`, `-r -f`, `~`, `$HOME`, plus `git push --force`; allowed
+ordinary `dd`, `mkfs` to an image, `rm -rf ./build`, and — the discriminating
+case — `git push --force-with-lease`, which a substring match would wrongly
+block.
+
+A fork bomb is **not** blocked, and that is correct: the floor's own docstring
+scopes it to "catastrophic-and-irreversible" commands, leaving graded risk to
+the advisory layer. My first probe listed it as a required block and reported a
+breach; the probe's expectation was wrong, not the floor.
+
 ### P3-9, the supported automation path
 
 `codex exec --dangerously-bypass-hook-trust` works on codex-cli 0.155.1.

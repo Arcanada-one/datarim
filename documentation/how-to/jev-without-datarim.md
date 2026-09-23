@@ -125,7 +125,29 @@ an agent and a command; in a directory without one, the same prompt returned
 the tier advice alone and no catalogue line.
 
 The deterministic safety floor is independent of all of this. It runs locally,
-needs no key, and is not disabled by `jev off`.
+needs no key, and is not disabled by `jev off`. Measured on two hosts, 15
+commands: it blocks raw writes and filesystem formats to a block device,
+recursive deletion of protected roots — including the spellings `rm -fr /`,
+`rm -r -f /`, `rm -rf ~`, `rm -rf $HOME` — and `git push --force`, while
+allowing ordinary `dd`, `mkfs` to an image file, `rm -rf ./build` and
+`git push --force-with-lease`. It is deliberately narrow: graded risk is the
+advisory layer's job, so a fork bomb, for instance, is not blocked.
+
+### If advice arrives without the catalogue line
+
+The hook gives the routing call a short budget — 4 s for the API, and the
+wrapper kills the child at 6 s — because a prompt must not hang waiting for
+advice. When the round trip exceeds it, the hook returns whatever it has, or
+nothing, and your session continues unadvised. Measured round trip on a healthy
+link: 0.6 s.
+
+So intermittent "no skills suggested" on a slow or distant network is a
+timeout, not a misconfiguration. Raise it in the host config
+(`~/.config/jev/config.json`) if that is your situation:
+
+```json
+{ "api": { "hook_timeout_seconds": 10 } }
+```
 
 ## Turn it off
 
