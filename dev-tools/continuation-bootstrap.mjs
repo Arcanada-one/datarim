@@ -5,6 +5,7 @@ import { constants } from 'node:fs';
 import { open, realpath } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { validateProvenance, provenanceView, workspaceView } from './continuation-provenance.mjs';
 
 const ROOT = '/worker/runtime';
 const LIMIT = 65536;
@@ -87,7 +88,7 @@ function validateQuestion(q, response) {
       s.options.some(o => o.id === response.optionId), 'answer');
   }
 }
-function validateBootstrap(b, now) {
+function validateBootstrap(b, now, fresh = true) {
   shape(b, ['schemaVersion', 'childRunId', 'answerId', 'intentDigest', 'checkpoint',
     'response', 'answerDigest', 'frameworkCommit', 'adapterVersion', 'productionHold', 'approvalInheritance']);
   requireValue(b.schemaVersion === 1 && b.adapterVersion === 'ordinary-answer-v1');
@@ -103,7 +104,7 @@ function validateBootstrap(b, now) {
   sha(c.questionContextDigest); sha(c.sourceProfileDigest); sha(c.manifestDigest);
   requireValue(matches(c.taskId, /^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$/) && matches(c.asanaGid, /^[0-9]{1,32}$/));
   const created = time(c.createdAt), expires = time(c.expiresAt);
-  requireValue(created <= now && expires > now && expires > created && expires - created <= 900000, 'expired');
+  requireValue(created <= now && (!fresh || expires > now) && expires > created && expires - created <= 900000, 'expired');
   validateQuestion(c.question, b.response);
   requireValue(b.childRunId !== c.parentRunId && c.question.id === c.questionId &&
     c.question.runId === c.parentRunId && hash(canonical(c.question)) === c.questionContextDigest &&
@@ -119,10 +120,10 @@ function validateBinding(binding, b) {
 }
 function validateControl(c, b) {
   shape(c, [...BINDING, 'schemaVersion', 'taskId', 'attemptId', 'route', 'routeDigest',
-    'artifactIndexDigest', 'resumeStage', 'presentationNonce', 'productionHold', 'approvalInheritance']);
+    'artifactIndexDigest', 'provenanceDigest', 'resumeStage', 'presentationNonce', 'productionHold', 'approvalInheritance']);
   validateBinding(Object.fromEntries(BINDING.map(k => [k, c[k]])), b);
-  requireValue(c.schemaVersion === 1 && c.taskId === b.checkpoint.taskId, 'binding');
-  uuid(c.attemptId); sha(c.artifactIndexDigest); sha(c.routeDigest); hold(c);
+  requireValue(c.schemaVersion === 2 && c.taskId === b.checkpoint.taskId, 'binding');
+  uuid(c.attemptId); sha(c.artifactIndexDigest); sha(c.provenanceDigest); sha(c.routeDigest); hold(c);
   requireValue(matches(c.presentationNonce, /^[a-f0-9]{32}$/), 'nonce');
   requireValue(Array.isArray(c.route) && c.route.length >= 1 && c.route.length <= STAGES.length &&
     c.route.every((s, i) => STAGES.includes(s) && (i === 0 || STAGES.indexOf(s) > STAGES.indexOf(c.route[i - 1]))) &&
@@ -157,8 +158,8 @@ export function renderContinuationModelView({ bootstrap, control }) {
   return view;
 }
 
-function parse(bytes) {
-  requireValue(bytes.length <= LIMIT && !(bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf), 'encoding');
+function parse(bytes, limit = LIMIT) {
+  requireValue(bytes.length <= limit && !(bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf), 'encoding');
   let text, value;
   try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); value = JSON.parse(text); }
   catch { fail('encoding'); }
@@ -168,19 +169,19 @@ function parse(bytes) {
   requireValue(canonical(value) === text, 'canonical');
   return value;
 }
-async function readResource(root, name) {
+async function readResource(root, name, limit = LIMIT) {
   const file = await open(`/proc/self/fd/${root.fd}/${name}`, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const before = await file.stat({ bigint: true });
-    requireValue(before.isFile() && before.nlink === 1n && (before.mode & 0o222n) === 0n && before.size <= BigInt(LIMIT), 'custody');
-    const buffer = Buffer.alloc(LIMIT + 1);
+    requireValue(before.isFile() && before.nlink === 1n && (before.mode & 0o777n) === 0o400n && before.size <= BigInt(limit), 'custody');
+    const buffer = Buffer.alloc(limit + 1);
     let size = 0, count;
     do { ({ bytesRead: count } = await file.read(buffer, size, buffer.length - size, null)); size += count; }
     while (count > 0 && size < buffer.length);
     const after = await file.stat({ bigint: true });
-    requireValue(size === Number(before.size) && size <= LIMIT &&
+    requireValue(size === Number(before.size) && size <= limit &&
       ['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeNs', 'ctimeNs'].every(k => before[k] === after[k]), 'custody');
-    return parse(buffer.subarray(0, size));
+    return parse(buffer.subarray(0, size), limit);
   } finally { await file.close(); }
 }
 async function resources() {
@@ -188,12 +189,31 @@ async function resources() {
     requireValue(await realpath(ROOT) === ROOT, 'custody');
     const root = await open(ROOT, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
     try {
-      return { bootstrap: await readResource(root, 'continuation.json'), control: await readResource(root, 'continuation-control.json') };
+      const before = await root.stat({ bigint: true });
+      const data = { bootstrap: await readResource(root, 'continuation.json'), control: await readResource(root, 'continuation-control.json'),
+        provenance: await readResource(root, 'continuation-provenance.json', 262144) };
+      const current = await open(ROOT, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+      try {
+        const after = await current.stat({ bigint: true });
+        requireValue(['dev', 'ino', 'mode', 'mtimeNs', 'ctimeNs'].every(key => before[key] === after[key]), 'custody');
+      } finally { await current.close(); }
+      return data;
     } finally { await root.close(); }
   } catch { fail('resource_unavailable'); }
 }
 export async function readContinuationModelView() {
-  return renderContinuationModelView(await resources());
+  const data = await resources();
+  const view = renderContinuationModelView(data);
+  validateProvenance(data.provenance, data.bootstrap, data.control);
+  return view;
+}
+export async function readContinuationProvenanceView(workspaceStatus = false) {
+  const data = await resources();
+  tree(data.bootstrap); tree(data.control);
+  validateBootstrap(data.bootstrap, Date.now(), false); validateControl(data.control, data.bootstrap);
+  const verified = validateProvenance(data.provenance, data.bootstrap, data.control);
+  if (!workspaceStatus) return provenanceView(verified);
+  return workspaceView(verified);
 }
 export async function prepareContinuation(input) {
   shape(input, ['bootstrap', 'binding']); tree(input);
@@ -201,12 +221,14 @@ export async function prepareContinuation(input) {
   renderContinuationModelView(data);
   requireValue(canonical(input.bootstrap) === canonical(data.bootstrap), 'binding');
   validateBinding(input.binding, data.bootstrap);
+  await workspaceView(validateProvenance(data.provenance, data.bootstrap, data.control), true);
   const { childRunId, answerId, checkpointId, inputDigest } = input.binding;
   return { kind: 'ordinary-answer-prepared', childRunId, answerId, checkpointId, inputDigest, productionHold: true };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    requireValue(process.argv.length === 3 && process.argv[2] === '--model-view', 'arguments');
-    process.stdout.write(await readContinuationModelView());
+    requireValue(process.argv.length === 3 && ['--model-view', '--provenance-view', '--workspace-status'].includes(process.argv[2]), 'arguments');
+    process.stdout.write(process.argv[2] === '--model-view' ? await readContinuationModelView() :
+      await readContinuationProvenanceView(process.argv[2] === '--workspace-status'));
   } catch { process.stderr.write('continuation_unavailable\n'); process.exitCode = 1; }
 }
