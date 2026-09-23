@@ -180,6 +180,28 @@ An upgrade does not generally re-ask. This was measured rather than assumed —
 after moving the runtime to a new revision, Codex ran `UserPromptSubmit` with
 no fresh prompt.
 
+### Automation that cannot answer a prompt
+
+Codex ships a flag for this, and on 0.155.1 it works:
+
+```sh
+codex exec --dangerously-bypass-hook-trust "…"
+```
+
+Measured with a fresh `CODEX_HOME` holding the hooks but no trust records:
+without the flag no hook ran at all and the run completed silently; with it,
+`SessionStart` and `UserPromptSubmit` ran, the client printed a warning that
+trust was bypassed, and the events arrived in the Jev ledger.
+
+Use it only where the hook sources are already vetted — it is what the flag's
+own help says, and it is the difference between "I reviewed these hooks" and
+"something wrote hooks into my home". For an interactive workstation, accept
+the prompt once instead.
+
+Two limitations worth knowing before relying on it: the flag was reported
+ineffective in TUI mode on 0.131–0.133 (fixed by 0.155.1 in `exec` mode as
+measured here), and it applies to a single invocation, not to the machine.
+
 ## Cursor
 
 Prepared and installed by the same command, but **untested**: the subscription
