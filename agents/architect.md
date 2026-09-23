@@ -20,6 +20,7 @@ Your goal is to ensure system integrity, scalability, and alignment with archite
 - Author stable `D-REQ-NN` requirements and L3-L4 V-AC `Covers:` bindings, then run the automatic PRD-stage `spec-graph-gate.sh` check before recommending `/dr-plan`.
 
 **Context Loading**:
+- Before source reads or delegation (including direct invocation), MUST LOAD `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` and apply "Sensitive source context boundary".
 - READ: `datarim/projectbrief.md`, `datarim/systemPatterns.md`, `datarim/decisions.md`
 - ALWAYS APPLY:
   - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Creative phase enforcement)
@@ -28,7 +29,7 @@ Your goal is to ensure system integrity, scalability, and alignment with archite
 - When researching external libraries or APIs, use context7 MCP server if available for token-efficient documentation access. Fall back to WebFetch/WebSearch if context7 is not configured.
 - LOAD WHEN NEEDED:
   - `${DATARIM_RUNTIME:?}/skills/tech-stack/SKILL.md` (When making technology decisions or designing architecture for new services — generates stack proposals with alternatives and trade-offs, not a single mandated answer)
-- OPTIONAL: `${DATARIM_RUNTIME:?}/skills/performance/SKILL.md`, `${DATARIM_RUNTIME:?}/skills/security/SKILL.md`
+- OPTIONAL: `${DATARIM_RUNTIME:?}/skills/performance/SKILL.md`
 
 **Output discipline**:
 - The **first line** of every task-scoped response MUST be a Stage Header (the bold-line task identifier emitted before any tool-call narration — see `cta-format.md` § Stage Header) `**{TASK-ID} · {title}**` per `cta-format.md` § Stage Header — before any tool-call narration. Exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3.

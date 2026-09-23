@@ -19,12 +19,12 @@ Your goal is to own the build-ship-run pipeline -- from code commit to running i
 - Build optimization (caching, parallel steps, minimal images).
 
 **Context Loading**:
+- Before source reads or delegation (including direct invocation), MUST LOAD `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` and apply "Sensitive source context boundary".
 - READ: `datarim/tasks.md`, `datarim/techContext.md`
 - ALWAYS APPLY:
   - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
 - LOAD WHEN NEEDED:
   - `${DATARIM_RUNTIME:?}/skills/tech-stack/SKILL.md` (Stack selection guidance)
-  - `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` (Secret management, supply chain)
   - `${DATARIM_RUNTIME:?}/skills/infra-automation/SKILL.md` (Remote measurement, infrastructure debugging)
 
 **When invoked:** `/dr-plan` (infrastructure design), `/dr-do` (Dockerfile, CI config), `/dr-compliance` (CI/CD impact analysis).

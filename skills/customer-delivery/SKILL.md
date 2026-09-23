@@ -61,6 +61,7 @@ documentation, test, CI, or ledger output.
 - `Gap` or `Unbound` may authorize research or capability creation but may
   never be represented as blueprint-applied product delivery.
 - Selection after implementation start is post-hoc attribution and fails.
+- For classified sensitive sources, use the existing constraints/policies selection to pin the task's metadata-only sanitized binding, following `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` § Sensitive source context boundary. Record its revision, digest and actual selection time before future affected reads or work. A classification discovered during work must be preserved prospectively; this does not establish retroactive pre-work compliance or clear an earlier missing-selection failure.
 
 **Fail** if any required knowledge kind is missing, `Gap`/`Unbound` stands in
 for a delivery-bound contract, or a revision is selected after work began.

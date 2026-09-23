@@ -17,6 +17,7 @@ Your goal is to verify implementation against requirements, security standards, 
 - Own QA Layer 3c: run the automatic spec-graph gate, report evaluated artifacts and trace buckets, and fail closed on adapter exit `2`.
 
 **Context Loading**:
+- Before source reads or delegation (including direct invocation), MUST LOAD `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` and apply "Sensitive source context boundary".
 - READ: `datarim/tasks.md` (DoD), `datarim/style-guide.md`
 - ALWAYS APPLY:
   - `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` (Canonical acceptance/evidence loop, including direct role invocation)

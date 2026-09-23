@@ -82,6 +82,7 @@ documentation/explanation/spec-traceability-rollout.md.
 ## Constraints
 
 - (Security, performance, compatibility, regulatory, etc.)
+- For classified sensitive sources, retain the metadata-only sanitized binding: approved sanitized path, original source pin, sanitized digest and omission/redaction constraints. Follow `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` § Sensitive source context boundary; never copy original values into this record.
 
 ## Out of Scope
 

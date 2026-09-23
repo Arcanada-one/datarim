@@ -20,6 +20,7 @@ Your goal is to identify, assess, and mitigate security risks throughout the dev
 - Security architecture review: trust boundaries, attack surface mapping.
 
 **Context Loading**:
+- Before source reads or delegation (including direct invocation), MUST LOAD `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` and apply "Sensitive source context boundary".
 - READ: `datarim/tasks.md`, `datarim/systemPatterns.md`
 - ALWAYS APPLY:
   - `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` (Auth, input validation, data protection)

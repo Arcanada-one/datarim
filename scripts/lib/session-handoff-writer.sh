@@ -459,7 +459,9 @@ _enforce_layer_cap() {
     local middle_budget
     middle_budget=$(( max_body - l1_bytes - l5_bytes - marker_bytes - 4 ))
     if [ "$middle_budget" -lt 0 ]; then
-        middle_budget=0
+        printf 'write_session_handoff: protected layers exceed available session capacity.\n' >&2
+        rm -f "$l1_file" "$l5_file" "$middle_file"
+        return 1
     fi
 
     local middle_chunk
@@ -606,12 +608,12 @@ write_session_handoff() {
     local max_new_block
     max_new_block=$(( SESSION_MAX_BYTES - existing_bytes - separator_bytes ))
     if [ "$max_new_block" -lt 64 ]; then
-        # File already at cap — warn and skip (fail-closed warn-and-skip).
+        # No room for this new block: do not report a successful save.
         printf 'write_session_handoff: session file at capacity, new block not written.\n' >&2
         rm -f "$redacted_body"
         release_plugin_lock "$lock_dir"
         trap - EXIT INT TERM
-        return 0
+        return 1
     fi
 
     local max_body
@@ -623,7 +625,12 @@ write_session_handoff() {
     # Apply per-layer cap.
     local capped_body
     capped_body="$(mktemp "${TMPDIR:-/tmp}/session-capped.XXXXXX")"
-    _enforce_layer_cap "$redacted_body" "$capped_body" "$max_body"
+    if ! _enforce_layer_cap "$redacted_body" "$capped_body" "$max_body"; then
+        rm -f "$redacted_body" "$capped_body"
+        release_plugin_lock "$lock_dir"
+        trap - EXIT INT TERM
+        return 1
+    fi
     rm -f "$redacted_body"
 
     # Build the new block: frontmatter + capped body.
@@ -636,6 +643,18 @@ write_session_handoff() {
         cat "$capped_body"
     } > "$tmp_path"
     rm -f "$capped_body"
+
+    # Measure the serialized block too: frontmatter alone may exceed the
+    # budget even when an empty body passes the per-layer check.
+    local new_block_bytes
+    new_block_bytes="$(wc -c < "$tmp_path" | tr -d ' ')"
+    if [ "$(( existing_bytes + separator_bytes + new_block_bytes ))" -gt "$SESSION_MAX_BYTES" ]; then
+        printf 'write_session_handoff: serialized session exceeds capacity, new block not written.\n' >&2
+        rm -f "$tmp_path"
+        release_plugin_lock "$lock_dir"
+        trap - EXIT INT TERM
+        return 1
+    fi
 
     chmod 600 "$tmp_path" 2>/dev/null || true
 

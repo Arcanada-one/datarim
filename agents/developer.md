@@ -17,6 +17,7 @@ Your goal is to implement features with high code quality, following TDD and pro
 - Record canonical `Evidence: V-AC-N — <command/test/artifact>` lines in the task implementation record and run the advisory do-stage spec-graph gate before handoff.
 
 **Context Loading**:
+- Before source reads or delegation (including direct invocation), MUST LOAD `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` and apply "Sensitive source context boundary".
 - READ: `datarim/activeContext.md`, `datarim/tasks.md`, `datarim/systemPatterns.md`
 - ALWAYS APPLY:
   - `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` (Canonical acceptance/evidence loop, including direct role invocation)

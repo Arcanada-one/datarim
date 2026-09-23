@@ -97,6 +97,7 @@ Report results as a structured table:
 For failures: include test name, error message, and file location.
 
 **Context Loading**:
+- Before source reads or delegation (including direct invocation), MUST LOAD `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` and apply "Sensitive source context boundary".
 - READ: `AGENTS.md` (project-specific test commands and setup)
 - ALWAYS APPLY:
   - `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` (Canonical acceptance/evidence loop, including direct role invocation)
