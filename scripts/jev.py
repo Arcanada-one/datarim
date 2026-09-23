@@ -98,10 +98,17 @@ def codex_hook_trust(sha, home=None):
     Codex records each trusted hook under
     `[hooks.state."<file>:<event>:<i>:<j>"]` with a `trusted_hash`, granted by
     the operator in the TUI and never by writing the file. The presence of that
-    block is the grant. codex-cli 0.155.1 additionally wrote `enabled = true`;
-    0.156.1 writes `trusted_hash` alone, so a check that demanded `enabled`
-    answered `untrusted` on every 0.156.1 host -- including two whose hooks were
-    demonstrably running. See the measurement in the body.
+    block is the grant.
+
+    An earlier form of this check demanded `enabled = true` inside the block.
+    No Codex version seen on these hosts writes that key: 16 state blocks on the
+    Mac and 13 on arcana-devs carry `trusted_hash` alone, and so do two
+    pre-upgrade backups of the same file from 2026-09-22 (14 blocks, zero with
+    `enabled`). The 11 `enabled = true` lines elsewhere in config.toml all sit
+    under `[plugins."..."]` and have nothing to do with hooks -- counting them
+    with a substring search is what made the key look present. The consequence
+    was a field that could never become true, so the check answered `untrusted`
+    on every host, including two whose hooks were demonstrably running.
 
     Trust is invisible from the client's own "Active" counter, which counts
     installed hooks: measured on codex-cli 0.155.1, it read 2/2 Active for
@@ -156,19 +163,22 @@ def codex_hook_trust(sha, home=None):
                 key = re.sub(r'(?<!^)(?=[A-Z])', '_', event).lower()
                 slot = f'{key}:{i}:{j}'
                 ours.append(event)
+                # The body runs to the next `[` at the start of a line. Blank
+                # lines are included: `.*` matches the empty string, so a block
+                # written with one inside it is still read whole. (A rewrite
+                # here was tried and reverted -- both forms return the same
+                # body for such a block, so there was nothing to fix.)
                 block = re.search(
                     r'\[hooks\.state\."[^"]*:' + re.escape(slot) + r'"\]\n((?:(?!\[).*\n)*)',
                     text)
-                # The grant is the *presence* of the block. codex-cli 0.155.1
-                # also wrote `enabled = true`; 0.156.1 writes the block with
-                # `trusted_hash` alone and no `enabled` key at all. Measured
-                # with an isolated CODEX_HOME on 0.156.1: with the blocks
-                # present `codex exec` printed 4 `hook:` lines and with every
-                # `[hooks.state.*]` block stripped it printed 0, while both
-                # runs answered the prompt. Requiring `enabled = true` made
-                # this check report `untrusted` on every 0.156.1 host whose
-                # hooks were in fact running. An explicit `enabled = false` is
-                # still a refusal, so it is honoured where a version writes it.
+                # The grant is the *presence* of the block carrying a hash.
+                # Measured with an isolated CODEX_HOME on 0.156.1: with the
+                # blocks present `codex exec` printed 4 `hook:` lines, and with
+                # every `[hooks.state.*]` block stripped it printed 0, while
+                # both runs answered the prompt -- so the blocks, not the
+                # client, are the difference. No version observed here writes
+                # `enabled`, but a version that writes an explicit
+                # `enabled = false` is stating a refusal, so it is honoured.
                 body = block.group(1) if block else ''
                 enabled = bool(block) and 'trusted_hash' in body \
                     and 'enabled = false' not in body

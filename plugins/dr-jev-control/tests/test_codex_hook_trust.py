@@ -143,6 +143,20 @@ class CodexHookTrust(unittest.TestCase):
         self.assertEqual(result['state'], 'untrusted')
         self.assertEqual(result['pending'], ['UserPromptSubmit'])
 
+    def test_a_hash_after_a_blank_line_inside_the_block_is_still_read(self):
+        """Blank lines inside a block must not hide the grant behind them.
+
+        This does not discriminate between the two body patterns tried here --
+        `.*` matches the empty string, so both read such a block whole. It is
+        kept as a statement about the file shape, not as a regression guard.
+        """
+        home = _home(self.tmp,
+                     {'UserPromptSubmit': [{'hooks': [_hook(SHA)]}]},
+                     '[hooks.state."/home/a/.codex/hooks.json:'
+                     'user_prompt_submit:0:0"]\n\n'
+                     'trusted_hash = "sha256:deadbeef"\n\n')
+        self.assertEqual(codex_hook_trust(SHA, home)['state'], 'trusted')
+
     def test_a_block_without_a_trusted_hash_is_not_a_grant(self):
         """An empty block is not evidence that the operator granted anything."""
         home = _home(self.tmp,
