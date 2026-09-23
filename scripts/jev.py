@@ -95,12 +95,17 @@ def datarim_enabled(root):
 def codex_hook_trust(sha, home=None):
     """Whether Codex will actually execute the Jev hooks it has installed.
 
-    Codex records each hook under `[hooks.state."<file>:<event>:<i>:<j>"]` with a
-    `trusted_hash`, and runs it only once that block also carries
-    `enabled = true` -- granted by the operator in the TUI, never by writing the
-    file. The two states are indistinguishable from the client's own "Active"
-    counter, which counts installed hooks: measured on codex-cli 0.155.1, it
-    read 2/2 Active for UserPromptSubmit while the ledger held zero such events.
+    Codex records each trusted hook under
+    `[hooks.state."<file>:<event>:<i>:<j>"]` with a `trusted_hash`, granted by
+    the operator in the TUI and never by writing the file. The presence of that
+    block is the grant. codex-cli 0.155.1 additionally wrote `enabled = true`;
+    0.156.1 writes `trusted_hash` alone, so a check that demanded `enabled`
+    answered `untrusted` on every 0.156.1 host -- including two whose hooks were
+    demonstrably running. See the measurement in the body.
+
+    Trust is invisible from the client's own "Active" counter, which counts
+    installed hooks: measured on codex-cli 0.155.1, it read 2/2 Active for
+    UserPromptSubmit while the ledger held zero such events.
 
     What `trusted_hash` covers is NOT the command string. Measured on
     codex-cli 0.155.1: `pre_tool_use:2:0` (an Orca hook) and `pre_tool_use:3:0`
@@ -113,7 +118,7 @@ def codex_hook_trust(sha, home=None):
     operator trusted whatever occupied this slot". This function therefore
     reports trust for the slots our hooks occupy, and separately reports
     `slot_reused` -- the case where our hook inherited a slot whose trust was
-    granted to a different command. `enabled = true` remains the only evidence
+    granted to a different command. The state block remains the only evidence
     that Codex will run it; the TUI's "Active" column counts installed hooks
     and cannot distinguish the two.
     """
@@ -154,7 +159,19 @@ def codex_hook_trust(sha, home=None):
                 block = re.search(
                     r'\[hooks\.state\."[^"]*:' + re.escape(slot) + r'"\]\n((?:(?!\[).*\n)*)',
                     text)
-                enabled = bool(block) and 'enabled = true' in block.group(1)
+                # The grant is the *presence* of the block. codex-cli 0.155.1
+                # also wrote `enabled = true`; 0.156.1 writes the block with
+                # `trusted_hash` alone and no `enabled` key at all. Measured
+                # with an isolated CODEX_HOME on 0.156.1: with the blocks
+                # present `codex exec` printed 4 `hook:` lines and with every
+                # `[hooks.state.*]` block stripped it printed 0, while both
+                # runs answered the prompt. Requiring `enabled = true` made
+                # this check report `untrusted` on every 0.156.1 host whose
+                # hooks were in fact running. An explicit `enabled = false` is
+                # still a refusal, so it is honoured where a version writes it.
+                body = block.group(1) if block else ''
+                enabled = bool(block) and 'trusted_hash' in body \
+                    and 'enabled = false' not in body
                 if not enabled:
                     pending.append(event)
                     continue
