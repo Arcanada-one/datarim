@@ -165,6 +165,11 @@ destructive commands in every one of these modes. Everything else the agent
 decides to run, runs. Codex's flag also drops its sandbox; use `full` only on
 machines where that is acceptable, such as a development host you own.
 
+In Codex the floor runs only while Codex trusts Jev's hooks. Full permissions
+do not grant that trust — check `jev doctor --agent=codex` shows
+`codex_hook_trust: trusted` before relying on the floor there (see
+[Codex needs two approvals](#codex-needs-two-approvals-in-its-own-ui)).
+
 ## What you get without Datarim
 
 The routing advice injected before each prompt contains the suggested model

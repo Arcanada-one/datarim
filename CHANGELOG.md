@@ -4,12 +4,95 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [3.0.0] — 2026-09-23
+
+Datarim becomes project-local, and Jev ships as its own tool that works with or
+without Datarim.
+
+### Breaking — migration note
+
+The global installation model is gone. Nothing is installed into `~/.claude`,
+`~/.codex` or `~/.cursor` any more, and the old flags no longer exist:
+
+| Before (2.x) | Now (3.0) |
+|---|---|
+| `./install.sh --with-claude` / `--with-codex` / `--with-cursor` | `./install.sh --project <path> --init` |
+| symlink or copy mode, `~/.claude/local/` overlay | everything lands in `<project>/.datarim-runtime/` |
+| `./update.sh` (no arguments) | `./install.sh --project <path>` (or `./update.sh --project <path>`) |
+| framework rules copied into your `AGENTS.md` / `CLAUDE.md` | read from `.datarim-runtime/` by each command |
+
+To migrate a machine that ran 2.x:
+
+1. Remove the old global wiring — the symlinks in `~/.claude/{agents,skills,commands,templates,scripts,dev-tools}`
+   (and the Codex/Cursor equivalents) that point into your Datarim checkout.
+   Remove only links that resolve into the checkout; leave anything else.
+2. Run `./install.sh --project <path> --init` (add `--with-jev` for Jev).
+3. `source <path>/.datarim-runtime/activate.sh && jev doctor`, then `/dr-help`.
+
 ### Added
 
+- **Jev without Datarim.** `scripts/jev_host_install.py --client claude|codex|cursor`
+  installs a revision-pinned host runtime with the launchers `jev`, `jevclaude`,
+  `jevcodex`, `jevcursor`. Per-prompt routing advice (model tier, fan-out,
+  context budget, validation policy), a deterministic safety floor that needs no
+  key and keeps working under `jev off`, `jev doctor [--api]`, `jev stats`,
+  `jev on` / `jev off`. The key lives in `~/.config/jev/credentials/api-key`
+  (host) or `config/credentials/jev/api-key` (project), created empty with mode
+  0600 and never overwritten. See `documentation/how-to/jev-without-datarim.md`.
+- **Datarim with Jev.** `--with-jev` for a project runtime, `--host-jev` to reuse
+  an installed host Jev without duplicate hooks. With a project catalogue, Jev
+  also names the skills, agents, commands and templates that apply to a prompt.
+- **Datarim runs only when a `/dr-*` command is invoked.** The install adds
+  nothing to `AGENTS.md`, `CLAUDE.md` or `.gitignore`; each command names the
+  project's runtime and tells the agent to read the framework rules from it.
+  Everything the install generates is hidden through the clone-local
+  `.git/info/exclude`, so `git status` stays clean — safe in a repository shared
+  with people who do not use Datarim. Measured on Claude Code 2.1.280, an empty
+  session's starting context grows by 1,579 tokens (the command list), against
+  5,329 under the previous install, which exposed every framework skill and
+  wrote the rules into `AGENTS.md`. `--expose-skills` exposes the skills again;
+  it is off by default.
+- **Launchers pass client options through.** `jevclaude --dangerously-skip-permissions`
+  now works without `--`; client options that take a value keep it, per client.
+- **`jev permissions full|ask`** stores whether `jevclaude` / `jevcodex` /
+  `jevcursor` start without permission prompts (Claude
+  `--dangerously-skip-permissions`, Codex `--dangerously-bypass-approvals-and-sandbox`,
+  Cursor `--force --approve-mcps`). Off by default; `JEV_PERMISSIONS` overrides it;
+  a permission option you pass yourself wins; `jev doctor` and `--dry-run` report
+  it. The Jev safety floor still denies force pushes and protected deletes in this
+  mode — measured live on Claude, Codex and Cursor.
+- The Datarim MCP server can be registered against a project runtime
+  (`.datarim-runtime/cli/mcp/datarim-mcp-server.sh`); the installer no longer
+  registers it.
 - Integrate directory-scoped Code Contracts as persistent implementation invariants: dependency-free `CONTRACTS` validation, `/dr-do` and `/dr-verify` workflow guidance, Layer-1 verification, upstream-compatible skill, and reference documentation.
 
 ### Fixed
 
+- **Codex trust survives Jev upgrades.** Codex hashes each hook's command into
+  `trusted_hash` and silently skips a hook whose hash moved. The host installer
+  now registers a stable command (`~/.local/share/jev/bin/jev-hook`) that resolves
+  the active release, so an approval given once is kept. `jev doctor` recomputes
+  the hash Codex compares and reports each Jev hook as `trusted`, `modified`,
+  `untrusted` or `disabled`. Hosts installed before this change ask for
+  **Trust all and continue** one last time after upgrading.
+- The project installer ships only what the repository tracks; git-ignored files
+  in the source checkout (for example a client's own skills left in `skills/`)
+  are no longer copied into projects.
+- `/dr-init` no longer appends to `.gitignore`.
+- `dev-tools/check-version-consistency.sh` reads the workspace and site files
+  from the framework's real location; since the checkout moved, all twelve
+  cross-root checks had been skipped without a word. Absent surfaces are now
+  counted in its verdict.
+- `/dr-plugin` documentation named `~/.claude/local` as the install target;
+  plugins go to the project's `.datarim-runtime/local`, as the script enforces.
+- Updating or uninstalling no longer leaves the directories of retired files
+  behind (105 empty `.claude/skills/<name>/` directories on one real project).
+- The install guides (`getting-started`, `multi-runtime`, README) described the
+  retired global install; rewritten.
+- `jev doctor` measures `datarim_enabled` from the installation manifest instead
+  of an environment variable nothing set.
+- `shellcheck-extracted` no longer fails on `session-handoff-writer`'s documented
+  invocation.
 - Accept `--max-seconds` on `dr-jev-live`'s own CLI as a float, matching how `jev.py` declares and forwards it; the two disagreeing (`float` vs `int`) made every `--live --max-seconds N` call fail with `invalid int value` regardless of N.
 - Fail closed when the spec-graph adapter returns malformed or schema-incompatible JSON instead of treating parse failure as a clean result; verification summaries now distinguish executed from skipped checks.
 - Scope PRD waivers in shared `tasks.md` to the current task section so a sibling task's waiver cannot authorize the active task.
