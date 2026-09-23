@@ -835,7 +835,7 @@ def main():
                          "multi-turn supervision (without it the session is one-shot)")
     ap.add_argument("--done-marker", default="TASK_COMPLETE",
                     help="token the agent emits to end a supervised multi-turn run")
-    ap.add_argument("--max-seconds", type=int, default=0,
+    ap.add_argument("--max-seconds", type=float, default=0,
                     help="wall-clock cap on the whole supervised run (0 = no cap)")
     ap.add_argument("--runtime", choices=sorted(runtimes.REGISTRY), default=None,
                     help="agent CLI to supervise (default: claude, or DATARIM_JEV_RUNTIME)")
