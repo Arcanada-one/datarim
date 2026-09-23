@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Structured implementation of check-live-evidence.sh; not a separate gate.
 # Read-only: verifies case coverage, current content/revision, and stage order.
-# Dependencies: jq, git, sha256sum or shasum. Never executes evidence commands.
+# Dependencies: python3, jq, git, sha256sum or shasum. Never executes evidence commands.
 # Exit 0 STAGE_PASS/preflight receipt; 1 BLOCKED; 2 invocation/runtime error.
 set -euo pipefail
 
@@ -21,6 +21,7 @@ while (($#)); do
 done
 [[ -n "$contract" && -n "$evidence" && -d "$root" ]] || usage
 case "$stage" in preflight|snapshot|do|write|edit|publish|qa|compliance|archive|quick) ;; *) usage ;; esac
+command -v python3 >/dev/null || usage
 command -v jq >/dev/null || usage
 command -v git >/dev/null || usage
 if command -v sha256sum >/dev/null; then
@@ -30,11 +31,38 @@ elif command -v shasum >/dev/null; then
 else
     usage
 fi
+# JSON object keys are identities in the acceptance contract. jq normally keeps
+# the last duplicate, which could erase an earlier case or failed status.
+unique_json_keys() {
+    python3 - "$1" <<'PYJSON'
+import json
+import sys
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+
+def invalid_constant(_value):
+    raise ValueError("non-JSON constant")
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as stream:
+        json.load(stream, object_pairs_hook=unique_object, parse_constant=invalid_constant)
+except (OSError, UnicodeError, ValueError):
+    sys.exit(1)
+PYJSON
+}
+
 root=$(cd "$root" && pwd -P)
 revision=$(git -C "$root" rev-parse --verify HEAD) || usage
 [[ $(git -C "$root" rev-parse --show-toplevel) == "$root" ]] || usage
 [[ -f "$contract" && ! -L "$contract" ]] || block 'missing regular contract'
 contract_hash=$(hash < "$contract")
+unique_json_keys "$contract" || block 'ambiguous or invalid contract JSON'
 jq -se 'length == 1 and (.[0] | type == "object")' "$contract" >/dev/null 2>&1 \
     || block 'contract must contain exactly one JSON document'
 now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -137,6 +165,7 @@ scope_digest() {
 }
 scope_hash=$(scope_digest) || block 'invalid scope'
 if [[ "$stage" == preflight || "$stage" == snapshot ]]; then
+    [[ $(hash < "$contract") == "$contract_hash" ]] || block 'contract changed during verification'
     jq -n --arg stage "$stage" --arg task_id "$task" --arg timestamp "$now" --arg revision "$revision" \
         --arg contract_sha256 "$contract_hash" --arg scope_sha256 "$scope_hash" \
         '{stage:$stage, task_id:$task_id, timestamp:$timestamp, revision:$revision,
@@ -145,6 +174,7 @@ if [[ "$stage" == preflight || "$stage" == snapshot ]]; then
 fi
 [[ -f "$evidence" && ! -L "$evidence" ]] || block 'missing regular evidence bundle'
 evidence_hash=$(hash < "$evidence")
+unique_json_keys "$evidence" || block 'ambiguous or invalid evidence JSON'
 jq -se 'length == 1 and (.[0] | type == "object")' "$evidence" >/dev/null 2>&1 \
     || block 'evidence must contain exactly one JSON document'
 

@@ -44,6 +44,29 @@ class EvidenceLoop(unittest.TestCase):
             self.bundle["attempts"].append(self.attempt(stage))
         self.save()
 
+    def test_contract_replaced_after_strict_parser_is_refused(self):
+        import os
+        import shutil
+        import shlex
+        wrapper = self.root / "bin"
+        wrapper.mkdir()
+        real_python = shutil.which("python3")
+        script = wrapper / "python3"
+        target = self.root / "contract.json"
+        replacement = self.root / "replacement.json"
+        replacement.write_text(target.read_text().replace('"version": 1', '"version": 0, "version": 1'))
+        script.write_text("#!/bin/bash\n" + shlex.quote(real_python) + ' "$@"\nstatus=$?\n'
+                          + 'if [[ "$2" == ' + shlex.quote(str(target)) + ' && "$status" == 0 ]]; then\n'
+                          + 'cp ' + shlex.quote(str(replacement)) + ' ' + shlex.quote(str(target)) + '\nfi\nexit "$status"\n')
+        script.chmod(0o700)
+        environment = dict(os.environ, PATH=str(wrapper) + os.pathsep + os.environ["PATH"])
+        result = subprocess.run(["bash", str(GATE), "--contract", str(target),
+                                 "--evidence", str(self.root / "evidence.json"), "--root",
+                                 str(self.root), "--stage", "preflight"], env=environment,
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("contract changed during verification", result.stderr)
+
     def git(self, *args):
         return subprocess.run(["git", "-C", str(self.root), *args], check=True,
                               capture_output=True, text=True).stdout.strip()
@@ -95,6 +118,31 @@ class EvidenceLoop(unittest.TestCase):
         result = self.call(stage)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("BLOCKED", result.stderr)
+
+    def test_duplicate_literal_case_key_is_not_silently_replaced(self):
+        path = self.root / "contract.json"
+        raw = path.read_text().replace(
+            '"cases": {"happy":',
+            '"cases": {"happy": {"expected": "conflicting first definition", '
+            '"expected_exit_code": 1, "required_stage": "do"}, "happy":', 1)
+        path.write_text(raw)
+        result = self.call("preflight")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("ambiguous or invalid contract JSON", result.stderr)
+
+    def test_duplicate_status_cannot_replace_failure_with_pass(self):
+        path = self.root / "evidence.json"
+        path.write_text(path.read_text().replace(
+            '"status": "pass"', '"status": "fail", "status": "pass"', 1))
+        result = self.call("compliance")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("ambiguous or invalid evidence JSON", result.stderr)
+
+    def test_duplicate_nested_object_with_disjoint_children_is_refused(self):
+        path = self.root / "contract.json"
+        raw = path.read_text().replace('"cases": {', '"cases": {"ignored": {}}, "cases": {', 1)
+        path.write_text(raw)
+        self.assertEqual(self.call("preflight").returncode, 1)
 
     def test_valid_static_full_flow(self):
         for stage in ["do", "qa", "compliance", "archive"]:
