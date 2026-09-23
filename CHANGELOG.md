@@ -10,6 +10,7 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Fixed
 
+- Accept `--max-seconds` on `dr-jev-live`'s own CLI as a float, matching how `jev.py` declares and forwards it; the two disagreeing (`float` vs `int`) made every `--live --max-seconds N` call fail with `invalid int value` regardless of N.
 - Fail closed when the spec-graph adapter returns malformed or schema-incompatible JSON instead of treating parse failure as a clean result; verification summaries now distinguish executed from skipped checks.
 - Scope PRD waivers in shared `tasks.md` to the current task section so a sibling task's waiver cannot authorize the active task.
 - Route remaining verification/spec/provenance/token-cost/stage-probe task-ID checks through canonical schema regexes, including digit-bearing prefixes such as `C2M`.
