@@ -20,16 +20,43 @@ new key on one line. Use a different key on each computer. Never put it into
 shell history, README, settings JSON, a prompt, or a Git commit. The credentials
 directory is ignored by Git. Existing key files are never overwritten.
 
+**Where the key goes depends on which install you did.** A project install with
+its own Jev reads the project file above. A project using an already-installed
+*host* Jev (`--host-jev`, and `"host_jev": true` in
+`.datarim-runtime/installation.json`) reads the host's file instead:
+
+```
+~/.config/jev/credentials/api-key
+```
+
+In that case the project's own key file stays empty and unread — which looks
+alarming but is correct. `jev doctor` reports `"scope": "host"` when this
+applies, and `key_ready` answers for whichever file is actually in use.
+
 Run an explicit network check after saving the key:
 
 ```bash
 jev doctor --api
 ```
 
+Success looks like this — the service answered, and it says which model did:
+
+```json
+"api": { "ok": true, "model": "jev-1.13.0", "ms": 313.8 }
+```
+
 Offline doctor does not contact Jev. It reports missing clients, key readiness,
 and the installed source revision; native instruction loading remains a
 separate live check. API doctor distinguishes missing credentials and provider
 failure from success.
+
+`key_ready` says a key is present, not that it is valid — only `--api` answers
+that. And `api: not_measured` in an offline run is a third verdict: it is not a
+pass and not a failure, it means the question was not asked.
+
+If the key is missing or wrong, sessions keep working. The hook returns no
+advice, records `advice_emitted: false` in the ledger, and the deterministic
+safety floor continues to run — it needs no key and no network.
 
 The following are equivalent entrypoints for their selected clients:
 
@@ -39,6 +66,16 @@ jevclaude "Review the current task and propose its next implementation step"
 jevcursor "Review the current task and propose its next implementation step"
 jev --agent=codex "Review the current task and propose its next implementation step"
 ```
+
+**If you use Codex, it will not run the hooks until you approve them twice.**
+The first Codex session asks you to trust the working directory, then shows
+`Hooks need review — N hooks are new or changed`; choose **Trust all and
+continue**. Declining is silent, and the client's own hook screen cannot show
+you the difference — its `Active` column counts hooks that are *installed*.
+Confirm with `jev doctor --agent=codex`, which reports `codex_hook_trust` as
+`trusted`, `untrusted` or `not_measured`. The
+[control-plane guide](../how-to/claude-code-jev-control-plane.md) has the
+detail, including the flag for automation that cannot answer a prompt.
 
 Use `--agent=claude` or `--agent=cursor` to select either other client. The alias
 and dispatcher share one implementation. Select supported account models before
