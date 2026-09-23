@@ -5,9 +5,9 @@ description: Lightweight fast-lane for trivial fixes or quick lookups — assign
 
 # /dr-quick — Fast-Lane for Trivial Fixes & Lookups
 
-**Acceptance/evidence floor:** before Step 5, define falsifiable quick-stage
+**Mutating QCK acceptance/evidence floor:** before Step 5, define falsifiable quick-stage
 cases and capture the preflight receipt per `skills/immutability/SKILL.md`
-§ Acceptance and Evidence Loop. Before Step 6 or a read-only completion, run
+§ Acceptance and Evidence Loop. Before Step 6, run
 `check-live-evidence.sh --root <repo-root> --contract <acceptance.json>
 --evidence <evidence.json> --stage quick`. Any nonzero result blocks closure.
 Fix the discrepancy, rerun the check, and retain each attempt. The fast lane
@@ -17,6 +17,33 @@ skips full QA/compliance stages, never the acceptance/evidence floor.
 **Source**: `${DATARIM_RUNTIME:?}/agents/developer.md`
 
 Use this command for tiny, self-contained edits or quick information lookups that do not merit the full heavyweight pipeline. It deliberately bypasses PRD, planning, design, QA, and compliance stages to minimize overhead.
+
+## Intent and evidence routing
+
+Classify the request before resolving task files or allocating an ID. This
+branch applies on every host and takes precedence over the task-ledger,
+structured-gate, stage-header, archive, CTA and snapshot steps below.
+
+- **Read-only lookup:** declare falsifiable acceptance cases in the conversation before searching.
+  No Git repository or existing task files are required. Use the read-only
+  context scan in Step 4 and report findings in Step 5. Include
+  dated source references, exact read-only commands and observed results for
+  each case, plus failed attempts and recheck disposition. Resolve discrepancies
+  with further read-only checks; report unknown or unmet cases honestly.
+  Label the result **informational / UNCERTIFIED**: it is
+  not structured gate PASS or an archived task.
+  Do not create metadata, archives, snapshots, or branch changes.
+  Skip Steps 1–3 and 6–7, ID allocation, task headers and task-completion CTA.
+  The lookup stays local, including when execution-host policy would route a
+  mutating task elsewhere. No persisted structured gate is invoked in this branch.
+- **Mutating QCK:** use the normal steps below, including canonical task metadata,
+  immutable acceptance cases, persisted preflight, actual evidence and strict
+  quick-stage gate. The read-only exception never waives this floor.
+- **Intent changes to editing:** re-evaluate execution-host routing before any mutation.
+  Enter the normal mutating QCK flow on the permitted host, allocate its ID,
+  create canonical metadata and acceptance cases, and
+  capture the persisted preflight before editing. Conversational lookup evidence
+  cannot replace the mutating task's baseline or authorize a local off-host edit.
 
 ## Usage
 
@@ -34,7 +61,7 @@ Note: title defaults to English unless the operator's configured content languag
 
 1. Source the resolver: `source "${DATARIM_RUNTIME:?}/dev-tools/lib/execution-host.sh"`.
 2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
-3. On **off-host** (exit code 10), the routing decision depends on this QCK's intent -- and for the fast-lane that intent is only settled at Step 5 (apply-a-fix vs report-a-lookup), which runs AFTER this block. The dispatch decision is therefore **deferred and re-evaluated once intent is known at Step 5**; the two fixed outcomes are:
+3. On **off-host** (exit code 10), use the initial intent classified before metadata or ID allocation. Dispatch mutating work before any mutation. At Step 5, re-evaluate routing if a lookup changes into an edit; a deferred mutation must still satisfy host routing and persisted preflight before it starts. The two fixed outcomes are:
    - **READ-ONLY QCK** (a lookup / "where is X" / "does Y exist" -- Step 5 only *reports* the located item: touches no files, switches no branch, writes no archive): proceed LOCALLY in read-only mode -- do NOT dispatch (dispatching an observational command to the very host the laptop is meant to monitor buys nothing). Surface the delegation directive (your site's dispatch tooling, if any -- the framework ships none) as information only, never as a blocking question.
    - **MUTATING QCK** (Step 5 applies the fix / edits files / switches branches / writes the archive): AUTO-DISPATCH to `required_host` -- do NOT run the mutation locally. This mirrors the `commands/dr-do.md` § EXECUTION HOST AUTO-DISPATCH contract; apply that contract's sub-points a–e in full and do not weaken its fail-closed guards:
      a. **RUN vs INSPECT.** Auto-dispatch only when the intent is to RUN the fix (apply/edit/branch/archive). Pure-lookup intent stays local per the READ-ONLY branch above -- do not dispatch a report-only QCK.
@@ -66,6 +93,10 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {title}**` as the first line of the post-Step-2 message block, per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header. Do NOT emit the header before the ID is known (before the probe completes). Single occurrence per command invocation.
 3. Append a thin one-liner task line to `tasks.md` and mirror it into `activeContext.md` § Active Tasks. Short English title. By convention the fast-lane uses status `in_progress`, priority `P3`, complexity `L1` (it is for L1-sized work; if the work turns out larger, STOP and recommend `/dr-init` for the full pipeline). Emit the bare VALUES in their positional slots — writing the field NAMES into the line (`· status in_progress · priority P3 · complexity L1 ·`) does not match `ONELINER_RE` and fails the doctor:
 
+   For this mutating branch, create the referenced canonical task-description
+   from `${DATARIM_RUNTIME:?}/templates/task-template.md`, with the allocated ID,
+   complexity `L1` and actual task type, before capturing the strict preflight.
+
 <!-- gate:history-allowed -->
 ```
 - QCK-0000 · in_progress · P3 · L1 · Short English title → tasks/QCK-0000-task-description.md
@@ -85,7 +116,7 @@ After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {t
    Exit `0` = the branch's content is present in `origin/main`; proceed to Step 7.
    Exit `1` = the work is absent. Do NOT write the archive and do NOT flip the status: land the change (open the pull request, merge it, re-run the gate), or record a cancellation. Exit `2` = usage or environment error; the gate fails **closed**, so an unresolvable base ref is never read as "everything landed". Rationale, and the reason this asserts content reachability rather than commit ancestry: `commands/dr-archive.md` § 0.13.2.
 
-7. Write a SHORT archive: `documentation/archive/quick/archive-QCK-XXXX.md` — what was done (1-3 sentences) + files touched + a diff/commit reference. NO reflection, NO evolution proposals, NO compliance report. Flip the `tasks.md` one-liner to status `done`.
+7. Write a SHORT archive: `documentation/archive/quick/archive-QCK-XXXX.md` — what was done (1-3 sentences) + files touched + a diff/commit reference. NO reflection, NO evolution proposals, NO compliance report. Remove the task row and Active Tasks mirror per Step 3; do not write a done row.
 
 ## When to use / When not to use
 
@@ -100,8 +131,10 @@ After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {t
 
 ## Next Steps (CTA)
 
-After the short archive, emit a CTA block per the cta-format skill. Primary recommendation: the task is done. Alternative: `/dr-init {TASK-ID-or-new}` if it turned out non-trivial. Always include `/dr-status`.
+Read-only lookups terminate with their informational evidence response; do not emit a task CTA or snapshot.
+
+After the mutating QCK's short archive, emit a CTA block per the cta-format skill. Primary recommendation: the task is done. Alternative: `/dr-init {TASK-ID-or-new}` if it turned out non-trivial. Always include `/dr-status`.
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
-After the CTA block, perform snapshot emission per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Snapshot Emission, bound for this command: `stage: quick`, `command: /dr-quick`, `captured-by: agent`, `recommended-next` = primary CTA option. Fail-closed: on non-zero writer exit, emit a single stderr warning line and continue. Kill switch `DATARIM_DISABLE_SNAPSHOT=1` is handled inside the library.
+Mutating QCK only: after the CTA block, perform snapshot emission per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Snapshot Emission, bound for this command: `stage: quick`, `command: /dr-quick`, `captured-by: agent`, `recommended-next` = primary CTA option. Fail-closed: on non-zero writer exit, emit a single stderr warning line and continue. Kill switch `DATARIM_DISABLE_SNAPSHOT=1` is handled inside the library.
