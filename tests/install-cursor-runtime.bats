@@ -2,8 +2,15 @@
 load 'helpers/project_install'
 setup() { setup_project_fixture; }
 
-@test "Cursor discovers directory skills with original frontmatter in the project" {
+@test "Cursor discovers only the commands by default" {
     install_project
+    [ "$status" -eq 0 ]
+    [ -f "$PROJECT/.cursor/skills/dr-do/SKILL.md" ]
+    [ ! -e "$PROJECT/.cursor/skills/testing" ]
+}
+
+@test "Cursor discovers directory skills with original frontmatter when exposed" {
+    install_project --expose-skills
     [ "$status" -eq 0 ]
     [ -f "$PROJECT/.cursor/skills/testing/SKILL.md" ]
     [ -f "$PROJECT/.cursor/skills/fleet-l1-basic/SKILL.md" ]

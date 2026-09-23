@@ -7,8 +7,8 @@ setup() { setup_project_fixture; }
     install_project
     [ "$status" -eq 0 ]
     [ -f "$PROJECT/.datarim-runtime/installation.json" ]
-    [ -f "$PROJECT/AGENTS.md" ]
-    [ ! -L "$PROJECT/AGENTS.md" ]
+    # Datarim writes nothing into files a project shares: no AGENTS.md is created.
+    [ ! -e "$PROJECT/AGENTS.md" ]
     [ ! -e "$PROJECT/CLAUDE.md" ]
     [ ! -e "$HOME/.claude" ]
     [ ! -e "$HOME/.codex" ]
@@ -24,14 +24,14 @@ setup() { setup_project_fixture; }
     [ ! -e "$PROJECT/.datarim-runtime-previous" ]
 }
 
-@test "foreign AGENTS instructions survive a single managed block" {
+@test "the project's AGENTS.md is never modified" {
     printf '# Project\nPreserve operator policy.\n' > "$PROJECT/AGENTS.md"
-    install_project
+    cp "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.before"
+    install_project --with-jev --init
     [ "$status" -eq 0 ]
+    cmp "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.before"
     run grep -c 'datarim-project:begin' "$PROJECT/AGENTS.md"
-    [ "$output" = 1 ]
-    run grep -F 'Preserve operator policy.' "$PROJECT/AGENTS.md"
-    [ "$status" -eq 0 ]
+    [ "$output" = 0 ]
 }
 
 @test "project initialization creates only local task state" {
@@ -58,14 +58,14 @@ CHECK
     [ "$status" -eq 0 ]
 }
 
-@test "foreign discovery collision fails without partial AGENTS installation" {
-    mkdir -p "$PROJECT/.agents/skills/testing"
-    printf 'foreign skill' > "$PROJECT/.agents/skills/testing/SKILL.md"
+@test "foreign discovery collision fails without partial installation" {
+    mkdir -p "$PROJECT/.agents/skills/dr-do"
+    printf 'foreign skill' > "$PROJECT/.agents/skills/dr-do/SKILL.md"
     install_project
     [ "$status" -eq 2 ]
-    [ ! -e "$PROJECT/AGENTS.md" ]
+    [ ! -e "$PROJECT/.claude/commands/dr-do.md" ]
     [ ! -e "$PROJECT/.datarim-runtime" ]
-    run cat "$PROJECT/.agents/skills/testing/SKILL.md"
+    run cat "$PROJECT/.agents/skills/dr-do/SKILL.md"
     [ "$output" = 'foreign skill' ]
 }
 
@@ -81,17 +81,45 @@ CHECK
     [ -f "$PROJECT/config/credentials/jev/api-key" ]
     run cat "$PROJECT/AGENTS.md"
     [ "$output" = '# Original rules' ]
-    run grep -F '/config/credentials/' "$PROJECT/.gitignore"
-    [ "$status" -eq 0 ]
+    [ ! -e "$PROJECT/.claude/commands/dr-do.md" ]
 }
 
 @test "uninstall refuses to overwrite a subsequent operator edit" {
     install_project
     [ "$status" -eq 0 ]
-    printf '\nOperator addition\n' >> "$PROJECT/AGENTS.md"
+    printf '\nOperator addition\n' >> "$PROJECT/.claude/commands/dr-do.md"
     install_project --uninstall
     [ "$status" -eq 2 ]
     [ -d "$PROJECT/.datarim-runtime" ]
-    run grep -F 'Operator addition' "$PROJECT/AGENTS.md"
+    run grep -F 'Operator addition' "$PROJECT/.claude/commands/dr-do.md"
     [ "$status" -eq 0 ]
+}
+
+@test "an operator's AGENTS.md edits survive install and uninstall" {
+    printf '# Rules\n' > "$PROJECT/AGENTS.md"
+    install_project
+    [ "$status" -eq 0 ]
+    printf 'Operator addition\n' >> "$PROJECT/AGENTS.md"
+    install_project --uninstall
+    [ "$status" -eq 0 ]
+    run cat "$PROJECT/AGENTS.md"
+    [ "$output" = $'# Rules\nOperator addition' ]
+}
+
+@test "in a git repository nothing the install writes appears in git status" {
+    git -C "$PROJECT" init -q
+    printf '# Team rules\n' > "$PROJECT/AGENTS.md"
+    printf '/build/\n' > "$PROJECT/.gitignore"
+    git -C "$PROJECT" add -A
+    git -C "$PROJECT" -c user.email=t@t -c user.name=t commit -qm init
+    install_project --with-jev --init
+    [ "$status" -eq 0 ]
+    run git -C "$PROJECT" status --porcelain
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+    [ -f "$PROJECT/.codex/hooks.json" ]
+    install_project --uninstall
+    [ "$status" -eq 0 ]
+    run git -C "$PROJECT" status --porcelain
+    [ -z "$output" ]
 }

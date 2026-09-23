@@ -249,13 +249,13 @@ Pre-launch checklist for websites — from domain configuration to analytics to 
 
 ## Runtime support
 
-Datarim is runtime-agnostic. The same framework runs under three AI coding runtimes today, with different levels of integration:
+Datarim is runtime-agnostic. One project install serves all three runtimes — each finds the `/dr-*` commands in its own project-local directory ([how](../how-to/multi-runtime.md)) — with different levels of integration:
 
 | Runtime       | Install command              | Hook integration                                  | Bulk-read economy via RTK | Status        |
 |---------------|------------------------------|---------------------------|---------------------------|---------------|
-| Claude Code   | `install.sh`                 | Native                    | Full                      | Primary       |
-| Codex CLI     | `install.sh --with-codex`    | Shim via `coworker rtk`   | Full (with shim)          | Parity        |
-| Cursor        | `install.sh --with-cursor`   | Native `beforeShellExecution` hook (`rtk hook cursor`) | Full (via `coworker rtk`) | Parity        |
+| Claude Code   | `install.sh --project <path>` | Native                    | Full                      | Primary       |
+| Codex CLI     | `install.sh --project <path>` | Shim via `coworker rtk`   | Full (with shim)          | Parity        |
+| Cursor        | `install.sh --project <path>` | Native `beforeShellExecution` hook (`rtk hook cursor`) | Full (via `coworker rtk`) | Parity        |
 
 **Cursor parity via a native hook.** Cursor Agent has no Claude-style `PreToolUse` hook, but it exposes a native `beforeShellExecution` hook. `coworker rtk enable` (Coworker v0.6.2+) registers `rtk hook cursor` in `~/.cursor/hooks.json`; cursor-agent pipes each shell command to it and honours the rewritten `rtk <cmd>` form, so bulk-read output is compacted exactly as on Claude Code and Codex CLI. Verified live: inside cursor-agent, `ls -la` returns the rtk-compacted form rather than raw bytes — no shell-rc mutation involved. `install.sh --with-cursor` mirrors Datarim skills and the delegation rule; `coworker rtk enable` opts into the RTK token economy (default-off, all runtimes). An earlier «no native hook / inherited» framing was inaccurate; this matrix is the corrected source of truth.
 
@@ -274,7 +274,7 @@ install.sh is verified across the following OS families via the Docker install-m
 | **Alpine** | `alpine:latest` | `apk add git bash` then `bash install.sh` |
 | **macOS** | macOS 14+ (Apple Silicon + Intel) | Homebrew bash (`brew install bash`) recommended over the system bash 3.2 |
 | **Windows — WSL** | Ubuntu 22.04+ under WSL2 | Same as Debian/Ubuntu lane above |
-| **Windows — Git Bash** | Git for Windows (MSYS2) | Copy mode (`--copy`) used automatically; symlinks not supported on NTFS |
+| **Windows — Git Bash** | Git for Windows (MSYS2) | Project install copies files; no symlinks are used |
 
 **Key requirement: bash must be available.** install.sh starts with a POSIX re-exec guard — if invoked via `sh`, it re-execs itself under bash transparently. If bash is absent on PATH, it prints an actionable error and exits 2. Explicit `bash install.sh` is always safe and slightly faster.
 

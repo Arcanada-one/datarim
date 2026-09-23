@@ -31,10 +31,12 @@ setup() { setup_project_fixture; }
     [ ! -e "$PROJECT/config" ]
 }
 
-@test "an existing legacy instruction file requires deliberate merge" {
+@test "an existing CLAUDE.md is left alone" {
+    # Datarim no longer relies on AGENTS.md being loaded, so the client's own
+    # instruction files are none of its business.
     printf 'Operator rules' > "$PROJECT/CLAUDE.md"
     install_project
-    [ "$status" -eq 2 ]
+    [ "$status" -eq 0 ]
     [ ! -e "$PROJECT/AGENTS.md" ]
     run cat "$PROJECT/CLAUDE.md"
     [ "$output" = 'Operator rules' ]
