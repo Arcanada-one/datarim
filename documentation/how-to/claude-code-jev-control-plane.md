@@ -64,10 +64,22 @@ and the ledger itself — events grouped by `hook_context.client` and
 `native_event`. A whole class of events missing while another class arrives is a
 trust gate, not a broken hook.
 
-Trust is keyed to the hook's command string, which contains `releases/<sha>`.
-A reinstall changes that path, so **gate 2 must be accepted again after every
-upgrade**. `jev doctor` reports `not_measured` — never `trusted` — when there is
-no configuration to read, because an absent file answers nothing.
+An upgrade does **not** generally re-arm gate 2. This was measured rather than
+assumed, after an earlier revision of this page claimed the opposite: on
+codex-cli 0.155.1, upgrading the runtime and re-running `codex exec` executed
+`UserPromptSubmit` with no fresh prompt, and the ledger recorded the events.
+
+The reason is that `trusted_hash` is not computed over the command. Two
+adjacent slots — one holding an unrelated hook, one holding Jev's — were
+measured carrying the *same* hash. A trust grant therefore attaches to the
+slot, and a reinstall that lands in an already-trusted slot inherits it.
+
+`jev doctor` reports this honestly. Alongside `state`, it emits `slot_reused`
+when a hook occupies a slot whose grant was recorded against a different
+command. `trusted` with `slot_reused` means "Codex will run these, but the
+operator approved something else here" — worth one look, not alarm. Trust is
+still per-machine, and `not_measured` — never `trusted` — is reported when
+there is no configuration to read, because an absent file answers nothing.
 
 ## Integrity
 

@@ -102,6 +102,70 @@ class CodexHookTrust(unittest.TestCase):
         result = codex_hook_trust(SHA, home)
         self.assertEqual(result['state'], 'untrusted')
 
+    # -- slot reuse -------------------------------------------------------
+    # Codex's `trusted_hash` is NOT computed over the command: measured on
+    # 0.155.1, an Orca hook and a Jev hook in adjacent slots carried the same
+    # hash. So an enabled slot proves the operator trusted *something* here,
+    # and a reinstall landing in that slot inherits the grant. These cover the
+    # case that shipped green: the command was substituted and the verdict
+    # stayed `trusted` with nothing said.
+
+    def test_an_enabled_slot_for_a_different_command_is_flagged_as_reused(self):
+        home = _home(self.tmp,
+                     {'PreToolUse': [{'hooks': [_hook(SHA)]}]},
+                     _block('pre_tool_use', 0, enabled=True))
+        (home/'.config/jev').mkdir(parents=True, exist_ok=True)
+        (home/'.config/jev/codex-trust-witness.json').write_text(
+            json.dumps({'pre_tool_use:0:0': '/some/entirely/other/command'}))
+        result = codex_hook_trust(SHA, home)
+        self.assertEqual(result['state'], 'trusted')
+        self.assertEqual(result.get('slot_reused'), ['PreToolUse'])
+
+    def test_a_slot_whose_recorded_command_matches_is_not_flagged(self):
+        """The positive half: without it, a check that always flags would pass."""
+        hook = _hook(SHA)
+        home = _home(self.tmp,
+                     {'PreToolUse': [{'hooks': [hook]}]},
+                     _block('pre_tool_use', 0, enabled=True))
+        (home/'.config/jev').mkdir(parents=True, exist_ok=True)
+        (home/'.config/jev/codex-trust-witness.json').write_text(
+            json.dumps({'pre_tool_use:0:0': hook['command']}))
+        result = codex_hook_trust(SHA, home)
+        self.assertEqual(result['state'], 'trusted')
+        self.assertNotIn('slot_reused', result)
+
+    def test_the_witness_is_written_only_when_every_slot_is_enabled(self):
+        """A pending hook means the operator has not finished; recording the
+        commands then would vouch for a grant that was never given."""
+        home = _home(self.tmp,
+                     {'PreToolUse': [{'hooks': [_hook(SHA)]}],
+                      'UserPromptSubmit': [{'hooks': [_hook(SHA)]}]},
+                     _block('pre_tool_use', 0, enabled=True))
+        result = codex_hook_trust(SHA, home)
+        self.assertEqual(result['state'], 'untrusted')
+        self.assertFalse((home/'.config/jev/codex-trust-witness.json').exists())
+
+    def test_the_witness_is_written_when_trust_is_complete(self):
+        home = _home(self.tmp,
+                     {'PreToolUse': [{'hooks': [_hook(SHA)]}]},
+                     _block('pre_tool_use', 0, enabled=True))
+        codex_hook_trust(SHA, home)
+        witness = home/'.config/jev/codex-trust-witness.json'
+        self.assertTrue(witness.exists())
+        self.assertEqual(json.loads(witness.read_text())['pre_tool_use:0:0'],
+                         _hook(SHA)['command'])
+        # Secrets are not involved, but the file records a trust decision.
+        self.assertEqual(witness.stat().st_mode & 0o777, 0o600)
+
+    def test_an_unreadable_witness_does_not_break_the_check(self):
+        """Corrupt JSON must not turn a measurable state into an exception."""
+        home = _home(self.tmp,
+                     {'PreToolUse': [{'hooks': [_hook(SHA)]}]},
+                     _block('pre_tool_use', 0, enabled=True))
+        (home/'.config/jev').mkdir(parents=True, exist_ok=True)
+        (home/'.config/jev/codex-trust-witness.json').write_text('{not json')
+        self.assertEqual(codex_hook_trust(SHA, home)['state'], 'trusted')
+
 
 if __name__ == '__main__':
     unittest.main()
