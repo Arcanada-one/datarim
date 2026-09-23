@@ -52,6 +52,85 @@ class HostInstallTests(unittest.TestCase):
         self.assertFalse((self.project/'.datarim-runtime').exists())
         self.assertFalse((self.project/'datarim').exists())
 
+    # -- a stable hook command ------------------------------------------------
+    # Codex stores sha256 over each hook's normalized command as `trusted_hash`
+    # and skips any hook whose hash has moved. These pin the property that
+    # keeps an operator's trust across upgrades: the registered command string
+    # is identical before and after a reinstall at a different revision.
+
+    def _jev_commands(self, rel):
+        data = json.loads((self.home/rel).read_text())
+        out = []
+        def walk(node):
+            if isinstance(node, dict):
+                if isinstance(node.get('command'), str) and 'jev' in node['command']:
+                    out.append(node['command'])
+                for value in node.values():
+                    walk(value)
+            elif isinstance(node, list):
+                for value in node:
+                    walk(value)
+        walk(data.get('hooks', {}))
+        return out
+
+    def test_an_upgrade_leaves_every_registered_command_byte_identical(self):
+        self.install()
+        before = {rel: self._jev_commands(rel) for rel in
+                  ('.claude/settings.json', '.codex/hooks.json', '.cursor/hooks.json')}
+        self.sha = 'b'*40
+        self.install()
+        after = {rel: self._jev_commands(rel) for rel in before}
+        self.assertEqual(after, before)
+        self.assertEqual(len(before['.codex/hooks.json']), 3)
+        pointer = json.loads((self.home/'.config/jev/installation.json').read_text())
+        self.assertTrue(pointer['runtime'].endswith('b'*40))
+
+    def test_no_registered_command_names_a_release_directory(self):
+        """The negative half: a command naming releases/<sha> is the defect."""
+        self.install()
+        for rel in ('.claude/settings.json', '.codex/hooks.json', '.cursor/hooks.json'):
+            for command in self._jev_commands(rel):
+                self.assertNotIn('releases/', command)
+                self.assertIn('/.local/share/jev/bin/jev-hook', command)
+
+    def test_release_pinned_commands_from_an_older_install_are_replaced(self):
+        target = self.home/'.codex/hooks.json'; target.parent.mkdir()
+        old = str(self.home/'.local/share/jev/releases'/('c'*40)/'scripts/jev_hook.py')
+        target.write_text(json.dumps({'hooks': {'UserPromptSubmit': [
+            {'hooks': [{'type': 'command', 'command': '/opt/orca-hook', 'timeout': 10}]},
+            {'hooks': [{'type': 'command', 'command': f'{sys.executable} {old} codex UserPromptSubmit',
+                        'timeout': 9}]}]}}))
+        self.install()
+        commands = [h['command'] for g in json.loads(target.read_text())['hooks']['UserPromptSubmit']
+                    for h in g['hooks']]
+        self.assertIn('/opt/orca-hook', commands)
+        self.assertEqual(sum('jev' in c for c in commands), 1)
+        self.assertFalse(any('releases/' in c for c in commands))
+
+    def test_the_entry_point_dispatches_to_the_active_release(self):
+        self.install()
+        entry = self.home/'.local/share/jev/bin/jev-hook'
+        env = dict(os.environ, HOME=str(self.home))
+        payload = json.dumps({'hook_event_name': 'PreToolUse', 'tool_name': 'Bash',
+                              'tool_input': {'command': 'rm -rf /'}, 'cwd': str(self.project),
+                              'session_id': 'entry-probe'})
+        result = subprocess.run([sys.executable, str(entry), 'claude', 'PreToolUse'], input=payload,
+                                env=env, cwd=self.project, capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        # The safety floor answers, which only the release's jev_hook.py can do.
+        self.assertIn('"deny"', result.stdout)
+
+    def test_the_entry_point_fails_open_on_a_broken_pointer(self):
+        self.install()
+        (self.home/'.config/jev/installation.json').write_text('{not json')
+        env = dict(os.environ, HOME=str(self.home))
+        result = subprocess.run([sys.executable, str(self.home/'.local/share/jev/bin/jev-hook'),
+                                 'claude', 'UserPromptSubmit'], input='{}', env=env,
+                                capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, '')
+        self.assertIn('jev-hook:', result.stderr)
+
     def test_partial_registration_failure_restores_foreign_config(self):
         target = self.home/'.claude/settings.json'; target.parent.mkdir()
         before = b'{"env":{"FOREIGN":"preserve"}}\n'; target.write_bytes(before)

@@ -216,17 +216,27 @@ Do not judge this from the client's hook screen: its `Active` column counts
 hooks that are *installed*. Measured, it read `2/2 Active` while the ledger had
 recorded zero such events.
 
-`jev doctor` answers instead, with `codex_hook_trust`:
+`jev doctor` answers instead, with `codex_hook_trust`. It recomputes the hash
+Codex compares for each Jev hook:
 
-- `trusted` — the hooks will run;
-- `untrusted` with `pending` — approval is still needed;
-- `not_measured` — no configuration to read;
-- `slot_reused` alongside `trusted` — they run, but the approval in that slot
-  was originally granted to a different command. Worth one look, not alarm.
+- `trusted` — every Jev hook will run;
+- `untrusted` with `pending` — at least one will not, and the entry says why:
+  - `modified` — trusted once, but the command has changed since;
+  - `untrusted` — never trusted;
+  - `disabled` — switched off in the client's `/hooks` screen;
+- `not_measured` — no configuration to read.
 
-An upgrade does not generally re-ask. This was measured rather than assumed —
-after moving the runtime to a new revision, Codex ran `UserPromptSubmit` with
-no fresh prompt.
+### Upgrades keep your approval
+
+Codex's trust is a hash **over the hook's command**, so any change to the
+command drops it. The installer therefore registers one stable command,
+`~/.local/share/jev/bin/jev-hook`, which finds the active release itself. Upgrade
+as often as you like: the command, and your approval, stay the same.
+
+One exception: if the machine was installed before this change, its hooks named
+`…/releases/<sha>/…` directly. The first upgrade rewrites them to the stable
+command, so open `codex` once more and choose **Trust all and continue**. After
+that, upgrades do not ask again.
 
 ### Automation that cannot answer a prompt
 

@@ -15,6 +15,48 @@ import tempfile
 import time
 
 SOURCE = Path(__file__).resolve().parents[1]
+# Client configs call this stable entry point, never releases/<sha> directly.
+# Codex hashes each hook's command string into `trusted_hash` (codex-rs
+# hooks/src/engine/discovery.rs, `hook_hash`) and silently skips a hook whose
+# hash no longer matches. A command naming releases/<sha> therefore lost the
+# operator's trust on every upgrade -- measured on codex-cli 0.156.1: after an
+# 11841679 -> 791dfba reinstall, Jev's UserPromptSubmit hook stopped running
+# on all three hosts while every other hook kept running. The entry point
+# resolves the active release through the same pointer `host_runtime` uses.
+ENTRY_NAME = 'jev-hook'
+ENTRY_SOURCE = """#!/usr/bin/env python3
+# Jev managed hook entry point. Its path is stable across releases so a
+# client's trust in the hook command survives upgrades; the active release is
+# read from ~/.config/jev/installation.json and validated before use.
+import json
+import os
+import sys
+from pathlib import Path
+
+
+def main():
+    home = Path.home().resolve()
+    pointer = home/'.config/jev/installation.json'
+    try:
+        if pointer.is_symlink() or not pointer.is_file() or pointer.stat().st_mode & 0o077:
+            raise ValueError('unsafe or missing pointer')
+        data = json.loads(pointer.read_text())
+        runtime = Path(data['runtime']).resolve(strict=True)
+        if data.get('schema') != 1 or not runtime.is_relative_to(home/'.local/share/jev/releases'):
+            raise ValueError('invalid pointer')
+        hook = runtime/'scripts/jev_hook.py'
+        if hook.is_symlink() or not hook.is_file():
+            raise ValueError('missing hook')
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        # Advisory hooks fail open: a broken install must not stop the client.
+        print('jev-hook: '+str(exc), file=sys.stderr)
+        return 0
+    os.execv(sys.executable, [sys.executable, str(hook), *sys.argv[1:]])
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
+"""
 EVENTS = {
     'claude': [('UserPromptSubmit', None), ('PreToolUse', 'Bash|Write|Edit|MultiEdit'),
                ('PostToolUse', 'Write|Edit|MultiEdit')],
@@ -25,8 +67,13 @@ EVENTS = {
 }
 
 
-def merge_hooks(original, client, runtime, owned_roots, *, register=True):
-    """Replace only Jev commands; preserve foreign commands in mixed entries."""
+def merge_hooks(original, client, runtime, owned_roots, *, register=True, entry_point=None):
+    """Replace only Jev commands; preserve foreign commands in mixed entries.
+
+    `entry_point`, when given, is the script the registered command runs instead of
+    `runtime/scripts/jev_hook.py` -- the host installer passes its stable
+    entry point so the command string does not change between releases.
+    """
     out = json.loads(json.dumps(original))
     if not isinstance(out, dict) or not isinstance(out.get('hooks', {}), dict):
         raise ValueError('Hook config and hooks must be objects')
@@ -42,7 +89,7 @@ def merge_hooks(original, client, runtime, owned_roots, *, register=True):
             return False
         for word in words:
             path = Path(word)
-            if path.name not in ('jev_hook.py', 'project_hook.py', 'hook_user_prompt.py', 'hook_pre_tool.py', 'hook_post_tool.py'):
+            if path.name not in (ENTRY_NAME, 'jev_hook.py', 'project_hook.py', 'hook_user_prompt.py', 'hook_pre_tool.py', 'hook_post_tool.py'):
                 continue
             if path.is_absolute() and any(path.is_relative_to(root) for root in owned_roots):
                 return True
@@ -67,7 +114,7 @@ def merge_hooks(original, client, runtime, owned_roots, *, register=True):
                     kept.append(dict(entry, hooks=remaining))
         hooks[event] = kept
     for event, matcher in (EVENTS[client] if register else []):
-        command = shlex.join([sys.executable, str(runtime/'scripts/jev_hook.py'), client, event])
+        command = shlex.join([sys.executable, str(entry_point or runtime/'scripts/jev_hook.py'), client, event])
         item = {'command': command, 'timeout': 9}
         if client == 'cursor':
             if event == 'beforeShellExecution':
@@ -113,7 +160,8 @@ def install(args):
     config = safe_path(home, '.config/jev/config.json')
     key = safe_path(home, '.config/jev/credentials/api-key')
     state = safe_path(home, '.local/state/jev')
-    owned = [base/'releases'] + [Path(p).resolve(strict=True) for p in args.replace_legacy_root]
+    entry = safe_path(home, '.local/share/jev/bin/'+ENTRY_NAME)
+    owned = [base/'releases', entry.parent] + [Path(p).resolve(strict=True) for p in args.replace_legacy_root]
     existing = json.loads(config.read_text()) if config.exists() else json.loads(
         (source/'plugins/dr-jev-control/config/jev-control.json').read_text())
     if not isinstance(existing, dict):
@@ -128,11 +176,14 @@ def install(args):
     files = {config: (json.dumps(existing, indent=2)+'\n').encode()}
     pointer = safe_path(home, '.config/jev/installation.json')
     files[pointer] = (json.dumps({'schema': 1, 'runtime': str(runtime)}, indent=2)+'\n').encode()
+    if entry.exists() and (entry.is_symlink() or not entry.is_file()):
+        raise ValueError('Hook entry point must be a regular file: '+str(entry))
+    files[entry] = ENTRY_SOURCE.encode()
     paths = {'claude': '.claude/settings.json', 'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json'}
     for client in args.client:
         target = safe_path(home, paths[client])
         original = json.loads(target.read_text()) if target.exists() else {}
-        files[target] = (json.dumps(merge_hooks(original, client, runtime, owned), indent=2)+'\n').encode()
+        files[target] = (json.dumps(merge_hooks(original, client, runtime, owned, entry_point=entry), indent=2)+'\n').encode()
     for name in ('jev', 'jevcodex', 'jevclaude', 'jevcursor'):
         target = safe_path(home, '.local/bin/'+name)
         if target.exists():
@@ -212,10 +263,11 @@ def install(args):
                       'config, hooks and exec policies do not load until you do',
             'gate_2': '"Hooks need review" -> "Trust all and continue"; declining leaves '
                       'the hooks installed but never executed',
-            'reinstall': 'trust is keyed to the command string, which contains '
-                         'releases/<sha>, so every reinstall needs gate 2 again',
-            'verify': 'jev doctor --agent=codex reads the enabled flags; the ledger is '
-                      'the authority, not the client\'s Active counter'}
+            'reinstall': 'Codex hashes the command string; the command names the stable '
+                         'entry point, not releases/<sha>, so trust given once survives '
+                         'upgrades. The first install after this change asks once more.',
+            'verify': 'jev doctor --agent=codex recomputes the hash Codex compares; the '
+                      'ledger is the authority, not the client\'s Active counter'}
     print(json.dumps(report, indent=2))
 
 
