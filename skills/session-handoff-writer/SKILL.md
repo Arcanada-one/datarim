@@ -179,7 +179,7 @@ the session's framework-repo changes so a resumed session is reminded that a
 shipped script or skill edited this session is live only on the committing box:
 
 ```bash
-bash "${DATARIM_RUNTIME:?}/dev-tools/check-stale-runtime.sh" --repo <framework-repo> --range <base>..HEAD
+bash "${DATARIM_RUNTIME:?}/dev-tools/check-stale-runtime.sh" --repo "$FRAMEWORK_REPO" --range "$BASE..HEAD"
 ```
 
 When the range touched a shipped script (`scripts/lib/*.sh`) or skill

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -101,9 +102,20 @@ def codex_hook_trust(sha, home=None):
     counter, which counts installed hooks: measured on codex-cli 0.155.1, it
     read 2/2 Active for UserPromptSubmit while the ledger held zero such events.
 
-    Trust is keyed to the command string, which embeds releases/<sha>, so a
-    reinstall silently returns every hook to untrusted. Hence the sha argument:
-    a stale entry for an older release is not evidence about this one.
+    What `trusted_hash` covers is NOT the command string. Measured on
+    codex-cli 0.155.1: `pre_tool_use:2:0` (an Orca hook) and `pre_tool_use:3:0`
+    (a Jev hook) carried the identical `trusted_hash` while their commands had
+    nothing in common, and a `91846a1 -> a95c8d7` upgrade ran the hooks with no
+    fresh prompt. An earlier revision of this docstring asserted the opposite
+    and was wrong; do not restore it without a counterexample.
+
+    Consequently the honest reading of a state block is positional: "the
+    operator trusted whatever occupied this slot". This function therefore
+    reports trust for the slots our hooks occupy, and separately reports
+    `slot_reused` -- the case where our hook inherited a slot whose trust was
+    granted to a different command. `enabled = true` remains the only evidence
+    that Codex will run it; the TUI's "Active" column counts installed hooks
+    and cannot distinguish the two.
     """
     home = Path(home or Path.home())
     config = home/'.codex/config.toml'
@@ -115,26 +127,56 @@ def codex_hook_trust(sha, home=None):
         text = config.read_text()
     except (OSError, ValueError) as exc:
         return {'state': 'not_measured', 'reason': type(exc).__name__}
-    ours, pending = [], []
+    # Which command each trusted slot was granted to, as recorded by us on the
+    # previous run. Codex cannot answer this -- its hash is not over the
+    # command -- so without our own note a reinstall that lands in an
+    # already-trusted slot is indistinguishable from a slot we trusted.
+    witness = home/'.config/jev/codex-trust-witness.json'
+    try:
+        seen = json.loads(witness.read_text())
+    except (OSError, ValueError):
+        seen = {}
+
+    ours, pending, reused = [], [], []
+    fresh = {}
     for event, groups in (installed.get('hooks') or installed).items():
         if not isinstance(groups, list):
             continue
         for i, group in enumerate(groups):
             for j, hook in enumerate(group.get('hooks', []) if isinstance(group, dict) else []):
-                if sha not in str(hook.get('command', '')):
+                command = str(hook.get('command', ''))
+                if sha not in command:
                     continue
                 # Codex spells the state key in snake_case, not the event name.
                 key = re.sub(r'(?<!^)(?=[A-Z])', '_', event).lower()
+                slot = f'{key}:{i}:{j}'
                 ours.append(event)
                 block = re.search(
-                    r'\[hooks\.state\."[^"]*:' + re.escape(f'{key}:{i}:{j}') + r'"\]\n((?:(?!\[).*\n)*)',
+                    r'\[hooks\.state\."[^"]*:' + re.escape(slot) + r'"\]\n((?:(?!\[).*\n)*)',
                     text)
-                if not block or 'enabled = true' not in block.group(1):
+                enabled = bool(block) and 'enabled = true' in block.group(1)
+                if not enabled:
                     pending.append(event)
+                    continue
+                fresh[slot] = command
+                # Enabled, but we have never recorded trusting THIS command in
+                # THIS slot: the grant may belong to whatever was here before.
+                if seen.get(slot) != command:
+                    reused.append(event)
     if not ours:
         return {'state': 'not_measured', 'reason': 'no Jev hooks for this release'}
-    return {'state': 'untrusted' if pending else 'trusted',
-            'installed': sorted(set(ours)), 'pending': sorted(set(pending))}
+    if not pending:
+        # Only now is the observation worth keeping: the slots are enabled and
+        # we have seen the commands they hold.
+        with contextlib.suppress(OSError):
+            witness.parent.mkdir(parents=True, exist_ok=True)
+            witness.write_text(json.dumps(fresh, indent=2, sort_keys=True))
+            witness.chmod(0o600)
+    out = {'state': 'untrusted' if pending else 'trusted',
+           'installed': sorted(set(ours)), 'pending': sorted(set(pending))}
+    if reused and not pending:
+        out['slot_reused'] = sorted(set(reused))
+    return out
 
 
 def main():
