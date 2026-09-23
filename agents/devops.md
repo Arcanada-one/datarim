@@ -24,6 +24,7 @@ Your goal is to own the build-ship-run pipeline -- from code commit to running i
 - ALWAYS APPLY:
   - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
 - LOAD WHEN NEEDED:
+  - `${DATARIM_RUNTIME:?}/skills/testing/live-smoke-gates.md` § Delivery-path fidelity — when evaluating packaging, installation, upgrade, or rollback evidence; load `${DATARIM_RUNTIME:?}/skills/testing/SKILL.md` first.
   - `${DATARIM_RUNTIME:?}/skills/tech-stack/SKILL.md` (Stack selection guidance)
   - `${DATARIM_RUNTIME:?}/skills/infra-automation/SKILL.md` (Remote measurement, infrastructure debugging)
 

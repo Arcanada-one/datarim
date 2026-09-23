@@ -293,6 +293,7 @@ Load only the fragment needed for the current sub-problem:
   Use whenever you would otherwise write production code without a failing test first. Mandates the RED-GREEN-REFACTOR cycle, captures the common rationalizations and the canonical responses, and lists the red-flag phrases that mean STOP and start over.
 
 - `live-smoke-gates.md`
+  Use its [Delivery-path fidelity](live-smoke-gates.md#delivery-path-fidelity) guidance when evaluating packaging, installation, upgrade, or rollback evidence under an applicable smoke test.
   Use for raw-SQL / cross-datasource Live Smoke-Test Gate, cross-container Docker smoke, user-switch deployment gates, N=1 smoke validation before bulk ingest/transform, recorded-fixture tests for thin HTTP wrapper clients, and Gate 9 child-failure attribution for status-transforming shell harnesses. Trigger when the change touches `$queryRaw`, multi-datasource code, Docker orchestration, container health, runtime user/permissions, any bulk run that depends on entity resolution / record linkage / normalization, a new/changed wrapper client around an external/internal HTTP service, or a shell layer that turns a child result into QA/compliance evidence.
 
 - `silent-failure-detection.md`
