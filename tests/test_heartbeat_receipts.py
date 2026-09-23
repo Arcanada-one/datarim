@@ -14,7 +14,9 @@ class ReceiptHeartbeatTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        # The helper refuses symlinked ancestors by design; macOS TMPDIR sits
+        # under /var -> /private/var, so resolve it before building paths.
+        self.root = Path(os.path.realpath(self.temp.name))
         self.receipts = self.root / "receipts"
         self.receipts.mkdir()
         self.run_id = str(uuid.uuid4())
