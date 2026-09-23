@@ -70,6 +70,14 @@ test('v1 execution and changed bindings fail closed', () => {
   const data = fixture(); data.control.schemaVersion = 1;
   assert.throws(() => validateProvenance(data.value, data.bootstrap, data.control));
 });
+test('provenance edited after the control pinned it fails closed', () => {
+  // No repin: every field stays valid, only the control-bound digest disagrees.
+  const data = fixture();
+  data.value.source.omissions[0].reason = 'A different, equally well-formed reason';
+  assert.throws(() => validateProvenance(data.value, data.bootstrap, data.control));
+  const pinned = fixture(); pinned.control.provenanceDigest = 'f'.repeat(64);
+  assert.throws(() => validateProvenance(pinned.value, pinned.bootstrap, pinned.control));
+});
 test('escaped expansion refuses the complete resource despite small raw bytes', () => {
   const data = fixture();
   data.value.source.omissions = Array.from({ length: 90 }, (_, index) => ({ path: `omitted-${index}.txt`, originalSha256: pin, reason: '<'.repeat(1024) }));
