@@ -109,6 +109,16 @@ for a substituted command.
 The arcana-devs gap is the largest and is P0. Mac being two releases behind is
 why `codex_hook_trust` is absent there — the field ships in `91846a1`.
 
+## Known red that is not ours
+
+`shellcheck-extracted` fails on `skills/session-handoff-writer/SKILL.md`: the
+documented invocation contains the placeholders `<framework-repo>` and
+`<base>..HEAD`, which shellcheck reads as competing redirections (SC2261). It
+predates this work (`490b2bc`), no SKILL.md is touched by these branches, and
+the check is neither required nor blocking (`continue-on-error`). Recorded
+rather than dismissed: a red that is explained is not the same as a red that is
+ignored, and the next person to see it should not have to re-derive this.
+
 ## Dependency graph
 
 ```
