@@ -58,7 +58,7 @@ def parse(argv=None):
     p.add_argument('--continue-prompt')
     p.add_argument('--done-marker')
     p.add_argument('--version', action='version', version='Datarim Jev project dispatcher 1')
-    p.add_argument('task', nargs='?', help='Task, or doctor / stats / on / off / permissions')
+    p.add_argument('task', nargs='?', help='Task, or doctor / stats / on / off / permissions / trust')
     p.add_argument('setting', nargs='?', help=argparse.SUPPRESS)
     values = list(sys.argv[1:] if argv is None else argv)
     extra = []
@@ -290,6 +290,77 @@ def codex_hook_trust(sha, home=None):
     return out
 
 
+def _is_jev_codex_command(command, entry, event):
+    """True only for exactly `<python> <entry> codex <event>`.
+
+    A substring test would hand trust to `evil; <entry> codex X`: any other
+    installer writing into hooks.json could smuggle a command in by naming ours.
+    """
+    import shlex
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return False
+    return (len(words) == 4 and Path(words[0]).name.startswith('python')
+            and words[1:] == [entry, 'codex', event])
+
+
+def codex_trust_own_hooks(home=None):
+    """Re-grant Codex trust to Jev's own hooks; returns the keys it wrote.
+
+    Codex keys trust by position (`<file>:<event>:<i>:<j>`), so another tool
+    inserting its hooks ahead of ours moves them to keys whose stored hash is
+    someone else's, and Codex skips them without a word. Measured on DEV-BOX
+    2026-09-23: an Orca relay reconnect rewrote hooks.json, and the Jev floor
+    stopped running in Codex an hour after a clean "Trust all". This writes
+    what "Trust all" would, for Jev's exact command only. A hook the operator
+    set to `enabled = false` stays refused. config.toml is replaced atomically
+    and the previous one kept as config.toml.pre-jev-trust.
+    """
+    home = Path(home or Path.home())
+    config = home/'.codex/config.toml'
+    hooks = home/'.codex/hooks.json'
+    if not config.is_file() or not hooks.is_file():
+        return []
+    installed = json.loads(hooks.read_text())
+    text = config.read_text()
+    entry = str(home/'.local/share/jev/bin/jev-hook')
+    written = []
+    for event, groups in (installed.get('hooks') or {}).items():
+        if not isinstance(groups, list) or event not in CODEX_EVENT_KEYS:
+            continue
+        for i, group in enumerate(groups):
+            if not isinstance(group, dict):
+                continue
+            for j, hook in enumerate(group.get('hooks') or []):
+                if not isinstance(hook, dict) or not _is_jev_codex_command(str(hook.get('command', '')), entry, event):
+                    continue
+                key = f'{hooks}:{CODEX_EVENT_KEYS[event]}:{i}:{j}'
+                digest = codex_hook_hash(event, group, hook)
+                body = _codex_state_block(text, key)
+                if body is None:
+                    text = text.rstrip('\n') + f'\n\n[hooks.state."{key}"]\ntrusted_hash = "{digest}"\n'
+                elif re.search(r'^enabled\s*=\s*false', body, re.M):
+                    continue
+                else:
+                    stored = re.search(r'^trusted_hash\s*=\s*"([^"]+)"', body, re.M)
+                    if stored and stored.group(1) == digest:
+                        continue
+                    new = (re.sub(r'^trusted_hash\s*=.*$', f'trusted_hash = "{digest}"', body, count=1, flags=re.M)
+                           if stored else f'trusted_hash = "{digest}"\n' + body)
+                    head = f'[hooks.state."{key}"]\n'
+                    at = text.index(head + body)
+                    text = text[:at] + head + new + text[at + len(head + body):]
+                written.append(key)
+    if written:
+        shutil.copy2(config, config.with_name('config.toml.pre-jev-trust'))
+        tmp = config.with_name('.config.toml.jev-trust')
+        tmp.write_text(text)
+        os.chmod(tmp, config.stat().st_mode & 0o777)
+        tmp.replace(config)
+    return written
+
+
 def main():
     a, extra = parse()
     installed = Path(__file__).resolve().parent.parent
@@ -342,6 +413,12 @@ def main():
         print(f'Jev launches on {where}: '+('full permissions (clients do not ask)' if full_permissions(state)
                                           else 'clients ask for permission as usual'))
         return 0
+    if a.task == 'trust':
+        written = codex_trust_own_hooks()
+        print(f'Jev: Codex trust re-granted to {len(written)} Jev hook(s)' if written
+              else 'Jev: Codex already trusts every Jev hook (or has none installed)')
+        print('codex_hook_trust:', codex_hook_trust(manifest['source_sha'])['state'])
+        return 0
     if a.task == 'doctor':
         import subprocess
         findings = []
@@ -375,8 +452,8 @@ def main():
                        'disabled in /hooks' if trust.get('disabled') and not trust.get('untrusted')
                        else 'not trusted yet')
                 findings.append('codex: hooks installed but ' + why + ' (' +
-                                ', '.join(trust['pending']) + '); open `codex` in the TUI and '
-                                'choose "Trust all and continue", or they never run')
+                                ', '.join(trust['pending']) + '); run `jev trust` (or open `codex` '
+                                'and choose "Trust all and continue"), or they never run')
         if a.api:
             from route import load_cfg
             from jev_client import diagnose
@@ -410,6 +487,17 @@ def main():
                           'permissions': 'full' if full_permissions(state) else 'ask',
                           'client_arguments': extra}))
         return 0
+    if host_mode and a.agent == 'codex' and not os.environ.get('JEV_NO_AUTO_TRUST'):
+        # Without trust the floor does not run in Codex, in any permission mode.
+        try:
+            written = codex_trust_own_hooks()
+        except (OSError, ValueError) as exc:
+            print(f'Jev: could not re-grant Codex hook trust ({type(exc).__name__}); run `jev doctor`',
+                  file=sys.stderr)
+        else:
+            if written:
+                print(f'Jev: re-granted Codex trust to {len(written)} Jev hook(s) that another tool had moved',
+                      file=sys.stderr)
     if not manifest.get('with_jev'):
         a.no_route = True
     if a.no_route:
