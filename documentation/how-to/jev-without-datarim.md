@@ -111,6 +111,60 @@ Codex `resume` does **not** inherit the model or the reasoning effort — state
 
 Add `--dry-run` to any of these to see what would run without running it.
 
+### Client options
+
+Options Jev does not define go to the client as they are, so the client's own
+flags work without a separator:
+
+```sh
+jevclaude --dangerously-skip-permissions
+jevclaude --resume TBT --dangerously-skip-permissions
+jevcodex  -c model_verbosity=low "Investigate the failing test"
+```
+
+Jev knows which client options take a value and keeps the value with its
+option. For an option it does not know, write the value as `--flag=value`, or
+put client arguments after `--` (`jevclaude --resume TBT -- --allowedTools Bash Edit`);
+otherwise the value would be read as Jev's task. Options that move the client
+to another directory (`--add-dir`, `-C`, `--cd`, `--workspace`, `--worktree`)
+are refused: launch from the directory you mean.
+
+### Run without permission prompts
+
+Off by default. To have every launch on this machine start without permission
+prompts:
+
+```sh
+jev permissions full     # store the choice (per host; per project for a project runtime)
+jev permissions          # show it
+jev permissions ask      # back to the client's own prompts
+```
+
+With `full`, each launcher adds the client's own "do not ask" flag:
+
+| Client | Flag added |
+|---|---|
+| Claude Code | `--dangerously-skip-permissions` |
+| Codex | `--dangerously-bypass-approvals-and-sandbox` |
+| Cursor | `--force --approve-mcps` |
+
+The launcher says so on stderr each time, and `jev doctor` reports
+`"permissions": "full"`. `JEV_PERMISSIONS=full` or `JEV_PERMISSIONS=ask` in
+the environment overrides the stored choice for one shell or one launch. When
+you pass a permission option yourself (`--permission-mode plan`, `-s read-only`,
+`-a on-request`, `--sandbox …`), Jev adds nothing and yours applies.
+`jevclaude --dry-run` shows the exact `client_arguments` without starting the
+client.
+
+This applies only to sessions started through `jev*`. A plain `claude` or
+`codex` keeps asking.
+
+What stays on: the Jev safety floor is a hook, not a permission prompt, so it
+still denies recursive deletes of protected paths, force pushes and the other
+destructive commands in every one of these modes. Everything else the agent
+decides to run, runs. Codex's flag also drops its sandbox; use `full` only on
+machines where that is acceptable, such as a development host you own.
+
 ## What you get without Datarim
 
 The routing advice injected before each prompt contains the suggested model
