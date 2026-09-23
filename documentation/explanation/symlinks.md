@@ -1,5 +1,11 @@
 # Symlink-default Operating Model
 
+> **Datarim 2.x only.** This page describes the global symlink installation
+> retired in 3.0, where Datarim is installed per project
+> (`./install.sh --project <path>`) — see
+> [Getting started](../tutorials/getting-started.md).
+
+
 > Since v1.17.0, `install.sh` defaults to symlink mode (the `symlink-default`
 > operating model). Copy mode is the documented fallback for filesystems
 > without symlink support. This document is the operating-model reference.

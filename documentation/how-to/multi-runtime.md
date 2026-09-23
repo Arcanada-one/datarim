@@ -1,249 +1,67 @@
-# How to use Datarim with both Claude Code and Codex CLI
+# How to use Datarim with Claude Code, Codex and Cursor
 
-This guide configures one workstation so that **Claude Code** (`~/.claude/`) and **Codex CLI** (`~/.codex/`) both read the same Datarim source repository. After the steps below, slash commands (`/dr-status`, `/dr-do`, …), agents, skills, templates, dev-tools and the `AGENTS.md` ecosystem-router are visible from either runtime without duplication.
+One install serves all three clients in the same project. Datarim 3.0 installs
+into the project, not into `~/.claude`, `~/.codex` or `~/.cursor`, and each
+client finds the `/dr-*` commands through its own project-local directory.
 
-> **Status:** stable on macOS + Linux symlink filesystems. The flow that adds `~/.codex/AGENTS.md → source/AGENTS.md` is the multi-runtime extension introduced in Datarim 2.20.0+. Earlier versions can still install `~/.codex/{agents,skills,...}` but require manual `AGENTS.md` linking.
-
-## Prerequisites
-
-- A working Claude Code install (or skip the Claude line below).
-- Codex CLI installed (`codex --version`).
-- The Datarim source repo cloned at `~/arcanada/Projects/Datarim/code/datarim` (or any local checkout).
-- Coworker binary on `PATH` if you want the cross-runtime delegation profile (see «Optional: Coworker `codex` profile» below).
-
-## Install both runtimes in one command
-
-From the Datarim source repo:
-
-```text
-cd ~/arcanada/Projects/Datarim/code/datarim
-./install.sh --with-claude --with-codex
-```
-
-This creates two symlink fanouts:
-
-```
-~/.claude/{agents,skills,commands,templates,scripts,tests,dev-tools}   → repo
-~/.codex/{agents,skills,commands,templates,scripts,tests,dev-tools}    → repo
-~/.codex/AGENTS.md                                                     → repo/AGENTS.md
-```
-
-`AGENTS.md` is installed **only under `--with-codex`** — Codex CLI reads `~/.codex/AGENTS.md` as its ecosystem-router entry point, while Claude Code reads `~/.claude/CLAUDE.md` (each runtime sees the canonical Datarim CLAUDE.md through its own entry-file convention). The Datarim source ships `AGENTS.md` as a symlink to `CLAUDE.md`, so both runtimes resolve to one canonical file.
-
-If your install topology must avoid symlinks (Windows, FAT, restrictive sandboxes), use `--copy` and the same `--with-codex` flag — the copy path mirrors the AGENTS.md installation step.
-
-## Verify the topology
-
-After install, the directory entries under `~/.codex/` should match `~/.claude/`:
+## Install
 
 ```bash
-for d in agents skills commands templates scripts tests dev-tools; do
-    diff <(readlink -f "$HOME/.claude/$d") <(readlink -f "$HOME/.codex/$d") \
-        && echo "OK  $d" || echo "DIFF $d"
-done
-
-readlink -f ~/.codex/AGENTS.md     # → <repo>/CLAUDE.md (through AGENTS.md → CLAUDE.md chain)
-head -1 ~/.codex/AGENTS.md         # → "# Datarim — Universal Iterative Workflow Framework"
+./install.sh --project /path/to/project --init
 ```
 
-When you launch Codex CLI inside an Arcanada-managed workspace, the slash-command catalogue (`~/.codex/commands/dr-*.md`) is reachable on disk through the symlink, **but Codex CLI does not auto-discover slash commands the way Claude Code does** — there is no `/`-prefix popup menu in the REPL.
+| Client | Where it finds the commands | How you run one |
+|---|---|---|
+| Claude Code | `.claude/commands/dr-*.md` | `/dr-help`, `/dr-init "…"`, … |
+| Codex CLI | `.agents/skills/dr-*/SKILL.md` | ask it to run the `dr-help` skill |
+| Cursor | `.cursor/skills/dr-*/SKILL.md` | ask it to run the `dr-help` skill |
 
-To invoke a Datarim command under Codex, reference its markdown file by name in your prompt:
+Every command file names this project's runtime (`.datarim-runtime/`) and tells
+the agent to read the framework rules from there. Nothing is added to
+`AGENTS.md` or any other file the client loads on every session, so a session
+that never runs a command never loads the framework. All generated paths are
+hidden from git through `.git/info/exclude`.
 
-```text
-cd ~/arcanada
-codex exec --skip-git-repo-check \
-    "Выполни workflow /dr-status — прочитай commands/dr-status.md и следуй инструкциям, верни TASK-ID + статус 3 активных задач"
-```
+`--expose-skills` additionally places every framework skill in each client's
+automatic discovery. Their descriptions are then part of every session's
+context; leave it off unless you want Datarim's skills offered without a
+command.
 
-The output should cite at least one task from `datarim/tasks.md`. If you see «file not found» on `commands/dr-status.md`, the `~/.codex/commands/` symlink was not created — re-run `./install.sh --with-codex` from the canonical source path.
-
-### Why no `/`-popup menu in Codex?
-
-Slash-command auto-complete is a feature of the **host runtime** (Claude Code), not of the Datarim symlinks. Claude Code scans `~/.claude/commands/*.md` and registers each file as a UI command; Codex CLI has no equivalent indexing layer. The markdown files are still reachable — Codex reads them on demand when you reference them by path or name — but they will not surface in a `/`-typed menu. Recommended pattern under Codex: name the command and current task explicitly in the prompt (for example, «follow `commands/dr-do.md` for `<TASK-ID>`») so the LLM loads the instructions on first turn.
-
-**Is `/`-popup parity coming upstream? Unlikely (verified 2026-07-22).** Two upstream requests for exactly this shape were closed as *not planned* (`openai/codex#22674` zero-config slash commands from a command directory; `openai/codex#18857` user-defined local slash commands). OpenAI's recommended direction is **Skills**, not user-defined slash commands — but Skills are invoked by name and do **not** appear in the `/`-popup either, so a discoverability gap remains on both the deprecated custom-prompts path and the recommended Skills path. Treat true `/`-popup parity as an upstream nice-to-have, not a Datarim runtime gap. The full landscape, the one still-worth-filing ask (opt-in Skill-as-slash-command discoverability), and the operator submission checklist live in `documentation/explanation/codex-slash-command-upstream-advocacy.md`.
-
-### Why no Datarim skills in the Codex skill-list?
-
-Codex CLI ships its own native skill-discovery mechanism for the bundled `.system/` skills it places under `~/.codex/skills/.system/` (`imagegen`, `plugin-creator`, `skill-creator`, `openai-docs`, `skill-installer`). The same indexing layer that registers those bundled skills does **not** crawl flat `*.md` files at the top of `~/.codex/skills/` — Codex expects each skill to live as `<name>/SKILL.md` with valid YAML frontmatter.
-
-This discovery gap is resolved by `./install.sh --with-codex` (default behaviour as of v2.21.0). See § Codex UX integration below for the topology and verification recipes. Opt out via `--no-codex-ux` when you need the uniform-symlink baseline for CI or debugging.
-
-## Codex UX integration
-
-Default behaviour of `./install.sh --with-codex` is to make Datarim commands, skills, and agents discoverable through Codex CLI's native UI conventions. This is layered on top of the multi-runtime symlink baseline and the canonical `AGENTS.md` symlink.
-
-### What gets installed
-
-| Artefact | Path | Purpose |
-|----------|------|---------|
-| SKILL.md wrappers | `~/.codex/skills/<name>/SKILL.md` (one per top-level source skill) | Codex CLI's `<name>/SKILL.md` shape; YAML frontmatter carries `name:` + `description:` extracted from the source file; body links back to `code/datarim/skills/<name>.md`. |
-| Restored bundled skills | `~/.codex/skills/.system/{imagegen,plugin-creator,skill-creator,openai-docs,skill-installer}/` | Codex CLI's own pre-shipped skills, restored from the preserved backup directory so `~/.codex/rules/default.rules` keeps resolving. |
-| AGENTS override | `~/.codex/AGENTS.override.md` | Codex-only manifest with three H2 sections — Available Datarim Commands / Skills / Agents — auto-generated from `code/datarim/{commands,skills,agents}/*.md`. |
-
-The canonical AGENTS.md symlink chain (`~/.codex/AGENTS.md` → source `AGENTS.md` → source `CLAUDE.md`) is untouched by design — the override file is the only place where Codex-specific catalogue text lives, so the shared router stays byte-stable for Claude.
-
-### Topology note: `~/.codex/skills/` becomes a real directory
-
-Under the uniform-symlink baseline `~/.codex/skills/` was a symlink to `code/datarim/skills/`. Under the UX default it is a **real directory** containing the wrapper subdirs and the restored `.system/`. Other scopes (`agents`, `commands`, `templates`, `scripts`, `tests`, `dev-tools`) remain symlinks to source. The mixed-topology guard in `detect_existing_topology` is aware of this divergence and does not error on re-runs.
-
-To go back to the baseline uniform-symlink topology temporarily:
+## Verify
 
 ```bash
-rm -rf ~/.codex/skills ~/.codex/AGENTS.override.md
-./install.sh --with-codex --no-codex-ux
+cd /path/to/project
+git status --short          # nothing from Datarim
+ls .claude/commands .agents/skills .cursor/skills | head
 ```
 
-The bundled `.system/` backup at `~/.codex/skills.bundled-backup-*/` is preserved across runs — restore is sourced from there each time, so rebuilding `~/.codex/skills/` and re-running `--with-codex` is safe.
+Then run `/dr-help` in Claude Code, or ask Codex or Cursor to run the `dr-help`
+skill. The answer should come from `.datarim-runtime/commands/dr-help.md`.
 
-### Verification
+## With Jev
 
-```bash
-# count wrappers — should match source skill count
-find ~/.codex/skills -maxdepth 2 -name SKILL.md -not -path '*.system*' | wc -l
+`--with-jev` also registers Jev's hooks for all three clients in the project;
+`--with-jev --host-jev` reuses a Jev you installed for the whole machine instead.
+Codex runs a hook only after you approve it in its TUI — see
+[the Jev control plane guide](claude-code-jev-control-plane.md).
 
-# manifest is Codex-only — AGENTS.md remains byte-stable
-shasum -a 256 ~/.codex/AGENTS.md ~/.codex/AGENTS.override.md
+## Datarim MCP server (optional)
 
-# .system/ restored and default.rules path resolves
-test -r "$(grep -oE '/[^"]*list-skills\.py' ~/.codex/rules/default.rules | head -1)" && echo OK
-```
-
-### When to opt out
-
-Pass `--no-codex-ux` when:
-
-- you are running install.sh under CI and only want the symlink baseline,
-- you need to bisect a Codex discovery issue (compare with-UX vs without-UX behaviour),
-- you are intentionally testing the uniform-symlink baseline topology.
-
-The flag composes with all other flags (`--with-codex --no-codex-ux`, `--with-claude --with-codex --no-codex-ux`, `--with-codex --no-codex-ux --dry-run`).
-
-## Datarim MCP server
-
-`--with-codex` also registers the **Datarim MCP server** so Codex recognises Datarim as a Model Context Protocol source and can invoke commands/skills/agents through typed tool calls (not only via the `AGENTS.override.md` filesystem catalogue, which stays as fallback). The installer adds an idempotent stanza to `~/.codex/config.toml`:
+The installer does not register it. To give an MCP client read access to the
+commands, skills and agents of one project's runtime, register it yourself —
+for Codex, in `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.datarim]
-command = "<install>/cli/mcp/datarim-mcp-server.sh"
-args = []
-env = { DATARIM_ROOT = "<install>" }
+command = "/path/to/project/.datarim-runtime/cli/mcp/datarim-mcp-server.sh"
+env = { DATARIM_ROOT = "/path/to/project/.datarim-runtime" }
 ```
 
-A re-run is byte-identical and never touches your other `config.toml` tables (including a sibling `[mcp_servers.*]` server) or comments. Opt out with `--no-codex-mcp`.
+See [the MCP server reference](../reference/mcp-server.md).
 
-Verify:
+## Coming from 2.x
 
-```text
-codex mcp get datarim          # recognition: enabled, transport stdio
-```
-
-Inside a Codex session the server exposes six tools — `datarim_list_commands`, `datarim_run_command`, `datarim_list_skills`, `datarim_get_skill`, `datarim_list_agents`, `datarim_get_agent`. `datarim_run_command name="dr-plan"` returns the command's instructions for Codex to execute. Full contract: `documentation/reference/mcp-server.md`.
-
-> **Note:** Codex CLI's MCP client consumes **tools** (it does not request MCP prompts/resources), so Datarim commands/skills/agents are surfaced as tools. The server still implements prompt/resource handlers for other MCP clients, but does not advertise those capabilities.
-
-## Optional: Coworker `codex` profile
-
-If you use `coworker` to delegate bulk I/O to an external LLM, register a `codex` profile so the system prompt is aware of Codex CLI conventions (slash-commands are pipeline commands, not shell input; YAML frontmatter is byte-exact).
-
-Append to `~/.config/coworker/profiles.yaml`:
-
-```yaml
-codex:
-  description: Codex CLI runtime (Datarim multi-runtime parity with `code` profile)
-  system_prompt: |
-    You assist a Codex CLI session running over a Datarim-managed workspace.
-    [...verbatim from examples/profiles.yaml.example...]
-  default_max_tokens_ask: 16384
-  default_max_tokens_write: 24000
-  recommended_provider: deepseek
-```
-
-The canonical block is shipped in `Projects/Coworker/code/coworker/examples/profiles.yaml.example`. After editing, smoke:
-
-```bash
-coworker ask --profile codex --provider deepseek \
-    --paths /Users/$USER/arcanada/CLAUDE.md \
-    --question "Назови 3 prefix-а из Arcanada Task Prefix Registry через запятую."
-```
-
-Non-empty answer = profile recognised. The default provider is `deepseek` (≈14× cheaper than Moonshot for bulk delegation); override per call with `--provider`.
-
-## Cross-runtime `/dr-auto` smoke
-
-`/dr-auto`'s autonomous mode does not depend on any Claude-Code-only hook: it activates off a
-pure-bash marker file (`auto-mode-marker.sh`) plus an explicit per-subagent auto-signal, and the
-hard-gated-action boundary is data in `dev-tools/rules/fb-rules.yaml`. Because these primitives are
-plain shell, the activation contract holds identically on Codex CLI and Cursor.
-
-`dev-tools/check-dr-auto-cross-runtime.sh` proves this on whatever shell you run it from. Run it
-from a **Codex CLI or Cursor** shell — not just Claude Code — to confirm the contract survives the
-runtime switch:
-
-```bash
-# From a Codex CLI / Cursor terminal, at the Datarim source root:
-./dev-tools/check-dr-auto-cross-runtime.sh --report
-```
-
-It asserts three properties and exits `0` only when all hold (`1` on any failure, `2` on a missing
-precondition):
-
-1. **Activation marker** — `auto-mode-marker.sh reassert` writes a parseable marker whose path
-   `auto-mode-marker.sh resolve` reports back. The Question Suppression Ladder engages off this
-   marker, never off the runtime identity.
-2. **Env-var independence** — `subagent-active` returns `active` / `non-auto` with
-   `DATARIM_AUTO_MODE` **unset**. A spawned Codex/Cursor subagent does not inherit the shell env
-   var, so activation must stand on the marker + prompt-signal alone.
-3. **Hard-gate escalation data** — `fb-rules.yaml` declares a non-empty `hard_gated_actions` list.
-   Hard-gated actions (production deploy, secret rotation, force-push, public communication, ...)
-   never auto-execute on any runtime; they always escalate to the operator.
-
-CI runs the same check on every relevant pull request as the blocking `dr-auto-cross-runtime` job
-in `.github/workflows/dev-tools-lint.yml`, so a regression in the primitives fails the build rather
-than waiting to be discovered on a non-Claude runtime.
-
-A green `--report` is the pure-bash preflight. The full behavioural smoke — spawning a mock target
-task under `/dr-auto` on Codex CLI and observing the Ladder suppress reversible questions while
-hard-gated actions escalate — follows the same steps an operator runs on Claude Code; the check
-above guarantees the underlying activation primitives are already runtime-portable before you get
-there.
-
-## Parallel-session safety
-
-`~/.claude/` and `~/.codex/` resolve to the same Datarim source files. Running Claude Code and Codex CLI side-by-side in `~/arcanada/` is supported with the existing workspace-discipline rules (`git add -p` per task ID, foreign hunks left alone, single `.doctor.lock` per workspace).
-
-Two practical checks before a parallel session:
-
-1. **Stale lockfile** — `ls -la ~/arcanada/datarim/.doctor.lock`. A 0-byte file older than the current session is residue from a crashed pipeline; remove it before starting either runtime.
-2. **No mutations from read-only Codex calls** — `git status --porcelain datarim/` should stay empty after `codex exec "ls datarim/"` or similar look-ups; mutations indicate a slash-command was triggered, not a lookup.
-
-The two runtimes do not interlock at the OS level — concurrency safety is enforced by the same `flock` + git-add-p discipline Claude Code already uses.
-
-## Troubleshooting
-
-### `link_scope_tree: refuses to overwrite real directory`
-
-`~/.codex/skills/` (or another scope) already contains a regular directory — typically Codex CLI's bundled `.system/` skills (`imagegen`, `plugin-creator`, `skill-creator`, `openai-docs`, `skill-installer`). Move it aside before re-running install:
-
-```bash
-ts=$(date -u +%Y%m%dT%H%M%SZ)
-mv ~/.codex/skills "$HOME/.codex/skills.bundled-backup-$ts"
-./install.sh --with-codex
-```
-
-Restoring the bundled skills under the Datarim symlink topology is tracked as a future Datarim backlog item; the move-aside recipe preserves them losslessly.
-
-### `~/.codex/AGENTS.md` is a regular empty file
-
-Codex CLI pre-creates `~/.codex/AGENTS.md` as a 0-byte placeholder on first launch. Re-run `./install.sh --with-codex` — the patched installer replaces the placeholder with a symlink via `ln -sfn`.
-
-### Coworker `which coworker` returns nothing from a Codex shell sandbox
-
-Codex CLI's sandbox may not inherit `~/.local/bin` from the user's interactive shell rc files. Prepend the path before delegation:
-
-```bash
-PATH="$HOME/.local/bin:$PATH" coworker ask --profile codex …
-```
-
-For permanent fixes, add the export to a shell init file Codex actually reads (verify with `codex exec "echo $PATH"`).
+2.x linked `~/.claude/{agents,skills,commands,…}` and `~/.codex/…` into the
+Datarim checkout (`./install.sh --with-claude --with-codex`). Those flags are
+gone. Remove only the links that resolve into your Datarim checkout, then
+install per project as above.

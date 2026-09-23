@@ -1,5 +1,11 @@
 # Fleet Hook Sync Runbook
 
+> **Datarim 2.x only.** This page describes the global symlink installation
+> retired in 3.0, where Datarim is installed per project
+> (`./install.sh --project <path>`) — see
+> [Getting started](../tutorials/getting-started.md).
+
+
 > **Created:** 2026-07-30
 >
 > How to verify and synchronise per-machine hook registration across the

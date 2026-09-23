@@ -7,10 +7,7 @@ not a task workspace. Python 3.10 or newer is required.
 1. Obtain a reviewed Datarim checkout and record its commit. Set
    `DATARIM_SOURCE` to its absolute path and `DATARIM_PROJECT` to the existing
    consumer project's absolute path. Do not point either variable at your home.
-2. Combine existing project instructions into a regular `AGENTS.md`. Resolve
-   conflicts before removing `CLAUDE.md`, `CLAUDE.local.md` and other instruction
-   adapters. Preserve client authentication and non-instruction settings.
-3. Preview and initialize:
+2. Preview and initialize:
 
 ```bash
 python3 "$DATARIM_SOURCE/scripts/project_install.py" --project "$DATARIM_PROJECT" --init --dry-run
@@ -20,88 +17,29 @@ source .datarim-runtime/activate.sh
 jev doctor
 ```
 
-The installer adds a managed Datarim section to `AGENTS.md`, creates local command
-discovery files, copies a runtime into `.datarim-runtime/`, and initializes missing
-`datarim/tasks.md` and `datarim/backlog.md`. Existing task files are preserved.
-No Jev key is needed for plain Datarim. Start your installed agent normally, then
-use the Datarim initialization command to describe the first task.
+The installer copies a runtime into `.datarim-runtime/`, writes the `/dr-*`
+commands for each client (`.claude/commands/`, `.agents/skills/dr-*`,
+`.cursor/skills/dr-*`), and with `--init` creates missing `datarim/tasks.md` and
+`datarim/backlog.md`. Existing task files are preserved. No Jev key is needed
+for plain Datarim.
 
-All three clients use `AGENTS.md`. Claude Code requires at least 2.1.277 and an
-available native AGENTS loader. A version check alone is not a live loading
-proof: start a fresh session and verify a harmless instruction from the file.
+It does **not** edit `AGENTS.md`, `CLAUDE.md` or `.gitignore`. Everything it
+generates is hidden from git through the clone-local `.git/info/exclude`, so
+`git status` stays clean — which matters in a repository shared with people who
+do not use Datarim.
 
-**If you use Claude Code, add `--claude-import`:**
+Datarim runs only when you invoke a command. Each command states where this
+project's runtime is and tells the agent to read the framework rules from it;
+nothing is added to the instructions your agents load on every session. That is
+also why Datarim does not depend on whether a client loads `AGENTS.md` — on
+Claude Code 2.1.280 with its builtin AGENTS loader inactive, `/dr-help` still
+found the runtime and answered from it. Measured on the same host, the starting
+context of an empty session grew by 1,579 tokens with Datarim installed (the
+list of 28 commands), against 5,329 with the earlier design that also exposed
+every framework skill.
 
-```bash
-python3 "$DATARIM_SOURCE/scripts/project_install.py" --project "$DATARIM_PROJECT" --init --claude-import
-```
-
-It writes a one-line `CLAUDE.md` containing only `@AGENTS.md` — Claude Code's
-own import syntax, so the rules exist once, in `AGENTS.md`. Measured on Claude
-Code 2.1.280 (macOS, 2026-09-23): a freshly installed project answered the
-codeword probe below with `NONE`; the same project with `--claude-import`
-answered it. The flag is opt-in and sticky: later updates keep the file, and
-`--uninstall` removes it. A `CLAUDE.md` you write yourself is accepted by the
-installer only if it holds nothing but that import line.
-
-### Verify the loader before you rely on it
-
-Run this in the installed project. It forbids the file-reading tools, so only
-preloaded instructions can answer — reading `AGENTS.md` with a tool proves
-nothing about the loader.
-
-```bash
-printf '\nProbe token: loader-probe-ok.\n' >> AGENTS.md
-claude -p "Without using any tool: state the probe token from your loaded project
-instructions, or NOTOKEN." --disallowed-tools "Read,Bash,Glob,Grep"
-```
-
-The token means the loader works. `NOTOKEN` means the project's instructions are
-not reaching the session, and any workflow that depends on them will behave as if
-the file were absent. Remove the probe line afterwards.
-
-Claude Code loads `AGENTS.md` by default only when no `CLAUDE.md`,
-`.claude/CLAUDE.md` or `CLAUDE.local.md` exists in the working directory or any
-directory above it. A `CLAUDE.local.md` you add for your own uncommitted notes
-therefore silences the project's `AGENTS.md`. To load both, set
-`instructionFiles` to `claude-md-and-agents-md` under the builtin plugin — and
-note the two placement rules that make a wrong attempt look like missing support:
-
-```jsonc
-// ~/.claude/settings.json — ignored in project or local settings files
-{
-  "pluginConfigs": {
-    "agents-md@builtin": {
-      "options": { "instructionFiles": "claude-md-and-agents-md" }
-    }
-  }
-}
-```
-
-**Measured on 2026-09-22, Claude Code 2.1.278 on macOS: this probe returned
-`NOTOKEN`**, in a clean temporary project with no ancestor `CLAUDE.md` and no
-settings at all — the case where the default is documented to load `AGENTS.md`.
-The probe is calibrated: the same file, directory and flags answered correctly
-when renamed to `CLAUDE.md`, so the negative is real and not a blind instrument.
-
-The feature is present in the installed build (`AGENTS.md loaded`,
-`claude-md-or-agents-md` and `instructionFiles` all appear in the binary), but
-`agents-md@builtin` does not appear in `claude plugin list` on this host — not as
-disabled, absent. That matches the documented case where a session does not
-receive the feature flag that activates the builtin plugin; in such sessions
-Claude reads `CLAUDE.md` only and **Project instructions** is missing from
-`/config`. The other documented causes were excluded by measurement: the version
-is 2.1.277+, no managed settings exist, `disableAllHooks` and
-`allowManagedHooksOnly` are unset, the build has been installed for two days
-across ~70 sessions, and clearing `DISABLE_TELEMETRY` did not change the result.
-
-So this is **an environment-gated activation, not a missing capability** and not
-a property of the version. Before depending on `AGENTS.md`, run the probe on your
-own host: if it returns `NOTOKEN`, check `claude plugin list` for
-`agents-md@builtin` first. Where the flag is absent the supported fallback is to
-import `AGENTS.md` from a `CLAUDE.md` — a one-line import, not a duplicated
-instruction file. That is exactly what `--claude-import` writes. The same result
-was measured again on 2.1.280: `NONE` without it, the codeword with it.
+`--expose-skills` restores that exposure if you want the framework's skills in
+your clients' automatic discovery; it is kept across updates once set.
 
 Native client invocation remains available without Jev:
 

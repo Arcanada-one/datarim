@@ -1,269 +1,101 @@
 # Getting Started with Datarim
 
-This guide walks you through installing the Datarim framework, initializing it in a project, and running your first task.
-
----
+Datarim is a workflow framework for AI coding agents. It installs **into one
+project at a time** and runs only when you call one of its `/dr-*` commands.
+It adds nothing to your agents' instructions otherwise, and nothing it writes
+appears in `git status`.
 
 ## Prerequisites
 
-- **bash ≥ 4** — install.sh requires bash (not sh/dash/ash). On macOS install via `brew install bash`; on RedHat/Alpine ensure `bash` is in PATH. `sh install.sh` works if bash is anywhere on PATH (the installer self-re-execs); if bash is absent you get an actionable error and exit 2.
-- **git** — required to clone the framework repo.
-- [Claude Code](https://code.claude.com/documentation/en/overview) CLI installed and authenticated. Install: `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux/WSL) or `irm https://claude.ai/install.ps1 | iex` (Windows PowerShell)
-- A git repository for your project (Datarim uses `.gitignore` to separate workflow state from project documentation)
-- **Recommended:** [context7](https://github.com/upstash/context7) MCP server for token-efficient documentation access when looking up library docs
+- **Python 3.10+** and **git**.
+- At least one agent client: [Claude Code](https://code.claude.com/docs/en/overview),
+  [Codex CLI](https://github.com/openai/codex), or Cursor.
+- A project directory — ideally a git repository.
 
-> **Run via bash, not sh.** Prefer `bash install.sh` to `sh install.sh` to be explicit. The installer detects a non-bash shell and re-execs under bash automatically when bash is on PATH, so `sh install.sh` also works — but `bash install.sh` skips the detection step and is slightly faster.
-
----
-
-## Installation
-
-### Quick start (symlink mode — default since v1.17.0)
+## Install into a project
 
 ```bash
 # nosec-extract
 git clone https://github.com/Arcanada-one/datarim.git
 cd datarim
-chmod +x install.sh
-./install.sh --with-claude              # Claude Code runtime (symlink, default since v1.17)
-./install.sh --with-codex               # Codex CLI runtime (multi-runtime, v2.0+)
-./install.sh --with-cursor              # Cursor runtime (skills + delegation; coworker rtk enable adds RTK hook)
-./install.sh --with-claude --with-codex # multiple runtimes at once
-./install.sh --project /path/to/project # project-local copy mode (no symlinks)
+./install.sh --project /path/to/project --init --dry-run   # preview what it would write
+./install.sh --project /path/to/project --init             # install
 ```
 
-### Choose your runtime
+Add `--with-jev` to install Jev alongside (routing advice and a safety floor;
+see [Initialize Datarim with Jev](initialize-datarim-with-jev.md)), or
+`--with-jev --host-jev` to reuse a Jev you already installed for the whole
+machine. `--expose-skills` additionally puts every framework skill into your
+clients' automatic discovery — their descriptions are then loaded into every
+session, so leave it off unless you want that.
 
-Datarim v2.0+ is **multi-runtime**. Three runtimes are supported with different integration levels — see the canonical [Runtime support matrix in documentation/tutorials/use-cases.md](use-cases.md#runtime-support) for the full picture. Short version:
+### What the install writes
 
-- **Claude Code** — primary; native `PreToolUse` hook integration; full `coworker rtk` token-economy plugin support.
-- **Codex CLI** — parity via the `coworker rtk` shim for `view` / `apply_patch` / `shell` / `exec_command`. **Codex disclaimer:** no `Task` / `TodoWrite` primitives; intent-layer rewrites in absorbed superpowers skills preserve runtime-agnostic readability.
-- **Cursor** — parity: Cursor Agent has no Claude-style `PreToolUse` hook, but `coworker rtk enable` (Coworker v0.6.2+) wires its native `beforeShellExecution` hook (`rtk hook cursor`), giving the same RTK token economy as Claude Code and Codex CLI. `install.sh --with-cursor` mirrors Datarim skills and the delegation rule; RTK is opt-in. See the runtime support matrix for details.
+| Where | What | Visible in git |
+|---|---|---|
+| `.datarim-runtime/` | the framework at this revision | no |
+| `.claude/commands/dr-*.md` | the commands for Claude Code | no |
+| `.agents/skills/dr-*/`, `.cursor/skills/dr-*/` | the same commands for Codex and Cursor | no |
+| `datarim/` (with `--init`) | this project's task state | no |
+| `.git/info/exclude` | the rules that keep all of the above out of `git status` | never committed |
 
-Without flags, `install.sh` prints help and exits 0 — you must choose at least one runtime or `--project DIR`. The installer creates 7 scope symlinks in `~/.${runtime}/` — `agents`, `skills`, `commands`, `templates`, `scripts`, `tests`, `dev-tools` — each pointing at the matching directory inside the cloned repo. The runtime IS the repo: any edit you make in either place lands in the same file, so `git diff` shows your changes immediately and there is no separate "curate" step.
+It does **not** touch `AGENTS.md`, `CLAUDE.md`, `.gitignore` or your home
+directory. Each command carries the path to `.datarim-runtime/` and tells the
+agent to read the framework rules from there — so the framework is loaded when
+you run a command, and not otherwise. In a repository shared with people who do
+not use Datarim, they see nothing.
 
-`AGENTS.md` (a symlink to `CLAUDE.md`) is shipped at the repo root so Codex CLI and other runtimes that read `AGENTS.md` by convention work out of the box.
+If the project is not a git repository there is nothing to hide, and no
+exclude file is written.
 
-The installer also creates `~/.claude/local/{skills,agents,commands,templates}/` (real directories, gitignored) for personal additions and overrides that you do not want committed upstream. See [Local Overlay](#local-overlay) below.
-
-### Optional: external `datarim` CLI
-
-The main `./install.sh` symlinks runtime scopes (agents/skills/commands/…) into `~/.claude/`, but does **NOT** install the standalone `datarim` binary used by non-interactive agents (Codex, Cursor, cron, custom). If you try `datarim run /dr-status` without this extra step, the shell answers `command not found: datarim`. Run the dedicated CLI installer once per machine:
+### Check it
 
 ```bash
-cd cli && ./install.sh
+cd /path/to/project
+git status --short                     # nothing from Datarim
+source .datarim-runtime/activate.sh    # current shell only
+jev doctor
 ```
 
-It prints the bilingual AAL 3 warning and validates a current `accepted-risk-aal.yml` approval before creating the symlink. With no active approval, installation fails closed with exit 23. When approved, it symlinks `cli/datarim` → `/usr/local/bin/datarim` (falling back to `$HOME/.local/bin/datarim` when `/usr/local/bin` is not writable). Set `DATARIM_CLI_AGENT_ID` to a UUID v7 before the first `datarim run` invocation — generate via `cli/lib/uuid7-gen.sh`. Full reference: [documentation/reference/cli.md](../reference/cli.md).
+Then, in Claude Code, run `/dr-help`. In Codex and Cursor the commands arrive
+as skills named `dr-*`: ask the agent to run the `dr-help` skill.
 
-The CLI is opt-in. Slash commands inside a Claude Code session work without it.
+### Upgrading from 2.x
 
-### Copy mode (legacy / Windows)
+Datarim 2.x installed globally (`./install.sh --with-claude`, symlinks into
+`~/.claude/`). Those flags no longer exist. Remove the old symlinks in
+`~/.claude/{agents,skills,commands,templates,scripts,tests,dev-tools}` (and the
+Codex and Cursor equivalents) that resolve into your Datarim checkout — only
+those — and install per project as above.
 
-If symlinks are not available — typical on Windows Git Bash, FAT32/exFAT volumes, or restricted shells — pass `--copy` (or let the installer auto-detect):
+A project installed from `main` before 3.0 had a block appended to its
+`AGENTS.md` and rules appended to `.gitignore`. The next install or update
+removes both, keeps everything else in those files, and stops managing them.
+
+## Updating
 
 ```bash
-./install.sh --with-claude --copy                # explicit copy mode
-./install.sh --with-claude --copy --force --yes  # CI / scripted overwrite (creates backup)
+cd /path/to/datarim && git pull
+./install.sh --project /path/to/project
 ```
 
-Passing `--copy` / `--force` / `--yes` without an explicit `--with-*` flag
-still works for backwards compatibility, but the installer prints
-`WARN: implicit --with-claude for legacy flags` — name the runtime instead.
+The update is a single transaction: it verifies every file it will change,
+refuses to overwrite anything you edited, and rolls back on failure.
 
-`uname -s` matching `MINGW*`, `MSYS*`, or `CYGWIN*` triggers the copy fallback automatically; the installer prints `Mode: copy (auto-detected: symlinks not available)`.
-
-### Migration from v1.16 (existing copy install)
-
-The first time `./install.sh` is run against a v1.16 copy install, it shows an interactive prompt:
-
-```
-Options:
-  [c] Convert to symlinks (recommended)
-       Existing files moved to $CLAUDE_DIR/backups/migrate-<ts>/
-       Future updates run via 'git pull' inside the repo — no copy step.
-  [k] Keep copy mode permanently
-       Re-run install.sh --copy from now on.
-  [a] Abort
-```
-
-`--yes` (or `DATARIM_INSTALL_YES=1`) auto-selects `[c]`. CI / non-TTY environments without auto-consent abort with exit 1 — pick `--copy` or `--yes` explicitly.
-
-### Local overlay
-
-`~/.claude/local/` is the user-private layer:
-
-```
-~/.claude/local/
-├── skills/        # personal skills, e.g. my-company-style.md
-├── agents/
-├── commands/
-├── templates/
-├── .gitignore     # contents `*` — entire dir is private
-└── README.md      # convention notes
-```
-
-Loader order (`skills/datarim-system/SKILL.md` § Loading Order): the framework layer loads first, then files in `local/<scope>/<name>.md` override framework files of the same name. `validate.sh` emits a `WARN: override detected: …` line per shadow.
-
-**Critical-skill blocklist.** Six skills cannot be shadowed from `local/skills/`:
-`security.md`, `security-baseline.md`, `compliance.md`, `datarim-system.md`,
-`ai-quality.md`, `evolution.md`. They define the security contract and core
-workflow invariants — silently overriding them via overlay would let a personal
-file relax rules that downstream agents and CI gates rely on. Placing any of
-these names in `local/skills/` makes `validate.sh` exit **1** with an `ERROR:
-critical skill ...` line. Customise by forking or upstream PR. The blocklist is
-path-scoped to the `skills/` directory; same basename under `local/agents/`,
-`local/commands/`, or `local/templates/` is allowed (standard WARN).
-
-**Convention:** prefix overlay files with a personal namespace (`my-org-…`, your initials, …) so you don't accidentally shadow framework files you actually want to track upstream.
-
-### Manual install (no script)
+## Removing
 
 ```bash
-mkdir -p ~/.claude
-for scope in agents skills commands templates scripts tests dev-tools; do
-    ln -sfn "$(pwd)/$scope" "$HOME/.claude/$scope"
-done
-mkdir -p ~/.claude/local/{skills,agents,commands,templates}
+./install.sh --project /path/to/project --uninstall
 ```
 
-Or, for copy mode (the legacy v1.16 path):
-
-```bash
-for scope in agents skills commands templates scripts tests dev-tools; do
-    mkdir -p "$HOME/.claude/$scope"
-    cp -R "$scope/." "$HOME/.claude/$scope/"
-done
-chmod +x ~/.claude/templates/*.sh 2>/dev/null || true
-```
-
-A manual install skips the script's side effects — the `~/.local/bin/` hook-guard symlinks and the `CLAUDE.md` delegation fragment. Add them by hand if you want them.
-
-### Fork-as-contributor (advanced)
-
-If you intend to upstream framework changes back to `Arcanada-one/datarim`, fork the repo on GitHub, clone your fork, and clone-and-symlink against it. For *personal additions* prefer the `local/` overlay — fork merge conflicts on Markdown are a real UX barrier (this is why oh-my-zsh / bash-it / chezmoi all use overlays for end-user additions).
-
-### Installer Contract
-
-The installer has a deliberately narrow contract — review a diff of `install.sh` if you want the authoritative version.
-
-**Install scopes** (linked or copied into `$CLAUDE_DIR`, default `~/.claude/`):
-
-Seven scopes, in the order declared by `INSTALL_SCOPES` in `install.sh`:
-
-| Scope | Content types | Notes |
-|-------|---------------|-------|
-| `agents/`    | `.md` | Agent personas |
-| `skills/`    | `.md` | Skills, each a directory with `SKILL.md` plus any supporting fragment files |
-| `commands/`  | `.md` | Slash-command definitions |
-| `templates/` | `.md`, `.sh`, `.json`, `.yaml`, `.yml` | Reusable scaffolds. `.sh` templates get `+x` automatically in copy mode (symlink mode preserves the source bits). |
-| `scripts/`   | `.sh` and friends | Framework tooling invoked at runtime (`datarim-doctor.sh`, `pre-archive-check.sh`, `check-doc-refs.sh`, ...). Installed since v1.20.0 so `~/.claude/scripts/` cannot diverge from the repo by inode. |
-| `tests/`     | `.bats`-adjacent `.sh`/`.md` | The repo's own regression suite, shipped for the same anti-drift reason. |
-| `dev-tools/` | `.sh`, `.yaml`, `.md` | Runtime-required since v2.15.0. `/dr-init`, `/dr-doctor`, `/dr-archive`, `/dr-verify`, `/dr-qa`, `/dr-plan`, `/dr-compliance`, and `/dr-design` all shell out to scripts here via `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/<script>`. |
-
-**Repo-only** (intentionally NOT installed):
-
-- `install.sh`, `update.sh`, `validate.sh`, `VERSION`, `CLAUDE.md`, `README.md`, `LICENSE` — repo artefacts at the root. Everything else in the seven scopes above is installed.
-
-**Side effects outside the scope directories.** The installer also symlinks three hook guards from `dev-tools/` into `~/.local/bin/` (`coworker-hook-guard`, `branch-integration-guard`, `session-execution-drift-warn`), backing up an existing regular file at those paths once; and on a `--with-claude` install it syncs the coworker delegation fragment into `$CLAUDE_DIR/CLAUDE.md` between the `<!-- coworker-fragment:begin -->` / `<!-- coworker-fragment:end -->` sentinels, leaving everything outside the sentinels untouched. Registering the hooks in `settings.json` remains a manual, machine-local step.
-
-**Content-type whitelist.** In copy mode, files with extensions outside the whitelist are logged (`WARN (unknown extension, skipped)`) and not copied. In symlink mode the entire scope dir is exposed wholesale, so the whitelist does not apply at install time.
-
-**`--force` safety:**
-
-- Symlink topology + `--force` → no-op (prints "Already symlinked, nothing to update"). Use `cd repo && git pull` or `./update.sh` instead.
-- Copy topology + `--force`: `CLAUDE_DIR` is sanity-checked, live-system consent is required (`yes` typed at TTY, or `--yes` / `DATARIM_INSTALL_YES=1`), and each scope is backed up under `$CLAUDE_DIR/backups/force-<UTC-timestamp>/` with a `SUCCESS` marker written last.
-
-**Exit codes:**
-
-| Code | Meaning |
-|------|---------|
-| `0` | Success (or symlink-mode no-op) |
-| `1` | Migration aborted, `--force` declined, or non-TTY without `--yes` |
-| `2` | Invalid arguments, or `CLAUDE_DIR` sanity guard tripped |
-
-**Drift between repo and runtime.** Under symlink mode drift is impossible by definition — runtime IS the repo (same inode). Under copy mode resync is `git pull && ./install.sh --copy --force --yes`.
-
-### SOC 2 baseline
-
-The framework's 9-cluster security baseline (S1–S9) maps 9/9 to SOC 2 Common
-Criteria (CC6 / CC7 / CC8 / CC9). See
-[`documentation/reference/standards-mapping.md`](../reference/standards-mapping.md) § SOC 2 Progress for the
-current coverage, outstanding evidence, and the Q3 2026 Type II readiness
-roadmap. Operational evidence collection (Type I review, vendor management,
-incident-response runbooks) remains the consumer project's responsibility —
-Datarim provides the technical scaffolding only.
-
-### Symlink-default operating model
-
-The default install *mode* is symlink — the `symlink-default` operating model
-since v1.17.0. Mode is not the same as invocation: a runtime flag is still
-required, so the default-mode install is `install.sh --with-claude`, not bare
-`install.sh` (which prints usage and exits 0). Copy mode
-(`install.sh --with-claude --copy`) is the documented fallback for filesystems
-without symlink support. See [`documentation/explanation/symlinks.md`](../explanation/symlinks.md) for the full operating
-model, copy-mode migration recipe, and limitations.
-
----
-
-## Updating Datarim
-
-If you have Datarim installed and want to get the latest version:
-
-```bash
-# nosec-extract
-cd /path/to/datarim              # your cloned repo
-./update.sh                      # pull + (copy-mode) reinstall — one command
-```
-
-`update.sh` branches on the runtime topology it detects:
-
-- **Symlink mode (default):** runs `git pull origin main` and exits. The runtime is the repo, so the pull IS the install.
-- **Copy mode:** `git pull origin main` then `./install.sh --copy --force --yes`.
-
-Use `./update.sh --dry-run` to preview what would change without writing anything.
-
-### Manual alternative
-
-Symlink mode:
-
-```bash
-# nosec-extract
-cd /path/to/datarim
-git pull origin main
-```
-
-Copy mode:
-
-```bash
-git pull origin main
-./install.sh --copy --force      # overwrites all (backup taken on live system)
-```
-
-### What stays unchanged
-
-- Your project `CLAUDE.md` files — they live in your project, not in `~/.claude/`
-- Your `datarim/` workflow state — local to each project
-- Your `documentation/archive/` — committed to your project's git
-- Your `~/.claude/local/` overlay — never touched by `install.sh` after the initial directory + `.gitignore` scaffold
-
----
-
-### Activate in Your Project
-
-After installation, copy `CLAUDE.md` into your project root:
-
-```bash
-cp /path/to/datarim/CLAUDE.md /path/to/your/project/
-```
-
-This file contains the framework rules that Claude Code reads on startup. The top section defines the pipeline, agents, and skills. The bottom section is where you describe your project, tech stack, and conventions. Customize the bottom section freely; leave the top section as-is.
+The runtime moves to `.datarim-uninstalled/`; keys and task state stay, and stay
+hidden from git.
 
 ---
 
 ## Initializing Datarim in a Project
 
-Navigate to your project root and start Claude Code:
+Navigate to your project root and start your agent:
 
 ```bash
 # nosec-extract
@@ -285,9 +117,8 @@ If `datarim/` does not exist yet, `/dr-init` creates it along with the documenta
 
 ```
 your-project/
-├── CLAUDE.md               # Framework rules (COMMITTED)
-├── .gitignore              # datarim/ added here
-├── datarim/                # Workflow state (LOCAL, not committed)
+├── .datarim-runtime/       # The framework (local, hidden from git)
+├── datarim/                # Workflow state (local, hidden from git)
 │   ├── activeContext.md    # Current task state
 │   ├── tasks.md            # Active task tracking
 │   ├── backlog.md          # Pending tasks queue
@@ -380,18 +211,15 @@ This gives you:
 
 ---
 
-## The .gitignore Pattern
+## Keeping workflow state out of git
 
-When `/dr-init` runs for the first time, it adds `datarim/` to your `.gitignore`:
+`datarim/` is local. The installer hides it through the clone-local
+`.git/info/exclude`, and `/dr-init` checks that with `git check-ignore` —
+neither edits your `.gitignore`, which the project may share with people who do
+not run Datarim.
 
-```gitignore
-# Datarim workflow state (local only)
-datarim/
-```
-
-**Do NOT gitignore** `documentation/` -- that directory holds your project's knowledge base and should be committed.
-
-If your project does not have a `.gitignore` file, `/dr-init` will offer to create one.
+**Do not hide** `documentation/` — that directory holds your project's
+knowledge base and should be committed.
 
 ---
 
@@ -493,11 +321,10 @@ After running `/dr-init` for the first time, verify:
 
 - [ ] `datarim/` directory exists at your project root
 - [ ] `documentation/archive/` directory exists at your project root
-- [ ] `datarim/` is listed in `.gitignore`
+- [ ] `git status` shows nothing under `datarim/` or `.datarim-runtime/`
 - [ ] `datarim/tasks.md` exists and contains your task
 - [ ] `datarim/activeContext.md` exists and shows the current task
 - [ ] `datarim/backlog.md` exists
-- [ ] `CLAUDE.md` exists at your project root with the project-specific section filled in
 
 ---
 
