@@ -41,6 +41,12 @@ Every task, including a quick task and non-code work, MUST define falsifiable
 acceptance cases before execution. Reuse this contract; do not create a parallel
 skill or replace a task outcome with successful enabling work.
 
+For customer-derived delivery requirements, MUST LOAD
+`${DATARIM_RUNTIME:?}/skills/customer-delivery/SKILL.md`
+before establishing the pre-work baseline or delegating affected work. Apply its
+U3 pre-work selection and inherited-context rules; this loader
+does not expand task scope or grant production approval.
+
 Store the complete task contract at `datarim/tasks/{TASK-ID}-acceptance.json`
 and its append-only evidence bundle at `datarim/qa/{TASK-ID}-evidence.json`.
 The contract has `version: 1`, `task_id`, UTC `defined_at`, a nonempty `scope`
