@@ -305,7 +305,7 @@ Load only the fragment needed for the current sub-problem:
   Use when inheriting a test suite with pre-existing failures. Three-bucket triage: stale-delete, fixable-patch, rephrase-the-content.
 
 - `concurrency-patterns.md`
-  Use when an agent/service fans one request out over multiple interchangeable endpoints (LLM providers, fallback chains, mirror APIs). Provider-race pattern: bounded worker pool + completion-ordered iteration + first-success short-circuit + alert-only-when-ALL-fail + barrier-based concurrency test, plus the one-cap latency caveat (a join-all wait returns at slowest-attempt latency — the win is correctness/fewer alerts, not speed) and budget sizing (worst case ≤ one per-endpoint cap, not the sum).
+  Use for provider fan-out or shared-resource acquisition/release changes. Covers overlap barriers, first-success handling and join-all latency; custody repairs pair safety regressions with owner-release/waiter-progress tests.
 
 ## Reusable Templates
 

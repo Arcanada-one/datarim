@@ -1,9 +1,31 @@
 ---
 name: testing/concurrency-patterns
-description: Provider-race pattern for fan-out over multiple LLM/provider endpoints — bounded worker pool, completion-ordered iteration, first-success short-circuit, alert-only-when-all-fail, barrier-based concurrency test, one-cap latency caveat, budget sizing.
+description: Concurrency verification for provider fan-out and shared-resource custody: overlap, cleanup, and owner progress.
 ---
 
 # Testing — Concurrency Patterns
+
+## Resource custody: safety and progress
+
+When repairing concurrent resource acquisition, test both custody safety and
+owner progress. A registry mutex that prevents a descriptor from escaping can
+also prevent its current owner from releasing the contested resource if the
+waiter holds that mutex during a blocking acquisition.
+
+Use a real owner and contender: establish ownership, synchronize the contender
+at the actual contention point, then release the owner while the contender is
+still waiting. Assert that release completes and the contender acquires before
+its deadline. A timeout-only rejection test does not exercise this release path.
+Also retain the original allocation/registration, failure-cleanup and child
+inheritance regressions; a liveness repair must not reopen the safety race.
+
+Keep synchronization around the smallest custody transaction that closes the
+race, and inspect whether any awaited operation requires another thread to take
+the same mutex to make progress. Test supported interleavings with barriers and
+bounded deadlines, not arbitrary sleeps or a single uncontended happy path.
+Document unsupported reentrant callbacks explicitly instead of implying that a
+concurrent-thread test proves them. This recipe applies to resource-lifecycle
+changes; it does not require concurrency tests for unrelated single-owner code.
 
 ## Provider Race (bounded fan-out, first-success short-circuit)
 
