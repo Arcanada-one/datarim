@@ -11,8 +11,8 @@
 # Environment:
 #   DR_PLUGIN_WORKSPACE     — workspace root containing datarim/ (default: cwd
 #                             walk-up). Honoured by tests for sandboxed runs.
-#   DR_PLUGIN_RUNTIME_ROOT  — symlink target root (default: $HOME/.claude/local).
-#                             Honoured by tests for sandboxed runs.
+#   DR_PLUGIN_RUNTIME_ROOT  — symlink target root; must equal the project's
+#                             .datarim-runtime/local (the default), or the call is refused.
 #
 # Exit codes:
 #   0   success
