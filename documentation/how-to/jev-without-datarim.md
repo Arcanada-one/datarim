@@ -169,6 +169,8 @@ In Codex the floor runs only while Codex trusts Jev's hooks. Full permissions
 do not grant that trust — check `jev doctor --agent=codex` shows
 `codex_hook_trust: trusted` before relying on the floor there (see
 [Codex needs two approvals](#codex-needs-two-approvals-in-its-own-ui)).
+`jevcodex` repairs that trust for Jev's own hooks at launch
+([Another tool rewrote hooks.json](#another-tool-rewrote-hooksjson)).
 
 ## What you get without Datarim
 
@@ -296,6 +298,29 @@ One exception: if the machine was installed before this change, its hooks named
 `…/releases/<sha>/…` directly. The first upgrade rewrites them to the stable
 command, so open `codex` once more and choose **Trust all and continue**. After
 that, upgrades do not ask again.
+
+### Another tool rewrote hooks.json
+
+Codex also keys the approval by the hook's **position**
+(`<file>:<event>:<group>:<handler>`). A tool that inserts its own hooks ahead
+of Jev's moves them to positions the approval does not cover, and Codex skips
+them without a word. Measured: an IDE relay reconnecting to a development host
+rewrote `~/.codex/hooks.json`, and the Jev floor stopped running in Codex an
+hour after a clean **Trust all**.
+
+```sh
+jev trust
+```
+
+re-grants trust to Jev's own hooks — and only to those whose command is exactly
+`<python> ~/.local/share/jev/bin/jev-hook codex <Event>`; a hook that merely
+mentions that path is not trusted. A hook you set to `disabled` stays disabled.
+The previous `config.toml` is kept as `config.toml.pre-jev-trust`.
+
+`jevcodex` does this itself before every launch on a host installation, so
+sessions started through Jev keep their floor. Set `JEV_NO_AUTO_TRUST=1` to
+leave trust to the Codex TUI. Sessions started with plain `codex` get no such
+repair; `jev doctor` reports them as `modified`.
 
 ### Automation that cannot answer a prompt
 

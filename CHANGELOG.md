@@ -4,6 +4,15 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Jev floor silently off in Codex after another tool rewrote `hooks.json`.**
+  Codex keys hook trust by position; an IDE relay inserting its hooks ahead of
+  Jev's moved them off their approval, and Codex skipped them. New `jev trust`
+  re-grants trust to Jev's own hooks (exact command match only, disabled hooks
+  left alone, `config.toml.pre-jev-trust` kept); `jevcodex` does it at every
+  host launch unless `JEV_NO_AUTO_TRUST=1`.
+
 ## [3.0.0] — 2026-09-23
 
 Datarim becomes project-local, and Jev ships as its own tool that works with or
