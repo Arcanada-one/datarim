@@ -40,6 +40,18 @@ graph. It is updated as work lands; each item carries a measured verdict
   settings, and renamed the rest to `.datarim-uninstalled` rather than deleting
   it — recoverable by design, not a leftover.
 
+### Mac, proven on the live session that did this work
+
+The strongest evidence available, because it needed no probe: the Mac's own
+ledger recorded 171 `hook_delivery` events carrying
+`session_id: faa6dc38-de5f-4db2-9b7b-8439929b388a` — this conversation — with
+`advice_emitted: false`. The hook at `a95c8d7` is processing real tool calls
+every few seconds, and declining to advise only because the key file is empty.
+
+One instrument note: `find -newermt "-20 minutes"` returns nothing on macOS,
+which first read as "the Mac hook is dead". It was writing that same minute.
+The honest query on this platform is `stat -f "%m %N"` sorted by time.
+
 ### arcana-devs, what is proven and what waits on the key
 
 Proven without a key: the hooks are registered (3 Jev entries beside the 12
