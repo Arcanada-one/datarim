@@ -31,6 +31,10 @@
 #   interaction_run_id string? — opt-in run identity for consumption evidence.
 #   interaction_receipts [object]? — write-time snapshot of consumed response
 #                             identities (interactionId, decisionId, contextDigest).
+#                             Optional actionExecution carries exactly claimVersion
+#                             (integer 1..2147483647) and receiptDigest (64 lower hex).
+#                             Consumers require/match the pair for executed actions;
+#                             its presence alone grants no execution authority.
 # Opt-in: set DATARIM_INTERACTION_RECEIPTS_DIR and DATARIM_INTERACTION_RUN_ID
 # together. Requires Python 3 only on this path. Invalid/oversized/symlinked
 # receipts fail closed without replacing prior heartbeat. No answer data is
