@@ -105,11 +105,16 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.source_patch.start()
         self.addCleanup(self.source_patch.stop)
 
-    def test_install_update_uninstall_preserves_originals_and_private_ignores(self):
+    def test_install_update_uninstall_leaves_shared_files_alone(self):
         project_install.install(self.args)
-        for vendor in ('.agents', '.claude', '.cursor'):
-            skill = self.project/vendor/'skills/testing/SKILL.md'
-            self.assertIn('name: testing', skill.read_text())
+        self.assertEqual((self.project/'AGENTS.md').read_text(), '# Original project rules\n')
+        self.assertEqual((self.project/'.gitignore').read_text(), '/build/\n')
+        # Only the commands are entry points; framework skills load on demand.
+        self.assertFalse((self.project/'.agents/skills/testing').exists())
+        for name in ('.agents/skills/dr-do/SKILL.md', '.cursor/skills/dr-do/SKILL.md',
+                     '.claude/commands/dr-do.md'):
+            self.assertTrue((self.project/name).is_file(), name)
+        self.assertFalse((self.project/'.claude/skills/dr-do').exists())
         manifest = self.project/'.datarim-runtime/installation.json'
         before = manifest.stat().st_mtime_ns
         project_install.install(self.args)
@@ -118,48 +123,98 @@ class InstallationLifecycleTests(unittest.TestCase):
         project_install.install(self.args)
         project_install.uninstall(self.args)
         self.assertEqual((self.project/'AGENTS.md').read_text(), '# Original project rules\n')
-        self.assertFalse((self.project/'.agents/skills/testing/SKILL.md').exists())
+        self.assertEqual((self.project/'.gitignore').read_text(), '/build/\n')
+        self.assertFalse((self.project/'.agents/skills/dr-do/SKILL.md').exists())
         self.assertTrue((self.project/'datarim/tasks.md').is_file())
-        self.assertIn('/build/', (self.project/'.gitignore').read_text())
-        for rule in project_install.PRIVATE_IGNORES:
-            self.assertIn(rule, (self.project/'.gitignore').read_text())
         self.assertEqual((self.project/'.datarim-uninstalled').stat().st_mode & 0o077, 0)
 
-    # -- Claude Code and AGENTS.md ------------------------------------------
-    # Where Claude Code's builtin AGENTS loader is not active (measured on
-    # 2.1.280: a codeword in AGENTS.md answered NONE), a one-line CLAUDE.md
-    # importing AGENTS.md is the documented fallback. The installer used to
-    # refuse any CLAUDE.md, so a project that followed the tutorial could no
-    # longer be updated.
-
-    def test_a_claude_md_that_only_imports_agents_md_is_accepted(self):
-        (self.project/'CLAUDE.md').write_text('<!-- load project rules -->\n@AGENTS.md\n')
+    def test_every_command_carries_the_runtime_and_keeps_its_frontmatter_first(self):
+        (self.source/'commands/dr-plan.md').write_text('---\nname: dr-plan\ndescription: Plan.\n---\n\n# Plan\n')
         project_install.install(self.args)
-        project_install.install(self.args)
-        self.assertEqual((self.project/'CLAUDE.md').read_text(),
-                         '<!-- load project rules -->\n@AGENTS.md\n')
+        runtime = str(self.project/'.datarim-runtime')
+        plan = (self.project/'.claude/commands/dr-plan.md').read_text()
+        self.assertTrue(plan.startswith('---\nname: dr-plan\ndescription: Plan.\n---\n'))
+        self.assertIn(f'`{runtime}/AGENTS.md`', plan)
+        self.assertIn('# Plan', plan)
+        do = (self.project/'.claude/commands/dr-do.md').read_text()
+        self.assertTrue(do.startswith('> **Datarim**'))
+        stub = (self.project/'.agents/skills/dr-do/SKILL.md').read_text()
+        self.assertIn(f'`{runtime}/commands/dr-do.md`', stub)
 
-    def test_a_claude_md_with_instructions_of_its_own_is_still_refused(self):
-        (self.project/'CLAUDE.md').write_text('@AGENTS.md\nAlways answer in French.\n')
-        with self.assertRaises(ValueError):
-            project_install.install(self.args)
-
-    def test_claude_import_creates_keeps_and_retires_the_adapter(self):
-        project_install.install(Namespace(**{**vars(self.args), 'claude_import': True}))
-        self.assertEqual((self.project/'CLAUDE.md').read_bytes(), b'@AGENTS.md\n')
-        # An update without the flag keeps it: taking it away would silently
-        # stop Claude Code from seeing the project rules.
+    def test_expose_skills_is_opt_in_and_sticky(self):
+        project_install.install(Namespace(**{**vars(self.args), 'expose_skills': True}))
+        self.assertTrue((self.project/'.claude/skills/testing/SKILL.md').is_file())
         (self.source/'VERSION').write_text('next\n')
         project_install.install(self.args)
-        self.assertEqual((self.project/'CLAUDE.md').read_bytes(), b'@AGENTS.md\n')
-        project_install.uninstall(self.args)
-        self.assertFalse((self.project/'CLAUDE.md').exists())
+        self.assertTrue((self.project/'.claude/skills/testing/SKILL.md').is_file())
 
-    def test_without_the_flag_no_claude_md_is_created(self):
+    def test_an_older_install_releases_agents_md_and_gitignore_without_deleting_them(self):
+        """Earlier releases managed both files; files that leave management are
+        otherwise deleted. These two are the project's own and must survive."""
         project_install.install(self.args)
-        self.assertFalse((self.project/'CLAUDE.md').exists())
+        runtime = self.project/'.datarim-runtime'
+        agents = '# Original project rules\n\n' + project_install.BEGIN + '\nold block\n' + project_install.END + '\n'
+        ignore = project_install.private_ignores('/build/\n')
+        (self.project/'AGENTS.md').write_text(agents + 'Later operator line\n')
+        (self.project/'.gitignore').write_text(ignore)
+        manifest = json.loads((runtime/'installation.json').read_text())
+        manifest['files']['AGENTS.md'] = project_install.digest((agents + 'Later operator line\n').encode())
+        manifest['files']['.gitignore'] = project_install.digest(ignore.encode())
+        (runtime/'installation.json').write_text(json.dumps(manifest))
+        originals = json.loads((runtime/'original-files.json').read_text())
+        originals.update({'AGENTS.md': '# Original project rules\n', '.gitignore': '/build/\n'})
+        (runtime/'original-files.json').write_text(json.dumps(originals))
+        (self.source/'VERSION').write_text('release\n')
+        project_install.install(self.args)
+        self.assertEqual((self.project/'AGENTS.md').read_text(),
+                         '# Original project rules\n\nLater operator line\n')
+        self.assertEqual((self.project/'.gitignore').read_text(), '/build/\n')
+        after = json.loads((runtime/'installation.json').read_text())['files']
+        self.assertNotIn('AGENTS.md', after)
+        self.assertNotIn('.gitignore', after)
+        # Released means released: a later edit survives an uninstall.
+        (self.project/'AGENTS.md').write_text('# Rewritten by the operator\n')
+        project_install.uninstall(self.args)
+        self.assertEqual((self.project/'AGENTS.md').read_text(), '# Rewritten by the operator\n')
 
-    def test_concurrent_shared_rules_change_during_copy_is_preserved(self):
+    def test_a_git_project_shows_nothing_in_status(self):
+        subprocess.run(['git', 'init', '-q', str(self.project)], check=True)
+        subprocess.run(['git', '-C', str(self.project), 'add', '-A'], check=True)
+        subprocess.run(['git', '-C', str(self.project), '-c', 'user.email=t@t', '-c', 'user.name=t',
+                        'commit', '-qm', 'init'], check=True)
+        project_install.install(self.args)
+        status = subprocess.run(['git', '-C', str(self.project), 'status', '--porcelain'],
+                                capture_output=True, text=True, check=True).stdout
+        self.assertEqual(status, '')
+        project_install.uninstall(self.args)
+        status = subprocess.run(['git', '-C', str(self.project), 'status', '--porcelain'],
+                                capture_output=True, text=True, check=True).stdout
+        # Keys, task state and the recovery bundle stay, and stay hidden.
+        self.assertEqual(status, '')
+        exclude = (self.project/'.git/info/exclude').read_text()
+        self.assertIn('/datarim/', exclude)
+        self.assertNotIn('/.claude/commands/dr-do.md', exclude)
+
+    def test_a_project_inside_a_larger_repository_gets_prefixed_rules(self):
+        repo = self.project.parent/'monorepo'
+        sub = repo/'apps/site'
+        sub.mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+        project_install.install(Namespace(**{**vars(self.args), 'project': str(sub)}))
+        exclude = (repo/'.git/info/exclude').read_text()
+        self.assertIn('/apps/site/.datarim-runtime/', exclude)
+        self.assertIn('/apps/site/.claude/commands/dr-do.md', exclude)
+        status = subprocess.run(['git', '-C', str(repo), 'status', '--porcelain'],
+                                capture_output=True, text=True, check=True).stdout
+        self.assertEqual(status, '')
+
+    def test_an_existing_claude_md_is_left_alone(self):
+        (self.project/'CLAUDE.md').write_text('Always answer in French.\n')
+        project_install.install(self.args)
+        self.assertEqual((self.project/'CLAUDE.md').read_text(), 'Always answer in French.\n')
+
+    def test_concurrent_change_during_copy_is_preserved(self):
+        target = self.project/'.claude/commands/dr-do.md'
         original_copy = project_install.shutil.copytree
         touched = False
         def concurrent_copy(*args, **kwargs):
@@ -167,20 +222,22 @@ class InstallationLifecycleTests(unittest.TestCase):
             result = original_copy(*args, **kwargs)
             if not touched:
                 touched = True
-                (self.project/'AGENTS.md').write_text('# Concurrent foreign rules\n')
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text('# Concurrent foreign command\n')
             return result
         with patch.object(project_install.shutil, 'copytree', side_effect=concurrent_copy):
             with self.assertRaisesRegex(ValueError, 'Concurrent modification'):
                 project_install.install(self.args)
-        self.assertEqual((self.project/'AGENTS.md').read_text(), '# Concurrent foreign rules\n')
+        self.assertEqual(target.read_text(), '# Concurrent foreign command\n')
         self.assertFalse((self.project/'.datarim-runtime').exists())
 
     def test_persistent_file_restore_failure_still_restores_runtime(self):
         project_install.install(self.args)
         (self.source/'VERSION').write_text('new version\n')
-        original_rules = (self.project/'AGENTS.md').read_bytes()
+        name = '.claude/commands/dr-do.md'
+        original_command = (self.project/name).read_bytes()
         # Force a changed proposal, so losing the prior bytes is observable.
-        original_replace = project_install.replace_block
+        original_preamble = project_install.with_preamble
         real_write = project_install.atomic_bytes
         writes = 0
         def failing_write(target, data):
@@ -190,7 +247,7 @@ class InstallationLifecycleTests(unittest.TestCase):
                 raise OSError('injected persistent write failure')
             return real_write(target, data)
         with patch.object(project_install, 'atomic_bytes', side_effect=failing_write), patch.object(
-                project_install, 'replace_block', side_effect=lambda text, block: original_replace(text, block)+'Changed proposal\n'):
+                project_install, 'with_preamble', side_effect=lambda data, runtime: original_preamble(data, runtime)+b'Changed proposal\n'):
             with self.assertRaisesRegex(OSError, 'injected'):
                 project_install.install(self.args)
         self.assertEqual((self.project/'.datarim-runtime/VERSION').read_text(), 'test\n')
@@ -198,7 +255,7 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertEqual(len(bundles), 1)
         self.assertEqual(bundles[0].stat().st_mode & 0o077, 0)
         saved = json.loads((bundles[0]/'rollback-files.json').read_text())
-        self.assertEqual(saved['AGENTS.md'].encode(), original_rules)
+        self.assertEqual(saved[name].encode(), original_command)
 
     def test_rollback_preserves_foreign_edit_after_publication(self):
         project_install.install(self.args)
@@ -219,13 +276,14 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertEqual((self.project/'.datarim-runtime/VERSION').read_text(), 'test\n')
 
     def test_foreign_skill_conflict_has_no_partial_install(self):
-        foreign = self.project/'.cursor/skills/testing/SKILL.md'
+        foreign = self.project/'.cursor/skills/dr-do/SKILL.md'
         foreign.parent.mkdir(parents=True)
         foreign.write_text('Foreign instructions')
         with self.assertRaisesRegex(ValueError, 'Unmanaged'):
             project_install.install(self.args)
         self.assertEqual(foreign.read_text(), 'Foreign instructions')
         self.assertFalse((self.project/'.datarim-runtime').exists())
+        self.assertFalse((self.project/'.claude/commands/dr-do.md').exists())
         self.assertEqual((self.project/'AGENTS.md').read_text(), '# Original project rules\n')
 
     def test_nested_context_cannot_escape(self):
