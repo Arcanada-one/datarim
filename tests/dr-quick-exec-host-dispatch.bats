@@ -84,10 +84,13 @@ DRQUICK="${ROOT}/commands/dr-quick.md"
     [ "$output" -ge 1 ]
 }
 
-@test "dr-quick.md defers the dispatch decision and closes the intent-flip hole" {
-    run grep -c 'deferred and re-evaluated' "${DRQUICK}"
+@test "dr-quick.md classifies initial intent before metadata and rechecks an intent flip" {
+    run grep -c 'initial intent classified before metadata or ID allocation' "${DRQUICK}"
     [ "$status" -eq 0 ]
     [ "$output" -ge 1 ]
+
+    run grep -F 'At Step 5, re-evaluate routing if a lookup changes into an edit' "${DRQUICK}"
+    [ "$status" -eq 0 ]
 
     run grep -c 'Intent-flip guard' "${DRQUICK}"
     [ "$status" -eq 0 ]
