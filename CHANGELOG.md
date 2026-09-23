@@ -70,6 +70,8 @@ To migrate a machine that ran 2.x:
   in the source checkout (for example a client's own skills left in `skills/`)
   are no longer copied into projects.
 - `/dr-init` no longer appends to `.gitignore`.
+- Updating or uninstalling no longer leaves the directories of retired files
+  behind (105 empty `.claude/skills/<name>/` directories on one real project).
 - The install guides (`getting-started`, `multi-runtime`, README) described the
   retired global install; rewritten.
 - `jev doctor` measures `datarim_enabled` from the installation manifest instead
