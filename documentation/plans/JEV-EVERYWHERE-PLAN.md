@@ -17,10 +17,37 @@ graph. It is updated as work lands; each item carries a measured verdict
 | P0-4 DEV-AI → merged sha | **pass** | 18 foreign hooks preserved, 0 lost; `doctor` clean; API `ok: true`, `jev-1.13.0`, 314 ms |
 | P1-5 component routing | **pass** | see below |
 | P1-6 session handoff | **pass** | `DEV-AI-SESSION-HANDOFF.md`, commands dry-run before publication |
-| P2-7 repository docs | in progress | |
-| P2-8 site docs | not started | |
-| P3-9 Codex research | partly done | the "re-trust after every upgrade" claim was measured false; see below |
-| P3-10 installer audit | not started | |
+| P2-7 repository docs | **pass** | new `jev-without-datarim.md`; doc gates green |
+| P2-8 site docs | not started | operator decision on publishing path |
+| P3-9 Codex research | **pass** | `--dangerously-bypass-hook-trust` measured working on 0.155.1 |
+| P3-10 installer audit | **pass** | see below |
+
+### P3-10, measured in scratch homes
+
+- Refuses to install from a dirty checkout: *"Commit and verify the source
+  revision before host installation"*. This is why the first audit run
+  produced no output — the instrument was right and I was not.
+- Permissions: key `0600` inside a `0700` directory; `config.json`,
+  `installation.json`, `settings.json` all `0600`; the four launchers `0700`.
+- Idempotent: a second run changed no existing file; the only new path was
+  another timestamped backup.
+- **An existing key is never overwritten** — a key written by hand survived a
+  reinstall byte-for-byte, with its mode intact.
+- **Foreign hooks survive** — a hand-added `/my/own/guard` entry was still
+  present after reinstalling.
+- Project install: 363 files, `host_jev: true`. Uninstall removed all of them,
+  reported `keys_and_state: preserved`, deleted `.datarim-runtime` and the hook
+  settings, and renamed the rest to `.datarim-uninstalled` rather than deleting
+  it — recoverable by design, not a leftover.
+
+### P3-9, the supported automation path
+
+`codex exec --dangerously-bypass-hook-trust` works on codex-cli 0.155.1.
+Measured with a fresh `CODEX_HOME` carrying the hooks but no trust records:
+without the flag no hook ran and the run completed silently; with it,
+`SessionStart` and `UserPromptSubmit` ran and the events reached the ledger.
+Reported broken in TUI mode on 0.131–0.133; scope is one invocation, not the
+machine.
 
 ### P1-5, measured
 
