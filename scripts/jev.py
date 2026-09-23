@@ -101,14 +101,16 @@ def codex_hook_trust(sha, home=None):
     block is the grant.
 
     An earlier form of this check demanded `enabled = true` inside the block.
-    No Codex version seen on these hosts writes that key: 16 state blocks on the
-    Mac and 13 on arcana-devs carry `trusted_hash` alone, and so do two
-    pre-upgrade backups of the same file from 2026-09-22 (14 blocks, zero with
-    `enabled`). The 11 `enabled = true` lines elsewhere in config.toml all sit
-    under `[plugins."..."]` and have nothing to do with hooks -- counting them
-    with a substring search is what made the key look present. The consequence
-    was a field that could never become true, so the check answered `untrusted`
-    on every host, including two whose hooks were demonstrably running.
+    Codex writes that key on some blocks and not on others, within one version:
+    on codex-cli 0.156.1, DEV-AI carried it on 5 of 14 state blocks, while the
+    Mac (16 blocks) and arcana-devs (13) carried it on none -- and neither did
+    two Mac backups from 2026-09-22. What decides whether it is written was not
+    determined. What was determined is that its absence is not a refusal: on
+    the Mac, blocks without it ran the hooks (see the measurement in the body).
+    The 11 `enabled = true` lines elsewhere in the Mac's config.toml all sit
+    under `[plugins."..."]`; a substring count over the whole file found those
+    and made the key look present in the hook blocks. Demanding it made the
+    check answer `untrusted` on two hosts whose hooks were demonstrably running.
 
     Trust is invisible from the client's own "Active" counter, which counts
     installed hooks: measured on codex-cli 0.155.1, it read 2/2 Active for
@@ -176,9 +178,9 @@ def codex_hook_trust(sha, home=None):
                 # blocks present `codex exec` printed 4 `hook:` lines, and with
                 # every `[hooks.state.*]` block stripped it printed 0, while
                 # both runs answered the prompt -- so the blocks, not the
-                # client, are the difference. No version observed here writes
-                # `enabled`, but a version that writes an explicit
-                # `enabled = false` is stating a refusal, so it is honoured.
+                # client, are the difference. `enabled = true` appears on some
+                # blocks and is accepted; an explicit `enabled = false` states
+                # a refusal, so it is honoured.
                 body = block.group(1) if block else ''
                 enabled = bool(block) and 'trusted_hash' in body \
                     and 'enabled = false' not in body

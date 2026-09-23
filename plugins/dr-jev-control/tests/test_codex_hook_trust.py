@@ -33,11 +33,12 @@ def _home(tmp, hooks, state):
 
 
 def _block(event_key, index, enabled):
-    """A 0.155.1-shaped state block: `trusted_hash`, plus `enabled` when granted.
+    """A state block carrying both `trusted_hash` and `enabled = true`.
 
     An untrusted hook has no block at all -- Codex writes one when the operator
-    grants trust. The 0.155.1 shape kept `enabled = true` alongside the hash;
-    `_block_0156` below is the 0.156.1 shape, which drops it.
+    grants trust. Some blocks carry `enabled = true` and some do not, within
+    one Codex version (DEV-AI: 5 of 14 on 0.156.1; the Mac: 0 of 16);
+    `_block_0156` below is the form without it.
     """
     if not enabled:
         return ''
@@ -46,7 +47,8 @@ def _block(event_key, index, enabled):
 
 
 def _block_0156(event_key, index):
-    """codex-cli 0.156.1: the block carries `trusted_hash` and no `enabled`."""
+    """The block carries `trusted_hash` and no `enabled` -- every block on the
+    Mac and arcana-devs, and 9 of 14 on DEV-AI, all on codex-cli 0.156.1."""
     return (f'[hooks.state."/home/a/.codex/hooks.json:{event_key}:{index}:0"]\n'
             'trusted_hash = "sha256:deadbeef"\n\n')
 
@@ -120,11 +122,19 @@ class CodexHookTrust(unittest.TestCase):
         result = codex_hook_trust(SHA, home)
         self.assertEqual(result['state'], 'untrusted')
 
-    # -- the 0.156.1 format ----------------------------------------------
-    # The client stopped writing `enabled = true`. A check that demanded it
-    # reported `untrusted` on two hosts whose hooks were running -- measured
-    # with an isolated CODEX_HOME: state blocks present gave 4 `hook:` lines
-    # from `codex exec`, the same home with every block stripped gave 0.
+    # -- a block without `enabled` -------------------------------------------
+    # The client writes `enabled = true` on some blocks only. A check that
+    # demanded it reported `untrusted` on two hosts whose hooks were running --
+    # measured with an isolated CODEX_HOME: state blocks present gave 4 `hook:`
+    # lines from `codex exec`, the same home with every block stripped gave 0.
+
+    def test_enabled_written_before_the_hash_reads_as_trusted(self):
+        """The order seen on DEV-AI: `enabled = true` first, then the hash."""
+        home = _home(self.tmp,
+                     {'PreToolUse': [{'hooks': [_hook(SHA)]}]},
+                     '[hooks.state."/home/a/.codex/hooks.json:pre_tool_use:0:0"]\n'
+                     'enabled = true\ntrusted_hash = "sha256:deadbeef"\n\n')
+        self.assertEqual(codex_hook_trust(SHA, home)['state'], 'trusted')
 
     def test_a_block_without_an_enabled_key_reads_as_trusted(self):
         home = _home(self.tmp,
