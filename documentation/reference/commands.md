@@ -1,6 +1,6 @@
 # Commands Reference
 
-Datarim provides 26 slash commands in the `/dr-*` namespace for Claude Code (plus 2 standalone `/factcheck` and `/humanize` commands). Commands are grouped by category.
+Datarim provides 27 slash commands in the `/dr-*` namespace for Claude Code (plus 2 standalone `/factcheck` and `/humanize` commands). Commands are grouped by category.
 
 ## Unified CTA Block (v1.16.0)
 
