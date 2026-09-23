@@ -15,9 +15,34 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from project_scope import ScopeError, activate, project_root
 
 
+#: Client options that take a separate value (Claude Code 2.1.280, codex-cli
+#: 0.156.1, cursor-agent 2026.08), per client: `-c` and `-p` are switches in
+#: Claude and take values in Codex. Jev's own --model/--effort/--resume/--agent/
+#: --mode win; a client option with several values still needs --.
+CLIENT_VALUE_OPTIONS = {
+    'claude': frozenset((
+        '--permission-mode', '--permission-prompts', '--append-system-prompt', '--system-prompt',
+        '--system-prompt-snapshot', '--settings', '--setting-sources', '--mcp-config', '--output-format',
+        '--input-format', '--session-id', '--fallback-model', '--agents', '--json-schema', '--max-budget-usd',
+        '--name', '-n', '--debug-file', '--betas', '--autocompact', '--environment', '--file', '--tools',
+        '--plugin-dir', '--plugin-url', '--remote-control-session-name-prefix')),
+    'codex': frozenset((
+        '-c', '--config', '--enable', '--disable', '--remote', '--remote-auth-token-env', '-i', '--image',
+        '-m', '--local-provider', '-p', '--profile', '-s', '--sandbox', '-a', '--ask-for-approval')),
+    'cursor': frozenset((
+        '--api-key', '-H', '--header', '-e', '--endpoint', '--output-format', '--sandbox', '--plugin-dir',
+        '--worktree-base')),
+}
+
+
 def parse(argv=None):
     alias = {'jevcodex': 'codex', 'jevclaude': 'claude', 'jevcursor': 'cursor'}.get(Path(sys.argv[0]).name)
-    p = argparse.ArgumentParser(description=__doc__, epilog='Activate with: source .datarim-runtime/activate.sh. Client arguments follow --.')
+    p = argparse.ArgumentParser(
+        description=__doc__,
+        epilog='Activate with: source .datarim-runtime/activate.sh. Options Jev does not know are passed to '
+               'the client (e.g. jevclaude --dangerously-skip-permissions); give a client option its value '
+               'as --flag=value, or put client arguments after --. '
+               '`jev permissions full|ask` makes every launch skip (or keep) permission prompts.')
     p.add_argument('--agent', choices=['codex', 'claude', 'cursor'], default=alias)
     p.add_argument('--mode', choices=['economy', 'balanced', 'quality'], default='balanced')
     p.add_argument('--model')
@@ -33,13 +58,38 @@ def parse(argv=None):
     p.add_argument('--continue-prompt')
     p.add_argument('--done-marker')
     p.add_argument('--version', action='version', version='Datarim Jev project dispatcher 1')
-    p.add_argument('task', nargs='?', help='Task, or doctor / stats / on / off')
+    p.add_argument('task', nargs='?', help='Task, or doctor / stats / on / off / permissions')
+    p.add_argument('setting', nargs='?', help=argparse.SUPPRESS)
     values = list(sys.argv[1:] if argv is None else argv)
     extra = []
     if '--' in values:
         split = values.index('--')
         values, extra = values[:split], values[split + 1:]
-    a = p.parse_args(values)
+    # Options Jev does not define belong to the client. Those that take a value
+    # are moved together with it, so the value is not mistaken for Jev's task;
+    # any other unknown option is a switch. Anything else goes after --.
+    agent = alias
+    for i, word in enumerate(values):
+        if word == '--agent' and i + 1 < len(values):
+            agent = values[i + 1]
+        elif word.startswith('--agent='):
+            agent = word.split('=', 1)[1]
+    takes_value = CLIENT_VALUE_OPTIONS.get(agent, frozenset())
+    ahead = []
+    rest = []
+    i = 0
+    while i < len(values):
+        word = values[i]
+        if word in takes_value and i + 1 < len(values):
+            ahead += [word, values[i + 1]]
+            i += 2
+            continue
+        rest.append(word)
+        i += 1
+    a, unknown = p.parse_known_args(rest)
+    extra = ahead + unknown + extra
+    if a.setting is not None and a.task != 'permissions':
+        p.error(f'unexpected argument: {a.setting}')
     if alias and a.agent != alias:
         p.error('An alias cannot select a different agent')
     if not a.live and any(x is not None for x in (a.max_turns, a.max_seconds, a.continue_prompt, a.done_marker)):
@@ -53,6 +103,38 @@ def parse(argv=None):
         if value.startswith(('-C', '-w')) or value.split('=', 1)[0] in ('--cwd', '--directory', '--workspace', '--cd', '--worktree', '--add-dir'):
             p.error('Client directory/worktree overrides bypass project scope; launch from the approved context')
     return a, extra
+
+
+#: What each client calls "do not ask". The Jev safety floor still runs in
+#: every one of these modes: it is a hook, and hooks are not permission prompts.
+FULL_PERMISSION_FLAGS = {
+    'claude': ['--dangerously-skip-permissions'],
+    'codex': ['--dangerously-bypass-approvals-and-sandbox'],
+    'cursor': ['--force', '--approve-mcps'],
+}
+#: Options with which the operator already chose a permission policy.
+PERMISSION_CHOICES = {
+    'claude': ('--dangerously-skip-permissions', '--permission-mode', '--allow-dangerously-skip-permissions'),
+    'codex': ('--dangerously-bypass-approvals-and-sandbox', '--yolo', '--full-auto', '-a', '--ask-for-approval',
+              '-s', '--sandbox'),
+    'cursor': ('--force', '-f', '--yolo', '--sandbox', '--auto-review'),
+}
+
+
+def full_permissions(state):
+    """JEV_PERMISSIONS=full|ask overrides the stored `jev permissions` choice."""
+    chosen = os.environ.get('JEV_PERMISSIONS', '').strip().lower()
+    if chosen in ('full', 'ask'):
+        return chosen == 'full'
+    return (Path(state)/'FULL_PERMISSIONS').is_file()
+
+
+def permission_flags(agent, extra):
+    """Flags to add for full permissions; none when the operator chose a policy."""
+    given = {x.split('=', 1)[0] for x in extra}
+    if given & set(PERMISSION_CHOICES[agent]):
+        return []
+    return [f for f in FULL_PERMISSION_FLAGS[agent] if f not in given]
 
 
 def binary(agent):
@@ -246,6 +328,20 @@ def main():
             flag.unlink(missing_ok=True)
         print('Jev '+a.task+(' for this host' if host_mode else ' for this project'))
         return 0
+    if a.task == 'permissions':
+        state.mkdir(parents=True, exist_ok=True, mode=0o700)
+        flag = state/'FULL_PERMISSIONS'
+        if a.setting == 'full':
+            flag.touch(mode=0o600)
+        elif a.setting == 'ask':
+            flag.unlink(missing_ok=True)
+        elif a.setting is not None:
+            print('jev: permissions takes full or ask', file=sys.stderr)
+            return 2
+        where = 'this host' if host_mode else 'this project'
+        print(f'Jev launches on {where}: '+('full permissions (clients do not ask)' if full_permissions(state)
+                                          else 'clients ask for permission as usual'))
+        return 0
     if a.task == 'doctor':
         import subprocess
         findings = []
@@ -269,7 +365,8 @@ def main():
                   'datarim_enabled': datarim_enabled(root),
                   'versions': versions, 'findings': findings,
                   'key_ready': key_ready, 'native_agents_live': 'not_measured',
-                  'api': 'not_measured', 'source_sha': manifest['source_sha']}
+                  'api': 'not_measured', 'source_sha': manifest['source_sha'],
+                  'permissions': 'full' if full_permissions(state) else 'ask'}
         if not a.agent or a.agent == 'codex':
             trust = codex_hook_trust(manifest['source_sha'])
             report['codex_hook_trust'] = trust
@@ -298,11 +395,20 @@ def main():
         print(f'jev: {a.agent} executable not found', file=sys.stderr)
         return 127
     os.environ[a.agent.upper()+'_BIN'] = exe
+    if full_permissions(state):
+        added = permission_flags(a.agent, extra)
+        if added:
+            extra = added + extra
+            if not a.dry_run:
+                print('Jev: full permissions ('+' '.join(added)+'); `jev permissions ask` turns this off',
+                      file=sys.stderr)
     if a.dry_run:
         print(json.dumps({'agent': a.agent, 'binary': exe, 'project': str(root),
                           'scope': 'host' if host_mode else 'project',
                           'datarim_enabled': datarim_enabled(root),
-                          'live': a.live, 'network_calls': 0, 'task_present': bool(a.task)}))
+                          'live': a.live, 'network_calls': 0, 'task_present': bool(a.task),
+                          'permissions': 'full' if full_permissions(state) else 'ask',
+                          'client_arguments': extra}))
         return 0
     if not manifest.get('with_jev'):
         a.no_route = True
