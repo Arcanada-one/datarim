@@ -31,6 +31,9 @@ target_aal: 2
 - **Never mock the thing you're actually testing.** If the bug class you're trying to prevent lives in the
   real integration (wrong client, wrong schema, wrong dialect), a mocked test will pass and production will
   fail. See § Live Smoke-Test Gates below.
+- For exact authorization, execution, revision or consumption proofs, apply
+  [Critical Evidence Assertions](../verification-before-completion/SKILL.md#critical-evidence-assertions):
+  direct proof equality and missing/wrong-proof controls through the actual runner.
 - **Adapter-path fixture.** A mapper/adapter spec MUST drive the real DB-row → mapper → output path — feed a
   raw DB-row fixture into the actual mapper function and assert on its return value. A hand-built output
   object assembled directly in the test bypasses the mapper and masks transformation defects (wrong field
