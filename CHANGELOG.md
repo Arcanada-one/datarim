@@ -52,6 +52,15 @@ To migrate a machine that ran 2.x:
   5,329 under the previous install, which exposed every framework skill and
   wrote the rules into `AGENTS.md`. `--expose-skills` exposes the skills again;
   it is off by default.
+- **Launchers pass client options through.** `jevclaude --dangerously-skip-permissions`
+  now works without `--`; client options that take a value keep it, per client.
+- **`jev permissions full|ask`** stores whether `jevclaude` / `jevcodex` /
+  `jevcursor` start without permission prompts (Claude
+  `--dangerously-skip-permissions`, Codex `--dangerously-bypass-approvals-and-sandbox`,
+  Cursor `--force --approve-mcps`). Off by default; `JEV_PERMISSIONS` overrides it;
+  a permission option you pass yourself wins; `jev doctor` and `--dry-run` report
+  it. The Jev safety floor still denies force pushes and protected deletes in this
+  mode — measured live on Claude, Codex and Cursor.
 - The Datarim MCP server can be registered against a project runtime
   (`.datarim-runtime/cli/mcp/datarim-mcp-server.sh`); the installer no longer
   registers it.
@@ -70,6 +79,12 @@ To migrate a machine that ran 2.x:
   in the source checkout (for example a client's own skills left in `skills/`)
   are no longer copied into projects.
 - `/dr-init` no longer appends to `.gitignore`.
+- `dev-tools/check-version-consistency.sh` reads the workspace and site files
+  from the framework's real location; since the checkout moved, all twelve
+  cross-root checks had been skipped without a word. Absent surfaces are now
+  counted in its verdict.
+- `/dr-plugin` documentation named `~/.claude/local` as the install target;
+  plugins go to the project's `.datarim-runtime/local`, as the script enforces.
 - Updating or uninstalling no longer leaves the directories of retired files
   behind (105 empty `.claude/skills/<name>/` directories on one real project).
 - The install guides (`getting-started`, `multi-runtime`, README) described the
