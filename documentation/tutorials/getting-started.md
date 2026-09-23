@@ -416,7 +416,7 @@ Datarim ships with a built-in `datarim-core` set. Optional skills, agents, comma
 /dr-plugin doctor [--fix]                    # 9 health checks
 ```
 
-Each plugin source is a directory containing `plugin.yaml` (schema_version: 1) and one or more of the `skills/`, `agents/`, `commands/`, `templates/` subdirectories. Files install as symlinks under `~/.claude/<category>/<plugin-id>/<basename>` (namespace-isolated). Root-position install is opt-in via the `overrides:` field in `plugin.yaml` — useful when a plugin intentionally shadows a core artefact via the `local`-overlay precedence.
+Each plugin source is a directory containing `plugin.yaml` (schema_version: 1) and one or more of the `skills/`, `agents/`, `commands/`, `templates/` subdirectories. Files install as symlinks under the project's `.datarim-runtime/local/<category>/<plugin-id>/<basename>` (namespace-isolated); nothing goes under your home directory. Root-position install is opt-in via the `overrides:` field in `plugin.yaml` — useful when a plugin intentionally shadows a core artefact via the `local`-overlay precedence.
 
 The active set is recorded in `datarim/enabled-plugins.md` — manual edits are tolerated but require a follow-up `/dr-plugin sync` to reconcile runtime symlinks. Every `enable` takes a tarball snapshot before applying changes; on mid-apply failure the snapshot restores atomically.
 
