@@ -33,9 +33,9 @@
 #     AGENTS.md                              > **Version:** X.Y.Z
 #     README.md                              [![Version: X.Y.Z]...badge/Version-X.Y.Z-...
 #   Cross-root (relative to repo root; skipped when absent, e.g. single-repo CI):
-#     ../AGENTS.md                           Текущая версия: **X.Y.Z**
-#     ../README.md                           - **Версия:** X.Y.Z
-#     ../../Websites/datarim.club/config.php 'version' => 'X.Y.Z',
+#     ../../AGENTS.md                        Текущая версия: **X.Y.Z**
+#     ../../README.md                        - **Версия:** X.Y.Z
+#     ../../../Websites/datarim.club/config.php 'version' => 'X.Y.Z',
 #
 # SCANNED SURFACES — component counts (canonical = find on disk)
 #   Ground truth (relative to repo root):
@@ -51,9 +51,9 @@
 #     README.md                                    "skills/             # Knowledge modules (N skills)"
 #     README.md                                    "commands/           # Slash commands (N commands)"
 #     README.md                                    "templates/          # Task and document templates (N templates)"
-#     ../../Websites/datarim.club/pages/about.php  "N specialized agents, N commands, N skills,"
-#     ../../Websites/datarim.club/content/en.php   "N agents, N commands, N skills,"
-#     ../../Websites/datarim.club/content/ru.php   "N агентов, N команд, N навыков,"
+#     ../../../Websites/datarim.club/pages/about.php  "N specialized agents, N commands, N skills,"
+#     ../../../Websites/datarim.club/content/en.php   "N agents, N commands, N skills,"
+#     ../../../Websites/datarim.club/content/ru.php   "N агентов, N команд, N навыков,"
 #
 # USAGE
 #   check-version-consistency.sh [--root DIR] [-h|--help]
@@ -130,9 +130,9 @@ surfaces() {
     printf '%s\n' \
         'AGENTS.md|^> \*\*Version:\*\* ' \
         'README.md|badge/Version-' \
-        '../AGENTS.md|Текущая версия: \*\*' \
-        '../README.md|\*\*Версия:\*\* ' \
-        "../../Websites/datarim.club/config.php|'version'[[:space:]]*=>[[:space:]]*'"
+        '../../AGENTS.md|Текущая версия: \*\*' \
+        '../../README.md|\*\*Версия:\*\* ' \
+        "../../../Websites/datarim.club/config.php|'version'[[:space:]]*=>[[:space:]]*'"
 }
 
 # Extract the version token that follows ANCHOR in FILE. Grabs the anchor line,
@@ -154,12 +154,15 @@ extract_version() {
 # --- Scan (version) ----------------------------------------------------------
 mismatches=""
 checked=0
+skipped=0
 
 while IFS='|' read -r rel regex; do
     [ -n "$rel" ] || continue
     file="$root/$rel"
     if [ ! -f "$file" ]; then
-        # Cross-root surface absent (e.g. single-repo CI). Skip, do not fail.
+        # Cross-root surface absent (e.g. single-repo CI). Skip, do not fail,
+        # but say so: when the layout moved, every one of these went silent.
+        skipped=$((skipped + 1))
         continue
     fi
     found=$(extract_version "$file" "$regex")
@@ -210,15 +213,15 @@ count_surfaces() {
         'README.md|skills|# Knowledge modules \(' \
         'README.md|commands|# Slash commands \(' \
         'README.md|templates|# Task and document templates \(' \
-        '../../Websites/datarim.club/pages/about.php|agents|The framework includes ' \
-        '../../Websites/datarim.club/pages/about.php|commands|includes [0-9]+ specialized agents, ' \
-        '../../Websites/datarim.club/pages/about.php|skills|includes [0-9]+ specialized agents, [0-9]+ commands, ' \
-        '../../Websites/datarim.club/content/en.php|agents|Structure any project into iterative tasks\. ' \
-        '../../Websites/datarim.club/content/en.php|commands|iterative tasks\. [0-9]+ agents, ' \
-        '../../Websites/datarim.club/content/en.php|skills|iterative tasks\. [0-9]+ agents, [0-9]+ commands, ' \
-        '../../Websites/datarim.club/content/ru.php|agents|итерационные задачи\. ' \
-        '../../Websites/datarim.club/content/ru.php|commands|итерационные задачи\. [0-9]+ агентов, ' \
-        '../../Websites/datarim.club/content/ru.php|skills|итерационные задачи\. [0-9]+ агентов, [0-9]+ команд, '
+        '../../../Websites/datarim.club/pages/about.php|agents|The framework includes ' \
+        '../../../Websites/datarim.club/pages/about.php|commands|includes [0-9]+ specialized agents, ' \
+        '../../../Websites/datarim.club/pages/about.php|skills|includes [0-9]+ specialized agents, [0-9]+ commands, ' \
+        '../../../Websites/datarim.club/content/en.php|agents|Structure any project into iterative tasks\. ' \
+        '../../../Websites/datarim.club/content/en.php|commands|iterative tasks\. [0-9]+ agents, ' \
+        '../../../Websites/datarim.club/content/en.php|skills|iterative tasks\. [0-9]+ agents, [0-9]+ commands, ' \
+        '../../../Websites/datarim.club/content/ru.php|agents|итерационные задачи\. ' \
+        '../../../Websites/datarim.club/content/ru.php|commands|итерационные задачи\. [0-9]+ агентов, ' \
+        '../../../Websites/datarim.club/content/ru.php|skills|итерационные задачи\. [0-9]+ агентов, [0-9]+ команд, '
 }
 
 # Extract the integer count that follows ANCHOR in FILE (first line matching
@@ -242,6 +245,7 @@ while IFS='|' read -r rel category anchor; do
     file="$root/$rel"
     if [ ! -f "$file" ]; then
         # Cross-root surface absent (e.g. single-repo CI). Skip, do not fail.
+        skipped=$((skipped + 1))
         continue
     fi
     expected=$(ground_truth_for "$category")
@@ -282,5 +286,5 @@ if [ "$fail" -ne 0 ]; then
     exit 1
 fi
 
-echo "OK: all $checked version surface(s) cite $canonical; all $count_checked component-count claim(s) match disk (agents=$count_agents, commands=$count_commands, skills=$count_skills, templates=$count_templates)."
+echo "OK: all $checked version surface(s) cite $canonical; all $count_checked component-count claim(s) match disk (agents=$count_agents, commands=$count_commands, skills=$count_skills, templates=$count_templates); $skipped cross-root surface(s) absent, not checked."
 exit 0
