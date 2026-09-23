@@ -7,6 +7,7 @@ inventory:
   - dr-auto
   - dr-compliance
   - dr-continue
+  - dr-continue-checkpoint
   - dr-design
   - dr-do
   - dr-doctor
@@ -219,6 +220,10 @@ edges:
   relation: loads
   source: agents/architect.md
   to: skill:tech-stack
+- from: agent:code-simplifier
+  relation: loads
+  source: agents/code-simplifier.md
+  to: skill:security
 - from: agent:compliance
   relation: loads
   source: agents/compliance.md
@@ -227,6 +232,14 @@ edges:
   relation: loads
   source: agents/compliance.md
   to: skill:cta-format
+- from: agent:compliance
+  relation: loads
+  source: agents/compliance.md
+  to: skill:immutability
+- from: agent:compliance
+  relation: loads
+  source: agents/compliance.md
+  to: skill:security
 - from: agent:developer
   relation: loads
   source: agents/developer.md
@@ -239,6 +252,14 @@ edges:
   relation: loads
   source: agents/developer.md
   to: skill:datarim-system
+- from: agent:developer
+  relation: loads
+  source: agents/developer.md
+  to: skill:immutability
+- from: agent:developer
+  relation: loads
+  source: agents/developer.md
+  to: skill:security
 - from: agent:developer
   relation: loads
   source: agents/developer.md
@@ -259,6 +280,10 @@ edges:
   relation: loads
   source: agents/devops.md
   to: skill:tech-stack
+- from: agent:devops
+  relation: loads
+  source: agents/devops.md
+  to: skill:testing
 - from: agent:editor
   relation: loads
   source: agents/editor.md
@@ -275,6 +300,10 @@ edges:
   relation: loads
   source: agents/editor.md
   to: skill:image-prompting
+- from: agent:editor
+  relation: loads
+  source: agents/editor.md
+  to: skill:immutability
 - from: agent:librarian
   relation: loads
   source: agents/librarian.md
@@ -294,6 +323,10 @@ edges:
 - from: agent:peer-reviewer
   relation: loads
   source: agents/peer-reviewer.md
+  to: skill:security
+- from: agent:peer-reviewer
+  relation: loads
+  source: agents/peer-reviewer.md
   to: skill:self-verification
 - from: agent:planner
   relation: loads
@@ -310,6 +343,10 @@ edges:
 - from: agent:planner
   relation: loads
   source: agents/planner.md
+  to: skill:immutability
+- from: agent:planner
+  relation: loads
+  source: agents/planner.md
   to: skill:tech-stack
 - from: agent:researcher
   relation: loads
@@ -322,6 +359,10 @@ edges:
 - from: agent:researcher
   relation: loads
   source: agents/researcher.md
+  to: skill:security
+- from: agent:researcher
+  relation: loads
+  source: agents/researcher.md
   to: skill:tech-stack
 - from: agent:reviewer
   relation: loads
@@ -331,6 +372,10 @@ edges:
   relation: loads
   source: agents/reviewer.md
   to: skill:datarim-system
+- from: agent:reviewer
+  relation: loads
+  source: agents/reviewer.md
+  to: skill:immutability
 - from: agent:reviewer
   relation: loads
   source: agents/reviewer.md
@@ -394,6 +439,14 @@ edges:
 - from: agent:tester
   relation: loads
   source: agents/tester.md
+  to: skill:immutability
+- from: agent:tester
+  relation: loads
+  source: agents/tester.md
+  to: skill:security
+- from: agent:tester
+  relation: loads
+  source: agents/tester.md
   to: skill:testing
 - from: agent:writer
   relation: loads
@@ -411,6 +464,10 @@ edges:
   relation: loads
   source: agents/writer.md
   to: skill:image-prompting
+- from: agent:writer
+  relation: loads
+  source: agents/writer.md
+  to: skill:immutability
 - from: agent:writer
   relation: loads
   source: agents/writer.md
@@ -458,6 +515,10 @@ edges:
 - from: command:dr-archive
   relation: loads
   source: commands/dr-archive.md
+  to: skill:immutability
+- from: command:dr-archive
+  relation: loads
+  source: commands/dr-archive.md
   to: skill:init-task-persistence
 - from: command:dr-archive
   relation: loads
@@ -491,6 +552,10 @@ edges:
   relation: loads
   source: commands/dr-auto.md
   to: skill:cta-format
+- from: command:dr-auto
+  relation: loads
+  source: commands/dr-auto.md
+  to: skill:immutability
 - from: command:dr-auto
   relation: loads
   source: commands/dr-auto.md
@@ -571,6 +636,38 @@ edges:
   relation: requires
   source: dev-tools/command-graph.yaml
   to: command:dr-save
+- from: command:dr-continue-checkpoint
+  relation: loads
+  source: commands/dr-continue-checkpoint.md
+  to: skill:immutability
+- from: command:dr-continue-checkpoint
+  relation: loads
+  source: commands/dr-continue-checkpoint.md
+  to: skill:verification-before-completion
+- from: command:dr-continue-checkpoint
+  relation: precedes
+  source: dev-tools/command-graph.yaml
+  to: command:dr-compliance
+- from: command:dr-continue-checkpoint
+  relation: precedes
+  source: dev-tools/command-graph.yaml
+  to: command:dr-design
+- from: command:dr-continue-checkpoint
+  relation: precedes
+  source: dev-tools/command-graph.yaml
+  to: command:dr-do
+- from: command:dr-continue-checkpoint
+  relation: precedes
+  source: dev-tools/command-graph.yaml
+  to: command:dr-plan
+- from: command:dr-continue-checkpoint
+  relation: precedes
+  source: dev-tools/command-graph.yaml
+  to: command:dr-prd
+- from: command:dr-continue-checkpoint
+  relation: precedes
+  source: dev-tools/command-graph.yaml
+  to: command:dr-qa
 - from: command:dr-design
   relation: delegates_to
   source: commands/dr-design.md
@@ -738,6 +835,10 @@ edges:
 - from: command:dr-edit
   relation: loads
   source: commands/dr-edit.md
+  to: skill:immutability
+- from: command:dr-edit
+  relation: loads
+  source: commands/dr-edit.md
   to: skill:writing
 - from: command:dr-edit
   relation: precedes
@@ -783,6 +884,10 @@ edges:
   relation: loads
   source: commands/dr-init.md
   to: skill:expectations-checklist
+- from: command:dr-init
+  relation: loads
+  source: commands/dr-init.md
+  to: skill:immutability
 - from: command:dr-init
   relation: loads
   source: commands/dr-init.md
@@ -1038,6 +1143,10 @@ edges:
 - from: command:dr-publish
   relation: loads
   source: commands/dr-publish.md
+  to: skill:immutability
+- from: command:dr-publish
+  relation: loads
+  source: commands/dr-publish.md
   to: skill:publishing
 - from: command:dr-publish
   relation: requires
@@ -1123,6 +1232,10 @@ edges:
   relation: loads
   source: commands/dr-quick.md
   to: skill:cta-format
+- from: command:dr-quick
+  relation: loads
+  source: commands/dr-quick.md
+  to: skill:immutability
 - from: command:dr-quick
   relation: requires
   source: dev-tools/command-graph.yaml
@@ -1215,6 +1328,10 @@ edges:
   relation: loads
   source: commands/dr-write.md
   to: skill:humanize
+- from: command:dr-write
+  relation: loads
+  source: commands/dr-write.md
+  to: skill:immutability
 - from: command:dr-write
   relation: loads
   source: commands/dr-write.md
@@ -1346,6 +1463,10 @@ edges:
 - from: fragment:skills/testing/tdd-discipline.md
   relation: loads
   source: skills/testing/tdd-discipline.md
+  to: skill:immutability
+- from: fragment:skills/testing/tdd-discipline.md
+  relation: loads
+  source: skills/testing/tdd-discipline.md
   to: skill:testing
 - from: fragment:skills/utilities/datarim-sync.md
   relation: loads
@@ -1411,6 +1532,18 @@ edges:
   relation: loads
   source: skills/cta-format/SKILL.md
   to: skill:stage-snapshot-writer
+- from: skill:customer-delivery
+  relation: loads
+  source: skills/customer-delivery/SKILL.md
+  to: skill:security
+- from: skill:customer-delivery
+  relation: loads
+  source: skills/customer-delivery/SKILL.md
+  to: skill:session-handoff-replay
+- from: skill:customer-delivery
+  relation: loads
+  source: skills/customer-delivery/SKILL.md
+  to: skill:session-handoff-writer
 - from: skill:datarim-doctor
   relation: loads
   source: skills/datarim-doctor/SKILL.md
@@ -1515,6 +1648,10 @@ edges:
   relation: loads
   source: skills/immutability/SKILL.md
   to: skill:cta-format
+- from: skill:immutability
+  relation: loads
+  source: skills/immutability/SKILL.md
+  to: skill:customer-delivery
 - from: skill:init-task-persistence
   relation: loads
   source: skills/init-task-persistence/SKILL.md
@@ -1618,11 +1755,19 @@ edges:
 - from: skill:session-handoff-replay
   relation: loads
   source: skills/session-handoff-replay/SKILL.md
+  to: skill:security
+- from: skill:session-handoff-replay
+  relation: loads
+  source: skills/session-handoff-replay/SKILL.md
   to: skill:session-handoff-writer
 - from: skill:session-handoff-writer
   relation: loads
   source: skills/session-handoff-writer/SKILL.md
   to: skill:dr-next-snapshot-replay
+- from: skill:session-handoff-writer
+  relation: loads
+  source: skills/session-handoff-writer/SKILL.md
+  to: skill:security
 - from: skill:session-handoff-writer
   relation: loads
   source: skills/session-handoff-writer/SKILL.md

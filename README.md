@@ -18,7 +18,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 19 specialized agents, 79 reusable skills, and 28 commands that guide
+It includes 19 specialized agents, 79 reusable skills, and 29 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -101,7 +101,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
-- **28 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone + /dr-quick fast-lane + /dr-wizard interactive task-spec wizard, 3 content (write, edit, publish), 5 framework
+- **29 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone + /dr-quick fast-lane + /dr-wizard interactive task-spec wizard, 3 content (write, edit, publish), 5 framework
   and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), utilities (status, next,
   help), and 2 standalone tools (factcheck, humanize).
 
@@ -433,6 +433,7 @@ same name.
 | `/dr-next` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
 | `/dr-save` | Any | Capture the current session to `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` before the context window is destroyed. 5-layer body, 32 KB cap, append-only, claim-provenance enforcement, secret redaction. |
 | `/dr-continue` | Any | Resume from a session artefact in a **clean** context window. Re-verifies every claim with live probes (stale-snapshot / unverified-claim / missing-file banners), downgrades provenance, then routes to `/dr-next` or `/dr-auto`. |
+| `/dr-continue-checkpoint` | Controller | Controller-only worker entry: reads a controller-bound ordinary answer and its provenance from the immutable `/worker/runtime` resources (Linux), checks the current workspace against the captured source, and enters exactly the recorded stage with production HOLD retained. Not a general resume command; unavailable without a controller launch. |
 | `/dr-help` | Any | List all available commands with descriptions, pipeline flow, and complexity routing. |
 | `/factcheck` | Standalone | Fact-check articles and posts. Extracts claims, verifies against sources, corrects errors. |
 | `/humanize` | Standalone | Remove AI writing patterns from text. Fixes vocabulary, structure, and formatting artifacts. |
@@ -906,7 +907,7 @@ and why it exists.
 datarim/
   agents/            # Agent personas (19 agents)
   skills/            # Knowledge modules (79 skills)
-  commands/          # Slash commands (28 commands)
+  commands/          # Slash commands (29 commands)
   templates/         # Task and document templates (28 templates)
   documentation/              # Extended documentation and use cases
   AGENTS.md          # Framework rules (commands read it from .datarim-runtime/)
