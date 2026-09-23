@@ -17,7 +17,7 @@ graph. It is updated as work lands; each item carries a measured verdict
 | P0-4 DEV-AI → merged sha | **pass** | 18 foreign hooks preserved, 0 lost; `doctor` clean; API `ok: true`, `jev-1.13.0`, 314 ms |
 | P1-5 component routing | **pass** | see below |
 | P1-6 session handoff | **pass** | `DEV-AI-SESSION-HANDOFF.md`, commands dry-run before publication |
-| P2-7 repository docs | **pass** | new `jev-without-datarim.md`; doc gates green |
+| P2-7 repository docs | **pass** | new `jev-without-datarim.md`; tutorial now covers both Codex gates and where the key goes under `host_jev`; doc gates green |
 | P2-8 site docs | not started | operator decision on publishing path |
 | P3-9 Codex research | **pass** | `--dangerously-bypass-hook-trust` measured working on 0.155.1 |
 | P3-10 installer audit | **pass** | see below |
@@ -263,6 +263,19 @@ home already has foreign hooks.
 **Acceptance:** each script exercised in a scratch HOME; permissions asserted by
 measurement; a second run changes nothing; uninstall restores the prior state;
 the existing protected-directory refusals still hold.
+
+### Cursor, prepared and verified as prepared
+
+Measured on Mac and DEV-AI: 3 Jev hooks each at `a95c8d7`
+(`beforeShellExecution`, `beforeSubmitPrompt`, `postToolUse`), with 9 foreign
+Cursor hooks preserved on both. So "prepared" is a measured claim, not an
+intention — what remains untested is whether routing behaves correctly in a
+live Cursor session, which needs the lapsed subscription.
+
+Instrument note: Cursor nests hooks directly under the event name, with no
+inner `hooks` key like Claude and Codex. A counter written for the other two
+formats reports **0 hooks on a working install**. First run of that counter
+said exactly that, and the install was fine.
 
 ### Standing: Cursor
 Prepared but `not_measured` — the subscription has lapsed. Documentation says
