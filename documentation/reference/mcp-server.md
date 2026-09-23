@@ -19,8 +19,8 @@ calls, complementing the `~/.codex/AGENTS.override.md` filesystem catalogue
 
 `DATARIM_ROOT` (env) points at the framework install root (the directory
 containing `commands/`, `skills/`, `agents/`, `VERSION`). It defaults to the
-repo root resolved from the script location. `install.sh --with-codex`
-registers the server automatically (see below).
+repo root resolved from the script location. The installer does not register
+the server; see Installation below.
 
 | Env | Default | Meaning |
 |-----|---------|---------|
@@ -76,13 +76,16 @@ building, no `eval`). Input/output are byte-capped.
 
 ## Installation
 
-```text
-./install.sh --with-codex              # registers [mcp_servers.datarim]
-./install.sh --with-codex --no-codex-mcp   # opt out of MCP registration
+Datarim 3.0 installs per project and registers no MCP server. Point your client
+at one project's runtime — for Codex, in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.datarim]
+command = "/path/to/project/.datarim-runtime/cli/mcp/datarim-mcp-server.sh"
+env = { DATARIM_ROOT = "/path/to/project/.datarim-runtime" }
 ```
 
-Registration edits `~/.codex/config.toml` directly (idempotent, byte-identical
-on re-run) — see the how-to guide `documentation/how-to/multi-runtime.md`.
+(2.x registered it through `install.sh --with-codex`; that flag no longer exists.)
 
 ## Manual smoke test
 

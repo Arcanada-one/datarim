@@ -32,8 +32,7 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
     - If creating for the first time:
       a. Create `backlog.md` from the template at `${DATARIM_RUNTIME:?}/templates/backlog-template.md`. (Create ONLY `backlog.md` — the separate completed/cancelled archive index was retired in v1.19.1; completed/cancelled prose now lives in `documentation/archive/{area|cancelled}/archive-{ID}.md`, and `backlog.md` carries only live items.)
       b. Create `documentation/archive/` directory (for long-term task archives).
-      c. If `.gitignore` exists and does not contain `datarim/` → append `datarim/` to it.
-      d. If `.gitignore` does not exist → ask user: "Create `.gitignore` with `datarim/`? (recommended — keeps workflow state local)"
+      c. Keep `datarim/` out of git **without editing `.gitignore`** — the project's `.gitignore` is shared with people who may not run Datarim. Run `git check-ignore -q datarim/`; if it already reports ignored (the installer normally does this), do nothing. Otherwise append `/datarim/` to the clone-local exclude file at `$(git rev-parse --git-path info/exclude)`, which is never committed.
 
 ### EXECUTION HOST
 

@@ -213,10 +213,13 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ## Runtimes
 
-Datarim uses project-local `AGENTS.md` instructions with Codex, Claude Code,
-and Cursor. Claude Code requires version 2.1.277 or newer with its native
-AGENTS loader available. No CLAUDE instruction files or import adapters are
-installed. Coworker and RTK are not required.
+One project install serves Codex, Claude Code and Cursor. Each client finds the
+`/dr-*` commands in its own project-local directory; every command tells the
+agent where this project's runtime is and to read the framework rules from it.
+Nothing is added to `AGENTS.md`, `CLAUDE.md` or `.gitignore`, so Datarim is
+loaded only when you run a command, and nothing it writes appears in
+`git status`. Coworker and RTK are not required. Per-client details:
+[multi-runtime](documentation/how-to/multi-runtime.md).
 
 ## Prerequisites
 
@@ -281,16 +284,15 @@ checks its actual working directory, including after you leave the project.
 # Navigate to your project
 cd your-project
 
-# Option A: Scaffold a new project (creates AGENTS.md, documentation/, datarim/ automatically)
-claude
-/dr-init create project "My API Service"
-
-# Initialize an existing project from a reviewed source checkout
+# Install Datarim into this project (commands, runtime, local task state)
 /path/to/datarim/install.sh --project "$PWD" --init
-# The installer preserves existing AGENTS.md content.
+# It does not modify AGENTS.md, CLAUDE.md or .gitignore; git status stays clean.
 
 # Start Claude Code
 claude
+
+# Option A: scaffold a new project structure (AGENTS.md, documentation/, datarim/)
+/dr-init create project "My API Service"
 
 # Initialize a task — Datarim assigns complexity and routes the pipeline
 /dr-init Add user authentication with JWT
@@ -821,26 +823,10 @@ readiness roadmap.
 
 ## Project Configuration
 
-When you copy `AGENTS.md` into your project, you get a file with two distinct
-sections:
-
-### Framework Section (Do Not Modify)
-
-The top section contains:
-
-- **Pipeline definition** — the nine stages and their routing rules
-- **Agent roster** — all eleven agents with their roles and stage assignments
-- **Skill references** — the thirteen skills and when they are loaded
-- **Behavioral rules** — how agents interact, when to escalate, what requires
-  human approval
-- **Complexity classification** — LOC thresholds, file count criteria, routing logic
-
-This section is maintained by the Datarim project. When you update Datarim, this
-section gets updated. Do not add project-specific content here.
-
-### Project Section (Customize Freely)
-
-The bottom section is yours. Add:
+Datarim's own rules live in `.datarim-runtime/AGENTS.md` and reach the agent
+only through a `/dr-*` command. Your project's `AGENTS.md` stays entirely yours:
+describe the project, its stack and conventions there as usual, and every agent
+— with or without Datarim — reads it.
 
 ```markdown
 ## Project Description
@@ -849,24 +835,15 @@ Brief description of what your project does.
 ## Tech Stack
 - Language: TypeScript
 - Runtime: Node.js 20
-- Framework: Express
 - Database: PostgreSQL 16
 - Testing: Vitest
 
 ## Conventions
-- Use functional style, avoid classes
 - All functions must have JSDoc comments
-- Error handling: Result type, not exceptions
 - File naming: kebab-case
-
-## Custom Rules
-- Never modify migration files after they are committed
-- All API endpoints must have OpenAPI annotations
-- Feature flags for all new user-facing functionality
 ```
 
-Agents read this section to understand your project's context and conventions. The
-more specific you are, the better the agents perform.
+The more specific you are, the better the agents perform.
 
 ---
 
@@ -932,7 +909,7 @@ datarim/
   commands/          # Slash commands (28 commands)
   templates/         # Task and document templates (28 templates)
   documentation/              # Extended documentation and use cases
-  AGENTS.md          # Framework rules (copy to your project)
+  AGENTS.md          # Framework rules (commands read it from .datarim-runtime/)
   install.sh         # Automated installer
   LICENSE            # MIT license
   README.md          # This file

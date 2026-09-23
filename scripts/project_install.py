@@ -27,6 +27,146 @@ PRIVATE_IGNORES = ('/.datarim-runtime/', '/.datarim-runtime-previous/',
                    '/.datarim-recovery-*/', '/config/credentials/', '/datarim/')
 
 
+def git_ignored(source=None):
+    """Paths under the shipped scopes that git ignores in this source checkout.
+
+    The installer used to take whatever sat on disk. On a checkout where Codex
+    had once written its own system skills into `skills/.system/` (ignored,
+    untracked), every project install copied OpenAI's `imagegen`,
+    `skill-installer` and three more skills into `.agents/`, `.claude/` and
+    `.cursor/` -- content no clone of the repository contains, and exactly the
+    place an ignored secret would travel the same way. A source that is not a
+    git checkout keeps the previous behaviour: nothing is known to be ignored.
+    """
+    source = Path(source or SOURCE)
+    try:
+        out = subprocess.run(['git', '-C', str(source), 'ls-files', '--others', '--ignored',
+                              '--exclude-standard', '--directory', '-z', '--', *SCOPES, 'AGENTS.md', 'VERSION'],
+                             capture_output=True, text=True, timeout=30, check=True).stdout
+    except (OSError, subprocess.SubprocessError):
+        return frozenset()
+    return frozenset(item.rstrip('/') for item in out.split('\0') if item)
+
+
+def is_ignored(path, ignored, source=None):
+    relative = Path(path).relative_to(source or SOURCE)
+    return any(str(relative) == item or str(relative).startswith(item + '/') for item in ignored)
+
+
+EXCLUDE_BEGIN = '# datarim-project:begin'
+EXCLUDE_END = '# datarim-project:end'
+
+
+def release_agents_block(text, original=None):
+    """AGENTS.md without the block earlier releases appended to it.
+
+    Datarim no longer writes into files a project shares. AGENTS.md is loaded
+    into every session of every agent, so a block there imposed the framework on
+    work that never invoked it -- and in a repository shared with people who do
+    not run Datarim it left a change nobody could commit.
+    """
+    if BEGIN not in text:
+        return text
+    if text.count(BEGIN) != 1 or text.count(END) != 1:
+        raise ValueError('Malformed Datarim managed block; refusing overwrite')
+    before, rest = text.split(BEGIN, 1)
+    _, after = rest.split(END, 1)
+    before = before.rstrip('\n') + '\n'
+    return before + ('\n' + after.lstrip('\n') if after.strip() else '')
+
+
+def release_private_ignores(text, original=None):
+    """.gitignore without the rules earlier releases appended, keeping any rule
+    the project had before Datarim and every line anyone else added."""
+    keep = set((original or '').splitlines())
+    out = []
+    for line in text.split('\n'):
+        if line in PRIVATE_IGNORES and line not in keep:
+            if out and out[-1] == '':
+                out.pop()
+            continue
+        out.append(line)
+    return '\n'.join(out)
+
+
+def git_exclude_target(root):
+    """(`info/exclude` path, prefix of `root` inside its repository), or None
+    when the project is not in a git repository."""
+    try:
+        exclude = subprocess.run(['git', '-C', str(root), 'rev-parse', '--git-path', 'info/exclude'],
+                                 capture_output=True, text=True, timeout=30, check=True).stdout.strip()
+        prefix = subprocess.run(['git', '-C', str(root), 'rev-parse', '--show-prefix'],
+                                capture_output=True, text=True, timeout=30, check=True).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return (Path(root)/exclude).resolve(), prefix
+
+
+def write_git_exclude(root, rules):
+    """Replace this project's block in the clone-local `.git/info/exclude`.
+
+    Unlike .gitignore this file is never committed, so what one person's
+    install generates stays out of everyone else's `git status`.
+    """
+    found = git_exclude_target(root)
+    if found is None:
+        return None
+    path, prefix = found
+    text = path.read_text() if path.exists() else ''
+    begin, end = f'{EXCLUDE_BEGIN} /{prefix}', f'{EXCLUDE_END} /{prefix}'
+    if begin in text and end in text:
+        before, rest = text.split(begin, 1)
+        _, after = rest.split(end, 1)
+        text = before.rstrip('\n') + ('\n' if before.strip() else '') + after.lstrip('\n')
+    if rules:
+        text = (text.rstrip('\n') + ('\n' if text.strip() else '') + begin + '\n'
+                + ''.join('/' + prefix + rule.lstrip('/') + '\n' for rule in rules) + end + '\n')
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    return path
+
+
+HOOK_CONFIGS = ('.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json')
+
+
+def exclude_rules(names, created=()):
+    """Private paths, every discovery entry point this install generated, and
+    any client hook config the install itself created (a pre-existing one is the
+    project's, and a tracked file cannot be hidden anyway)."""
+    rules = list(PRIVATE_IGNORES)
+    for name in sorted(names):
+        parts = name.split('/')
+        if len(parts) == 4 and parts[1] == 'skills':
+            rule = '/' + '/'.join(parts[:3]) + '/'
+        elif name.startswith('.claude/commands/') or (name in HOOK_CONFIGS and name in created):
+            rule = '/' + name
+        else:
+            continue
+        if rule not in rules:
+            rules.append(rule)
+    return rules
+
+
+def command_preamble(runtime):
+    return (f'> **Datarim** for this project lives in `{runtime}`. Before following this command, '
+            f'read `{runtime}/AGENTS.md` for the framework rules. Wherever the text below says '
+            f'`${{DATARIM_RUNTIME}}`, that is `{runtime}`; in a shell, run '
+            f'`export DATARIM_RUNTIME="{runtime}"` first.\n\n')
+
+
+def with_preamble(data, runtime):
+    """The command text with the runtime location in front of its body.
+
+    Commands are the only way into Datarim now, so each one carries what the
+    AGENTS.md block used to say -- loaded when the command runs, not always."""
+    text, pre = data.decode(), command_preamble(runtime)
+    if text.startswith('---\n'):
+        close = text.find('\n---\n', 4)
+        if close != -1:
+            return (text[:close+5] + '\n' + pre + text[close+5:].lstrip('\n')).encode()
+    return (pre + text).encode()
+
+
 def private_ignores(text):
     for rule in PRIVATE_IGNORES:
         if rule not in text.splitlines():
@@ -143,15 +283,15 @@ def _install(args):
         previous = json.loads(manifest.read_text())
         if previous.get('project') != str(root):
             raise ValueError('Installation project mismatch')
-    for name in ('CLAUDE.md', 'CLAUDE.local.md', '.claude/CLAUDE.md'):
-        if (root / name).exists() or (root / name).is_symlink():
-            raise ValueError(f'Merge {name} into AGENTS.md and remove it before installing')
+    ignored = git_ignored()
     source_hash = hashlib.sha256()
     for scope in (*SCOPES, 'AGENTS.md', 'VERSION'):
         base = SOURCE / scope
         candidates = sorted(base.rglob('*')) if base.is_dir() else [base]
         for path in candidates:
             if any(part in ('__pycache__', '.pytest_cache', 'credentials', '.DS_Store') for part in path.parts):
+                continue
+            if is_ignored(path, ignored):
                 continue
             if path.is_symlink():
                 if not path.resolve().is_relative_to(SOURCE):
@@ -166,21 +306,20 @@ def _install(args):
         if name not in snapshots:
             snapshots[name] = target.read_bytes() if target.exists() else None
         return snapshots[name]
-    agents = safe_path(root, 'AGENTS.md')
-    block = f'''{BEGIN}
-## Datarim project workflow
-
-This project explicitly enables Datarim. Read `.datarim-runtime/AGENTS.md`
-for the framework workflow and load skills from `.datarim-runtime/skills/`.
-Resolve these paths from this project's root, never from your home directory.
-Use project-local `datarim/` state only. Do not enable this workflow in another
-project. The product source checkout is not a task knowledge base.
-Activate the local CLI with `source .datarim-runtime/activate.sh`.
-{END}'''
-    files['AGENTS.md'] = replace_block((read_initial('AGENTS.md') or b'# Project instructions\n').decode(), block).encode()
-    ignore = safe_path(root, '.gitignore')
-    text = (read_initial('.gitignore') or b'').decode()
-    files['.gitignore'] = private_ignores(text).encode()
+    # Nothing goes into files the project shares. An earlier release appended a
+    # block to AGENTS.md and rules to .gitignore; on update those are removed
+    # once and the files leave management -- never deleted, since both are the
+    # project's own.
+    prior_originals = {}
+    if previous and (runtime/'original-files.json').is_file():
+        prior_originals = json.loads((runtime/'original-files.json').read_text())
+    released = set()
+    for name, release in (('AGENTS.md', release_agents_block), ('.gitignore', release_private_ignores)):
+        if name in (previous or {}).get('files', {}):
+            current = read_initial(name)
+            if current is not None:
+                files[name] = release(current.decode(), prior_originals.get(name)).encode()
+                released.add(name)
     if args.with_jev or (previous or {}).get('with_jev'):
         from jev_host_install import merge_hooks
         for client, relative in [('claude', '.claude/settings.local.json'),
@@ -190,8 +329,13 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
             register = args.with_jev and not getattr(args, 'host_jev', False)
             updated = merge_hooks(current, client, runtime, [runtime], register=register)
             files[relative] = (json.dumps(updated, indent=2)+'\n').encode()
-    # Native discovery paths, preserving whole-directory foreign skill sets.
-    for skill in sorted((SOURCE / 'skills').rglob('SKILL.md')):
+    # Native discovery. Only the /dr-* commands are entry points by default: a
+    # discoverable skill's description is loaded into every session, which is
+    # the framework imposing itself again. Commands load skills by path.
+    expose = getattr(args, 'expose_skills', False) or (previous or {}).get('expose_skills', False)
+    for skill in sorted((SOURCE / 'skills').rglob('SKILL.md')) if expose else []:
+        if is_ignored(skill, ignored):
+            continue
         relative = str(skill.parent.relative_to(SOURCE/'skills'))
         name = relative.replace('/', '-')
         header = skill.read_text().split('---', 2)
@@ -201,16 +345,23 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
         if target in files:
             raise ValueError(f'Skill discovery name collision: {name}')
         files[target] = ('---'+header[1]+'---\n\n'
-            f'Read `.datarim-runtime/skills/{relative}/SKILL.md` from the project root.\n').encode()
+            f'Read `{runtime}/skills/{relative}/SKILL.md`.\n').encode()
     for command in sorted((SOURCE / 'commands').glob('*.md')):
+        if is_ignored(command, ignored):
+            continue
         files[f'.agents/skills/{command.stem}/SKILL.md'] = (
             f'---\nname: {command.stem}\ndescription: Run the project-local Datarim {command.stem} workflow command.\n---\n\n'
-            f'Read `.datarim-runtime/commands/{command.name}` from the project root.\n').encode()
-        files[f'.claude/commands/{command.name}'] = command.read_bytes()
+            + command_preamble(runtime) + f'Then read `{runtime}/commands/{command.name}` and follow it.\n').encode()
+        files[f'.claude/commands/{command.name}'] = with_preamble(command.read_bytes(), runtime)
     # Each vendor discovers skills through its own project-local directory.
+    # Claude Code already has the commands in .claude/commands; a skill copy of
+    # each would put 28 more descriptions into every Claude session.
+    command_stems = {c.stem for c in (SOURCE / 'commands').glob('*.md')}
     for name, data in list(files.items()):
         if name.startswith('.agents/skills/'):
             for vendor in ('.claude', '.cursor'):
+                if vendor == '.claude' and name.split('/')[2] in command_stems:
+                    continue
                 files[name.replace('.agents/', vendor+'/', 1)] = data
     # All files are checked before the first mutation.
     for name, data in files.items():
@@ -254,8 +405,11 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
     try:
         for scope in SCOPES:
             if (SOURCE / scope).exists():
-                shutil.copytree(SOURCE / scope, stage / scope, symlinks=False,
-                                ignore=shutil.ignore_patterns('__pycache__', '.pytest_cache', '.DS_Store', 'credentials'))
+                by_name = shutil.ignore_patterns('__pycache__', '.pytest_cache', '.DS_Store', 'credentials')
+                def skip(directory, names, by_name=by_name):
+                    return set(by_name(directory, names)) | {
+                        n for n in names if is_ignored(Path(directory)/n, ignored)}
+                shutil.copytree(SOURCE / scope, stage / scope, symlinks=False, ignore=skip)
         for name in ('AGENTS.md', 'VERSION'):
             shutil.copy2(SOURCE / name, stage / name)
         (stage / 'bin').mkdir()
@@ -283,7 +437,8 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
             sha = None
         manifest = {'schema': 1, 'project': str(root), 'source_sha': sha, 'source_digest': source_hash.hexdigest(),
                     'with_jev': args.with_jev, 'host_jev': getattr(args, 'host_jev', False), 'contexts': args.context,
-                    'files': {n: digest(v) for n, v in files.items()}}
+                    'expose_skills': expose,
+                    'files': {n: digest(v) for n, v in files.items() if n not in released}}
         (stage / 'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
         for name in set(files) | obsolete:
             target = root / name
@@ -301,6 +456,8 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
                 raise ValueError('Missing original-file manifest; refusing unsafe update')
             originals.update({n: v.encode() if v is not None else None
                               for n, v in json.loads(original_path.read_text()).items()})
+        for name in released:
+            originals.pop(name, None)  # no longer ours to restore on uninstall
         (stage/'original-files.json').write_text(json.dumps({n: v.decode() if v is not None else None for n,v in originals.items()}, indent=2)+'\n')
         (stage/'original-files.json').chmod(0o600)
         if archived_previous is not None:
@@ -333,6 +490,8 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
             fd = os.open(key, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600) if not key.exists() else None
             if fd is not None:
                 os.close(fd)
+        write_git_exclude(root, exclude_rules((n for n in files if n not in released),
+                                              created={n for n, v in originals.items() if v is None}))
         if args.init:
             state = safe_path(root, 'datarim')
             state.mkdir(exist_ok=True)
@@ -431,6 +590,8 @@ def _uninstall(args):
             target.unlink(missing_ok=True)
         else:
             target.write_text(original)
+    # Keys, task state and the recovery bundle stay, so they stay hidden too.
+    write_git_exclude(root, list(PRIVATE_IGNORES))
     print(json.dumps({'status': 'uninstalled', 'backup': str(backup), 'keys_and_state': 'preserved'}))
 
 
@@ -440,6 +601,9 @@ def main():
     parser.add_argument('--with-jev', action='store_true')
     parser.add_argument('--host-jev', action='store_true', help='Use already installed host Jev hooks; do not register duplicate project hooks')
     parser.add_argument('--init', action='store_true')
+    parser.add_argument('--expose-skills', action='store_true',
+                        help='Also expose every framework skill to native discovery (loaded into every '
+                             'session); by default only the /dr-* commands are exposed')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--uninstall', action='store_true')
     parser.add_argument('--context', action='append', default=[], help='Explicit nested repository path')
