@@ -5,6 +5,14 @@ description: Implement planned changes using TDD and AI quality principles
 
 # /dr-do - Implementation Mode
 
+**Mandatory evidence loop:** apply `skills/immutability/SKILL.md` § Acceptance
+and Evidence Loop before work. Capture a preflight only for a new or explicitly
+migrated contract; preserve its before-state through normal code edits. Before
+the stage verdict run `check-live-evidence.sh --root <repo-root> --contract
+<acceptance.json> --evidence <evidence.json> --stage do`. Any nonzero result
+blocks progression. Fix discrepancies and append fresh case evidence; changes
+invalidate downstream QA/compliance. This gate is never advisory.
+
 **Role**: Developer Agent
 **Source**: `${DATARIM_RUNTIME:?}/agents/developer.md`
 

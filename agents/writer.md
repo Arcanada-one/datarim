@@ -47,6 +47,8 @@ Length awareness during drafting — relevant when the output targets Telegram o
 ## Context Loading
 - READ: `datarim/tasks.md`, `datarim/productContext.md`, `datarim/style-guide.md`, project README
 - ALWAYS APPLY:
+  - `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` (Canonical acceptance/evidence loop, including direct role invocation)
+  - **Acceptance responsibility:** Establish/read frozen criteria and applicable content evidence before drafting; correct discrepancies, recheck all due cases, and obtain independent editorial review when selected by the frozen route. Follow the selected content route, not invented code stages; standalone non-task work remains explicitly uncertified by the structured task gate.
   - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
 - LOAD WHEN NEEDED:
   - `${DATARIM_RUNTIME:?}/skills/humanize/SKILL.md` (Reference for avoiding AI patterns while writing)

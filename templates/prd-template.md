@@ -14,6 +14,16 @@
 (What problem are we solving? Who is affected?)
 
 ## Scope
+
+Acceptance contract: `datarim/tasks/{TASK-ID}-acceptance.json`.
+Evidence bundle: `datarim/qa/{TASK-ID}-evidence.json`.
+Before work define cases, required stages, evidence kinds, expected outcomes,
+and scope per `skills/immutability/SKILL.md` § Acceptance and Evidence Loop.
+Every task criterion remains in the final aggregate even if first due later.
+Pin `workflow: {complexity, task_type, route}` to canonical task frontmatter.
+Select the existing complexity/content route; do not fabricate skipped-stage
+receipts. Write/edit/publish evidence is content work, not a code do-stage.
+
 ### In Scope
 ### Out of Scope
 
@@ -50,7 +60,9 @@ id — `D-REQ` is an addressing layer on top, not a replacement.
 
 ### Deploy-Phase Verification Items
 
-For infra/fleet PRDs, label any AC whose e2e verification structurally requires a live broker, a deployed host, or an external webhook as `deploy-deferred` at authoring time. This tells `/dr-qa` to expect a `partial` verdict plus an operator override for that AC, rather than flagging it as a coverage gap — the verification was never going to be possible on the authoring/dev host, by design, not by omission.
+For infra/fleet PRDs, label any AC whose e2e verification structurally requires a live broker, a deployed host, or an external webhook as `deploy-deferred` at authoring time. This schedules verification; it does not waive the check. Retain the exact pending runtime check, target environment, and evidence needed. Before its due phase it remains pending; when due, unavailable evidence remains an explicit gap under the existing live-evidence gate, not PASS or completion.
+
+Apply `${DATARIM_RUNTIME:?}/skills/expectations-checklist/SKILL.md` for legitimate deferrals without changing their status or authorship semantics. Never presume or self-grant an operator override because a check is unavailable. A genuine operator decision must be separately recorded; it may change scope but cannot fabricate a passed check or authorize production actions beyond that decision. A conditional stage result is not proof of customer delivery.
 
 Example:
 - [ ] `deploy-deferred` — consumer receives the queued event within 5s of publish, verified against the live Redis instance on the deployed host.

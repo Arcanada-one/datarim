@@ -52,6 +52,8 @@ Run before content moves to `/dr-publish` — Telegram-aware pre-publish review.
 ## Context Loading
 - READ: `datarim/tasks.md`, `datarim/productContext.md`, `datarim/style-guide.md`
 - ALWAYS APPLY:
+  - `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` (Canonical acceptance/evidence loop, including direct role invocation)
+  - **Acceptance responsibility:** Independently verify every due frozen case using applicable content evidence; return source discrepancies for correction and repeat review after changes. Do not replace missing fact/citation/reader-facing checks with code tests or certify a pending case.
   - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
 - LOAD (mandatory for editorial work):
   - `${DATARIM_RUNTIME:?}/skills/factcheck/SKILL.md` (Fact verification methodology)

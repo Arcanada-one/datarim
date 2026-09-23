@@ -291,6 +291,7 @@ jobs:
             tests/stage-snapshot-id-regex.bats \
             tests/stage-snapshot-flock-race.bats \
             tests/session-handoff-writer.bats \
+            tests/session-sensitive-source-cap.bats \
             tests/customer-requirement-expectations-binding.bats \
             dev-tools/tests/check-archive-landing.bats \
             cli/tests/backlog.bats \

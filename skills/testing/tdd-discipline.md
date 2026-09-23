@@ -11,6 +11,11 @@ description: Test-Driven Development discipline — RED-GREEN-REFACTOR cycle, Ir
 
 Write the test first. Watch it fail. Write minimal code to pass.
 
+Before execution, apply `skills/immutability/SKILL.md` § Acceptance and Evidence
+Loop. Cases precede work even when strict test-file ordering is optional.
+Corrections require fresh applicable evidence and downstream review; a missing,
+stale, skipped, or fixture-only live check cannot produce a green verdict.
+
 **If you didn't watch the test fail, you don't know if it tests the right thing.**
 
 **Violating the letter of the rules is violating the spirit of the rules.**

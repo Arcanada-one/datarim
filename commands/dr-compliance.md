@@ -5,6 +5,14 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
 
 # /dr-compliance — Adaptive Post-QA Hardening
 
+**Mandatory evidence loop:** apply `skills/immutability/SKILL.md` § Acceptance
+and Evidence Loop with an independent compliance reviewer. Before the verdict
+run `check-live-evidence.sh --root <repo-root> --contract <acceptance.json>
+--evidence <evidence.json> --stage compliance`. Any nonzero result is
+NON-COMPLIANT, never notes. A correction returns to work, then fresh QA and
+compliance; missing provenance cannot be manufactured from the current tip.
+Report later-stage pending cases separately from the stage result.
+
 **Role**: Compliance Agent
 **Source**: `${DATARIM_RUNTIME:?}/agents/compliance.md`
 
@@ -16,7 +24,7 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
     "${DATARIM_RUNTIME:?}/dev-tools/provenance-gate.sh" \
         --root <repo-root> --task {TASK-ID} --stage compliance
     ```
-    This asserts `git rev-parse HEAD` equals the SHA `/dr-qa` recorded in `datarim/provenance/{TASK-ID}.sha` and that the working tree is clean. If the QA evidence record is absent (QA predates this gate), fall back to `--expected-sha <SHA cited by the QA report>`; if neither is available, record the current clean tip with `--record` now and note the missing QA baseline in the report.
+    This asserts `git rev-parse HEAD` equals the SHA `/dr-qa` recorded in `datarim/provenance/{TASK-ID}.sha` and that the working tree is clean. If the QA evidence record is absent (QA predates this gate), use `--expected-sha <SHA cited by the QA report>` only when the report certifies that revision. If neither exists, return to QA for fresh verification; recording the current tip cannot reconstruct missing QA evidence.
     -   A non-zero exit (dirty tree, drifted tip, or an evidence SHA that no longer resolves) makes the verdict **NON-COMPLIANT**: emit the gate's error verbatim and route via the FAIL-Routing CTA back to `/dr-qa {TASK-ID}` to re-certify the current tip. Exit `0` proceeds.
 1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/compliance.md` and adopt that persona.
 2.  **RESOLVE PATH**: Find `datarim/` using standard path resolution (see `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Path Resolution Rule). **For a task whose code lives under `Projects/<name>/code/`, NEVER probe `Projects/<name>/code/datarim/` for workflow artefacts — that path exists only for the Datarim framework's own repo (§ Path Resolution Rule point 5). Resolve `--root` to the project's git-toplevel `datarim/`.**

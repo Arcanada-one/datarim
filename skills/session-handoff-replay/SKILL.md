@@ -26,6 +26,8 @@ claims in the artefact as unverified until re-probed.
 
 ## Re-verification protocol (STRICT — do not skip)
 
+Before content probes or diffs, MUST LOAD `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` and apply Sensitive source context boundary. Read the protected sensitive-source classifications/bindings in Layer 1 first. For classified sensitive sources, verify the sanitized path, original source pin, sanitized digest and constraints against the approved task binding before consuming content. A legacy Layer 3 binding is usable only if complete and verified. If the binding is missing, stale or truncated, STOP the affected probe and request a corrected sanitized handoff; never recover it by displaying raw originals. Metadata-only identity checks remain permitted under the canonical rule. Ordinary non-sensitive tasks need no binding.
+
 Every claim in the artefact is treated as unverified until re-probed. The
 consumer MUST execute the following probes before rendering the replay prompt.
 The banner strings (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING) are

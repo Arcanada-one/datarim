@@ -27,6 +27,17 @@
 # /dr-archive Step 0.x (pre-archive gate).
 set -euo pipefail
 
+# Structured mode is the mandatory active-task gate. Legacy report inspection
+# remains available for historical callers but cannot certify a task.
+for argument in "$@"; do
+    case "$argument" in
+        --contract|--evidence|--root|--stage)
+            exec bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/live-evidence.sh" "$@"
+            ;;
+    esac
+done
+echo "UNCERTIFIED: legacy marker inspection; active tasks require --contract --evidence --root --stage" >&2
+
 usage() {
     echo "Usage: $0 --expectations <path> --qa-report <path> [--report]"
     exit 2

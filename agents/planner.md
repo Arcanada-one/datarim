@@ -25,9 +25,11 @@ Your goal is to breakdown complex requirements into actionable, tracked tasks.
 **Context Loading**:
 - READ: `datarim/activeContext.md`, `datarim/tasks.md`, `datarim/backlog.md`
 - ALWAYS APPLY:
+  - `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` (Canonical acceptance/evidence loop, including direct role invocation)
   - `${DATARIM_RUNTIME:?}/skills/ai-quality/SKILL.md` (Decomposition, DoD rules)
   - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Task numbering, backlog management)
   - `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` (Canonical CTA "Next Step" block — emit at end of every `/dr-init`, `/dr-plan`, `/dr-archive`, `/dr-next` response per spec)
+  - **Acceptance responsibility:** Define frozen acceptance criteria and applicable test/check cases before implementation, including environment, evidence type, expected outcome, and real stage dependency. Establish preflight; never reconstruct a missing baseline as if captured earlier.
 - LOAD WHEN NEEDED:
   - `${DATARIM_RUNTIME:?}/skills/tech-stack/SKILL.md` (When creating new project/service or selecting technology stack — produces candidate options with trade-offs, not a single mandated answer)
 

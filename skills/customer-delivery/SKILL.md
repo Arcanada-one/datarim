@@ -61,6 +61,21 @@ documentation, test, CI, or ledger output.
 - `Gap` or `Unbound` may authorize research or capability creation but may
   never be represented as blueprint-applied product delivery.
 - Selection after implementation start is post-hoc attribution and fails.
+- Carry the selected bindings and task-relevant evidence into delegated or
+  isolated stages through approved readable references or a sanitized bundle;
+  a parent-only conversation or inaccessible host path is not inherited context.
+  Preserve the original selection time, revision and digest, and distinguish
+  evidence measured on a named environment/revision at its observation time
+  from inferred claims. Verify availability before affected work; missing
+  material remains an explicit gap, not permission to reconstruct protected
+  originals or invent a prior selection.
+- Inherited measurements are historical evidence, not fresh verification of
+  the current target. Preserve original `verified:` / `assumed:` provenance
+  metadata and apply the replay downgrade and revalidation rules in
+  `${DATARIM_RUNTIME:?}/skills/session-handoff-writer/SKILL.md` and
+  `${DATARIM_RUNTIME:?}/skills/session-handoff-replay/SKILL.md`; a copied receipt,
+  matching document digest, or rewritten timestamp cannot refresh a live check.
+- For classified sensitive sources, use the existing constraints/policies selection to pin the task's metadata-only sanitized binding, following `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` § Sensitive source context boundary. Record its revision, digest and actual selection time before future affected reads or work. A classification discovered during work must be preserved prospectively; this does not establish retroactive pre-work compliance or clear an earlier missing-selection failure.
 
 **Fail** if any required knowledge kind is missing, `Gap`/`Unbound` stands in
 for a delivery-bound contract, or a revision is selected after work began.

@@ -2,7 +2,7 @@
 
 > **GENERATED FILE. DO NOT EDIT.** Source: repository inventory + `dev-tools/command-graph.yaml` + explicit references in commands/agents. Regenerate with `python3 dev-tools/framework-graph.py --write`.
 
-Inventory: **28 commands · 19 agents · 79 skills**.
+Inventory: **29 commands · 19 agents · 79 skills**.
 
 ## Command → Agent graph
 
@@ -42,34 +42,45 @@ graph LR
     A_architect["architect"] --> S_performance["performance"]
     A_architect["architect"] --> S_security["security"]
     A_architect["architect"] --> S_tech_stack["tech-stack"]
+    A_code_simplifier["code-simplifier"] --> S_security["security"]
     A_compliance["compliance"] --> S_compliance["compliance"]
     A_compliance["compliance"] --> S_cta_format["cta-format"]
+    A_compliance["compliance"] --> S_immutability["immutability"]
+    A_compliance["compliance"] --> S_security["security"]
     A_developer["developer"] --> S_ai_quality["ai-quality"]
     A_developer["developer"] --> S_cta_format["cta-format"]
     A_developer["developer"] --> S_datarim_system["datarim-system"]
+    A_developer["developer"] --> S_immutability["immutability"]
+    A_developer["developer"] --> S_security["security"]
     A_developer["developer"] --> S_testing["testing"]
     A_devops["devops"] --> S_datarim_system["datarim-system"]
     A_devops["devops"] --> S_infra_automation["infra-automation"]
     A_devops["devops"] --> S_security["security"]
     A_devops["devops"] --> S_tech_stack["tech-stack"]
+    A_devops["devops"] --> S_testing["testing"]
     A_editor["editor"] --> S_datarim_system["datarim-system"]
     A_editor["editor"] --> S_factcheck["factcheck"]
     A_editor["editor"] --> S_humanize["humanize"]
     A_editor["editor"] --> S_image_prompting["image-prompting"]
+    A_editor["editor"] --> S_immutability["immutability"]
     A_librarian["librarian"] --> S_datarim_system["datarim-system"]
     A_librarian["librarian"] --> S_dream["dream"]
     A_optimizer["optimizer"] --> S_datarim_system["datarim-system"]
     A_optimizer["optimizer"] --> S_evolution["evolution"]
+    A_peer_reviewer["peer-reviewer"] --> S_security["security"]
     A_peer_reviewer["peer-reviewer"] --> S_self_verification["self-verification"]
     A_planner["planner"] --> S_ai_quality["ai-quality"]
     A_planner["planner"] --> S_cta_format["cta-format"]
     A_planner["planner"] --> S_datarim_system["datarim-system"]
+    A_planner["planner"] --> S_immutability["immutability"]
     A_planner["planner"] --> S_tech_stack["tech-stack"]
     A_researcher["researcher"] --> S_datarim_system["datarim-system"]
     A_researcher["researcher"] --> S_research_workflow["research-workflow"]
+    A_researcher["researcher"] --> S_security["security"]
     A_researcher["researcher"] --> S_tech_stack["tech-stack"]
     A_reviewer["reviewer"] --> S_cta_format["cta-format"]
     A_reviewer["reviewer"] --> S_datarim_system["datarim-system"]
+    A_reviewer["reviewer"] --> S_immutability["immutability"]
     A_reviewer["reviewer"] --> S_security["security"]
     A_reviewer["reviewer"] --> S_testing["testing"]
     A_security["security"] --> S_compliance["compliance"]
@@ -85,11 +96,14 @@ graph LR
     A_strategist["strategist"] --> S_datarim_system["datarim-system"]
     A_tester["tester"] --> S_datarim_system["datarim-system"]
     A_tester["tester"] --> S_frontend_ui["frontend-ui"]
+    A_tester["tester"] --> S_immutability["immutability"]
+    A_tester["tester"] --> S_security["security"]
     A_tester["tester"] --> S_testing["testing"]
     A_writer["writer"] --> S_datarim_system["datarim-system"]
     A_writer["writer"] --> S_factcheck["factcheck"]
     A_writer["writer"] --> S_humanize["humanize"]
     A_writer["writer"] --> S_image_prompting["image-prompting"]
+    A_writer["writer"] --> S_immutability["immutability"]
     A_writer["writer"] --> S_publishing["publishing"]
 ```
 
@@ -97,7 +111,7 @@ graph LR
 
 ### Commands
 
-`/dr-addskill`, `/dr-archive`, `/dr-auto`, `/dr-compliance`, `/dr-continue`, `/dr-design`, `/dr-do`, `/dr-doctor`, `/dr-dream`, `/dr-edit`, `/dr-help`, `/dr-init`, `/dr-next`, `/dr-optimize`, `/dr-orchestrate`, `/dr-plan`, `/dr-plugin`, `/dr-prd`, `/dr-publish`, `/dr-qa`, `/dr-quick`, `/dr-save`, `/dr-status`, `/dr-verify`, `/dr-wizard`, `/dr-write`, `/factcheck`, `/humanize`
+`/dr-addskill`, `/dr-archive`, `/dr-auto`, `/dr-compliance`, `/dr-continue`, `/dr-continue-checkpoint`, `/dr-design`, `/dr-do`, `/dr-doctor`, `/dr-dream`, `/dr-edit`, `/dr-help`, `/dr-init`, `/dr-next`, `/dr-optimize`, `/dr-orchestrate`, `/dr-plan`, `/dr-plugin`, `/dr-prd`, `/dr-publish`, `/dr-qa`, `/dr-quick`, `/dr-save`, `/dr-status`, `/dr-verify`, `/dr-wizard`, `/dr-write`, `/factcheck`, `/humanize`
 
 ### Agents
 

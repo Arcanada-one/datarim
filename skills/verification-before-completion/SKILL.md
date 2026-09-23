@@ -107,6 +107,27 @@ Skip any step = lying, not verifying
 ❌ Trust agent report
 ```
 
+## Critical Evidence Assertions
+
+When acceptance depends on an exact authorization, execution, revision or
+consumption proof, extract the actual proof field and compare its complete
+required value directly. A surrounding partial-shape or nested collection
+matcher is useful context, but must not be the sole oracle for that proof.
+
+For a new or changed critical assertion, exercise its actual test-runner path
+with the proof missing and with a wrong proof. Both controls must fail at the
+named assertion; the valid proof must pass. A green suite without these controls
+does not establish that the assertion detects the failure it claims to cover.
+If a control unexpectedly passes, withdraw that acceptance evidence, repair the
+assertion or harness, and rerun the control and affected real-path tests. Do not
+weaken the expected result to match the incomplete output.
+
+With parallel editors, freeze the relevant test, fixture, producer and consumer
+inputs for the verification window, or record and compare their fingerprints
+before and after the run. Changed inputs invalidate attribution to the current
+implementation even when the process exits successfully. This is scoped to the
+inputs supporting the claim, not a requirement to stop unrelated work.
+
 ## Prototype-Patch Verification Gate
 
 When a fix monkey-patches a shared runtime object (a class prototype, a module
