@@ -53,6 +53,23 @@ def is_ignored(path, ignored, source=None):
     return any(str(relative) == item or str(relative).startswith(item + '/') for item in ignored)
 
 
+CLAUDE_IMPORT = b'@AGENTS.md\n'
+
+
+def is_agents_import_only(data):
+    """True when a CLAUDE.md holds nothing but an import of the project AGENTS.md.
+
+    That file adds no instructions of its own; it is Claude Code's documented
+    way to load AGENTS.md where the builtin AGENTS loader is not active. Measured
+    on Claude Code 2.1.280 (macOS): a project with only AGENTS.md answered a
+    codeword probe with NONE, the same project with this one-line CLAUDE.md
+    answered it -- so refusing it made the documented fallback un-updatable.
+    """
+    lines = [line.strip() for line in data.decode('utf-8', 'replace').splitlines()]
+    lines = [line for line in lines if line and not (line.startswith('<!--') and line.endswith('-->'))]
+    return bool(lines) and all(line in ('@AGENTS.md', '@./AGENTS.md') for line in lines)
+
+
 def private_ignores(text):
     for rule in PRIVATE_IGNORES:
         if rule not in text.splitlines():
@@ -170,8 +187,14 @@ def _install(args):
         if previous.get('project') != str(root):
             raise ValueError('Installation project mismatch')
     for name in ('CLAUDE.md', 'CLAUDE.local.md', '.claude/CLAUDE.md'):
-        if (root / name).exists() or (root / name).is_symlink():
+        target = root / name
+        if target.is_symlink():
             raise ValueError(f'Merge {name} into AGENTS.md and remove it before installing')
+        if target.exists():
+            if name == 'CLAUDE.md' and target.is_file() and is_agents_import_only(target.read_bytes()):
+                continue
+            raise ValueError(f'Merge {name} into AGENTS.md and remove it before installing '
+                             '(a CLAUDE.md holding only the line @AGENTS.md is accepted)')
     ignored = git_ignored()
     source_hash = hashlib.sha256()
     for scope in (*SCOPES, 'AGENTS.md', 'VERSION'):
@@ -210,6 +233,12 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
     ignore = safe_path(root, '.gitignore')
     text = (read_initial('.gitignore') or b'').decode()
     files['.gitignore'] = private_ignores(text).encode()
+    # Opt-in, and sticky once managed: an update run without the flag must not
+    # silently take away the file that makes Claude Code see AGENTS.md.
+    if getattr(args, 'claude_import', False) or 'CLAUDE.md' in (previous or {}).get('files', {}):
+        existing = read_initial('CLAUDE.md')
+        if existing is None or is_agents_import_only(existing):
+            files['CLAUDE.md'] = CLAUDE_IMPORT
     if args.with_jev or (previous or {}).get('with_jev'):
         from jev_host_install import merge_hooks
         for client, relative in [('claude', '.claude/settings.local.json'),
@@ -474,6 +503,9 @@ def main():
     parser.add_argument('--with-jev', action='store_true')
     parser.add_argument('--host-jev', action='store_true', help='Use already installed host Jev hooks; do not register duplicate project hooks')
     parser.add_argument('--init', action='store_true')
+    parser.add_argument('--claude-import', action='store_true',
+                        help='Create a one-line CLAUDE.md (@AGENTS.md) so Claude Code loads the project '
+                             'AGENTS.md where its builtin AGENTS loader is not active')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--uninstall', action='store_true')
     parser.add_argument('--context', action='append', default=[], help='Explicit nested repository path')

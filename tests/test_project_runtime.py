@@ -125,6 +125,40 @@ class InstallationLifecycleTests(unittest.TestCase):
             self.assertIn(rule, (self.project/'.gitignore').read_text())
         self.assertEqual((self.project/'.datarim-uninstalled').stat().st_mode & 0o077, 0)
 
+    # -- Claude Code and AGENTS.md ------------------------------------------
+    # Where Claude Code's builtin AGENTS loader is not active (measured on
+    # 2.1.280: a codeword in AGENTS.md answered NONE), a one-line CLAUDE.md
+    # importing AGENTS.md is the documented fallback. The installer used to
+    # refuse any CLAUDE.md, so a project that followed the tutorial could no
+    # longer be updated.
+
+    def test_a_claude_md_that_only_imports_agents_md_is_accepted(self):
+        (self.project/'CLAUDE.md').write_text('<!-- load project rules -->\n@AGENTS.md\n')
+        project_install.install(self.args)
+        project_install.install(self.args)
+        self.assertEqual((self.project/'CLAUDE.md').read_text(),
+                         '<!-- load project rules -->\n@AGENTS.md\n')
+
+    def test_a_claude_md_with_instructions_of_its_own_is_still_refused(self):
+        (self.project/'CLAUDE.md').write_text('@AGENTS.md\nAlways answer in French.\n')
+        with self.assertRaises(ValueError):
+            project_install.install(self.args)
+
+    def test_claude_import_creates_keeps_and_retires_the_adapter(self):
+        project_install.install(Namespace(**{**vars(self.args), 'claude_import': True}))
+        self.assertEqual((self.project/'CLAUDE.md').read_bytes(), b'@AGENTS.md\n')
+        # An update without the flag keeps it: taking it away would silently
+        # stop Claude Code from seeing the project rules.
+        (self.source/'VERSION').write_text('next\n')
+        project_install.install(self.args)
+        self.assertEqual((self.project/'CLAUDE.md').read_bytes(), b'@AGENTS.md\n')
+        project_install.uninstall(self.args)
+        self.assertFalse((self.project/'CLAUDE.md').exists())
+
+    def test_without_the_flag_no_claude_md_is_created(self):
+        project_install.install(self.args)
+        self.assertFalse((self.project/'CLAUDE.md').exists())
+
     def test_concurrent_shared_rules_change_during_copy_is_preserved(self):
         original_copy = project_install.shutil.copytree
         touched = False

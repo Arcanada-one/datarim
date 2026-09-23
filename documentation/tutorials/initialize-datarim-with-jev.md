@@ -4,7 +4,10 @@ First follow the project and `AGENTS.md` preparation in
 [Initialize Datarim](initialize-datarim.md). Jev is optional: a provider failure
 must not prevent plain Datarim work.
 
-Use the same installer for a new project or an existing project-local Datarim:
+Use the same installer for a new project or an existing project-local Datarim.
+If you use Claude Code, add `--claude-import` to the second command so Claude
+loads the project `AGENTS.md` — see [Initialize Datarim](initialize-datarim.md)
+for why:
 
 ```bash
 python3 "$DATARIM_SOURCE/scripts/project_install.py" --project "$DATARIM_PROJECT" --init --with-jev --dry-run

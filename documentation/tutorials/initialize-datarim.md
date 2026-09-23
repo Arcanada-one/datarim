@@ -29,7 +29,20 @@ use the Datarim initialization command to describe the first task.
 All three clients use `AGENTS.md`. Claude Code requires at least 2.1.277 and an
 available native AGENTS loader. A version check alone is not a live loading
 proof: start a fresh session and verify a harmless instruction from the file.
-The installer never creates a CLAUDE adapter to compensate for missing support.
+
+**If you use Claude Code, add `--claude-import`:**
+
+```bash
+python3 "$DATARIM_SOURCE/scripts/project_install.py" --project "$DATARIM_PROJECT" --init --claude-import
+```
+
+It writes a one-line `CLAUDE.md` containing only `@AGENTS.md` — Claude Code's
+own import syntax, so the rules exist once, in `AGENTS.md`. Measured on Claude
+Code 2.1.280 (macOS, 2026-09-23): a freshly installed project answered the
+codeword probe below with `NONE`; the same project with `--claude-import`
+answered it. The flag is opt-in and sticky: later updates keep the file, and
+`--uninstall` removes it. A `CLAUDE.md` you write yourself is accepted by the
+installer only if it holds nothing but that import line.
 
 ### Verify the loader before you rely on it
 
@@ -87,8 +100,8 @@ a property of the version. Before depending on `AGENTS.md`, run the probe on you
 own host: if it returns `NOTOKEN`, check `claude plugin list` for
 `agents-md@builtin` first. Where the flag is absent the supported fallback is to
 import `AGENTS.md` from a `CLAUDE.md` — a one-line import, not a duplicated
-instruction file, and not a reason for this installer to generate a CLAUDE
-adapter.
+instruction file. That is exactly what `--claude-import` writes. The same result
+was measured again on 2.1.280: `NONE` without it, the codeword with it.
 
 Native client invocation remains available without Jev:
 
