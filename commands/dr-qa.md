@@ -5,6 +5,14 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 
 # /dr-qa - Multi-Layer Quality Verification
 
+**Mandatory evidence loop:** apply `skills/immutability/SKILL.md` § Acceptance
+and Evidence Loop and independently verify the implementer's case evidence.
+Before the verdict run `check-live-evidence.sh --root <repo-root> --contract
+<acceptance.json> --evidence <evidence.json> --stage qa`. Any nonzero result
+is BLOCKED, never notes; return discrepancies to work and repeat verification
+and review. STAGE_PASS lists later-stage pending cases and does not claim them
+delivered. Legacy marker inspection cannot substitute for this strict gate.
+
 **Role**: Reviewer Agent
 **Source**: `${DATARIM_RUNTIME:?}/agents/reviewer.md`
 

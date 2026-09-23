@@ -4,6 +4,21 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- Bind pipeline verdicts to recorded acceptance criteria, test cases, immutable
+  source scope and execution evidence. Failed attempts require correction and
+  invalidate affected downstream evidence instead of retaining an earlier pass.
+- Snapshot exact interaction-consumption receipts into heartbeats, with bounded
+  validation and rejection of stale, foreign or malformed receipt state.
+- `/dr-continue-checkpoint`: a controller-launched worker entry that reads a
+  controller-bound ordinary answer, the complete controller provenance and the
+  current workspace comparison from immutable `/worker/runtime` resources
+  (Linux only), then enters exactly the recorded stage with production HOLD
+  retained. Control v3 adds a narrowly validated QA-to-DO restart after a
+  reviewed source replacement. Not a general resume command; without a
+  controller launch it reports itself unavailable.
+
 ### Fixed
 
 - **Jev floor silently off in Codex after another tool rewrote `hooks.json`.**
@@ -12,6 +27,26 @@ All notable changes to the Datarim framework are documented here. Format follows
   re-grants trust to Jev's own hooks (exact command match only, disabled hooks
   left alone, `config.toml.pre-jev-trust` kept); `jevcodex` does it at every
   host launch unless `JEV_NO_AUTO_TRUST=1`.
+- The receipt heartbeat helper ships in the project runtime and runs from it;
+  informational quick lookups stay explicitly uncertified without creating task
+  or evidence artifacts.
+- Require source-reading roles, including isolated reviewers, to verify approved
+  sanitized-source bindings before reading classified sensitive inputs. Preserve
+  compact bindings in the non-truncatable session layer.
+- Fail session saves when protected content or serialized metadata cannot fit;
+  preserve existing session bytes on failed appends. Include receipt regressions
+  in normal CI discovery and capacity regressions in the macOS portability job.
+- The evidence gate rejects acceptance contracts and evidence bundles whose JSON
+  repeats an object key, instead of letting the last duplicate silently replace
+  an earlier case or failed status.
+- `deploy-deferred` PRD items schedule a live check instead of waiving it; no
+  stage may presume an operator override. Delegated stages carry selected
+  bindings and inherited measurements as historical evidence, and the
+  acceptance loop loads the customer-delivery rules before baseline creation.
+- Frontend evidence for animated panels must be captured in a settled viewport.
+- Testing guidance: negative controls for critical evidence assertions, custody
+  safety paired with owner progress, and delivery-path fidelity for packaging,
+  installation, upgrade and rollback smoke evidence.
 
 ## [3.0.0] — 2026-09-23
 

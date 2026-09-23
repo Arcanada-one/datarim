@@ -123,3 +123,25 @@ CHECK
     run git -C "$PROJECT" status --porcelain
     [ -z "$output" ]
 }
+
+@test "project runtime ships the receipt heartbeat helper and it runs from there" {
+    # Ported intent of 96a350f: the 2.x copy installer filtered by extension
+    # and dropped heartbeat-receipts.py. The project installer copies whole
+    # scopes; this pins that the helper arrives intact and works in place.
+    install_project
+    [ "$status" -eq 0 ]
+    local runtime="$PROJECT/.datarim-runtime" receipts task
+    cmp "$PRODUCT_ROOT/dev-tools/lib/heartbeat-receipts.py" "$runtime/dev-tools/lib/heartbeat-receipts.py"
+    # The helper refuses symlinked ancestors (macOS /var -> /private/var).
+    mkdir -p "$BATS_TEST_TMPDIR/receipts" "$BATS_TEST_TMPDIR/task"
+    receipts="$(cd "$BATS_TEST_TMPDIR/receipts" && pwd -P)"
+    task="$(cd "$BATS_TEST_TMPDIR/task" && pwd -P)"
+    run env DATARIM_INTERACTION_RUN_ID=11111111-1111-4111-8111-111111111111 \
+        DATARIM_INTERACTION_RECEIPTS_DIR="$receipts" \
+        bash "$runtime/dev-tools/lib/heartbeat-status.sh" write \
+        --root "$task" --task-id EXA-0001 --state done
+    [ "$status" -eq 0 ]
+    run jq -e '.interaction_run_id == "11111111-1111-4111-8111-111111111111" and .interaction_receipts == []' \
+        "$task/datarim/runtime/EXA-0001.status"
+    [ "$status" -eq 0 ]
+}

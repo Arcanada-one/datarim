@@ -6,6 +6,19 @@ argument-hint: [topic or file path]
 
 # /dr-write — Create Content
 
+**Acceptance before authoring:** apply `skills/immutability/SKILL.md`
+§ Acceptance and Evidence Loop before Step 5, including consilium drafts.
+For a task-bound content request, pin the selected content route, define cases,
+capture `check-live-evidence.sh --root <repo-root> --contract <acceptance.json>
+--evidence <evidence.json> --stage preflight` before work, and retain its receipt.
+Before handing off the draft, append write-stage evidence and run the same
+strict command with `--stage write`. A discrepancy returns to writing and
+fresh checks; later reviews are invalidated. An existing baseline is preserved.
+For standalone work without a Datarim/Git task, define the acceptance checklist
+before drafting, cite actual per-case evidence, and state **UNCERTIFIED** for
+the structured gate; never claim task-pipeline PASS. Draft completion is not
+editorial approval, publication, or operator acceptance.
+
 **Role**: Writer Agent
 **Source**: `${DATARIM_RUNTIME:?}/agents/writer.md`
 

@@ -7,6 +7,21 @@ description: Live verification gates for raw SQL, cross-container orchestration,
 
 Five related gates that fire when the failure mode lives in the *runtime environment*, not in code logic. Mocks cannot satisfy them — only a real run against real systems can.
 
+## Delivery-path fidelity
+
+When an applicable smoke test verifies a release artifact or deployment path,
+exercise the packaging and installation commands used by that delivery path.
+Match its build context, included files, dependency installation mode, and
+runtime entrypoint; a successful build from the full source checkout proves
+only that context. If delivery replaces an existing installation, rehearse
+against a populated disposable target using the same transfer and replacement
+operations. Verify the intended revision and dependencies from the installed
+location, and exercise the existing rollback procedure when that replacement
+or rollback path is under test. Record the relevant commands, target state,
+and observed post-conditions with the existing smoke evidence. Use the
+project's actual delivery transport; this guidance does not require containers
+for projects delivered another way.
+
 ---
 
 ## Current-State Auth Probe

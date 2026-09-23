@@ -8,6 +8,13 @@ globs:
 
 # PLAN Command
 
+**Acceptance baseline:** bind every task criterion to falsifiable cases before
+implementation per `skills/immutability/SKILL.md` § Acceptance and Evidence Loop.
+Run `check-live-evidence.sh --root <repo-root> --contract <acceptance.json>
+--evidence <evidence.json> --stage preflight` before deliverable work. Preserve
+an existing baseline; contract amendments use Return-to-Source. No complexity
+waiver or advisory spec-graph result replaces this gate.
+
 This command generates a detailed implementation plan in `datarim/tasks.md`, strictly following the **Enhanced Design Process** (Phases 4-6).
 
 ## Instructions

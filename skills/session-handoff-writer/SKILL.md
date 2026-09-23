@@ -32,7 +32,7 @@ that prevents a stale snapshot from misleading a resume session.
 | Artefact path | `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` |
 | Semantics | Append-only decision-log — a second `/dr-save` in the same session APPENDS a new dated block, never truncates prior blocks |
 | Lock | `datarim/sessions/.lock.{SESSION-ID}` (mkdir-based atomic, POSIX-portable) |
-| Cap | 32768 bytes total; Layer-1 (git state) and Layer-5 (failed approaches) blocks are protected from truncation; Layer-3/4 truncated first |
+| Cap | 32768 bytes total; Layer-1 (git state and sensitive-source bindings) and Layer-5 (failed approaches) blocks are protected from truncation; Layer-3/4 truncated first. If protected layers cannot fit, or an existing session has no capacity for a new block, the writer fails nonzero without publishing the new block. |
 | Permissions | artefact `chmod 600`, directory `chmod 700` |
 | Kill-switch | `DATARIM_DISABLE_SESSION_HANDOFF=1` — no-op, exit 0, no file written |
 | Security | T-1 session-id regex validation; T-2 `--body-file` (no shell expansion); T-3 mkdir lock; T-5 chmod 600 + gitignore; T-7 symlink pre-unlink; T-8 secret scan-and-redact |
@@ -59,6 +59,7 @@ The body passed via `--body-file` MUST follow the 5-layer structure:
 
 For every repo touched this session: HEAD SHA, branch, status --porcelain output.
 Non-truncatable — this layer is protected from cap truncation.
+For classified sensitive sources, include a compact "Sensitive source bindings" subsection carrying the classification, approved sanitized path, original source pin, sanitized digest and omission/redaction constraints from the task's existing Constraints record: metadata only, never original values. Follow ${DATARIM_RUNTIME:?}/skills/security/SKILL.md § Sensitive source context boundary. Keep each binding record on complete lines inside Layer 1; do not place layer headings inside metadata. Ordinary tasks need no binding subsection.
 
 ## Layer 2 — Active Tasks
 
@@ -68,6 +69,7 @@ One block per active task: current status, last stage completed, next step.
 ## Layer 3 — Related Files
 
 Paths of every file read or modified this session, with a one-line status note.
+For classified sensitive sources, refer to the protected binding in Layer 1; never keep its only copy in this truncatable layer.
 
 ## Layer 4 — Open Questions
 
@@ -92,6 +94,8 @@ instead, fix the underlying cause (claim-provenance tag, session-id format,
 root path) and re-run.
 
 ## Security cross-link
+
+Apply `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` § Sensitive source context boundary before assembling the body; the final secret scan is defense in depth, not permission to read raw classified sources into model context.
 
 Full threat model in the task-description Appendix A (T-1 through T-8).
 Key points:

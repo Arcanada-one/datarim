@@ -19,6 +19,19 @@ target_aal: 2
 - Encrypt sensitive data at rest and in transit.
 - Do not log PII (Personally Identifiable Information).
 
+### Sensitive source context boundary
+
+Consult existing source classifications before opening or searching task files.
+Once a file is classified sensitive, that classification survives role changes,
+delegation and session handoffs; being tracked source does not make it safe to read
+into model context.
+
+- Every downstream handoff MUST carry the classification, approved sanitized path, immutable original source pin, sanitized digest, and omission/redaction constraints (including protected paths or regions and permitted edits). Carry metadata, never secret values.
+- Recipients MUST verify that the approved sanitized copy matches this handoff before consuming it. If the approved copy, pin or constraints are missing or stale, STOP the affected read and request a corrected sanitized handoff; do not fall back to the raw source.
+- Reason only over the approved sanitized copy. Raw originals MUST NOT enter model context through reads, grep/diff output, quotations or delegation; redact later is not a recovery strategy for context exposure. Apply exclusions or sanitized-root selection before invoking context-producing searches.
+- When exact privileged reconstruction requires originals, use an authorized controller-only bounded read with pinned identity verification and metadata-only output (counts, hashes or sanitized error codes). Original bytes and restored artifacts stay in controller-private memory/storage, never in LLM context, model mounts or worker mounts. Do not display original segments to validate reconstruction.
+- This exception does not authorize repairs, credential changes or external actions. Preserve the assigned role's authority and existing human gates. If exposure occurs, report metadata-only incident facts and follow the approved incident process without repeating the sensitive content.
+
 ### Cached secrets in hot data stores
 
 When secret-bearing payload is cached in a hot data store (Redis / Memcached / in-process map) — even with a bounded TTL and a network-isolated bind — record the cache surface in the project's accepted-risk register. The TTL bound and network isolation are mitigations, not a cancellation of the residual risk: any operator with read access to the cache during the TTL window can extract the plaintext secret without going through the primary secret store's audit trail. Re-review on the register's standard cadence (90 days by default).

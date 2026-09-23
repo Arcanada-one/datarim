@@ -6,6 +6,20 @@ argument-hint: [file path to approved content]
 
 # /dr-publish — Prepare Publish Payloads (does NOT dispatch)
 
+**Acceptance and preparation evidence:** apply `skills/immutability/SKILL.md`
+§ Acceptance and Evidence Loop before adapting content, including consilium.
+Task-bound content pins its selected route and preparation cases and captures
+`check-live-evidence.sh --root <repo-root> --contract <acceptance.json>
+--evidence <evidence.json> --stage preflight` only for a new/migrated baseline.
+Before presenting payloads, append publish-stage case evidence and run the
+strict command with `--stage publish`. Failed checks return to preparation,
+then fresh verification and later selected reviews. Publish STAGE_PASS means
+payload preparation only; public sending stays hard-gated through Publisher.
+Required live publication/operator-approval cases remain pending until the
+authorized action occurs and are all required at archive. Never mark them green
+from payload-only evidence. Standalone preparation retains a pre-work checklist
+and actual evidence but reports **UNCERTIFIED** for the structured task gate.
+
 > **This command PREPARES ready-to-publish payloads (platform-adapted text, `sendMessage`/`sendPhoto` JSON bodies, curl recipes, Playwright steps) — it does NOT send anything.** Publishing to a channel, site, or social network is a **hard-gated action** under `documentation/mandates/autonomous-agents.md` § Hard-gated actions (NEVER auto-execute): public communications (Telegram posts, blog posts, social media) never auto-execute and stay operator-approved per Supreme Directive Law 2. The actual dispatch runs **only through Publisher** (`Projects/Publisher/code/arcanada-publisher` — the sole channel for all external publishing), never as an ad-hoc script from this command. `/dr-publish` stops at the payload; the operator gates the send.
 
 **Role**: Writer Agent

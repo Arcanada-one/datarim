@@ -5,6 +5,13 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
 
 # /dr-init — Initialize New Task or Project
 
+**Acceptance baseline:** after task creation and path resolution, define the
+complete cases in `datarim/tasks/{TASK-ID}-acceptance.json` using
+`skills/immutability/SKILL.md` § Acceptance and Evidence Loop. Before any
+deliverable work run `check-live-evidence.sh --root <repo-root> --contract
+<acceptance.json> --evidence <evidence.json> --stage preflight` and capture its
+receipt. A TBD acceptance skeleton does not authorize implementation.
+
 > **Contract.** Initialisation is the only command that may create `datarim/`, wires prefix → archive-subdir mapping, and selects task IDs that propagate through the rest of the pipeline. The structural compliance probe (Step 2.4 — `datarim-doctor.sh --quiet`), the workspace cross-task hygiene check (Step 2.5), and the PRD-waiver gate are enforced in code, independent of how the command is invoked. Prefer the canonical slash form (`/dr-init {DESCRIPTION}`) over manually creating `datarim/` artefacts: the slash command threads through every guard described in this file; ad-hoc paths skip them.
 
 **Role**: Planner Agent (Initial)

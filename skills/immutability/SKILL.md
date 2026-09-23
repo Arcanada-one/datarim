@@ -35,6 +35,108 @@ conditionally by the consuming command.
 
 ## Common Rules
 
+#### Acceptance and Evidence Loop
+
+Every task, including a quick task and non-code work, MUST define falsifiable
+acceptance cases before execution. Reuse this contract; do not create a parallel
+skill or replace a task outcome with successful enabling work.
+
+For customer-derived delivery requirements, MUST LOAD
+`${DATARIM_RUNTIME:?}/skills/customer-delivery/SKILL.md`
+before establishing the pre-work baseline or delegating affected work. Apply its
+U3 pre-work selection and inherited-context rules; this loader
+does not expand task scope or grant production approval.
+
+Store the complete task contract at `datarim/tasks/{TASK-ID}-acceptance.json`
+and its append-only evidence bundle at `datarim/qa/{TASK-ID}-evidence.json`.
+The contract has `version: 1`, `task_id`, UTC `defined_at`, a nonempty `scope`
+array of relative file paths, `workflow: {complexity, task_type, route}`, and
+nonempty `criteria`. Bind workflow complexity/type and task ID to the canonical
+`datarim/tasks/{TASK-ID}-task-description.md` frontmatter. The selected route
+is immutable contract content, included in the preflight digest. Never downgrade
+classification or drop a selected check after work to evade review.
+
+Use the existing complexity route: L1 `do → archive`, L2 `do → [qa] → archive`,
+L3/L4 `do → qa → compliance → archive`. Explicit stronger ordered checks may
+be selected; compliance requires QA. Quick uses `[quick]` at L1. For `type: content`,
+select real stages in `write → edit → publish` order (at least one), then the
+applicable QA/compliance stages and archive. Content L3/L4 still requires QA and
+compliance. `publish` means preparation, never public dispatch. Omitted optional
+stages have no receipts. Every case must name a stage actually in the route.
+
+Each criterion has `id`,
+`expected`, `evidence_type` (`static`, `empirical`, `measurement`), `environment`,
+and a `cases` object keyed by stable case IDs. Every case has `expected`, integer
+`expected_exit_code`, and `required_stage` from the selected route. Quick and
+main-flow cases MUST NOT mix. Scope includes changed
+deliverables and verification inputs; missing planned/deleted files have an
+explicit missing sentinel. No traversal or symlinks are allowed.
+
+After defining cases and before implementation, run:
+
+```bash
+"${DATARIM_RUNTIME:?}/dev-tools/check-live-evidence.sh" \
+  --root <repo-root> --contract <acceptance.json> --evidence <evidence.json> \
+  --stage preflight
+```
+
+Capture the emitted JSON as the evidence bundle's `preflight` value. Record
+`task_id`, `implementation_started_at` (UTC, no earlier than preflight), and
+`attempts: []`. Keep the preflight before-state unchanged during ordinary code
+edits. Requirement/scope changes require Return-to-Source, a superseding
+contract and new preflight, retaining the original contract and evidence.
+Resumed legacy tasks missing a baseline are **UNCERTIFIED**: define their cases,
+record an explicit migration baseline before resumed work, and produce fresh
+evidence. Never invent a historical preflight or adopt old green reports.
+
+Append attempts containing `stage`, `actor`, UTC `timestamp`, current git
+`revision`, `contract_sha256`, current `scope_sha256`, and `cases`. For current
+digest calculation run the checker with `--stage snapshot`; use its digests
+for the attempt. A snapshot is not a preflight receipt and MUST NEVER replace
+the original `preflight`.
+Scope digest is SHA-256 over sorted
+`relative_path:content_sha256:executable=0|1` lines, each terminated by a newline
+(`MISSING` replaces the content hash for absent paths, with executable=0).
+Contract digest is SHA-256 of the exact contract file bytes.
+
+Each case result has `criterion_id`, `case_id`, `observed`, `status`,
+`evidence_type`, `environment`, `source` (`live`, `fixture`, `static`), `command`,
+`exit_code`, and `artifact: {relative_path, sha256}`. Every case due by that
+attempt's stage appears exactly once. Static checks and unit fixtures are
+valid only for declared static criteria; empirical and measurement outcomes
+require live evidence. Negative probes must identify the intended assertion
+and expected exit code; an unrelated setup error cannot prove rejection.
+Reviewers may inspect the same hashed log without re-running an unchanged
+command, but MUST verify each individual assertion, scope completeness, real
+environment, and provenance. Hash checks cannot authenticate fabricated logs,
+identities, timestamps, or an intentionally incomplete scope.
+
+Before a stage verdict, run the same command with `--stage do|write|edit|publish|qa|compliance|archive|quick`
+(select the actual stage). Exit 1 is **BLOCKED**, exit 2 is an invocation/runtime
+error and also blocks progression. Exit 0 reports **STAGE_PASS**, including
+later-stage `pending` cases; it is not a task-delivered verdict. Missing, stale,
+failed, skipped, or mock-only required live evidence MUST NOT become green or
+notes. A due operator-dependent case stays **WAITING_OPERATOR**, not green.
+Production acceptance remains subject to the existing customer-delivery rules.
+
+Only the selected route prefix requires progressively ordered attempts. An editor
+differs from the preceding writer; QA's actor differs from earlier producers;
+compliance's actor differs from earlier producers and QA. Appending a
+correction invalidates later reviews, including attempts made in the same
+second. Fix the work, append fresh verification, recheck QA/compliance, and
+repeat until every due case passes. Final archive aggregates ALL task cases,
+adding an archive attempt when a case is first due there. Quick uses the same
+acceptance/evidence floor with a single quick attempt. Spec-graph advisory mode,
+optional test timing, and legacy report inspection cannot downgrade this gate.
+
+Contract and evidence files each contain exactly one JSON object, not a stream
+of documents. UTC dates must round-trip to the identical calendar timestamp.
+Standalone content commands outside a Datarim/Git task retain their existing
+support: define a pre-work acceptance checklist, gather actual per-case evidence,
+fix discrepancies and recheck. Report **UNCERTIFIED** for the structured gate;
+never invent a task baseline or claim pipeline PASS. Task-bound content always
+uses the strict gate. Public sending remains operator-approved and separate.
+
 #### Artefact Immutability Rule
 
 An artefact produced by a pipeline stage MUST NOT be weakened to accommodate

@@ -8,6 +8,20 @@ effort: high
 
 # /dr-edit — Editorial Review
 
+**Acceptance and editorial evidence:** apply `skills/immutability/SKILL.md`
+§ Acceptance and Evidence Loop. Before reviewing or changing a task-bound
+content artifact, define the edit cases and selected content route; capture
+`check-live-evidence.sh --root <repo-root> --contract <acceptance.json>
+--evidence <evidence.json> --stage preflight` only for a new/migrated baseline.
+Preserve existing preflight. After review and authorized edits, append edit-stage
+case evidence and run the strict command with `--stage edit`. The editor is
+independent of the prior writer when both stages occur. Verify each assertion
+even when reusing a hashed log. Findings return to writing/editing, then repeat
+verification and later selected reviews. A standalone request uses a pre-work
+checklist and actual evidence and reports **UNCERTIFIED** for the structured
+gate, never pipeline PASS. Non-content pipeline editorial work retains its
+existing QA/archive routing and binds checks to that task's selected route.
+
 **Role**: Editor Agent
 **Source**: `${DATARIM_RUNTIME:?}/agents/editor.md`
 

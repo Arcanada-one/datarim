@@ -10,6 +10,18 @@ target_aal: 2
 
 # /dr-auto — Autonomous Execution
 
+**Closed evidence loop:** enforce `skills/immutability/SKILL.md` § Acceptance
+and Evidence Loop for every dispatched stage. Require the strict
+`check-live-evidence.sh --root <repo-root> --contract <acceptance.json>
+--evidence <evidence.json> --stage <stage>` result before advancing. On a
+discrepancy, return to work, then fresh verification and independent review;
+repeat until all due cases pass. Missing or stale evidence is never green.
+STAGE_PASS with later-stage pending cases is not full task delivery, and an
+operator-dependent action remains WAITING_OPERATOR until actually accepted.
+Bind `workflow.route` to canonical task type/complexity before dispatch. Require
+only its selected stages: L1/L2 do not invent skipped QA/compliance receipts;
+L3/L4 retain those gates, and content stages use write/edit/publish evidence.
+
 `/dr-auto` drives a single task from its current status through to a successful `/dr-compliance` + reflection, with reduced operator prompting. It is a **subagent orchestrator**: for each pipeline stage it spawns the matching Datarim agent via the Agent tool (`planner` for plan, `architect` for prd/design, `developer` for do, `reviewer` for qa, `compliance` for compliance), summarises that subagent's returned result, and decides the next stage. It does **not** run the final `/dr-archive` — archival stays an explicit operator step. Stages run under the autonomous-mode flag and skip clarifying questions whose answers can be derived from the existing artefacts, memory, or a quick probe.
 
 **Role:** Orchestrator (spawns and summarises planner / architect / developer / reviewer / compliance subagents per stage; does not itself perform the stage work).

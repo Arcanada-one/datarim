@@ -84,3 +84,9 @@ setup() {
     run bash -c "ls '$ROOT/datarim/runtime/'*.tmp.* 2>/dev/null | wc -l | tr -d ' '"
     [ "$output" = "0" ]
 }
+
+@test "receipt heartbeat regression suite is included in normal CI discovery" {
+    run bash "$BATS_TEST_DIRNAME/run-bats-discovery.sh" --list
+    [ "$status" -eq 0 ] \
+        && [[ "$output" == *'tests/heartbeat-receipts.bats'* ]]
+}

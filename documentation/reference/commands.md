@@ -1,6 +1,6 @@
 # Commands Reference
 
-Datarim provides 26 slash commands in the `/dr-*` namespace for Claude Code (plus 2 standalone `/factcheck` and `/humanize` commands). Commands are grouped by category.
+Datarim provides 27 slash commands in the `/dr-*` namespace for Claude Code (plus 2 standalone `/factcheck` and `/humanize` commands). Commands are grouped by category.
 
 ## Unified CTA Block (v1.16.0)
 
@@ -76,7 +76,7 @@ route. Missing or malformed evidence returns the task to `/dr-prd`.
 | `/dr-plugin` | Extension | -- | Manage opt-in plugin system: list active plugins, enable/disable third-party modules. Emits CTA. |
 | `/dr-orchestrate run` | Core + Plugin | -- | Self-driving pipeline runner. **The command and its autonomy policy are core** — the hard-gated safety floor and action-autonomy map live in `dev-tools/rules/fb-rules.yaml` and resolve via `dev-tools/fb-policy-loader.sh` without enabling any plugin. Phase 2 adds multi-backend subagent inference for unknown prompts (autonomy L1 → L2). **The transport runner is the opt-in plugin** (terminal-multiplexer driver, inference-backend chain, bot/HTTP interface, audit backends) — enable via `/dr-plugin enable <path>/plugins/dr-orchestrate` only to drive panes. Security floor: whitelist + escape-block + micro/decision cooldown; JSONL audit, hash-only credentials. |
 
-## Utility Commands (7)
+## Utility Commands (8)
 
 | Command | Stage | Agent | Description |
 |---------|-------|-------|-------------|
@@ -86,6 +86,7 @@ route. Missing or malformed evidence returns the task to `/dr-prd`.
 | `/dr-wizard` | Requirements | planner | Interactive task-spec wizard — walks a rough brief into a structured spec through staged questions, resumable state, and a graph artefact handed to the graph sink. Emits CTA. |
 | `/dr-save` | Utility | developer | Capture current session to `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` before context is destroyed. 5-layer body (git state / active tasks / related files / open questions / failed approaches), 32 KB cap with non-truncatable L1/L5, append-only semantics, claim-provenance enforcement (exit 1 on untagged claims), T-8 secret redaction. Works identically in Claude Code, Codex CLI, and Cursor. Emits resume block. |
 | `/dr-continue` | Utility | developer | Resume from session artefact written by `/dr-save` in a **clean context window**. Re-verifies every claim via live probes (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrades provenance tags from the artefact, then routes to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. |
+| `/dr-continue-checkpoint` | Utility | stage agent from the recorded route | Controller-only worker entry: reads a controller-bound ordinary answer and its provenance from the immutable `/worker/runtime` resources (Linux), checks the current workspace against the captured source, and enters exactly the recorded stage with production HOLD retained. Not a general resume command; unavailable without a controller launch. |
 | `/dr-help` | Utility | -- | List all commands with descriptions and usage guidance. Emits CTA. |
 
 ## Standalone Commands (2)

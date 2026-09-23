@@ -53,6 +53,13 @@ Required checks before marking UI task complete:
 - [ ] Tablet viewport (768px) — layout adapts
 - [ ] Desktop viewport (1280px+) — max-width containers work
 - [ ] Theme toggle switches instantly (no flash of wrong theme)
+- [ ] For animated drawers/dialogs, wait for the intended settled state and
+  verify the relevant content bounds fit the viewport before capturing evidence.
+  Visibility alone can pass mid-transition; document scroll-width checks can
+  miss fixed overlays clipped outside the window. Do not replace this with an
+  arbitrary sleep or silently disable the transition being tested. Inspect the
+  resulting screenshots before accepting them; intended scrolling content need
+  not fit vertically, but required controls must remain reachable.
 
 If unable to capture screenshots, explicitly ask the user to verify visually before closing.
 

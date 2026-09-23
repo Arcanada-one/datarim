@@ -27,6 +27,7 @@ Your goal is to investigate external context for a task and produce a structured
 - When spawned for gap discovery from `/dr-do`: investigate only the specific gap, do not run the full checklist.
 
 **Context Loading**:
+- Before source reads or delegation (including direct invocation), MUST LOAD `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` and apply "Sensitive source context boundary".
 - READ: `datarim/activeContext.md`, `datarim/tasks.md` (current task)
 - ALWAYS APPLY:
   - `${DATARIM_RUNTIME:?}/skills/research-workflow/SKILL.md` (checklist, tool selection, output format)
