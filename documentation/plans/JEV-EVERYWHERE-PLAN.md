@@ -7,6 +7,56 @@ This file is the working plan, the acceptance criteria, and the dependency
 graph. It is updated as work lands; each item carries a measured verdict
 (`pass` / `fail` / `not_measured`), never an asserted one.
 
+## Progress (2026-09-23)
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| P0-1 land PR #420 | **pass** | merged as `a95c8d7`; `main` carries `codex_hook_trust` and 37 Jev files |
+| P0-2 Mac → merged sha | **pass** (key + Codex gate: operator) | launchers at `a95c8d7`; `doctor` reports the new field |
+| P0-3 arcana-devs host Jev | **pass** (key + Codex gate: operator) | `datarim_enabled: false`; 12 Orca hooks preserved, 0 lost, other settings identical |
+| P0-4 DEV-AI → merged sha | **pass** | 18 foreign hooks preserved, 0 lost; `doctor` clean; API `ok: true`, `jev-1.13.0`, 314 ms |
+| P1-5 component routing | **pass** | see below |
+| P1-6 session handoff | **pass** | `DEV-AI-SESSION-HANDOFF.md`, commands dry-run before publication |
+| P2-7 repository docs | in progress | |
+| P2-8 site docs | not started | |
+| P3-9 Codex research | partly done | the "re-trust after every upgrade" claim was measured false; see below |
+| P3-10 installer audit | not started | |
+
+### P1-5, measured
+
+One prompt — *"Refactor the payment module, add unit tests, and review the diff
+for security issues"* — through the real hook wrapper on DEV-AI, 0.6 s:
+
+```
+skills: security (0.95), verification-before-completion (0.92),
+        adversarial-review (0.89), security-baseline (0.84)
+agent:  reviewer (0.67, low confidence - advisory only)
+command: dr-qa (0.44, low confidence - advisory only)
+template: none
+```
+
+**Negative control**, same prompt, same machine, a directory with no Datarim
+catalogue: the `Project catalog:` line is absent entirely and only tier advice
+is returned. So the component advice is real and is driven by the catalogue,
+not by the prompt text.
+
+Two honest caveats. The wrapper gives the routing child **6 seconds**; the
+measured round trip was 0.6 s, but a slow network silently degrades to
+tier-only advice rather than failing loudly. And the token saving the operator
+expects is **not_measured** — the advice costs 281 input / 20 output tokens per
+prompt; whether the components it names save more than that has not been
+measured and is not claimed.
+
+### P3-9, measured correction
+
+An earlier revision of the how-to, the docstring, and my own report to the
+operator all asserted that Codex re-arms gate 2 after every upgrade because
+trust is keyed to the command string. **Both halves are false.** Two adjacent
+slots holding entirely different commands carry the identical `trusted_hash`,
+and after `91846a1 → a95c8d7` `codex exec` ran `UserPromptSubmit` with no
+prompt. Fixed in PR #421, which also fixes the check that reported `trusted`
+for a substituted command.
+
 ## Measured starting state (2026-09-23, before any change)
 
 | Machine | User | Work dir | Host Jev runtime | Jev hooks (Claude) | Codex hooks | Datarim |
