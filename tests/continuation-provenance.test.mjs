@@ -6,6 +6,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { validateProvenance, provenanceView, inspectWorkspace } from '../dev-tools/continuation-provenance.mjs';
 
+// Fixtures must not be group- or world-writable: the reader refuses such entries by design
+// (mode & 0o7022). A host umask of 0002 would otherwise fail these tests for the wrong reason.
+process.umask(0o022);
+
 const canonical = value => Array.isArray(value) ? '[' + value.map(canonical).join(',') + ']' :
   value && typeof value === 'object' ? '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonical(value[key])).join(',') + '}' : JSON.stringify(value);
 const hash = value => createHash('sha256').update(value).digest('hex');

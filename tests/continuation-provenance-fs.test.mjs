@@ -8,6 +8,10 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { readBoundFile, scanSourceTree } from '../dev-tools/continuation-provenance-fs.mjs';
 
+// Fixtures must not be group- or world-writable: the reader refuses such entries by design
+// (mode & 0o7022). A host umask of 0002 would otherwise fail these tests for the wrong reason.
+process.umask(0o022);
+
 async function fixture(fn) {
   const root = await mkdtemp(join(tmpdir(), 'provenance-fs-'));
   try { await fn(root); } finally { await rm(root, { recursive: true, force: true }); }
