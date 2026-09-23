@@ -6,6 +6,7 @@ import { open, realpath } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { validateProvenance, provenanceView, workspaceView } from './continuation-provenance.mjs';
+import { readBoundFile } from './continuation-provenance-fs.mjs';
 
 const ROOT = '/worker/runtime';
 const LIMIT = 65536;
@@ -120,9 +121,9 @@ function validateBinding(binding, b) {
 }
 function validateControl(c, b) {
   shape(c, [...BINDING, 'schemaVersion', 'taskId', 'attemptId', 'route', 'routeDigest',
-    'artifactIndexDigest', 'provenanceDigest', 'resumeStage', 'presentationNonce', 'productionHold', 'approvalInheritance']);
+    'artifactIndexDigest', 'provenanceDigest', 'resumeStage', 'presentationNonce', 'productionHold', 'approvalInheritance', ...(c.schemaVersion === 3 ? ['stageRestart'] : [])]);
   validateBinding(Object.fromEntries(BINDING.map(k => [k, c[k]])), b);
-  requireValue(c.schemaVersion === 2 && c.taskId === b.checkpoint.taskId, 'binding');
+  requireValue([2,3].includes(c.schemaVersion) && c.taskId === b.checkpoint.taskId, 'binding');
   uuid(c.attemptId); sha(c.artifactIndexDigest); sha(c.provenanceDigest); sha(c.routeDigest); hold(c);
   requireValue(matches(c.presentationNonce, /^[a-f0-9]{32}$/), 'nonce');
   requireValue(Array.isArray(c.route) && c.route.length >= 1 && c.route.length <= STAGES.length &&
@@ -130,7 +131,17 @@ function validateControl(c, b) {
     c.route.includes(c.resumeStage) && digest('route', c.route) === c.routeDigest, 'route');
   // Equality is a consistency check only. The independently supplied control
   // selects the stage; question.stage can never create missing route authority.
-  requireValue(c.resumeStage === b.checkpoint.question.stage, 'stage');
+  if(c.schemaVersion===3){
+    const r=c.stageRestart;
+    shape(r,['kind','questionStage','snapshotId','snapshotManifestDigest','reviewDigest','candidateRevision','attestationPath','acceptancePath','acceptanceSha256','evidencePath']);
+    requireValue(r.kind==='superseding-source-do-restart'&&r.questionStage==='qa'&&b.checkpoint.question.stage==='qa'&&
+      c.resumeStage==='do'&&canonical(c.route)==='["do","qa","compliance"]','stage_restart');
+    uuid(r.snapshotId);sha(r.snapshotManifestDigest);sha(r.reviewDigest);sha(r.acceptanceSha256);
+    requireValue(matches(r.candidateRevision,/^[a-f0-9]{40}$/),'stage_restart');
+    const paths=[r.attestationPath,r.acceptancePath,r.evidencePath];
+    requireValue(new Set(paths).size===3&&paths.every(p=>typeof p==='string'&&p.length<=1024&&
+      /^datarim\/[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*$/.test(p)&&p.split('/').every(x=>x!=='.'&&x!=='..')),'stage_restart');
+  }else requireValue(c.resumeStage === b.checkpoint.question.stage, 'stage');
 }
 function escapeString(value) {
   let result = '"';
@@ -201,10 +212,28 @@ async function resources() {
     } finally { await root.close(); }
   } catch { fail('resource_unavailable'); }
 }
+/** Hashes are meaningful only after the separate controller resource and index
+ * were validated. Never infer replacement authority from an answer or source. */
+async function verifyRestartArtifacts(data){
+  if(data.control.schemaVersion!==3)return;
+  const r=data.control.stageRestart,index=data.provenance.artifactIndex;
+  for(const path of [r.attestationPath,r.acceptancePath,r.evidencePath])requireValue(index.some(f=>f.path===path),'stage_restart_index');
+  const attestationBytes=await readBoundFile('/workspace',r.attestationPath);
+  const acceptanceBytes=await readBoundFile('/workspace',r.acceptancePath);
+  const shaBytes=b=>createHash('sha256').update(b).digest('hex');
+  requireValue(shaBytes(attestationBytes)===index.find(f=>f.path===r.attestationPath).sha256&&
+    shaBytes(acceptanceBytes)===r.acceptanceSha256&&index.find(f=>f.path===r.acceptancePath).sha256===r.acceptanceSha256,'stage_restart_artifacts');
+  const a=parse(attestationBytes,262144);
+  requireValue(a.kind==='controller-source-supersession'&&a.snapshotId===r.snapshotId&&a.reviewDigest===r.reviewDigest&&
+    a.candidateRevision===r.candidateRevision&&a.taskId===data.control.taskId&&a.parent.runId===data.bootstrap.checkpoint.parentRunId&&
+    a.classification==='controller-reviewed-replacement'&&a.taskCompletionEvidence===false&&a.productionHold===true&&a.approvalInheritance==='none'&&
+    data.provenance.source.lineage.sanitizedRevision===r.candidateRevision,'stage_restart_attestation');
+}
 export async function readContinuationModelView() {
   const data = await resources();
   const view = renderContinuationModelView(data);
   validateProvenance(data.provenance, data.bootstrap, data.control);
+  await verifyRestartArtifacts(data);
   return view;
 }
 export async function readContinuationProvenanceView(workspaceStatus = false) {
@@ -222,6 +251,7 @@ export async function prepareContinuation(input) {
   requireValue(canonical(input.bootstrap) === canonical(data.bootstrap), 'binding');
   validateBinding(input.binding, data.bootstrap);
   await workspaceView(validateProvenance(data.provenance, data.bootstrap, data.control), true);
+  await verifyRestartArtifacts(data);
   const { childRunId, answerId, checkpointId, inputDigest } = input.binding;
   return { kind: 'ordinary-answer-prepared', childRunId, answerId, checkpointId, inputDigest, productionHold: true };
 }

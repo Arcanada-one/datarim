@@ -50,7 +50,7 @@ export function validateProvenance(value, bootstrap, control) {
   tree(value); must(Buffer.byteLength(canonical(value)) <= LIMIT);
   shape(value, [...BINDING, 'schemaVersion', 'kind', 'taskId', 'attemptId', 'artifactIndex',
     'artifactIndexDigest', 'source', 'productionHold', 'approvalInheritance']);
-  must(value.schemaVersion === 1 && value.kind === 'controller-provenance' && control.schemaVersion === 2 &&
+  must(value.schemaVersion === 1 && value.kind === 'controller-provenance' && [2,3].includes(control.schemaVersion) &&
     value.productionHold === true && value.approvalInheritance === 'none');
   const expected = { childRunId: bootstrap.childRunId, answerId: bootstrap.answerId, intentDigest: bootstrap.intentDigest,
     checkpointId: bootstrap.checkpoint.checkpointId, checkpointDigest: bootstrap.checkpoint.manifestDigest,
