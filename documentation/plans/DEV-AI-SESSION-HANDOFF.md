@@ -65,9 +65,10 @@ jev doctor            # findings: [] and codex_hook_trust.state: trusted
 jev stats             # routing decisions recorded for this project
 ```
 
-If `doctor` reports `slot_reused`, Codex is executing the hooks, but the trust
-approval in that slot was originally granted to a different command. It is
-worth one look, not alarm — see the control-plane how-to.
+If `doctor` reports `modified`, Codex has stopped running those hooks because
+their command changed since you trusted them: open `codex` in the TUI and choose
+**Trust all and continue**. Hosts installed with the stable `jev-hook` command
+keep their approval across upgrades — see the control-plane how-to.
 
 ## Caveats measured, not assumed
 

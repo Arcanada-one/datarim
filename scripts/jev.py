@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -92,44 +92,76 @@ def datarim_enabled(root):
         return False
 
 
+# Codex's per-event key in `[hooks.state."<file>:<key>:<i>:<j>"]`
+# (codex-rs hooks/src/lib.rs, `hook_event_key_label`).
+CODEX_EVENT_KEYS = {
+    'PreToolUse': 'pre_tool_use', 'PermissionRequest': 'permission_request',
+    'PostToolUse': 'post_tool_use', 'PreCompact': 'pre_compact', 'PostCompact': 'post_compact',
+    'SessionStart': 'session_start', 'SessionEnd': 'session_end',
+    'UserPromptSubmit': 'user_prompt_submit', 'SubagentStart': 'subagent_start',
+    'SubagentStop': 'subagent_stop', 'Stop': 'stop', 'Interrupt': 'interrupt'}
+CODEX_CONTEXT_EVENTS = ('PreToolUse', 'PostToolUse', 'SessionStart', 'UserPromptSubmit',
+                        'SubagentStart')
+
+
+def codex_hook_hash(event, group, handler):
+    """The hash Codex compares against `trusted_hash`, for a command hook.
+
+    Reproduces codex-rs `hook_hash` (hooks/src/engine/discovery.rs) and
+    `version_for_toml` (config/src/fingerprint.rs): sha256 over compact JSON with
+    sorted keys, of the event key plus the matcher group holding only this
+    handler, after Codex's own normalisation -- the timeout defaulted and
+    clamped, `async` made explicit, an additionalContextLimit equal to the
+    2,500 default dropped. Checked against hashes Codex itself wrote after a
+    TUI "Trust all": identical for a hook with a matcher and one without.
+    """
+    timeout = handler.get('timeout')
+    if event in ('SessionEnd', 'Interrupt'):
+        timeout = max(1, min(3, 1 if timeout is None else timeout))
+    else:
+        timeout = max(1, 600 if timeout is None else timeout)
+    normal = {'type': 'command', 'command': handler.get('command', ''), 'timeout': timeout,
+              'async': bool(handler.get('async', False))}
+    if handler.get('statusMessage') is not None:
+        normal['statusMessage'] = handler['statusMessage']
+    limit = handler.get('additionalContextLimit')
+    if limit is not None and limit != 2500 and event in CODEX_CONTEXT_EVENTS:
+        normal['additionalContextLimit'] = limit
+    identity = {'event_name': CODEX_EVENT_KEYS[event], 'hooks': [normal]}
+    if group.get('matcher') is not None:
+        identity['matcher'] = group['matcher']
+    text = json.dumps(identity, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+    return 'sha256:' + hashlib.sha256(text.encode()).hexdigest()
+
+
+def _codex_state_block(text, key):
+    """The body of `[hooks.state."<key>"]`, or None. The key is matched whole:
+    matching on its tail let a plugin's block (`hookify@...:hooks/hooks.json:
+    user_prompt_submit:0:0`) answer for ours."""
+    match = re.search(r'^\[hooks\.state\."' + re.escape(key) + r'"\]\n((?:(?!\[).*\n?)*)',
+                      text, re.M)
+    return match.group(1) if match else None
+
+
 def codex_hook_trust(sha, home=None):
-    """Whether Codex will actually execute the Jev hooks it has installed.
+    """Whether Codex will execute the Jev hooks it has installed.
 
-    Codex records each trusted hook under
-    `[hooks.state."<file>:<event>:<i>:<j>"]` with a `trusted_hash`, granted by
-    the operator in the TUI and never by writing the file. The presence of that
-    block is the grant.
+    Codex runs a user hook only when its state block is not `enabled = false`
+    AND its stored `trusted_hash` equals the hash of the hook as it stands now
+    (codex-rs hooks/src/engine/discovery.rs: `hook_trust_status`,
+    `hook_enabled`). The hash covers the command string, so changing the
+    command silently turns a trusted hook into a `modified` one that Codex
+    skips. Two earlier revisions of this check got that wrong -- one demanded
+    an `enabled = true` key Codex writes only sometimes, the next took the
+    mere presence of a block as trust -- and both reported `trusted` or
+    `untrusted` from things the client does not look at. Measured on
+    codex-cli 0.156.1 after a release-pinned reinstall: Jev's hooks had moved
+    to `modified`, stopped running on three hosts, and the presence-based
+    check said `trusted` on all three.
 
-    An earlier form of this check demanded `enabled = true` inside the block.
-    Codex writes that key on some blocks and not on others, within one version:
-    on codex-cli 0.156.1, DEV-BOX carried it on 5 of 14 state blocks, while the
-    Mac (16 blocks) and host-devs (13) carried it on none -- and neither did
-    two Mac backups from 2026-09-22. What decides whether it is written was not
-    determined. What was determined is that its absence is not a refusal: on
-    the Mac, blocks without it ran the hooks (see the measurement in the body).
-    The 11 `enabled = true` lines elsewhere in the Mac's config.toml all sit
-    under `[plugins."..."]`; a substring count over the whole file found those
-    and made the key look present in the hook blocks. Demanding it made the
-    check answer `untrusted` on two hosts whose hooks were demonstrably running.
-
-    Trust is invisible from the client's own "Active" counter, which counts
-    installed hooks: measured on codex-cli 0.155.1, it read 2/2 Active for
-    UserPromptSubmit while the ledger held zero such events.
-
-    What `trusted_hash` covers is NOT the command string. Measured on
-    codex-cli 0.155.1: `pre_tool_use:2:0` (an Orca hook) and `pre_tool_use:3:0`
-    (a Jev hook) carried the identical `trusted_hash` while their commands had
-    nothing in common, and a `91846a1 -> a95c8d7` upgrade ran the hooks with no
-    fresh prompt. An earlier revision of this docstring asserted the opposite
-    and was wrong; do not restore it without a counterexample.
-
-    Consequently the honest reading of a state block is positional: "the
-    operator trusted whatever occupied this slot". This function therefore
-    reports trust for the slots our hooks occupy, and separately reports
-    `slot_reused` -- the case where our hook inherited a slot whose trust was
-    granted to a different command. The state block remains the only evidence
-    that Codex will run it; the TUI's "Active" column counts installed hooks
-    and cannot distinguish the two.
+    States per hook: `trusted`, `modified` (trusted once, command changed),
+    `untrusted` (never trusted), `disabled` (`enabled = false`). The overall
+    `state` is `trusted` only when every Jev hook is.
     """
     home = Path(home or Path.home())
     config = home/'.codex/config.toml'
@@ -141,70 +173,38 @@ def codex_hook_trust(sha, home=None):
         text = config.read_text()
     except (OSError, ValueError) as exc:
         return {'state': 'not_measured', 'reason': type(exc).__name__}
-    # Which command each trusted slot was granted to, as recorded by us on the
-    # previous run. Codex cannot answer this -- its hash is not over the
-    # command -- so without our own note a reinstall that lands in an
-    # already-trusted slot is indistinguishable from a slot we trusted.
-    witness = home/'.config/jev/codex-trust-witness.json'
-    try:
-        seen = json.loads(witness.read_text())
-    except (OSError, ValueError):
-        seen = {}
-
-    ours, pending, reused = [], [], []
-    fresh = {}
-    for event, groups in (installed.get('hooks') or installed).items():
-        if not isinstance(groups, list):
+    entry = str(home/'.local/share/jev/bin/jev-hook')
+    ours, per_hook = [], {}
+    for event, groups in (installed.get('hooks') or {}).items():
+        if not isinstance(groups, list) or event not in CODEX_EVENT_KEYS:
             continue
         for i, group in enumerate(groups):
-            for j, hook in enumerate(group.get('hooks', []) if isinstance(group, dict) else []):
-                command = str(hook.get('command', ''))
-                if sha not in command:
+            if not isinstance(group, dict):
+                continue
+            for j, hook in enumerate(group.get('hooks') or []):
+                command = str(hook.get('command', '')) if isinstance(hook, dict) else ''
+                if entry not in command and f'releases/{sha}' not in command:
                     continue
-                # Codex spells the state key in snake_case, not the event name.
-                key = re.sub(r'(?<!^)(?=[A-Z])', '_', event).lower()
-                slot = f'{key}:{i}:{j}'
                 ours.append(event)
-                # The body runs to the next `[` at the start of a line. Blank
-                # lines are included: `.*` matches the empty string, so a block
-                # written with one inside it is still read whole. (A rewrite
-                # here was tried and reverted -- both forms return the same
-                # body for such a block, so there was nothing to fix.)
-                block = re.search(
-                    r'\[hooks\.state\."[^"]*:' + re.escape(slot) + r'"\]\n((?:(?!\[).*\n)*)',
-                    text)
-                # The grant is the *presence* of the block carrying a hash.
-                # Measured with an isolated CODEX_HOME on 0.156.1: with the
-                # blocks present `codex exec` printed 4 `hook:` lines, and with
-                # every `[hooks.state.*]` block stripped it printed 0, while
-                # both runs answered the prompt -- so the blocks, not the
-                # client, are the difference. `enabled = true` appears on some
-                # blocks and is accepted; an explicit `enabled = false` states
-                # a refusal, so it is honoured.
-                body = block.group(1) if block else ''
-                enabled = bool(block) and 'trusted_hash' in body \
-                    and 'enabled = false' not in body
-                if not enabled:
-                    pending.append(event)
-                    continue
-                fresh[slot] = command
-                # Enabled, but we have never recorded trusting THIS command in
-                # THIS slot: the grant may belong to whatever was here before.
-                if seen.get(slot) != command:
-                    reused.append(event)
+                body = _codex_state_block(text, f'{hooks}:{CODEX_EVENT_KEYS[event]}:{i}:{j}')
+                stored = re.search(r'^trusted_hash\s*=\s*"([^"]+)"', body or '', re.M)
+                if body is not None and re.search(r'^enabled\s*=\s*false', body, re.M):
+                    status = 'disabled'
+                elif not stored:
+                    status = 'untrusted'
+                elif stored.group(1) == codex_hook_hash(event, group, hook):
+                    status = 'trusted'
+                else:
+                    status = 'modified'
+                per_hook.setdefault(status, []).append(event)
     if not ours:
         return {'state': 'not_measured', 'reason': 'no Jev hooks for this release'}
-    if not pending:
-        # Only now is the observation worth keeping: the slots are enabled and
-        # we have seen the commands they hold.
-        with contextlib.suppress(OSError):
-            witness.parent.mkdir(parents=True, exist_ok=True)
-            witness.write_text(json.dumps(fresh, indent=2, sort_keys=True))
-            witness.chmod(0o600)
+    pending = sorted({e for s, events in per_hook.items() if s != 'trusted' for e in events})
     out = {'state': 'untrusted' if pending else 'trusted',
-           'installed': sorted(set(ours)), 'pending': sorted(set(pending))}
-    if reused and not pending:
-        out['slot_reused'] = sorted(set(reused))
+           'installed': sorted(set(ours)), 'pending': pending}
+    for status in ('modified', 'untrusted', 'disabled'):
+        if per_hook.get(status):
+            out[status] = sorted(set(per_hook[status]))
     return out
 
 
@@ -274,9 +274,12 @@ def main():
             trust = codex_hook_trust(manifest['source_sha'])
             report['codex_hook_trust'] = trust
             if trust['state'] == 'untrusted':
-                findings.append('codex: hooks installed but not trusted (' +
-                                ', '.join(trust['pending']) + '); accept the directory '
-                                'and "Trust all" in a Codex session, or they never run')
+                why = ('changed since you trusted them' if trust.get('modified') else
+                       'disabled in /hooks' if trust.get('disabled') and not trust.get('untrusted')
+                       else 'not trusted yet')
+                findings.append('codex: hooks installed but ' + why + ' (' +
+                                ', '.join(trust['pending']) + '); open `codex` in the TUI and '
+                                'choose "Trust all and continue", or they never run')
         if a.api:
             from route import load_cfg
             from jev_client import diagnose

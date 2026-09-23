@@ -64,22 +64,45 @@ and the ledger itself — events grouped by `hook_context.client` and
 `native_event`. A whole class of events missing while another class arrives is a
 trust gate, not a broken hook.
 
-An upgrade does **not** generally re-arm gate 2. This was measured rather than
-assumed, after an earlier revision of this page claimed the opposite: on
-codex-cli 0.155.1, upgrading the runtime and re-running `codex exec` executed
-`UserPromptSubmit` with no fresh prompt, and the ledger recorded the events.
+### What Codex actually compares
 
-The reason is that `trusted_hash` is not computed over the command. Two
-adjacent slots — one holding an unrelated hook, one holding Jev's — were
-measured carrying the *same* hash. A trust grant therefore attaches to the
-slot, and a reinstall that lands in an already-trusted slot inherits it.
+Codex runs a user hook only while two things hold (codex-rs
+`hooks/src/engine/discovery.rs`):
 
-`jev doctor` reports this honestly. Alongside `state`, it emits `slot_reused`
-when a hook occupies a slot whose grant was recorded against a different
-command. `trusted` with `slot_reused` means "Codex will run these, but the
-operator approved something else here" — worth one look, not alarm. Trust is
-still per-machine, and `not_measured` — never `trusted` — is reported when
-there is no configuration to read, because an absent file answers nothing.
+- its state block in `~/.codex/config.toml` is not `enabled = false`, and
+- the block's `trusted_hash` equals the hash of the hook **as it stands now**.
+
+That hash is sha256 over the event, the matcher and the normalised handler —
+**including the command string**. Change the command and a trusted hook becomes
+*modified*: Codex skips it without a prompt in `codex exec` and asks again in
+the TUI. `enabled = true` appears on some blocks and not others; it is not what
+decides trust.
+
+This is why the host installer registers a **stable command**:
+
+```text
+<python> ~/.local/share/jev/bin/jev-hook codex UserPromptSubmit
+```
+
+`jev-hook` reads the active release from `~/.config/jev/installation.json` and
+hands over to it, so the command — and the hash — stay the same across upgrades.
+Earlier installs wrote `…/releases/<sha>/scripts/jev_hook.py`; measured on
+codex-cli 0.156.1, one upgrade in that form stopped Jev's Codex hooks on three
+hosts while every unchanged hook kept running. The first install that switches
+to the stable command changes it one last time, so accept **Trust all** once
+more after it; later upgrades do not ask.
+
+`jev doctor` recomputes the hash Codex compares and reports, per hook, whether
+it is `trusted`, `modified` (trusted once, command changed since), `untrusted`
+(never trusted) or `disabled`. The overall state is `trusted` only when every Jev
+hook is. Trust is per machine, and `not_measured` — never `trusted` — is
+reported when there is no configuration to read, because an absent file answers
+nothing.
+
+An earlier revision of this page said an upgrade does not re-arm the gate and
+that the hash is not taken over the command. Both were wrong: the hash
+comparison above is read from the Codex source and was checked against hashes
+Codex wrote itself.
 
 ## Integrity
 

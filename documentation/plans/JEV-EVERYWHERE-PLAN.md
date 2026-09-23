@@ -19,7 +19,7 @@ graph. It is updated as work lands; each item carries a measured verdict
 | P1-6 session handoff | **pass** | `DEV-BOX-SESSION-HANDOFF.md`, commands dry-run before publication |
 | P2-7 repository docs | **pass** | new `jev-without-datarim.md`; tutorial now covers both Codex gates and where the key goes under `host_jev`; doc gates green |
 | P2-8 site docs | **pass** | published to datarim.club; live pages verified in en and ru |
-| P3-9 Codex research | **pass** | `--dangerously-bypass-hook-trust` measured working on 0.155.1 |
+| P3-9 Codex research | **pass** (trust model corrected twice — see P3-9 below) | `--dangerously-bypass-hook-trust` measured working on 0.155.1; trust is a hash over the command, so the installer registers a stable command |
 | P3-10 installer audit | **pass** | see below |
 
 ### P3-10, measured in scratch homes
@@ -140,6 +140,50 @@ slots holding entirely different commands carry the identical `trusted_hash`,
 and after `91846a1 → a95c8d7` `codex exec` ran `UserPromptSubmit` with no
 prompt. Fixed in PR #421, which also fixes the check that reported `trusted`
 for a substituted command.
+
+### P3-9, second correction — the first one was wrong
+
+The correction above is itself wrong, and so were PRs #421 and #423 built on it.
+The Codex source settles it (`codex-rs/hooks/src/engine/discovery.rs`): a user
+hook runs only while its state block's `trusted_hash` equals `hook_hash` of the
+hook as it stands now, and that hash covers the **command string**. A changed
+command is `Modified` and skipped.
+
+What misled the earlier measurements:
+
+- **"Same hash in two slots."** Not re-measured, and the hash formula makes it
+  impossible for two different commands on the same event; the observation was
+  most likely two lines read from different blocks.
+- **"`codex exec` ran `UserPromptSubmit` after an upgrade."** It did — but the
+  run also carries Orca's and the hookify plugin's `UserPromptSubmit` hooks, and
+  the count of `hook:` lines was read as proof about Jev's. Plugin hooks are keyed
+  by plugin id, not by the `hooks.json` path, so they also survived the isolated
+  `CODEX_HOME` experiment that #423 relied on.
+- **`enabled = true`.** Present on some blocks (DEV-BOX 5 of 14), absent on others;
+  Codex's TUI trust writes only `trusted_hash`. It never decided trust.
+
+How it was proved this time, with the ledger as the witness rather than the
+count of `hook:` lines:
+
+| isolated copy of the Mac's Codex home, keys rewritten to the copy's path | `UserPromptSubmit` hooks run | Jev ledger events |
+|---|---|---|
+| as installed after the `791dfba` upgrade | 2 | **0** |
+| Jev slots' `trusted_hash` recomputed with the reproduced formula | 3 | **2** |
+| every state block removed | 0 | 0 |
+
+and the reproduced formula matches, byte for byte, hashes Codex itself wrote
+after a TUI "Trust all" on a throwaway home (one hook with a matcher, one
+without).
+
+Consequence in the field: the `11841679 → 791dfba` upgrade stopped Jev's Codex
+hooks on all three hosts, and `doctor`, reading presence, said `trusted`.
+
+Fix: the host installer now registers a stable command
+(`~/.local/share/jev/bin/jev-hook`) that resolves the active release, so the hash
+no longer moves on upgrade; `doctor` recomputes Codex's hash and reports
+`trusted` / `modified` / `untrusted` / `disabled` per hook. The witness file and
+`slot_reused` are removed — with the real comparison there is nothing for them
+to stand in for.
 
 ## Measured starting state (2026-09-23, before any change)
 
