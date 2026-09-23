@@ -18,7 +18,7 @@ graph. It is updated as work lands; each item carries a measured verdict
 | P1-5 component routing | **pass** | see below |
 | P1-6 session handoff | **pass** | `DEV-BOX-SESSION-HANDOFF.md`, commands dry-run before publication |
 | P2-7 repository docs | **pass** | new `jev-without-datarim.md`; tutorial now covers both Codex gates and where the key goes under `host_jev`; doc gates green |
-| P2-8 site docs | not started | operator decision on publishing path |
+| P2-8 site docs | **pass** | published to datarim.club; live pages verified in en and ru |
 | P3-9 Codex research | **pass** | `--dangerously-bypass-hook-trust` measured working on 0.155.1 |
 | P3-10 installer audit | **pass** | see below |
 
@@ -151,6 +151,44 @@ for a substituted command.
 
 The host-devs gap is the largest and is P0. Mac being two releases behind is
 why `codex_hook_trust` is absent there — the field ships in `91846a1`.
+
+### P2-8, published — and a bigger problem than the missing Jev section
+
+The site's getting-started page taught `./install.sh --with-claude` and
+symlinks into `~/.claude/`. Those flags no longer exist: the installer became
+project-local and requires `--project`, so **every new user following the site
+hit an argument error on their first command**. The symlink/copy mode cards,
+the topology-aware `update.sh` line and the `~/.claude/local/` overlay note
+described the same retired model.
+
+Corrected against the installer's own `--help`, and the missing Jev section
+added: what the advice is and is not, where the key goes and why not to paste
+it through a shell, `doctor` with and without `--api`, `off`/`on`, the floor
+surviving `jev off`, and both Codex trust gates.
+
+Verified before publishing: `php -l` clean, site contract PASS (528 routes),
+and both language routes rendered locally. Verified after: the deploy workflow
+succeeded and <https://datarim.club/en/getting-started> and `/ru/` both serve
+the new content with no `--with-claude` or `--copy` remaining.
+
+## After #421 landed: the fix verified on the upgrade it was built for
+
+All three machines moved to `1184167`. On DEV-BOX the upgrade exercised exactly
+the case `slot_reused` exists for, and it behaved correctly: with the witness
+pointing at the previous release's commands, the **first** `doctor` reported
+`slot_reused: [PostToolUse, PreToolUse, UserPromptSubmit]`, then recorded the
+new commands, so later runs read clean. `codex exec` afterwards ran
+`SessionStart` and `UserPromptSubmit` with no prompt.
+
+I briefly misread this as the old bug returning, because I read the witness
+file *after* a `doctor` run had already updated it — the second state, not the
+first. The isolated test (stale witness → single call) settled it.
+
+**Known limitation, stated rather than hidden.** The flag is one-shot by
+construction: it fires on the first run after the commands change and is gone
+from every run after. Someone who does not look at that first run will not see
+it. Making it sticky would need a separate acknowledged/unacknowledged state,
+which is more machinery than the signal currently justifies.
 
 ## Known red that is not ours
 
