@@ -95,12 +95,26 @@ def datarim_enabled(root):
 def codex_hook_trust(sha, home=None):
     """Whether Codex will actually execute the Jev hooks it has installed.
 
-    Codex records each hook under `[hooks.state."<file>:<event>:<i>:<j>"]` with a
-    `trusted_hash`, and runs it only once that block also carries
-    `enabled = true` -- granted by the operator in the TUI, never by writing the
-    file. The two states are indistinguishable from the client's own "Active"
-    counter, which counts installed hooks: measured on codex-cli 0.155.1, it
-    read 2/2 Active for UserPromptSubmit while the ledger held zero such events.
+    Codex records each trusted hook under
+    `[hooks.state."<file>:<event>:<i>:<j>"]` with a `trusted_hash`, granted by
+    the operator in the TUI and never by writing the file. The presence of that
+    block is the grant.
+
+    An earlier form of this check demanded `enabled = true` inside the block.
+    Codex writes that key on some blocks and not on others, within one version:
+    on codex-cli 0.156.1, DEV-BOX carried it on 5 of 14 state blocks, while the
+    Mac (16 blocks) and host-devs (13) carried it on none -- and neither did
+    two Mac backups from 2026-09-22. What decides whether it is written was not
+    determined. What was determined is that its absence is not a refusal: on
+    the Mac, blocks without it ran the hooks (see the measurement in the body).
+    The 11 `enabled = true` lines elsewhere in the Mac's config.toml all sit
+    under `[plugins."..."]`; a substring count over the whole file found those
+    and made the key look present in the hook blocks. Demanding it made the
+    check answer `untrusted` on two hosts whose hooks were demonstrably running.
+
+    Trust is invisible from the client's own "Active" counter, which counts
+    installed hooks: measured on codex-cli 0.155.1, it read 2/2 Active for
+    UserPromptSubmit while the ledger held zero such events.
 
     What `trusted_hash` covers is NOT the command string. Measured on
     codex-cli 0.155.1: `pre_tool_use:2:0` (an Orca hook) and `pre_tool_use:3:0`
@@ -113,7 +127,7 @@ def codex_hook_trust(sha, home=None):
     operator trusted whatever occupied this slot". This function therefore
     reports trust for the slots our hooks occupy, and separately reports
     `slot_reused` -- the case where our hook inherited a slot whose trust was
-    granted to a different command. `enabled = true` remains the only evidence
+    granted to a different command. The state block remains the only evidence
     that Codex will run it; the TUI's "Active" column counts installed hooks
     and cannot distinguish the two.
     """
@@ -151,10 +165,25 @@ def codex_hook_trust(sha, home=None):
                 key = re.sub(r'(?<!^)(?=[A-Z])', '_', event).lower()
                 slot = f'{key}:{i}:{j}'
                 ours.append(event)
+                # The body runs to the next `[` at the start of a line. Blank
+                # lines are included: `.*` matches the empty string, so a block
+                # written with one inside it is still read whole. (A rewrite
+                # here was tried and reverted -- both forms return the same
+                # body for such a block, so there was nothing to fix.)
                 block = re.search(
                     r'\[hooks\.state\."[^"]*:' + re.escape(slot) + r'"\]\n((?:(?!\[).*\n)*)',
                     text)
-                enabled = bool(block) and 'enabled = true' in block.group(1)
+                # The grant is the *presence* of the block carrying a hash.
+                # Measured with an isolated CODEX_HOME on 0.156.1: with the
+                # blocks present `codex exec` printed 4 `hook:` lines, and with
+                # every `[hooks.state.*]` block stripped it printed 0, while
+                # both runs answered the prompt -- so the blocks, not the
+                # client, are the difference. `enabled = true` appears on some
+                # blocks and is accepted; an explicit `enabled = false` states
+                # a refusal, so it is honoured.
+                body = block.group(1) if block else ''
+                enabled = bool(block) and 'trusted_hash' in body \
+                    and 'enabled = false' not in body
                 if not enabled:
                     pending.append(event)
                     continue

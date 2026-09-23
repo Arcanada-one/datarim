@@ -33,10 +33,30 @@ def _home(tmp, hooks, state):
 
 
 def _block(event_key, index, enabled):
-    body = 'trusted_hash = "sha256:deadbeef"\n'
-    if enabled:
-        body += 'enabled = true\n'
+    """A state block carrying both `trusted_hash` and `enabled = true`.
+
+    An untrusted hook has no block at all -- Codex writes one when the operator
+    grants trust. Some blocks carry `enabled = true` and some do not, within
+    one Codex version (DEV-BOX: 5 of 14 on 0.156.1; the Mac: 0 of 16);
+    `_block_0156` below is the form without it.
+    """
+    if not enabled:
+        return ''
+    body = 'trusted_hash = "sha256:deadbeef"\nenabled = true\n'
     return f'[hooks.state."/home/a/.codex/hooks.json:{event_key}:{index}:0"]\n{body}\n'
+
+
+def _block_0156(event_key, index):
+    """The block carries `trusted_hash` and no `enabled` -- every block on the
+    Mac and host-devs, and 9 of 14 on DEV-BOX, all on codex-cli 0.156.1."""
+    return (f'[hooks.state."/home/a/.codex/hooks.json:{event_key}:{index}:0"]\n'
+            'trusted_hash = "sha256:deadbeef"\n\n')
+
+
+def _block_refused(event_key, index):
+    """A version that writes an explicit refusal must still be honoured."""
+    return (f'[hooks.state."/home/a/.codex/hooks.json:{event_key}:{index}:0"]\n'
+            'trusted_hash = "sha256:deadbeef"\nenabled = false\n\n')
 
 
 class CodexHookTrust(unittest.TestCase):
@@ -44,7 +64,7 @@ class CodexHookTrust(unittest.TestCase):
         import tempfile
         self.tmp = tempfile.mkdtemp()
 
-    def test_a_written_hook_without_the_enabled_flag_reads_as_untrusted(self):
+    def test_a_written_hook_with_no_state_block_reads_as_untrusted(self):
         """The measured failure: installed, counted Active, never executed."""
         home = _home(self.tmp,
                      {'UserPromptSubmit': [{'hooks': [_hook(SHA)]}]},
@@ -101,6 +121,59 @@ class CodexHookTrust(unittest.TestCase):
                      _block('user_prompt_submit', 0, enabled=True))
         result = codex_hook_trust(SHA, home)
         self.assertEqual(result['state'], 'untrusted')
+
+    # -- a block without `enabled` -------------------------------------------
+    # The client writes `enabled = true` on some blocks only. A check that
+    # demanded it reported `untrusted` on two hosts whose hooks were running --
+    # measured with an isolated CODEX_HOME: state blocks present gave 4 `hook:`
+    # lines from `codex exec`, the same home with every block stripped gave 0.
+
+    def test_enabled_written_before_the_hash_reads_as_trusted(self):
+        """The order seen on DEV-BOX: `enabled = true` first, then the hash."""
+        home = _home(self.tmp,
+                     {'PreToolUse': [{'hooks': [_hook(SHA)]}]},
+                     '[hooks.state."/home/a/.codex/hooks.json:pre_tool_use:0:0"]\n'
+                     'enabled = true\ntrusted_hash = "sha256:deadbeef"\n\n')
+        self.assertEqual(codex_hook_trust(SHA, home)['state'], 'trusted')
+
+    def test_a_block_without_an_enabled_key_reads_as_trusted(self):
+        home = _home(self.tmp,
+                     {'UserPromptSubmit': [{'hooks': [_hook(SHA)]}]},
+                     _block_0156('user_prompt_submit', 0))
+        result = codex_hook_trust(SHA, home)
+        self.assertEqual(result['state'], 'trusted')
+        self.assertEqual(result['pending'], [])
+
+    def test_an_explicit_enabled_false_is_still_a_refusal(self):
+        """The negative half: presence alone must not override a refusal."""
+        home = _home(self.tmp,
+                     {'UserPromptSubmit': [{'hooks': [_hook(SHA)]}]},
+                     _block_refused('user_prompt_submit', 0))
+        result = codex_hook_trust(SHA, home)
+        self.assertEqual(result['state'], 'untrusted')
+        self.assertEqual(result['pending'], ['UserPromptSubmit'])
+
+    def test_a_hash_after_a_blank_line_inside_the_block_is_still_read(self):
+        """Blank lines inside a block must not hide the grant behind them.
+
+        This does not discriminate between the two body patterns tried here --
+        `.*` matches the empty string, so both read such a block whole. It is
+        kept as a statement about the file shape, not as a regression guard.
+        """
+        home = _home(self.tmp,
+                     {'UserPromptSubmit': [{'hooks': [_hook(SHA)]}]},
+                     '[hooks.state."/home/a/.codex/hooks.json:'
+                     'user_prompt_submit:0:0"]\n\n'
+                     'trusted_hash = "sha256:deadbeef"\n\n')
+        self.assertEqual(codex_hook_trust(SHA, home)['state'], 'trusted')
+
+    def test_a_block_without_a_trusted_hash_is_not_a_grant(self):
+        """An empty block is not evidence that the operator granted anything."""
+        home = _home(self.tmp,
+                     {'UserPromptSubmit': [{'hooks': [_hook(SHA)]}]},
+                     '[hooks.state."/home/a/.codex/hooks.json:'
+                     'user_prompt_submit:0:0"]\n\n')
+        self.assertEqual(codex_hook_trust(SHA, home)['state'], 'untrusted')
 
     # -- slot reuse -------------------------------------------------------
     # Codex's `trusted_hash` is NOT computed over the command: measured on
