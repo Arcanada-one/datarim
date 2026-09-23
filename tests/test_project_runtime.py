@@ -242,6 +242,57 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertFalse((self.project/'.datarim-runtime').exists())
 
 
+class IgnoredSourceTests(unittest.TestCase):
+    """The installer ships what the repository holds, not what the disk holds."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.src = Path(self.tmp.name).resolve()/'src'
+        (self.src/'skills/real').mkdir(parents=True)
+        (self.src/'skills/real/SKILL.md').write_text('---\nname: real\n---\n')
+        (self.src/'skills/.system/imagegen').mkdir(parents=True)
+        (self.src/'skills/.system/imagegen/SKILL.md').write_text('---\nname: imagegen\n---\n')
+        (self.src/'.gitignore').write_text('skills/.system/\n')
+        subprocess.run(['git', 'init', '-q', str(self.src)], check=True)
+
+    def test_an_ignored_directory_is_reported_and_its_files_are_skipped(self):
+        ignored = project_install.git_ignored(self.src)
+        self.assertIn('skills/.system', ignored)
+        self.assertTrue(project_install.is_ignored(
+            self.src/'skills/.system/imagegen/SKILL.md', ignored, self.src))
+
+    def test_a_tracked_sibling_with_a_shared_prefix_is_not_skipped(self):
+        """`skills/.system` must not swallow `skills/.systematic`."""
+        (self.src/'skills/.systematic').mkdir()
+        (self.src/'skills/.systematic/SKILL.md').write_text('---\nname: s\n---\n')
+        ignored = project_install.git_ignored(self.src)
+        self.assertFalse(project_install.is_ignored(
+            self.src/'skills/.systematic/SKILL.md', ignored, self.src))
+        self.assertFalse(project_install.is_ignored(
+            self.src/'skills/real/SKILL.md', ignored, self.src))
+
+    def test_a_source_that_is_not_a_git_checkout_ignores_nothing(self):
+        plain = Path(self.tmp.name).resolve()/'plain'
+        plain.mkdir()
+        self.assertEqual(project_install.git_ignored(plain), frozenset())
+
+    def test_the_installed_file_list_carries_no_ignored_skill(self):
+        """End to end against this repository: a dry run lists no `.system` skill
+        whether or not this checkout happens to hold one."""
+        target = Path(self.tmp.name).resolve()/'project'
+        target.mkdir()
+        subprocess.run(['git', 'init', '-q', str(target)], check=True)
+        result = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
+                                 str(target), '--init', '--dry-run'], capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        files = json.loads(result.stdout.strip().splitlines()[-1])["files"]
+        # Installed skill directories are named after the source path with '/'
+        # turned into '-', so `skills/.system/imagegen` would land as `.system-imagegen`.
+        leaked = [f for f in files if '/.system' in f]
+        self.assertEqual(leaked, [])
+
+
 class JevTransportTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

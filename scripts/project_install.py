@@ -27,6 +27,32 @@ PRIVATE_IGNORES = ('/.datarim-runtime/', '/.datarim-runtime-previous/',
                    '/.datarim-recovery-*/', '/config/credentials/', '/datarim/')
 
 
+def git_ignored(source=None):
+    """Paths under the shipped scopes that git ignores in this source checkout.
+
+    The installer used to take whatever sat on disk. On a checkout where Codex
+    had once written its own system skills into `skills/.system/` (ignored,
+    untracked), every project install copied OpenAI's `imagegen`,
+    `skill-installer` and three more skills into `.agents/`, `.claude/` and
+    `.cursor/` -- content no clone of the repository contains, and exactly the
+    place an ignored secret would travel the same way. A source that is not a
+    git checkout keeps the previous behaviour: nothing is known to be ignored.
+    """
+    source = Path(source or SOURCE)
+    try:
+        out = subprocess.run(['git', '-C', str(source), 'ls-files', '--others', '--ignored',
+                              '--exclude-standard', '--directory', '-z', '--', *SCOPES, 'AGENTS.md', 'VERSION'],
+                             capture_output=True, text=True, timeout=30, check=True).stdout
+    except (OSError, subprocess.SubprocessError):
+        return frozenset()
+    return frozenset(item.rstrip('/') for item in out.split('\0') if item)
+
+
+def is_ignored(path, ignored, source=None):
+    relative = Path(path).relative_to(source or SOURCE)
+    return any(str(relative) == item or str(relative).startswith(item + '/') for item in ignored)
+
+
 def private_ignores(text):
     for rule in PRIVATE_IGNORES:
         if rule not in text.splitlines():
@@ -146,12 +172,15 @@ def _install(args):
     for name in ('CLAUDE.md', 'CLAUDE.local.md', '.claude/CLAUDE.md'):
         if (root / name).exists() or (root / name).is_symlink():
             raise ValueError(f'Merge {name} into AGENTS.md and remove it before installing')
+    ignored = git_ignored()
     source_hash = hashlib.sha256()
     for scope in (*SCOPES, 'AGENTS.md', 'VERSION'):
         base = SOURCE / scope
         candidates = sorted(base.rglob('*')) if base.is_dir() else [base]
         for path in candidates:
             if any(part in ('__pycache__', '.pytest_cache', 'credentials', '.DS_Store') for part in path.parts):
+                continue
+            if is_ignored(path, ignored):
                 continue
             if path.is_symlink():
                 if not path.resolve().is_relative_to(SOURCE):
@@ -192,6 +221,8 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
             files[relative] = (json.dumps(updated, indent=2)+'\n').encode()
     # Native discovery paths, preserving whole-directory foreign skill sets.
     for skill in sorted((SOURCE / 'skills').rglob('SKILL.md')):
+        if is_ignored(skill, ignored):
+            continue
         relative = str(skill.parent.relative_to(SOURCE/'skills'))
         name = relative.replace('/', '-')
         header = skill.read_text().split('---', 2)
@@ -254,8 +285,11 @@ Activate the local CLI with `source .datarim-runtime/activate.sh`.
     try:
         for scope in SCOPES:
             if (SOURCE / scope).exists():
-                shutil.copytree(SOURCE / scope, stage / scope, symlinks=False,
-                                ignore=shutil.ignore_patterns('__pycache__', '.pytest_cache', '.DS_Store', 'credentials'))
+                by_name = shutil.ignore_patterns('__pycache__', '.pytest_cache', '.DS_Store', 'credentials')
+                def skip(directory, names, by_name=by_name):
+                    return set(by_name(directory, names)) | {
+                        n for n in names if is_ignored(Path(directory)/n, ignored)}
+                shutil.copytree(SOURCE / scope, stage / scope, symlinks=False, ignore=skip)
         for name in ('AGENTS.md', 'VERSION'):
             shutil.copy2(SOURCE / name, stage / name)
         (stage / 'bin').mkdir()
