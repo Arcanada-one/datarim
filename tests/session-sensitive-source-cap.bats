@@ -112,3 +112,9 @@ write_fixture() {
     && cmp -s "$SESSION_FILE" "$BATS_TEST_TMPDIR/before.md" \
     && [ ! -d "$FIXTURE_ROOT/datarim/sessions/.lock.$SESSION_ID" ]
 }
+
+@test "session capacity regression suite runs in the macOS portability job" {
+  local suites
+  suites="$(sed -n '/name: Run portability-sensitive suites/,/name: Run CI dependency and portability contracts/p' "$FRAMEWORK_ROOT/.github/workflows/bats.yml")"
+  [[ "$suites" == *'tests/session-sensitive-source-cap.bats'* ]]
+}

@@ -4,6 +4,14 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- Bind pipeline verdicts to recorded acceptance criteria, test cases, immutable
+  source scope and execution evidence. Failed attempts require correction and
+  invalidate affected downstream evidence instead of retaining an earlier pass.
+- Snapshot exact interaction-consumption receipts into heartbeats, with bounded
+  validation and rejection of stale, foreign or malformed receipt state.
+
 ### Fixed
 
 - **Jev floor silently off in Codex after another tool rewrote `hooks.json`.**
@@ -12,6 +20,15 @@ All notable changes to the Datarim framework are documented here. Format follows
   re-grants trust to Jev's own hooks (exact command match only, disabled hooks
   left alone, `config.toml.pre-jev-trust` kept); `jevcodex` does it at every
   host launch unless `JEV_NO_AUTO_TRUST=1`.
+- The receipt heartbeat helper ships in the project runtime and runs from it;
+  informational quick lookups stay explicitly uncertified without creating task
+  or evidence artifacts.
+- Require source-reading roles, including isolated reviewers, to verify approved
+  sanitized-source bindings before reading classified sensitive inputs. Preserve
+  compact bindings in the non-truncatable session layer.
+- Fail session saves when protected content or serialized metadata cannot fit;
+  preserve existing session bytes on failed appends. Include receipt regressions
+  in normal CI discovery and capacity regressions in the macOS portability job.
 
 ## [3.0.0] — 2026-09-23
 
