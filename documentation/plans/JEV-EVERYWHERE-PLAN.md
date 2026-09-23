@@ -13,7 +13,7 @@ graph. It is updated as work lands; each item carries a measured verdict
 |---|---|---|
 | P0-1 land PR #420 | **pass** | merged as `a95c8d7`; `main` carries `codex_hook_trust` and 37 Jev files |
 | P0-2 Mac → merged sha | **pass** (key + Codex gate: operator) | launchers at `a95c8d7`; `doctor` reports the new field |
-| P0-3 arcana-devs host Jev | **pass** (key + Codex gate: operator) | `datarim_enabled: false`; 12 Orca hooks preserved, 0 lost, other settings identical |
+| P0-3 arcana-devs host Jev | **pass** for install; routing **not_measured** | `datarim_enabled: false`; 12 Orca hooks preserved, 0 lost; floor 15/15; `hook_delivery` written; key still empty |
 | P0-4 DEV-AI → merged sha | **pass** | 18 foreign hooks preserved, 0 lost; `doctor` clean; API `ok: true`, `jev-1.13.0`, 314 ms |
 | P1-5 component routing | **pass** | see below |
 | P1-6 session handoff | **pass** | `DEV-AI-SESSION-HANDOFF.md`, commands dry-run before publication |
@@ -39,6 +39,19 @@ graph. It is updated as work lands; each item carries a measured verdict
   reported `keys_and_state: preserved`, deleted `.datarim-runtime` and the hook
   settings, and renamed the rest to `.datarim-uninstalled` rather than deleting
   it — recoverable by design, not a leftover.
+
+### arcana-devs, what is proven and what waits on the key
+
+Proven without a key: the hooks are registered (3 Jev entries beside the 12
+Orca ones), the floor is correct in both directions (15/15), and the hook path
+executes and fails open exactly as designed — a prompt returned in 0.1 s with
+no output, rc 0, no broken session, and a `hook_delivery` record written to the
+ledger.
+
+Waiting on the operator: `key_ready` is false because the key file is the
+protected empty placeholder. Until it is filled, `route` events cannot be
+produced there, so the end-to-end routing criterion for P0-3 stands at
+**not_measured** — not pass, not fail.
 
 ### Safety floor, verified on both newly-installed machines
 
