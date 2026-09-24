@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.0.1] — 2026-09-24
+
 ### Fixed
 
 - The Jev question is asked again. A fresh agent still installed without asking: it copied the README
