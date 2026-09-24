@@ -14,11 +14,11 @@ Credentials, channel URLs, bot tokens, and site-specific config live outside thi
 
 ## Publishing channel — one tool, no ad-hoc scripts
 
-When the deployment provides a **dedicated publishing application** (in the Arcanada ecosystem this is the Publisher at `Projects/Publisher/code/arcanada-publisher` — a browser-automation CLI + localhost HTTP API with per-platform adapters), ALL external publishing goes through it and nothing else:
+When the deployment provides a **dedicated publishing application** (your publishing tool — typically a browser-automation CLI + localhost HTTP API with per-platform adapters), ALL external publishing goes through it and nothing else:
 
 - **Social media and external sites** (Facebook, LinkedIn, X/Twitter, Reddit, VKontakte, any external destination) — publish ONLY through that application. Do NOT hand-roll one-off Playwright/`curl` scripts, do NOT post manually from an agent, do NOT stand up a parallel publisher. If the app fails, is not authenticated, or lacks a rule for the case at hand — **fix the app** (adapter, selector, docs rule, re-run its `login`), never route around it.
 - **Own/first-party sites** — publish ONLY via push to the repo's `main` on the code host (then CI/CD or the project's `deploy.sh` syncs to prod). Never edit files directly on a server.
-- Telegram Bot API remains a valid channel (it is one of the publisher's own transports / a first-party bot); its safety rules are in `Projects/Publisher/code/arcanada-publisher/docs/reference/telegram-bot-api-publish-safety.md`.
+- Telegram Bot API remains a valid channel (it is one of the publisher's own transports / a first-party bot); keep its safety rules alongside your publishing tool's documentation.
 
 Standalone per-platform publisher CLIs that predate the consolidated app are retired once their capability is absorbed — do not resurrect them.
 
@@ -239,7 +239,7 @@ def _verify_tg_safe_html():
 
 Disallowed tags are dropped and their inner text is preserved as plain escaped data — `<script>alert(1)</script>` becomes `alert(1)`, with no execution path opened. The allowlist of href schemes MUST be enforced operator-side — Telegram's own filter is inconsistent across clients and is not a defence boundary.
 
-**Telegram article bundle (operator-approved contract):** publish exactly two sequential ordinary channel posts to the same `chat_id`. Post 1 is media plus the bold title only. Post 2 is the title, the complete RU article text, and a final linked CTA `Читать статью полностью на arcanada.ai` pointing to the RU URL. The link appears only in post 2. Never set `reply_to_message_id`, `message_thread_id`, discussion-group fields, or any comment/thread relationship. Validate that post 1 fits the media-caption limit and post 2 fits 4096 UTF-16 units before sending; otherwise stop instead of splitting or changing the approved shape. Treat the pair as one publish operation: preserve both ordered `message_id` values, read back both ordinary channel posts, and report partial/UNKNOWN state without blind retry if either request is ambiguous. <!-- allow-non-ascii: literal-russian-cta-string-published-verbatim-to-telegram -->
+**Telegram article bundle (operator-approved contract):** publish exactly two sequential ordinary channel posts to the same `chat_id`. Post 1 is media plus the bold title only. Post 2 is the title, the complete RU article text, and a final linked CTA `Читать статью полностью на example.com` (your site's domain) pointing to the RU URL. The link appears only in post 2. Never set `reply_to_message_id`, `message_thread_id`, discussion-group fields, or any comment/thread relationship. Validate that post 1 fits the media-caption limit and post 2 fits 4096 UTF-16 units before sending; otherwise stop instead of splitting or changing the approved shape. Treat the pair as one publish operation: preserve both ordered `message_id` values, read back both ordinary channel posts, and report partial/UNKNOWN state without blind retry if either request is ambiguous. <!-- allow-non-ascii: literal-russian-cta-string-published-verbatim-to-telegram -->
 
 **Generic photo + caption decision tree (non-article messages only)** (input: `post_text`, optional `photo`):
 
@@ -365,9 +365,9 @@ Rationale:
 - **Reader UX** — the post body ends on a narrative beat; the link list lives in a single canonical place (the pinned/top comment).
 - **Maintenance** — one comment to update if a URL changes, vs editing the rendered post (FB edit history is shown to readers).
 
-Inline mentions in prose are fine (`Datarim (github.com/Arcanada-one/datarim, MIT) is open-source`, `Munera on muneral.com`). The rule targets **standalone link sections**, not contextual references.
+Inline mentions in prose are fine (`Datarim (github.com/Arcanada-one/datarim, MIT) is open-source`, `our tracker on example.com`). The rule targets **standalone link sections**, not contextual references.
 
-Publisher pattern for FB, LinkedIn, VK, and X: immediately after `POST_URL` is captured, post the first comment/reply with the CTA-links block and then verify its parent post. Telegram does not use this pattern; use the two ordinary channel posts above. If the size limit on a comment-capable platform is smaller than the link list, keep the blog URL plus 2–3 anchor links and rely on the website (`arcanada.one`) for the full directory. <!-- allow-non-ascii: literal-russian-fb-action-token-required-for-publisher-pattern -->
+First-comment pattern for FB, LinkedIn, VK, and X: immediately after `POST_URL` is captured, post the first comment/reply with the CTA-links block and then verify its parent post. Telegram does not use this pattern; use the two ordinary channel posts above. If the size limit on a comment-capable platform is smaller than the link list, keep the blog URL plus 2–3 anchor links and rely on your website (`example.com`) for the full directory. <!-- allow-non-ascii: literal-russian-fb-action-token-required-for-publisher-pattern -->
 
 **Verify the comment's parent post before commenting — never trust a returned URL blindly.** A browser publisher can return the feed's top post or an older post, not the one just created. Before attaching the first comment, read back the target post (its body/media) and confirm it is **this** article published **this** cycle; only then comment. A comment that lands on a stale post is a silent defect the operator finds later by hand.
 
@@ -381,7 +381,7 @@ wrong after publication, freeze mutations, show the operator the exact post URL 
 read-back evidence, and obtain explicit platform-specific permission before deleting,
 re-publishing, editing, or adding a corrective comment.
 
-**Video standard for social posts — animated cover (cover → cycling effects) over the article narration.** When a post has both a cover image AND article narration audio, the preferred attachment is NOT a static cover and NOT a plain cover+audio MP4, but an **animated screensaver video**: the post's cover shown clean for ~2 s, then a NEW visual effect every ~3 s cycling through a large randomly-shuffled pool, with smooth crossfades (~0.6 s) between effects, for the full length of the narration. The canonical generator is `Projects/Publisher/code/arcanada-publisher/dev-tools/video/make-cycle-video.sh <cover> <audio> <out.mp4> [intro_sec] [seg_sec] [seed]` — pure ffmpeg, no plugins. Rules:
+**Video standard for social posts — animated cover (cover → cycling effects) over the article narration.** When a post has both a cover image AND article narration audio, the preferred attachment is NOT a static cover and NOT a plain cover+audio MP4, but an **animated screensaver video**: the post's cover shown clean for ~2 s, then a NEW visual effect every ~3 s cycling through a large randomly-shuffled pool, with smooth crossfades (~0.6 s) between effects, for the full length of the narration. Generate it with a pure-ffmpeg script in your publishing tool (for example `make-cycle-video.sh <cover> <audio> <out.mp4> [intro_sec] [seg_sec] [seed]`), no plugins. Rules:
 - Inputs come **from the post itself**: the cover is the article's hero cover (the post-level cover, not an in-article inline preview), the audio is the article's own narration in the post language. The intro frame is always that cover.
 - The effect order is **re-shuffled randomly every run** (Fisher-Yates over the pool) so two posts never get the same sequence; pass a fixed `seed` only to reproduce one.
 - Video length always equals the narration length; narration plays from t=0 (the 2 s intro is the cover held still, not silence).
@@ -402,7 +402,7 @@ re-publishing, editing, or adding a corrective comment.
 
 <!-- allow-non-ascii-block: russian-tts-normalization-examples-are-the-literal-subject-of-this-content-work-skill -->
 - **Numbers -> Russian words** via `num2words(n, lang="ru")`: `340` -> "триста сорок", `33%` -> "тридцать три процентов", `5,1` -> "пять и одна десятых". For `$14` emit only the number when the source already says "долларов" right after (else you get a doubled "долларов долларов").
-- **Latin terms -> Cyrillic phonetics**, never left raw: product/brand names and abbreviations get a transliteration map (e.g. `Arcanada`->Арканада, `Datarim`->Датарим, `Muneral`->М+унерал, `Coworker`->Коворкер, `Telegram`->Телеграм, `Claude`->Клод, `README`->ридми, `PRD`->пи-эр-ди, `L4`->эль-четыре, `AGENTS.md`->Клод точка эм-дэ). Drop any leftover Latin run to a space as a safety net.
+- **Latin terms -> Cyrillic phonetics**, never left raw: product/brand names and abbreviations get a transliteration map (e.g. `Datarim`->Датарим, `Telegram`->Телеграм, `Claude`->Клод, `README`->ридми, `PRD`->пи-эр-ди, `L4`->эль-четыре, `AGENTS.md`->Клод точка эм-дэ). Drop any leftover Latin run to a space as a safety net.
 - **Stress markers for mis-stressed words.** Silero defaults to a wrong stress on many common words and you MUST force it with `+` placed **before** the stressed vowel: `второй`->`втор+ой` (Silero otherwise reads "вт-о-рой"), `месяц`->`м+есяц`, `уже` (adverb)->`уж+е`, `глаза`->`глаз+а`. Maintain a stress dictionary (stem-based, covers inflections) and extend it whenever a listen reveals a new wrong stress — common offenders are ordinals, homographs (за́мок/замо́к, у́же/уже́), names, and rare words.
 - **Verifying a stress marker without listening:** synthesize the word with and without the marker and compare the audio bytes (md5). Identical bytes mean Silero already stresses that syllable (your marker is redundant or misplaced); different bytes mean the marker moved the stress.
 - **Pauses — dashes and dotted filenames.** Silero renders an em/en dash (— / –) as a *long* pause; replace them with a hyphen `-` for a short break (measured: em-dash pause ~1.30 s vs hyphen ~1.16 s). Likewise a dotted filename like `AGENTS.md` voiced as «Клод точка эм-дэ» inserts a heavy pause on «точка» — drop the «точка», use «Клод эм-дэ».
@@ -431,8 +431,8 @@ re-publishing, editing, or adding a corrective comment.
 - **Current enforcement boundary.** Until the publishing application has a
   code-level receipt validator, this is a manual fail-closed preflight. The agent
   must inspect the campaign evidence and must not invoke a publish action when the
-  receipt or any PASS verdict is absent. In the Arcanada deployment, the receipt is
-  `~/.arcanada-publisher/policy/campaigns/<campaign-id>/evidence/media/<asset-id>/verification.json`
+  receipt or any PASS verdict is absent. Keep the receipt in the publishing tool's
+  campaign evidence, e.g. `<campaigns-dir>/<campaign-id>/evidence/media/<asset-id>/verification.json`,
   with sibling `source.txt`, `audio-asr.txt`, `audio-alignment.md`,
   `listening-checklist.md`, and (for MP4) `video-asr.txt`. The receipt requires
   `schemaVersion: 1` plus `campaignId`, `assetId`, `language`, `voice`,
@@ -441,26 +441,26 @@ re-publishing, editing, or adding a corrective comment.
   applicable verdict must be `PASS` (`videoAsrVerdict` may be `NOT_APPLICABLE`
   only when no MP4 exists), `videoSha256` must be `null` in that same audio-only
   case, and every non-null hash must be 64 lowercase hex. This required file set
-  and field list is the agent-facing enforcement contract. Publisher's
-  `docs/how-to/blog-audio-narration.md` carries the matching operational JSON example;
-  verify both committed versions before claiming cross-repository parity. Do not
+  and field list is the agent-facing enforcement contract. If your publishing tool
+  documents the same receipt, verify both committed versions before claiming
+  cross-repository parity. Do not
   claim CLI enforcement until a validator actually ships.
 - **Operator-directed site-first review exception.** If the operator explicitly
-  instructs the agent to publish fresh narration to an Arcanada first-party
+  instructs the agent to publish fresh narration to your own first-party
   website so the operator can listen there, the site may receive the new MP3
   before proof-listening. After the operator confirms the live-site listen, an
   explicitly requested smoke may also send the derived MP4 to the canonical
-  Telegram **test** channel through Publisher. Keep the campaign and receipt
+  Telegram **test** channel through the publishing tool. Keep the campaign and receipt
   `REVIEW_REQUIRED` / `PENDING`, expose the exact live URLs, and do not describe
   either asset as approved. This exception does not authorize the main Telegram
   channel, X, LinkedIn, Facebook, VK, YouTube, or another production/social
   destination. Read back the test-channel artifacts before reporting them.
-  Finish the receipt and run the normal Publisher gates before broader social
+  Finish the receipt and run the publishing tool's normal gates before broader social
   publication.
 - **Explicit production continuation after live review.** If, after the live
   site listen, the operator explicitly says to continue the production rollout,
   that statement authorizes the remaining named social/YouTube destinations
-  through Publisher even when the narration receipt is still
+  through the publishing tool even when the narration receipt is still
   `REVIEW_REQUIRED` / `PENDING`. Preserve that evidence status, surface it in
   the campaign record, and never call the media proof-listening gate `PASS`.
   Without this second production go, stop after the requested test-channel
@@ -468,7 +468,7 @@ re-publishing, editing, or adding a corrective comment.
 - **Chunking:** keep chunks small (<=600 chars, not the 900 default) — long chunks raise Silero's length-limit 500 even after a split. The chunker self-heals by recursively halving, but small chunks avoid the wasted retry rounds.
 - **Cache:** re-voiced MP3s live on Cloudflare R2 with a 1-year `immutable` cache. After overwriting an audio asset you MUST purge the Cloudflare cache for those URLs (and the listener should hard-refresh the browser), or the old narration keeps playing. Same rule as any content edit — see § Website Publishing.
 
-**Telegram article CTA — one link in ordinary channel post 2.** The final line of post 2 is the linked CTA `Читать статью полностью на arcanada.ai` to the RU article URL. Do not create a first comment, reply, discussion-group message, or thread; do not add the EN URL or a channel-self link. <!-- allow-non-ascii: literal-russian-cta-string-published-verbatim-to-telegram -->
+**Telegram article CTA — one link in ordinary channel post 2.** The final line of post 2 is the linked CTA `Читать статью полностью на example.com` to the RU article URL. Do not create a first comment, reply, discussion-group message, or thread; do not add the EN URL or a channel-self link. <!-- allow-non-ascii: literal-russian-cta-string-published-verbatim-to-telegram -->
 
 **X (EN) first-comment — the EN article + the canonical Telegram (RU) post.**
 On an X post the first reply carries TWO links, each language-labelled: the full
@@ -483,7 +483,7 @@ first comment (see § Universal rule).
 **FB / LinkedIn / VK first-comment — must cross-link both Telegram (RU) and X (EN).** Because these are published **after** TG and X (see § Publication Order), their first comment carries the blog link in the platform's language **+ the canonical Telegram (RU) post link + the X (EN) post link** (plus the product/framework site link for product articles). Label the language on each link (`Telegram (RU)`, `X (EN)`, blog `(RU)`/`(EN)`) so the reader knows the destination language before clicking. This is the reason X is published before FB/LI/VK — those URLs must already exist when their comments are written. All cross-links go in ONE comment; do not post a second comment to add a link.
 
 <!-- gate:history-allowed -->
-**Retrofit tools (FB):** the consolidated publishing app's Facebook adapter provides post-edit (remove a links-block from an existing post body) and comment-edit/replace (rewrite an existing first-comment) operations. In the Arcanada deployment that is the Publisher (`Projects/Publisher/code/arcanada-publisher`, `edit` / `comment` sub-commands). The standalone `fb-publish` retrofit scripts were retired once their capability was absorbed.
+**Retrofit tools (FB):** the consolidated publishing app's Facebook adapter provides post-edit (remove a links-block from an existing post body) and comment-edit/replace (rewrite an existing first-comment) operations. Use the tool's post-edit and comment-edit commands. The standalone `fb-publish` retrofit scripts were retired once their capability was absorbed.
 <!-- /gate:history-allowed -->
 
 ### LinkedIn
@@ -535,7 +535,7 @@ When the publishing app is unavailable and you must drive the post by hand throu
 | DM | 10,000 chars | Plain text |
 | Alt-text (per image) | ~1,000 chars | Plain text — separate budget |
 
-**Premium character limit (the Arcanada accounts are Premium):** the long-post limit is **25,000 characters** and it is the **same across every Premium tier — Basic, Premium, Premium+**. Do not gate it on Premium+ only, and do not say "Premium+" when the rule is just "Premium". A free (non-Premium) account is still capped at 280.
+**Premium character limit (for Premium accounts):** the long-post limit is **25,000 characters** and it is the **same across every Premium tier — Basic, Premium, Premium+**. Do not gate it on Premium+ only, and do not say "Premium+" when the rule is just "Premium". A free (non-Premium) account is still capped at 280.
 
 **Attaching media does NOT reduce the character budget.** A photo, video, GIF, or poll leaves the full 25,000-char text limit intact — media does not eat into the count. So on a Premium account, prefer the full post text in the tweet body (with the image attached) over a 280-char teaser, unless brevity is the deliberate goal. The teaser-plus-link pattern is a *free-account* constraint, not a Premium one.
 
@@ -546,7 +546,7 @@ When the publishing app is unavailable and you must drive the post by hand throu
 **Video**: Max 2:20 (free) / 60 min (Premium), 512 MB.
 
 **Premium UI is NOT the API — two separate products (verified 2026-06-05):**
-- **X Premium subscription** (~$8/mo Premium, ~$16/mo Premium+) unlocks *in-app/in-browser* features: 25,000-char long posts, Articles editor, analytics, reply-boost. It grants **no API access**. Our accounts (e.g. `@VeritasArcanaAI`) are Premium → publish via the **web UI** (manual or browser automation), not the API.
+- **X Premium subscription** (~$8/mo Premium, ~$16/mo Premium+) unlocks *in-app/in-browser* features: 25,000-char long posts, Articles editor, analytics, reply-boost. It grants **no API access**. If your account (e.g. `@your_handle`) is Premium, publish via the **web UI** (manual or browser automation), not the API.
 - **X API** (programmatic posting) is a *separate paid product*. As of Feb 2026 the free/Basic/Pro tiers are closed to new signups — default is **pay-per-use**: ~$0.015 per standard post, **~$0.20 per post containing a URL** (link posts are 13× the price), 2M reads/mo cap before Enterprise. So API auto-posting of link-bearing announcements is expensive; the UI route (Premium, no per-post cost) is preferred for our volume.
 
 **X Articles** (long-form editor, `x.com/compose/articles`): since Jan 2026 available to **all Premium tiers** (was Premium+ only). Up to **100,000 chars**, rich formatting (headings, bold/italic/strikethrough, lists, indentation), embeds images/video/GIF/posts/links. Desktop-web only; lands in a dedicated "Articles" tab on the profile + in follower timelines. **Caveat — reach:** Articles often behave like external links algorithmically (click-through friction) and may get *less* distribution than a native long post. For announcing a blog article, a native long post (≤25K, image attached, hook in first 280) usually out-reaches an X Article. Use Articles only when the X-native long-form artefact itself is the goal.
@@ -649,7 +649,7 @@ When publishing via browser automation (Playwright) rather than an official API,
 - **Comment publish can take up to ~10 s** (a "publishing" indicator shows) — wait ≥12 s before verifying.
 - **Read before delete:** open and identify a post/comment by its content before deleting — never delete blindly by URL or feed position (a wrong-target delete on a public profile is irreversible).
 
-> Full selector tables and the per-platform recipes live in the operator's knowledge base; the universal-publisher product (Publisher / PUB) owns the durable implementation of these rules.
+> Full selector tables and the per-platform recipes live in the operator's knowledge base; your publishing tool owns the durable implementation of these rules.
 
 ## Multi-Platform Workflow
 
@@ -688,8 +688,8 @@ comments must cross-link **both** the canonical **Telegram (RU)** post **and** t
 post. Those two URLs only exist once TG and X are already published — so TG and X go first,
 and X is published **before** FB/LI/VK, not alongside or after them. Publishing FB/LI/VK
 before X forces a second pass to back-fill the X link into their comments (a recurring
-"missing X link in the FB/LI comment" regression). The full per-platform first-comment
-contract lives in `Projects/Publisher/code/arcanada-publisher/documentation/explanation/social-links-and-comments-policy.md`.
+"missing X link in the FB/LI comment" regression). Keep the full per-platform first-comment
+contract with your publishing tool's documentation.
 
 ---
 

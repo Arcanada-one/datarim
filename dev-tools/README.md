@@ -1,8 +1,9 @@
 # dev-tools/ — Maintainer-stewarded tooling, runtime-shipped (no user CLI)
 
 > **Runtime-shipped since v2.15.0 (TUNE-0259).** `dev-tools/` is included
-> in `INSTALL_SCOPES` and symlinked into `~/.claude/dev-tools/` on default
-> installs (copy-mode also copies it). However, the directory remains
+> in the project install and copied into `.datarim-runtime/dev-tools/`
+> (Datarim 3.0 installs per project; the 2.x home-directory symlink install
+> is retired). However, the directory remains
 > **maintainer-stewarded** — it does NOT expose a user-facing CLI surface.
 > Scripts here are invoked exclusively by `/dr-*` commands at runtime (see
 > § Runtime consumers below). Treat any direct operator invocation as a

@@ -29,29 +29,43 @@ Not every task goes through every stage. Datarim routes tasks based on complexit
 | `/dr-qa` | Quality | Multi-layer quality verification: PRD alignment, design conformance, plan completeness, output quality. |
 | `/dr-compliance` | Hardening | Post-QA hardening. 7-step workflow: revalidate, simplify, check references, coverage, lint, tests, harden. |
 | `/dr-archive` | Archive | Archive the completed task. Performs reflection (Step 0.5) + evolution proposals, then stores context and updates backlog. |
-| `/dr-auto` | Autonomous | Autonomous execution meta-command. Turns on the FB-1..8 mandate (eight feedback-rules — see autonomous-agents.md), the L1 Inline Resolution Rule (close small gaps in-line rather than asking), and the autonomous-ops scope by default. Two modes — Continue (resume an existing task) and Bootstrap (full pipeline starting from /dr-init). Suppresses clarification questions through the five-level Question Suppression Ladder ([definition](../skills/autonomous-mode/SKILL.md)). |
 
-### Content Commands (2)
+### Execution Modes (5)
+
+| Command | Description |
+|---------|-------------|
+| `/dr-auto` | Autonomous execution meta-command. Turns on the FB-1..8 mandate (eight feedback-rules — see autonomous-agents.md), the L1 Inline Resolution Rule (close small gaps in-line rather than asking), and the autonomous-ops scope by default. Two modes — Continue (resume an existing task) and Bootstrap (full pipeline starting from /dr-init). Suppresses clarification questions through the five-level Question Suppression Ladder ([definition](../skills/autonomous-mode/SKILL.md)). |
+| `/dr-quick` | Lightweight fast lane for trivial fixes or quick lookups — assigns a `QCK-` ID, applies the change and writes a short archive, skipping the heavy init→prd→plan pipeline. |
+| `/dr-verify` | Standalone self-verification of a PRD, plan or `/dr-do` output: deterministic floor, native isolated peer review, then adversarial review. |
+| `/dr-wizard` | Guided, one-question-at-a-time task-spec wizard that co-authors a PRD with you. |
+| `/dr-orchestrate` | Tmux-based pipeline runner. The command and autonomy policy are core; the runner itself is the opt-in `dr-orchestrate` plugin. |
+
+### Content Commands (3)
 
 | Command | Description |
 |---------|-------------|
 | `/dr-write` | Create written content — articles, blog posts, documentation, research papers, social media. Uses the **writer** agent with the writing workflow skill. |
 | `/dr-edit` | Editorial review — fact verification, AI pattern removal, style consistency, publication-ready quality. Uses the **editor** agent with factcheck and humanize skills. |
+| `/dr-publish` | Prepare ready-to-publish, platform-adapted payloads for approved content. It does not send anything; dispatch is a separate, gated step. |
 
-### Framework Management Commands (3)
+### Framework Management Commands (5)
 
 | Command | Description |
 |---------|-------------|
 | `/dr-addskill` | Create or update skills, agents, commands. Researches best practices, audits existing framework, generates artifacts in project or user scope. |
 | `/dr-optimize` | Audit and optimize the framework. Prune unused components, merge duplicates, fix broken references, sync documentation. Run periodically or when the framework feels bloated. |
+| `/dr-doctor` | Diagnose and repair Datarim operational files — thin one-liner schema, externalised task descriptions. |
+| `/dr-plugin` | Manage opt-in plugins: `list`, `enable`, `disable`, `sync`, `doctor`. |
 | `/dr-dream` | Knowledge base maintenance. Organize files, build index, cross-reference documents, flag contradictions, archive stale content. Run periodically or when the knowledge base feels messy. |
 
-### Utility Commands (3)
+### Utility Commands (5)
 
 | Command | Description |
 |---------|-------------|
 | `/dr-status` | Check current task status, pipeline progress, and backlog summary. Read-only. |
 | `/dr-next` | Resume work from the last checkpoint. Restores context and picks up where you left off. |
+| `/dr-save` | Save the current session state to a handoff file before the context window is lost. |
+| `/dr-continue` | Restore a saved session in a clean context window, re-verifying each claim before resuming. |
 | `/dr-help` | Show this command reference. |
 
 ### Standalone Commands (2)
@@ -87,7 +101,7 @@ For quick one-off checks, use `/factcheck` or `/humanize` directly on any file.
 
 Stages in `[brackets]` are optional — included when the agent determines they add value. `archive` always runs reflection internally as mandatory Step 0.5 (v1.10.0).
 
-## Agents (17)
+## Agents (19)
 
 | Agent | Role |
 |-------|------|
@@ -108,6 +122,8 @@ Stages in `[brackets]` are optional — included when the agent determines they 
 | librarian | Organize knowledge base, build index, cross-reference |
 | security | Threat modeling, vulnerability audit |
 | sre | Reliability, observability, incident response |
+| peer-reviewer | Adversarial reviewer for `/dr-verify` Layer 2/3 in a clean isolated context; findings only |
+| dr-orchestrate-resolver | Classifies an unknown pane line into a slash-command for the `dr-orchestrate` plugin; non-functional without the plugin |
 
 ## Backlog
 

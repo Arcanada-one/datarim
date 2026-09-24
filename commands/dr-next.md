@@ -15,7 +15,7 @@ Continue from where you left off.
 ### EXECUTION HOST
 
 1. Source the resolver: `source "${DATARIM_RUNTIME:?}/dev-tools/lib/execution-host.sh"`.
-2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
+2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (map path: `$DATARIM_EXEC_HOSTS_MAP` when set, else the machine-local `$HOME/.claude/local/config/execution-hosts.yml` that `dev-tools/check-execution-host-health.sh` also defaults to; the map is operator-local, never part of the project install, and absent means unconfigured).
 3. On **off-host** (exit code 10) for this read/utility command: proceed LOCALLY in read-only mode -- do NOT dispatch (dispatching an observational command to the very host the laptop is meant to monitor buys nothing). Surface the delegation directive (your site's dispatch tooling, if any -- the framework ships none) as information only, never as a blocking question.
 4. On **unconfigured** (exit code 0, binding absent): proceed unchanged (fail-open).
 5. On **on-host** (exit code 0, binding present): proceed normally.
@@ -32,7 +32,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 ## Read
 - `datarim/activeContext.md`
 - `datarim/tasks.md`
-- `datarim/progress.md`
+- `datarim/tasks/{TASK-ID}-task-description.md` (per-task progress; `progress.md` was abolished and is not read)
 - `datarim/backlog.md` (for routing when no active task)
 
 ## Write

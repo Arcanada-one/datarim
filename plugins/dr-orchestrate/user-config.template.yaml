@@ -17,28 +17,20 @@ context_window:
   selective_percent: 75
   full_clear_percent: 90
 
-# Phase 2 (TUNE-0165): subagent inference layer. Effective autonomy is resolved
-# per-space at runtime via action_gate.sh + space.yml § autonomy.policy.
-subagent:
-  # Fallback chain tried in order. First parseable JSON response wins.
-  # Recognised backends: coworker-deepseek, coworker-groq, claude, codex.
-  fallback_chain: ["coworker-deepseek", "claude", "codex"]
-  # Per-backend wall-clock budget. Chain continues on timeout.
-  timeout_s: 15
-  # Caller-side gate. Below this, escalation_backend.sh is invoked.
-  confidence_threshold: 0.80
-
-# Phase 2 (TUNE-0165): escalation routing.
-escalation:
-  # backend ∈ {mock, dev-bot}. mock writes JSONL locally; dev-bot is stub
-  # until AGENT-0017/0018 lands the real consumer.
-  backend: "mock"
-  # JSONL ledger for mock escalations. Append-only.
-  mock_log: ~/.local/share/dr-orchestrate/escalation.jsonl
+# Subagent inference layer. Effective autonomy is resolved per-space at
+# runtime via action_gate.sh + space.yml § autonomy.policy.
+#
+# The resolver chain, its budget, the confidence threshold and the escalation
+# backend are NOT read from this file. Set them in the environment:
+#   DR_ORCH_SUBAGENT_CHAIN        default "claude codex cursor"
+#   DR_ORCH_RESOLVER_TIMEOUT_S    default 15 (per backend)
+#   DR_ORCH_CONFIDENCE_THRESHOLD  default 0.80
+#   DR_ORCH_ESCALATION_BACKEND    mock | dev-bot (default mock; dev-bot is a stub)
+#   DR_ORCH_ESCALATION_MOCK_LOG   default ~/.local/share/dr-orchestrate/escalation.jsonl
 
 # Bot-Interaction Interface dispatcher (Datarim v2.5.0+).
 # Routes orchestrator IO either through terminal (current behaviour) or
-# through a bot proxy (e.g. AGENT-0017) via the plugin v0.3.0+ interface.
+# through a bot proxy via the plugin v0.3.0+ interface.
 bot_interaction:
   provider: terminal              # terminal | agent0017
   endpoint: ""                    # required iff provider=agent0017 (e.g. http://localhost:3010/prompts)

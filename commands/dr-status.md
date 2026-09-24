@@ -159,7 +159,7 @@ After printing status, MUST emit a CTA block ([definition](../skills/cta-format/
 
 **Routing logic for `/dr-status`:**
 
-- One active task → primary command for that task's current pipeline phase (resolved from `progress.md`/`tasks.md`)
+- One active task → primary command for that task's current pipeline phase (resolved from `tasks.md` and the task's description file)
 - Multiple active tasks → CTA picks the highest-priority task as primary; surfaces all others in the variant-B menu of other active tasks per `cta-format.md`
 - No active tasks, backlog has items → primary `/dr-init` (pick from backlog)
 - No active tasks, empty backlog → primary `/dr-init "<description>"` (start new task)

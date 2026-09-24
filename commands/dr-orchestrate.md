@@ -38,7 +38,7 @@ through snapshot-first `/dr-next <TASK-ID>`. See
 3. `semantic_parser.sh parse` — rule-based pass returns the selected action, confidence, and provenance. Learned matches are exact and must still name an action in the bundled/user trust registry.
 4. **Hit (confidence > 0)** — apply the immutable action gate, write a cycle checkpoint, execute through the controlled pane seam, and append schema-v2 audit evidence.
 5. **Miss (confidence == 0)** — Phase 2 path:
-   - `subagent_resolver.sh resolve` — multi-backend chain (coworker → claude → codex), 15s per backend, lenient JSON parse, FD-3 close.
+   - `subagent_resolver.sh resolve` — multi-backend chain (claude → codex → cursor by default, overridable via `DR_ORCH_SUBAGENT_CHAIN`), 15s per backend (`DR_ORCH_RESOLVER_TIMEOUT_S`), lenient JSON parse, FD-3 close.
    - Confidence threshold gate (default `0.80`):
      - Pass → derive `framework_command` for slash commands and call
        `plugins/dr-orchestrate/scripts/action_gate.sh` before autonomous execution. Space-policy
@@ -60,14 +60,18 @@ context_window:
   enabled: false
   trust_same_uid_runtime: false
   policy_label: ""
-subagent:
-  fallback_chain: ["coworker-deepseek", "claude", "codex"]
-  timeout_s: 15
-  confidence_threshold: 0.80
-escalation:
-  backend: "mock"
-  mock_log: ~/.local/share/dr-orchestrate/escalation.jsonl
 ```
+
+The resolver chain, its budget, the confidence threshold and the escalation
+backend are read from environment variables, not from `user-config.yaml`:
+
+| Variable | Default |
+|----------|---------|
+| `DR_ORCH_SUBAGENT_CHAIN` | `claude codex cursor` |
+| `DR_ORCH_RESOLVER_TIMEOUT_S` | `15` |
+| `DR_ORCH_CONFIDENCE_THRESHOLD` | `0.80` |
+| `DR_ORCH_ESCALATION_BACKEND` | `mock` |
+| `DR_ORCH_ESCALATION_MOCK_LOG` | `~/.local/share/dr-orchestrate/escalation.jsonl` |
 
 ## Audit (schema v2)
 

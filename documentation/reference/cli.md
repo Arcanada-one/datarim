@@ -39,7 +39,7 @@ This is documented behaviour, not a defect. The listener is the **reference impl
 To stand up the listener:
 
 ```bash
-# 1. Activate the plugin (creates ~/.claude/plugins/dr-orchestrate symlinks).
+# 1. Activate the plugin (creates symlinks under .datarim-runtime/local/<category>/dr-orchestrate/).
 /dr-plugin enable /absolute/path/to/code/datarim/plugins/dr-orchestrate
 
 # 2. Install adnanh/webhook (one option — see https://github.com/adnanh/webhook for others).

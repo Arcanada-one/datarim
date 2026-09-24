@@ -2,7 +2,9 @@
 # cli/lib/load-local-config.sh — generic personal-config loader.
 #
 # Reads KEY=value pairs from:
-#   ${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal.env
+#   ${DATARIM_RUNTIME}/local/config/personal.env
+# (no-op when DATARIM_RUNTIME is unset; DATARIM_LOCAL, if set, must equal
+# ${DATARIM_RUNTIME}/local or the call is refused).
 #
 # Contract:
 #   - File absent or unreadable → return 0 silently (fail-soft).

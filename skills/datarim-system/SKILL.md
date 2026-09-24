@@ -215,83 +215,42 @@ When the question is «is THIS code generating bad data?» for an integration th
 
 ---
 
-## Runtime / Canonical Identity (symlink-default)
+## Runtime / Canonical Identity (project-local copy)
 
-Under the default install (v1.17.0+ symlink mode), `${DATARIM_RUNTIME:?}/{skills,agents,commands,templates}/{name}.md` and the corresponding `code/datarim/<scope>/{name}.md` in the cloned framework repo are **the same file** — same inode, same content, same writes. Verify with `stat -f %i <runtime-path> <repo-path>` (macOS) or `stat -c %i` (GNU); identical inode numbers confirm symlink-mode.
+Datarim 3.0 installs a **pinned copy** of the framework into each project at
+`.datarim-runtime/` (`install.sh --project <path>`; `update.sh` runs the same
+transaction). The installer copies files and refuses symlinks, so
+`${DATARIM_RUNTIME:?}/{skills,agents,commands,templates}/{name}.md` is **not** the
+same file as `<scope>/{name}.md` in the framework source repository.
 
-Implications when editing a runtime artefact:
+Implications when editing a framework artefact:
 
-- A single `Edit`/`Write` to either path is the entire change. No `cp` / `rsync` / "sync runtime" step exists by construction; copy-mode reflexes from pre-v1.17 do not apply.
-- `git diff` in the canonical repo immediately shows the change — that is the single source of truth for review and commit.
-- A double-write (edit runtime, then `cp` to repo) is a no-op at best and an inode-detaching footgun at worst. If `cp` reports `are identical (not copied)`, the install is symlinked and the cp was unnecessary.
+- Edit the framework source repository, commit there, then re-run
+  `./install.sh --project <path>` to refresh the project's runtime. The source
+  repository is the single source of truth for review and commit.
+- An edit made only under `.datarim-runtime/` is invisible to the source
+  repository's `git diff` and is discarded by the next install, which replaces
+  `.datarim-runtime/` wholesale (carrying over only `state/` and
+  `jev-config.json`).
+- `.datarim-runtime/installation.json` records the source commit (`source_sha`),
+  a digest of the source tree (`source_digest`) and digests of the client entry
+  files the install wrote; use it to tell which framework revision a project runs.
 
-Copy-mode installs (`./install.sh --copy`, Windows / FAT) keep the legacy two-file topology; in that mode the canonical resync recipe is `git pull && ./install.sh --copy --force --yes`. Detect copy-mode by `stat`-ing the inodes: divergent inode numbers = copy-mode = manual sync needed.
+The pre-3.0 symlink-mode install (runtime directories symlinked into a framework
+clone under the user's home directory) is retired; guidance written for it does
+not apply to a 3.0 project.
 
-
-## Parent-Symlink Diagnostic (path resolution / git topology)
-
-When a parent directory is itself a symlink, `ls -la <child>` and `find`
-lie about link status. This trips agents into alleging "copy drift" against
-a symlinked runtime, or misreading git topology. Diagnose the parent first.
-
-**The trap.** `ls -la ~/.claude/commands/dr-verify.md` prints `-rw-r--r--`
-(a regular file) even when the file lives inside a symlinked tree. If
-`~/.claude/commands` is itself a symlink into the cloned framework repo,
-`ls -la` on the *child* path transparently resolves through the parent and
-shows the **target inode's** attributes, not the link status of the path you
-passed. The child looks like a plain regular file, so the muscle-memory
-conclusion "this is a copy, not a symlink" is wrong by construction. The
-canonical symlink-default install (v1.17.0+) uses one symlink per category —
-`~/.claude/{commands,skills,agents,templates}` are each parent-level symlinks
-into the repo; the files under them inherit resolution and need no per-file
-symlink. This saves dozens of inode-level links but defeats naive per-file
-checks.
-
-**What to check, in order.**
-
-1. Inspect the parent directory, never the child, first:
-   `ls -la ~/.claude/` — a `lrwxr-xr-x` line on `commands` / `skills` /
-   `agents` / `templates` proves the parent is a symlink.
-2. Or resolve it directly: `readlink ~/.claude/commands ~/.claude/skills
-   ~/.claude/agents`. A non-empty target means parent-level symlink.
-3. Only if the parents are real directories should you check individual
-   files with `ls -la <file>` and `readlink <file>`.
-4. `find` tell: `find ~/.claude/commands -maxdepth 1 -name 'dr-*.md' -type l`
-   returning zero **and** the same query with `-not -type l` also returning
-   zero means `find` never descended into the parent — because the parent is
-   a symlink and `find` does not traverse a symlinked dir without `-L`. Two
-   empty results is the signature of a symlinked parent, not an empty dir.
-5. `file <path>` follows symlinks by default and reports the resolved inode
-   type; use `file -h <path>` to test whether the path *itself* is a symlink.
-
-**Why it also breaks git topology.** Git records the symlink as a blob whose
-content is the link target, not the pointed-to tree. If a runtime tree is a
-symlink into a separate repo, `git status` / `git diff` run from the outer
-repo see only the link entry, while edits land in the *inner* repo's working
-tree. Confirm which repo owns a change with `git -C <resolved-target-dir>
-status` after `readlink`-ing the parent, rather than trusting the path you
-typed. Verify same-inode identity across the two paths with
-`stat -f %i <a> <b>` (macOS) / `stat -c %i <a> <b>` (GNU): identical inode
-numbers confirm the two paths are the same file through a symlink.
-
-**Fix.** There is usually nothing to "fix" — a symlinked parent is the
-intended install topology, not drift. The repair is to stop the false alarm:
-re-run the diagnosis on the parent, edit the file once at either path (the
-write lands in the single shared inode), and review the change from the repo
-that owns the resolved target. Only when `readlink` shows a **dangling**
-target (points at a moved or deleted clone) is real repair needed — re-point
-the parent symlink at the current framework clone
-(`ln -sfn <clone>/<category> ~/.claude/<category>`) or re-run the installer.
-
-## Loading Order (v1.17.0+)
+## Loading Order
 
 Skills, agents, commands, and templates load from two layers:
 
-1. **Framework layer:** `${DATARIM_RUNTIME:?}/{skills,agents,commands,templates}/{name}.md`.
-   In symlink-mode (default since v1.17.0) this resolves to the
-   cloned datarim repo. In copy-mode it resolves to local copies.
+1. **Framework layer:** `${DATARIM_RUNTIME:?}/{skills,agents,commands,templates}/{name}.md`
+   — the pinned copy described above.
 2. **Local overlay:** `${DATARIM_RUNTIME:?}/local/{skills,agents,commands,templates}/{name}.md`.
-   User-private. Gitignored. Created empty by `install.sh`.
+   Project-private and never committed. `install.sh` does not create it, and a
+   re-install does not carry it over, so re-apply overlay files (and re-run
+   `/dr-plugin sync` for plugin links, which also live under `local/`) after an
+   update.
 
 **Conflict resolution:** if a name collides between layer 1 and layer 2, the
 local overlay wins. `validate.sh` emits a WARN line per detected override.
