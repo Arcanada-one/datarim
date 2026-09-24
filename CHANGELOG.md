@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.0.3] — 2026-09-25
+
 ### Fixed
 
 - A refused install that carried answer flags without a valid token now lists them right after its opening
