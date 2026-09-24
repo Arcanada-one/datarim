@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [3.1.0] — 2026-09-24
+
 ### Security
 
 - `personal-id-forbidden.regex` no longer lists personal, consumer-project or host names: a public
