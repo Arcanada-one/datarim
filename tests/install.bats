@@ -174,10 +174,11 @@ CHECK
     run sh -c 'sh "$1" --project "$2" --answers "$3" --client all --permissions ask --with-jev 2>&1 >/dev/null' \
         _ "$PRODUCT_ROOT/install.sh" "$PROJECT" "$token"
     [ "$status" -eq 0 ]
-    [[ "$output" == *'Include these lines in your report to the user:'* ]]
+    [[ "$output" == *'Include these lines in your report to the user, verbatim:'* ]]
     [[ "$output" == *'key (optional): '*'config/credentials/jev/api-key; the Jev floor works without it; paste it with an editor, never with echo/printf'* ]]
     [[ "$output" == *'never put the key or any JEV_* / DATARIM_* variable in .zshrc/.bashrc'* ]]
-    [[ "$output" == *'permission mode: ask (stored in '*'/.datarim-runtime/state/jev/FULL_PERMISSIONS'* ]]
+    [[ "$output" == *'permission mode: ask — '*'/.datarim-runtime/state/jev/FULL_PERMISSIONS (present = full, absent = ask;'* ]]
+    [[ "$output" == *'.agents/skills/dr-* and .cursor/skills/dr-* are the /dr-* commands packaged for Codex/Cursor, not extra framework skills'* ]]
     [[ "$output" == *'Codex: open `codex` once in this project and accept the hooks, or run `jev trust`'* ]]
 }
 
@@ -193,13 +194,14 @@ CHECK
     DATARIM_INSTALL_NONINTERACTIVE=1 install_project --without-jev --client codex --permissions ask
     [ "$status" -eq 2 ]
     [[ "$output" == 'STOP. Nothing was installed.'* ]]
+    [[ "$output" == *"Ignored (not yet the user's answers): --client codex --without-jev --permissions ask"* ]]
     [[ "$output" == *'a new token replaces any earlier one'* ]]
     token="$(answers_token "$output")"
     [ -n "$token" ]
     [ "$(ls -A "$PROJECT")" = ".git" ]
     install_project --answers "$token" --without-jev --client codex --permissions ask
     [ "$status" -eq 0 ]
-    [[ "$output" == *'permission mode: ask (stored in '*'change with `jev permissions full|ask`)'* ]]
+    [[ "$output" == *'permission mode: ask — '*'change with `jev permissions full|ask`)'* ]]
     [[ "$output" != *'Codex: open'* ]]
     [ -f "$PROJECT/.datarim-runtime/installation.json" ]
     [ ! -e "$PROJECT/.git/datarim-install-answers" ]
