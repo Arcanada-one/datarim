@@ -373,6 +373,50 @@ class InstallationLifecycleTests(unittest.TestCase):
             self.assertEqual(project_install.main(), 0)
         self.assertFalse(self.manifest()['with_jev'])
 
+    # -- a fresh install needs an explicit Jev choice --------------------------
+
+    def fresh(self, **changes):
+        base = {k: v for k, v in vars(self.args).items() if k != 'with_jev'}
+        return Namespace(**{**base, **changes})
+
+    def test_a_fresh_install_without_a_choice_is_refused_before_any_write(self):
+        with self.assertRaisesRegex(project_install.ChoiceRequired, 'Ask the user|ask the user'):
+            project_install.install(self.fresh())
+        self.assertFalse((self.project/'.datarim-runtime').exists())
+        self.assertFalse((self.project/'datarim').exists())
+
+    def test_a_dry_run_without_a_choice_prints_the_plan_and_the_questions(self):
+        import contextlib, io
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            project_install.install(self.fresh(dry_run=True))
+        self.assertIn('"files"', out.getvalue())
+        self.assertIn('--with-jev or --without-jev', err.getvalue())
+        self.assertFalse((self.project/'.datarim-runtime').exists())
+
+    def test_an_update_without_a_choice_keeps_the_recorded_one(self):
+        project_install.install(self.args)
+        (self.source/'VERSION').write_text('next\n')
+        project_install.install(self.fresh())
+        self.assertFalse(self.manifest()['with_jev'])
+
+    def test_the_refusal_exits_non_zero_on_the_command_line(self):
+        run = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
+                              str(self.project)], capture_output=True, text=True, timeout=120)
+        self.assertEqual(run.returncode, 2)
+        self.assertEqual(run.stdout, '')
+        for text in ('Datarim needs your choices', '--client claude,codex,cursor', 'jev permissions full',
+                     '--dry-run'):
+            self.assertIn(text, run.stderr)
+
+    def test_a_jev_install_says_where_the_key_goes(self):
+        import contextlib, io
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            project_install.install(self.with_args(with_jev=True))
+        self.assertIn(str(self.project/'config/credentials/jev/api-key'), err.getvalue())
+        self.assertIn('paste the key on one line', err.getvalue())
+
     def test_client_option_parsing(self):
         self.assertEqual(project_install.parse_clients(['codex,claude', 'codex']), ('claude', 'codex'))
         self.assertEqual(project_install.parse_clients(['all']), ('claude', 'codex', 'cursor'))

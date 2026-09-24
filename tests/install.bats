@@ -4,7 +4,7 @@ load 'helpers/project_install'
 setup() { setup_project_fixture; }
 
 @test "explicit project installation never writes global agent discovery" {
-    install_project
+    install_project --without-jev
     [ "$status" -eq 0 ]
     [ -f "$PROJECT/.datarim-runtime/installation.json" ]
     # Datarim writes nothing into files a project shares: no AGENTS.md is created.
@@ -16,9 +16,9 @@ setup() { setup_project_fixture; }
 }
 
 @test "unchanged project install is idempotent" {
-    install_project
+    install_project --without-jev
     [ "$status" -eq 0 ]
-    install_project
+    install_project --without-jev
     [ "$status" -eq 0 ]
     [[ "$output" == *'"status": "unchanged"'* ]]
     [ ! -e "$PROJECT/.datarim-runtime-previous" ]
@@ -35,7 +35,7 @@ setup() { setup_project_fixture; }
 }
 
 @test "project initialization creates only local task state" {
-    install_project --init
+    install_project --without-jev --init
     [ "$status" -eq 0 ]
     [ -f "$PROJECT/datarim/tasks.md" ]
     [ -f "$PROJECT/datarim/backlog.md" ]
@@ -61,7 +61,7 @@ CHECK
 @test "foreign discovery collision fails without partial installation" {
     mkdir -p "$PROJECT/.agents/skills/dr-do"
     printf 'foreign skill' > "$PROJECT/.agents/skills/dr-do/SKILL.md"
-    install_project
+    install_project --without-jev
     [ "$status" -eq 2 ]
     [ ! -e "$PROJECT/.claude/commands/dr-do.md" ]
     [ ! -e "$PROJECT/.datarim-runtime" ]
@@ -85,7 +85,7 @@ CHECK
 }
 
 @test "uninstall refuses to overwrite a subsequent operator edit" {
-    install_project
+    install_project --without-jev
     [ "$status" -eq 0 ]
     printf '\nOperator addition\n' >> "$PROJECT/.claude/commands/dr-do.md"
     install_project --uninstall
@@ -97,7 +97,7 @@ CHECK
 
 @test "an operator's AGENTS.md edits survive install and uninstall" {
     printf '# Rules\n' > "$PROJECT/AGENTS.md"
-    install_project
+    install_project --without-jev
     [ "$status" -eq 0 ]
     printf 'Operator addition\n' >> "$PROJECT/AGENTS.md"
     install_project --uninstall
@@ -128,7 +128,7 @@ CHECK
     # Ported intent of 96a350f: the 2.x copy installer filtered by extension
     # and dropped heartbeat-receipts.py. The project installer copies whole
     # scopes; this pins that the helper arrives intact and works in place.
-    install_project
+    install_project --without-jev
     [ "$status" -eq 0 ]
     local runtime="$PROJECT/.datarim-runtime" receipts task
     cmp "$PRODUCT_ROOT/dev-tools/lib/heartbeat-receipts.py" "$runtime/dev-tools/lib/heartbeat-receipts.py"
@@ -144,4 +144,31 @@ CHECK
     run jq -e '.interaction_run_id == "11111111-1111-4111-8111-111111111111" and .interaction_receipts == []' \
         "$task/datarim/runtime/EXA-0001.status"
     [ "$status" -eq 0 ]
+}
+
+@test "a fresh install without a Jev choice refuses and names the questions" {
+    install_project --init
+    [ "$status" -ne 0 ]
+    [[ "$output" == *'Datarim needs your choices before installing'* ]]
+    [[ "$output" == *'--with-jev or --without-jev'* ]]
+    [[ "$output" == *'--client claude,codex,cursor'* ]]
+    [[ "$output" == *'jev permissions full'* ]]
+    [ ! -e "$PROJECT/.datarim-runtime" ]
+    [ ! -e "$PROJECT/datarim" ]
+}
+
+@test "a dry run without a Jev choice still shows the plan and the questions" {
+    run sh -c 'sh "$1" --project "$2" --init --dry-run 2>&1' _ "$PRODUCT_ROOT/install.sh" "$PROJECT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'note: Datarim needs your choices'* ]]
+    [[ "$output" == *'"files"'* ]]
+    [ ! -e "$PROJECT/.datarim-runtime" ]
+}
+
+@test "a Jev install prints where the key goes and how to write it" {
+    run sh -c 'sh "$1" --project "$2" --with-jev 2>&1 >/dev/null' _ "$PRODUCT_ROOT/install.sh" "$PROJECT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Jev key file: $PROJECT/config/credentials/jev/api-key"* || "$output" == *'config/credentials/jev/api-key'* ]]
+    [[ "$output" == *'paste the key on one line'* ]]
+    [[ "$output" == *'Do not echo/printf the key'* ]]
 }

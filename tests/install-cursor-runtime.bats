@@ -3,14 +3,14 @@ load 'helpers/project_install'
 setup() { setup_project_fixture; }
 
 @test "Cursor discovers only the commands by default" {
-    install_project
+    install_project --without-jev
     [ "$status" -eq 0 ]
     [ -f "$PROJECT/.cursor/skills/dr-do/SKILL.md" ]
     [ ! -e "$PROJECT/.cursor/skills/testing" ]
 }
 
 @test "Cursor discovers directory skills with original frontmatter when exposed" {
-    install_project --expose-skills
+    install_project --without-jev --expose-skills
     [ "$status" -eq 0 ]
     [ -f "$PROJECT/.cursor/skills/testing/SKILL.md" ]
     [ -f "$PROJECT/.cursor/skills/fleet-l1-basic/SKILL.md" ]
@@ -22,7 +22,7 @@ setup() { setup_project_fixture; }
 @test "Cursor foreign skills are preserved" {
     mkdir -p "$PROJECT/.cursor/skills/foreign"
     printf 'Keep foreign skill' > "$PROJECT/.cursor/skills/foreign/SKILL.md"
-    install_project
+    install_project --without-jev
     [ "$status" -eq 0 ]
     run cat "$PROJECT/.cursor/skills/foreign/SKILL.md"
     [ "$output" = 'Keep foreign skill' ]

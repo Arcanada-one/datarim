@@ -316,6 +316,28 @@ def install(args):
         return _install(args)
 
 
+CHOICE_QUESTIONS = """Datarim needs your choices before installing. AI agent: ask the user these questions, then rerun.
+  1) Jev: none (--without-jev) / project (--with-jev) / host (install host Jev first with
+     scripts/jev_host_install.py, then --with-jev --host-jev).
+  2) Clients: --client claude,codex,cursor (default: all three).
+  3) Permission mode for the jev* launchers: ask (default), or run `jev permissions full` after install.
+Then rerun with --with-jev or --without-jev. --dry-run shows the plan without writing anything.
+See INSTALL.md."""
+
+
+class ChoiceRequired(ValueError):
+    """A fresh install was started without an explicit Jev choice."""
+
+
+def key_instructions(root, host_jev):
+    """Where the Jev key goes and how to write it, for the installer's output."""
+    key = (Path.home()/'.config/jev/credentials/api-key') if host_jev else Path(root)/'config/credentials/jev/api-key'
+    return (f'Jev key file: {key}\n'
+            '  Open it in an editor and paste the key on one line. Do not echo/printf the key into it: '
+            'the command would land in your shell history.\n'
+            '  Then check it with: jev doctor --api')
+
+
 def remembered_choices(args, previous):
     """Resolve --with-jev, --host-jev and --context against the previous install.
 
@@ -354,6 +376,13 @@ def _install(args):
         previous = json.loads(manifest.read_text())
         if previous.get('project') != str(root):
             raise ValueError('Installation project mismatch')
+    if previous is None and getattr(args, 'with_jev', None) is None:
+        # Scripted and agent-driven installs used to run without asking the
+        # user anything; the questions in the docs did not survive a
+        # summarizing fetch. A fresh install needs the Jev choice explicitly.
+        if not args.dry_run:
+            raise ChoiceRequired(CHOICE_QUESTIONS)
+        print('note: ' + CHOICE_QUESTIONS, file=sys.stderr)
     args.with_jev, args.host_jev, args.context = remembered_choices(args, previous)
     if args.host_jev:
         from jev_hook import host_runtime
@@ -563,6 +592,7 @@ def _install(args):
             f'export DATARIM_RUNTIME={quoted}\nexport PATH={quoted}/bin:"$PATH"\n')
         if args.with_jev:
             cfg = json.loads((stage / 'plugins/dr-jev-control/config/jev-control.json').read_text())
+            cfg.pop('_comment', None)  # marks the template only
             cfg['telemetry']['path'] = str(runtime / 'state/jev/ledger.jsonl')
             (stage / 'jev-config.json').write_text(json.dumps(cfg, indent=2)+'\n')
             if previous and (runtime/'jev-config.json').is_file():
@@ -659,6 +689,8 @@ def _install(args):
                 if not target.exists():
                     target.write_text('# '+name.removesuffix('.md').title()+'\n')
         print(json.dumps({'status': 'installed', **manifest, 'claude_md': link_action}))
+        if args.with_jev:
+            print(key_instructions(root, args.host_jev), file=sys.stderr)
     except Exception:
         recovery = []
         try:
@@ -770,7 +802,8 @@ def main():
     parser.add_argument('--with-jev', dest='with_jev', action='store_const', const=True, default=None,
                         help='Register the Jev hooks and create the project key file; kept across updates')
     parser.add_argument('--without-jev', dest='with_jev', action='store_const', const=False,
-                        help='Turn Jev off on update: withdraw its hooks (the key file is kept)')
+                        help='No Jev. A fresh install needs --with-jev or --without-jev; on update, '
+                             'withdraws the Jev hooks (the key file is kept)')
     parser.add_argument('--host-jev', action=argparse.BooleanOptionalAction, default=None,
                         help='Use already installed host Jev hooks; do not register duplicate project hooks. '
                              'Kept across updates; --no-host-jev returns to project hooks')
