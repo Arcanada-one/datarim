@@ -117,6 +117,19 @@ class ProjectScopeTests(unittest.TestCase):
                 found[name] = hits
         self.assertEqual(found, {})
 
+    def test_no_doc_carries_an_answers_token_or_the_rerun_line(self):
+        """Both exist only in the installer's refusal output."""
+        import re
+        listed = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '*.md'], capture_output=True, text=True)
+        found = []
+        for name in listed.stdout.split():
+            if name.startswith(self.DOC_HISTORY):
+                continue
+            text = (ROOT/name).read_text(errors='replace')
+            if re.search(r'--answers[ =][0-9a-f]{6,}', text) or "Rerun with the user's answers" in text:
+                found.append(name)
+        self.assertEqual(found, [])
+
     def test_the_doc_scan_catches_the_shapes_that_leaked(self):
         leaked = ('./install.sh --project "$PROJECT" --init --without-jev',
                   'python3 scripts/project_install.py --project /p \\\n  --init --with-jev --host-jev',
