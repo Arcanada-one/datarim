@@ -206,7 +206,7 @@ FIXTURE
 }
 
 @test "consumer project name from the overlay (acme-client) → exit 1" {
-    printf 'cd ~/code/acme-client/local-env\n' > "$TMP_DIR/f.txt"
+    printf 'cd ~/code/acme-client/app\n' > "$TMP_DIR/f.txt"
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
     [ "$status" -eq 1 ]
 }

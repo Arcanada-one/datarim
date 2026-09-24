@@ -14,7 +14,7 @@ setup() {
 @test "classifier: systemd unit file path => deploy-class (exit 0)" {
     cat > "$TMP/td.md" <<'EOF'
 ## Overview
-Add _deploy/systemd/aio-worker.service and wire it via CI cutover.
+Add _deploy/systemd/app-worker.service and wire it via CI cutover.
 EOF
     run bash "$DETECT" --task-description "$TMP/td.md"
     [ "$status" -eq 0 ]
@@ -64,7 +64,7 @@ EOF
     fi
     cat > "$TMP/td.md" <<'EOF'
 ## Overview
-Add _deploy/systemd/aio-worker.service and wire it via CI cutover.
+Add _deploy/systemd/app-worker.service and wire it via CI cutover.
 EOF
     chmod 000 "$TMP/td.md"
     run bash "$DETECT" --task-description "$TMP/td.md"
@@ -99,7 +99,7 @@ EOF
     cat > "$TMP/td.md" <<'EOF'
 ## Overview
 Задача не трогает sudoers.
-Add _deploy/systemd/aio-worker.service and wire it via CI cutover.
+Add _deploy/systemd/app-worker.service and wire it via CI cutover.
 EOF
     run bash "$DETECT" --task-description "$TMP/td.md"
     [ "$status" -eq 0 ]
