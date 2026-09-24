@@ -11,7 +11,11 @@ jev doctor [--agent=...] [--api]
 jev stats
 jev on
 jev off
+jev permissions [full|ask]
+jev trust
 ```
+
+Installing the launchers: [INSTALL.md](../../INSTALL.md).
 
 The braces denote alternatives; pass one agent. An alias cannot select a
 different agent. An omitted task starts the client's interactive session without
@@ -37,7 +41,17 @@ an initial routing request.
 | `--` | Separate client flags from dispatcher flags |
 
 Client flags that relocate the workspace are rejected. Launch from the approved
-context instead. No force, permission bypass, or automatic trust flags are added.
+context instead. Permission-bypass flags are added only after `jev permissions
+full` (or with `JEV_PERMISSIONS=full` for one launch), and never when you pass
+your own permission option: `--dangerously-skip-permissions` for Claude Code,
+`--dangerously-bypass-approvals-and-sandbox` for Codex, `--force --approve-mcps`
+for Cursor. `jev permissions ask` removes them; `jev permissions` shows the
+stored choice. The choice is stored per project, or per host for host Jev.
+
+`jev trust` re-grants Codex trust to Jev's own host hooks after another tool
+moved them in `~/.codex/hooks.json`; hooks you disabled stay disabled. With host
+Jev, `jevcodex` does the same before each launch unless `JEV_NO_AUTO_TRUST=1`.
+Neither touches project-level hooks.
 Direct mode replaces the dispatcher process, preserving terminal streams and the
 client's exit status. Dispatcher errors use 2; a missing executable uses 127;
 doctor findings use 1. Live exits follow the supervisor's recorded stop reason.

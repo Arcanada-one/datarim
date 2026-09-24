@@ -1,18 +1,9 @@
 # Initialize Datarim with Jev
 
-First follow the project and `AGENTS.md` preparation in
-[Initialize Datarim](initialize-datarim.md). Jev is optional: a provider failure
-must not prevent plain Datarim work.
-
-Use the same installer for a new project or an existing project-local Datarim:
-
-```bash
-python3 "$DATARIM_SOURCE/scripts/project_install.py" --project "$DATARIM_PROJECT" --init --with-jev --dry-run
-python3 "$DATARIM_SOURCE/scripts/project_install.py" --project "$DATARIM_PROJECT" --init --with-jev
-cd "$DATARIM_PROJECT"
-source .datarim-runtime/activate.sh
-jev doctor
-```
+Install with [INSTALL.md](../../INSTALL.md), option B (`--init --with-jev`)
+for Jev in this project only, or option C (`--with-jev --host-jev`) to reuse a
+host-wide Jev. Jev is optional: a provider failure must not prevent plain
+Datarim work. This page explains the key, the checks and the entry points.
 
 The installation creates `config/credentials/jev/api-key` if absent, with mode
 0600 and a private parent directory. Open that file with an editor and paste one

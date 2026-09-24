@@ -4,6 +4,30 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- `INSTALL.md`: one install guide for people and AI agents. It lists the choices to make (Jev: none, per
+  project or per host; permission mode; `--expose-skills`; `--init`; nested repositories), the exact
+  commands for each, a configuration and secrets table taken from the code (key files, config files,
+  environment variables, what reads each), verification with expected `jev doctor` output, update,
+  uninstall and troubleshooting. A short section tells an AI agent which questions to ask, which commands
+  to run, how to verify and what to report.
+- README: an Install block near the top, with the quick path and a pointer for users who hand the
+  repository to an AI agent. `AGENTS.md` points an installing agent to `INSTALL.md`.
+
+### Changed
+
+- Install instructions are no longer restated across the README, tutorials and how-to guides; those pages
+  link to `INSTALL.md`. Corrected in passing: an update must repeat `--with-jev`, `--host-jev` and
+  `--context` (the getting-started page showed an update without them, which removes project Jev hooks);
+  `jev doctor` exits `1` for any client that is not installed unless `--agent` is given; the Jev CLI
+  reference now documents `jev permissions` and `jev trust` instead of stating that no permission or trust
+  flags are ever added; host Jev's `--datarim-project` replaces the whole project list.
+- `templates/security-workflow.yml` pinned a commit that no longer exists on the default branch after the
+  history rewrite; it now pins the v3.1.2 commit and explains how to resolve a tag to its commit. The
+  reusable workflow is named `reusable-security-audit.yml` in `AGENTS.md` and the `security-baseline`
+  skill (they named a file that does not exist).
+
 ## [3.1.2] — 2026-09-24
 
 ### Fixed

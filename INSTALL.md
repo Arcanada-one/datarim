@@ -1,0 +1,395 @@
+# Installing Datarim
+
+This is the single install guide for Datarim and its optional companion, Jev. It is
+written for people and for AI agents alike. Every command, path and variable here
+was taken from the installer code (`scripts/project_install.py`,
+`scripts/jev_host_install.py`, `scripts/jev.py`), not from older documents.
+
+- **Datarim** is installed into **one project at a time**. It copies a pinned
+  snapshot of the framework into `<project>/.datarim-runtime/`, writes the `/dr-*`
+  commands where Claude Code, Codex and Cursor find them, and hides everything it
+  writes from `git status`. It does not touch your home directory, your shell
+  startup files, `AGENTS.md`, `CLAUDE.md` or `.gitignore`.
+- **Jev** is optional. It adds a deterministic safety floor (a hook that refuses
+  destructive shell commands, no key or network needed) and, with an API key,
+  model-tier routing advice. It can be installed per project or once for the
+  whole host.
+
+---
+
+## If you are an AI agent asked to install Datarim
+
+Follow these steps in order. Do not improvise other install methods.
+
+1. **Read this whole file** before running anything.
+2. **Establish the two paths.**
+   - `PROJECT` — the absolute path of the project the user wants Datarim in
+     (usually the current working directory). It must be an existing directory
+     and must not be the home directory, a system directory, or the Datarim
+     source checkout itself.
+   - `SOURCE` — where the Datarim repository is cloned. It must be **outside**
+     `PROJECT`; the installer refuses a source that lives inside the project.
+     Suggest `~/src/datarim` unless the user names another place.
+3. **Ask the user these questions** unless they have already answered them. Offer
+   the default; accept the default if the user says "just install it".
+
+   | # | Question | Default |
+   |---|---|---|
+   | 1 | Install Jev? **none** / **project** (this project only) / **host** (every project of this user on this machine) | none |
+   | 2 | Which clients do you use: Claude Code, Codex, Cursor? (All three always get the `/dr-*` commands; the answer decides which client `jev doctor` checks and, for host Jev, which client configs get hooks.) | the ones installed on the machine |
+   | 3 | Create empty task files `datarim/tasks.md` and `datarim/backlog.md` now (`--init`)? | yes |
+   | 4 | Expose every framework skill to the clients' automatic discovery (`--expose-skills`)? It adds their descriptions to every session. | no |
+   | 5 | Only if Jev is installed: should `jev*` launchers start clients **without permission prompts** (`jev permissions full`)? | no (`ask`) |
+   | 6 | Install the latest release tag, or `main`? | latest release tag |
+
+   Also check, without asking, whether `PROJECT` contains nested git repositories
+   (`find "$PROJECT" -mindepth 2 -name .git -not -path '*/node_modules/*'`). If it
+   does and the user wants Datarim to work inside them, add one
+   `--context <relative/path>` per repository.
+4. **Run the commands** for the chosen combination from
+   [Step 3](#step-3--install), always with `--dry-run` first, then for real.
+   Never write an API key yourself and never ask the user to paste a key into
+   the chat.
+5. **Verify** with [Step 5](#step-5--verify). Every check has an expected result.
+6. **Report to the user**, in this shape:
+   - installed: Datarim version and commit (from `.datarim-runtime/installation.json`
+     → `source_sha`), Jev scope (none / project / host), options used;
+   - where things live: `.datarim-runtime/` (framework), `datarim/` (task state),
+     Jev config file path (see the [table](#configuration-and-secrets));
+   - **where to put the Jev API key** (exact file path; open it in an editor, one
+     line, file stays mode `0600`), then run `jev doctor --api`;
+   - Codex only: the two approvals Codex will ask for (see
+     [Codex hook trust](#codex-runs-hooks-only-after-you-trust-them));
+   - how to update: the exact update command with the same flags you used;
+   - next step: open the client in the project and run `/dr-help` (Claude Code),
+     or ask Codex or Cursor to run the `dr-help` skill.
+
+---
+
+## Step 1 — Prerequisites
+
+- Python 3.10 or newer, and git.
+- At least one installed and signed-in agent client: Claude Code (`claude`),
+  Codex CLI (`codex`) or Cursor CLI (`cursor-agent` or `agent`). Datarim does
+  not create client accounts and does not read model-provider keys; each client
+  authenticates itself.
+- The project directory. A git repository is recommended: that is what lets the
+  installer hide its files through `.git/info/exclude`.
+- For Jev routing advice only: a Jev API key, one per machine. Without a key Jev
+  still runs its local safety floor; only the advice is missing.
+
+## Step 2 — Get the source
+
+```sh
+git clone https://github.com/Arcanada-one/datarim.git ~/src/datarim
+cd ~/src/datarim
+git checkout "$(git describe --tags --abbrev=0 --match 'v*')"   # latest release tag
+```
+
+Staying on `main` is also supported. Whatever you check out, the installed
+commit is recorded in `<project>/.datarim-runtime/installation.json`
+(`source_sha`), so you can always tell what a project runs. To pin a project to
+a release, check out that tag (`git checkout vX.Y.Z`) before installing or
+updating; tags are the stable way to pin, commit hashes are not quoted in these
+docs. Host Jev refuses to install from a checkout with uncommitted changes.
+
+## Step 3 — Install
+
+Set the project path once (absolute):
+
+```sh
+PROJECT=/absolute/path/to/project
+```
+
+Run each command with `--dry-run` first: it prints the files it would write and
+changes nothing.
+
+### Option A — Datarim only (default)
+
+```sh
+./install.sh --project "$PROJECT" --init --dry-run
+./install.sh --project "$PROJECT" --init
+```
+
+### Option B — Datarim with project-level Jev
+
+Jev hooks are registered for all three clients **in this project only**
+(`.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json`), and
+an empty key file is created at `config/credentials/jev/api-key` (mode `0600`).
+
+```sh
+./install.sh --project "$PROJECT" --init --with-jev --dry-run
+./install.sh --project "$PROJECT" --init --with-jev
+```
+
+Do not use this option on a machine that already has host Jev: both sets of
+hooks would run. Use option C instead.
+
+### Option C — host-wide Jev, and Datarim in this project
+
+Host Jev is installed once per user and applies to every directory that user
+opens. It writes `~/.config/jev/`, `~/.local/share/jev/`, `~/.local/state/jev/`,
+the launchers `~/.local/bin/{jev,jevclaude,jevcodex,jevcursor}` (that directory
+must be on `PATH`), and merges its hooks into each chosen client's user config
+(`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.cursor/hooks.json`),
+keeping every existing hook.
+
+```sh
+# one --client per client you use; one --datarim-project per project that may use Datarim
+python3 scripts/jev_host_install.py --client claude --client codex --client cursor \
+  --datarim-project "$PROJECT" --dry-run
+python3 scripts/jev_host_install.py --client claude --client codex --client cursor \
+  --datarim-project "$PROJECT"
+
+./install.sh --project "$PROJECT" --init --with-jev --host-jev --dry-run
+./install.sh --project "$PROJECT" --init --with-jev --host-jev
+```
+
+`--datarim-project` **replaces** the host's list of Datarim projects; when you
+add a project later, pass every project again. The key file is
+`~/.config/jev/credentials/api-key`.
+
+### Option D — Jev without Datarim
+
+See [Use Jev on its own](documentation/how-to/jev-without-datarim.md): the same
+`scripts/jev_host_install.py`, without `--datarim-project`, and no project
+install.
+
+### Other install options
+
+| Option | Effect |
+|---|---|
+| `--init` | Creates `datarim/tasks.md` and `datarim/backlog.md` if missing. Existing files are kept. |
+| `--expose-skills` | Also writes every framework skill into `.agents/skills/`, `.claude/skills/`, `.cursor/skills/`. Their descriptions load into every session. Kept across updates once set. |
+| `--context <relative/path>` | Lets an existing nested git repository use this installation. Repeat per repository. Without it, a nested repository is refused. |
+| `--dry-run` | Prints the plan as JSON; writes nothing. |
+| `--uninstall` | See [Uninstall](#uninstall). |
+
+### What the project install writes
+
+| Path | Content | In `git status` |
+|---|---|---|
+| `.datarim-runtime/` | the framework snapshot, `installation.json`, `activate.sh`, `bin/jev*` | no |
+| `.claude/commands/dr-*.md` | the commands for Claude Code | no |
+| `.agents/skills/dr-*/`, `.cursor/skills/dr-*/` | the same commands as skills for Codex and Cursor | no |
+| `datarim/` (with `--init`) | this project's task state | no |
+| `config/credentials/jev/api-key` (with `--with-jev`) | empty key file, mode `0600` | no |
+| `.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json` (with `--with-jev`, not `--host-jev`) | Jev hook entries, merged into any existing file | no, if the install created the file |
+| `.git/info/exclude` | the rules that hide all of the above | never committed |
+
+A client config file the project already tracked in git stays tracked; the
+install only adds Jev entries to it.
+
+## Step 4 — Keys, settings and permission mode
+
+### The Jev API key
+
+Open the key file for your install in an editor, paste the key on one line,
+save. The file already exists with mode `0600`; keep it that way.
+
+| Install | Key file |
+|---|---|
+| Project Jev (option B) | `<project>/config/credentials/jev/api-key` |
+| Host Jev (option C or D) | `~/.config/jev/credentials/api-key` |
+
+With host Jev the project's own key file stays empty and unread; that is
+correct. Never put the key in a shell command (it lands in history), a commit, a
+settings file or a chat. Use a different key on each machine.
+
+### Permission mode (Jev launchers only)
+
+```sh
+jev permissions          # show the current mode
+jev permissions full     # jev* launchers start clients without permission prompts
+jev permissions ask      # back to the client's own prompts (default)
+```
+
+`full` adds `--dangerously-skip-permissions` (Claude Code),
+`--dangerously-bypass-approvals-and-sandbox` (Codex) or `--force --approve-mcps`
+(Cursor) to launches through `jev`, `jevclaude`, `jevcodex`, `jevcursor`, unless
+you pass your own permission option. It is stored per project (project
+install) or per host (host Jev). The Jev safety floor still runs in `full`
+mode. Starting `claude`, `codex` or `cursor-agent` directly is not affected.
+
+### Configuration and secrets
+
+Nothing here is committed: the project paths are hidden by `.git/info/exclude`,
+the host paths live in your home directory.
+
+| Setting | Where | Read by | Required | Default |
+|---|---|---|---|---|
+| Jev API key (project Jev) | file `<project>/config/credentials/jev/api-key`, mode `0600` | `plugins/dr-jev-control/scripts/project_state.py` `read_key()`, via `TYPESAFE_API_KEY_FILE` set in `scripts/project_scope.py` `activate()` and `scripts/jev_hook.py` `environment()` | only for routing advice | created empty |
+| Jev API key (host Jev) | file `~/.config/jev/credentials/api-key`, mode `0600` | same reader; path from `host-installation.json` (`scripts/jev_host_install.py`) | only for routing advice | created empty |
+| Jev settings (project) | `<project>/.datarim-runtime/jev-config.json`: endpoint, timeouts, retries, routing modes, hook switches, telemetry | `plugins/dr-jev-control/scripts/route.py` `load_cfg()` via `DATARIM_JEV_CONFIG` | no | copied from `plugins/dr-jev-control/config/jev-control.json` |
+| Jev settings (host) | `~/.config/jev/config.json`, including `datarim_projects` (projects allowed to use Datarim) | `scripts/jev_hook.py` `environment()` | no | same defaults; `api.base_url` must stay `https://api.typesafe.ai/v1/systemone` or host install and host requests refuse |
+| On/off switch | `jev off` / `jev on`: file `DISABLED` in `.datarim-runtime/state/jev/` or `~/.local/state/jev/` | `project_state.py` `disabled_reason()` | no | on |
+| Permission mode | `jev permissions full\|ask`: file `FULL_PERMISSIONS` in the same state directory; env `JEV_PERMISSIONS=full\|ask` overrides it for one launch | `scripts/jev.py` `full_permissions()` | no | `ask` |
+| Disable Jev advice for a shell | env `JEV_DISABLE=1` or `DATARIM_JEV_DISABLE=1` (the safety floor still runs) | `project_state.py` `disabled_reason()` | no | unset |
+| Codex model per Jev tier | env `DATARIM_CODEX_MODEL_HAIKU`, `_SONNET`, `_OPUS` | `scripts/jev.py`, `plugins/dr-jev-control/scripts/runtimes.py` | no | Codex account default, tier mapped to effort |
+| Cursor model per Jev tier | env `DATARIM_CURSOR_MODEL_HAIKU`, `_SONNET`, `_OPUS` | same | no | Cursor default model |
+| Client executable | env `CLAUDE_BIN`, `CODEX_BIN`, `CURSOR_BIN` | `scripts/jev.py` `binary()` | no | `claude`, `codex`, `cursor-agent` (or `agent`) on `PATH` |
+| Codex auto re-trust | env `JEV_NO_AUTO_TRUST=1` stops `jevcodex` (host Jev) from re-granting Codex trust to Jev's own hooks | `scripts/jev.py` | no | unset |
+| Execution-host map | env `DATARIM_EXEC_HOSTS_MAP`, a YAML map of which machine may run tasks for a workspace | `/dr-init`, `/dr-quick`, `/dr-next` via `dev-tools/lib/execution-host.sh` | no | `$HOME/.claude/local/config/execution-hosts.yml`; absent map means the check is skipped |
+
+Set by the entry points, never by hand: `DATARIM_RUNTIME` (by
+`source .datarim-runtime/activate.sh`, together with `PATH`), and
+`DATARIM_ROOT`, `DATARIM_PROJECT_ROOT`, `DATARIM_JEV_CONFIG`,
+`DATARIM_JEV_HOME`, `DATARIM_JEV_STATE`, `TYPESAFE_API_KEY_FILE`,
+`JEV_STATE_DIR`, `JEV_HOST_STATE` (by `jev*` and the hooks, from the
+installation they belong to). An exported `TYPESAFE_API_KEY` is removed by the
+launchers and hooks; keep the key in the file.
+
+Model-provider keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, ...) are not read by
+Datarim or Jev; `config/model-tiers.yaml` only names them as a convention. The
+optional plugins and CLI read their own variables (`DR_ORCH_*`, `DR_FLEET_*`,
+`DATARIM_CLI_*`); they are not needed to install, see each plugin's `README.md`
+under `plugins/` and [the CLI reference](documentation/reference/cli.md).
+
+## Step 5 — Verify
+
+```sh
+cd "$PROJECT"
+git status --short                       # expect: nothing from Datarim
+source .datarim-runtime/activate.sh      # current shell only
+jev doctor --agent=claude                # or --agent=codex / --agent=cursor
+```
+
+Expected `jev doctor` output (JSON), exit code `0`:
+
+- `"scope": "project"` (or `"host"` with `--host-jev`), `"datarim_enabled": true`;
+- `"findings": []` — a finding names what is missing (for example
+  `claude: executable missing`) and makes the exit code `1`. Without
+  `--agent`, doctor checks all three clients, so a client you do not use
+  becomes a finding;
+- `"key_ready": false` until you add a key (true means the file is non-empty,
+  not that the key is valid);
+- `"api": "not_measured"` — offline doctor makes no network call; this is
+  neither a pass nor a failure;
+- `"source_sha"` — the commit you installed.
+
+After adding a Jev key:
+
+```sh
+jev doctor --api
+```
+
+Expected: exit code `0` and an `"api"` block containing
+`"api": {"ok": true, "model": "...", ...}`. A missing key gives
+`"reason": "key missing"` and exit code `1`.
+
+Then open the client in the project:
+
+- Claude Code: run `/dr-help`.
+- Codex or Cursor: ask the agent to run the `dr-help` skill.
+
+The answer comes from `.datarim-runtime/commands/dr-help.md`. Start work with
+`/dr-init "<task description>"`; the [getting-started
+tutorial](documentation/tutorials/getting-started.md) continues from here.
+
+### Codex runs hooks only after you trust them
+
+With Jev and Codex, the first Codex session asks twice: to trust the working
+directory, then `Hooks need review` → choose **Trust all and continue**.
+Declining is silent: Codex still lists the hooks as active but never runs them.
+
+- Host Jev: `jev doctor --agent=codex` reports `codex_hook_trust` as
+  `trusted`, `untrusted` or `not_measured`. If another tool rewrote
+  `~/.codex/hooks.json` and moved the Jev entries, run `jev trust` to re-grant
+  trust to Jev's own hooks only (`jevcodex` does this automatically unless
+  `JEV_NO_AUTO_TRUST=1`).
+- Project Jev: `codex_hook_trust` and `jev trust` look only at the host files in
+  `~/.codex/`; approve the project hooks in the Codex prompt.
+
+Details: [Codex needs two approvals](documentation/how-to/jev-without-datarim.md#codex-needs-two-approvals-in-its-own-ui).
+
+---
+
+## Update
+
+```sh
+cd ~/src/datarim
+git fetch --tags origin
+git checkout "$(git describe --tags --abbrev=0 --match 'v*' origin/main)"   # or: git checkout main && git pull
+./update.sh --project "$PROJECT"   # append the flags you installed with, e.g. --with-jev
+```
+
+`update.sh` runs the same installer, as one transaction: it checks every file
+first, refuses to overwrite anything you edited, and rolls back on failure.
+
+**Repeat the flags you installed with.** The installer does not remember
+`--with-jev`, `--host-jev` or `--context`: an update without `--with-jev`
+removes the project's Jev hooks and its `jev-config.json` (the key file stays).
+Only `--expose-skills` is remembered. The previous runtime is kept in
+`.datarim-runtime-previous/`, older ones in `.datarim-runtime-backups/`.
+
+Kept across an update: `datarim/`, `config/credentials/`,
+`.datarim-runtime/state/` (ledger, on/off and permission switches), and
+`.datarim-runtime/jev-config.json` when `--with-jev` is passed. Anything else
+you put inside `.datarim-runtime/` is replaced. That includes the plugin links
+under `.datarim-runtime/local/`: if you enabled plugins with `/dr-plugin`, run
+`/dr-plugin sync` after the update to recreate them from the kept list in
+`datarim/enabled-plugins.md`.
+
+Host Jev: rerun `scripts/jev_host_install.py` with the same `--client` and
+`--datarim-project` options from the updated checkout. Codex keeps its trust:
+the hook command names a stable entry point, not the release.
+
+### Coming from Datarim 2.x
+
+2.x installed globally (`./install.sh --with-claude`, links into `~/.claude/`,
+`~/.codex/`, `~/.cursor/`). Those flags no longer exist. Remove only the links
+under `~/.claude/{agents,skills,commands,templates,scripts,tests,dev-tools}` (and
+the Codex and Cursor equivalents) that resolve into your Datarim checkout, then
+install per project. A project installed before 3.0 had a block appended to its
+`AGENTS.md` and rules appended to `.gitignore`; the next install or update
+removes both and leaves the rest of those files alone.
+
+## Uninstall
+
+```sh
+~/src/datarim/install.sh --project "$PROJECT" --uninstall --dry-run
+~/src/datarim/install.sh --project "$PROJECT" --uninstall
+```
+
+This restores the files the install changed to their pre-install content,
+removes the command files and hook entries it added, and moves the runtime to
+`.datarim-uninstalled/`. Task state (`datarim/`), keys (`config/credentials/`)
+and runtime backups stay, still hidden from git; delete them yourself when you
+no longer need them. A second uninstall refuses while `.datarim-uninstalled/`
+exists. Files you edited after install stop the uninstall until you reconcile
+them.
+
+Host Jev has no uninstaller. `jev off` stops all Jev API calls on the host. To
+remove it, delete the Jev entries (commands naming
+`~/.local/share/jev/bin/jev-hook`) from the client configs, then
+`~/.local/bin/{jev,jevclaude,jevcodex,jevcursor}`, `~/.local/share/jev/`,
+`~/.config/jev/` (holds the key) and `~/.local/state/jev/` (holds install
+backups).
+
+---
+
+## Troubleshooting
+
+| Message or symptom | Cause and fix |
+|---|---|
+| `Choose a consumer project, not home, a system directory, or product source` | `--project` is the home directory, a system directory, the Datarim checkout, or a directory that contains the checkout. Clone Datarim outside the project. |
+| `Unmanaged or locally modified file: <path>` | A file the install would write already exists with other content (or you edited a managed file). Move or reconcile it, then rerun. |
+| `Existing unmanaged .datarim-runtime; refusing overwrite` | A `.datarim-runtime/` without `installation.json`, for example a manual copy. Move it away. |
+| `Another installation transaction owns this project` | Another install or update is running on the project. Wait for it. |
+| `--host-jev requires --with-jev` | Pass both. |
+| `Install host Jev before selecting host ownership` | `--host-jev` without host Jev. Run `scripts/jev_host_install.py` first (option C). |
+| `jev install: Commit and verify the source revision before host installation` | Host Jev needs a clean git checkout. Discard local changes or check out a tag; a release tarball without `.git` cannot install host Jev. |
+| `jev install: Host Jev requires the pinned provider endpoint` | `~/.config/jev/config.json` has another `api.base_url`. Restore `https://api.typesafe.ai/v1/systemone`. |
+| `jev: No project-local Datarim installation in this directory` | You are outside the project (or the project has no install). `cd` into it. |
+| `jev: Nested repository is not an approved project context` | Reinstall with `--context <relative/path>` for that repository. |
+| `jev doctor` exits `1` with `<client>: executable missing` | That client is not installed or not on `PATH`. Use `--agent=` for the clients you have, or set `CLAUDE_BIN` / `CODEX_BIN` / `CURSOR_BIN`. |
+| `claude: native AGENTS requires >=2.1.277` | Only affects loading your project's `AGENTS.md` natively; `/dr-*` commands do not depend on it. Update Claude Code to clear the finding. |
+| Jev hooks run twice | Host Jev and a project `--with-jev` install without `--host-jev`. Update the project with `--with-jev --host-jev`. |
+| Codex hooks never run | Trust was not granted; see [Codex hook trust](#codex-runs-hooks-only-after-you-trust-them). |
+| Jev hooks disappeared after an update | The update ran without `--with-jev`. Rerun it with the original flags. |
+
+More: [configure and use Jev](documentation/how-to/configure-and-use-jev.md),
+[host Jev with project Datarim](documentation/how-to/host-jev-with-project-datarim.md),
+[Jev CLI reference](documentation/reference/jev-cli.md),
+[multi-runtime details](documentation/how-to/multi-runtime.md),
+[release verification](documentation/how-to/release-verification.md).

@@ -1,6 +1,7 @@
 # Datarim and Jev quick start
 
-Use the project-local installation guides:
+Install Datarim and Jev with [INSTALL.md](INSTALL.md), the one install guide.
+Background and day-to-day use:
 
 - [Initialize Datarim](documentation/tutorials/initialize-datarim.md)
 - [Initialize Datarim with Jev](documentation/tutorials/initialize-datarim-with-jev.md)
