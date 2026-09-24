@@ -120,6 +120,10 @@ class HostInstallTests(unittest.TestCase):
         # The safety floor answers, which only the release's jev_hook.py can do.
         self.assertIn('"deny"', result.stdout)
 
+    def test_the_host_config_does_not_carry_the_template_marker(self):
+        self.install()
+        self.assertNotIn('_comment', json.loads((self.home/'.config/jev/config.json').read_text()))
+
     def test_the_entry_point_is_executable_and_runs_directly(self):
         self.install()
         entry = self.home/'.local/share/jev/bin/jev-hook'

@@ -88,6 +88,15 @@ class ProjectDoctor(unittest.TestCase):
         code, report = self.doctor('claude')
         self.assertTrue(any('managed file(s) missing' in f for f in report['findings']), report['findings'])
 
+    def test_doctor_names_the_live_settings_file_not_the_template(self):
+        self.install('--client', 'cursor')
+        report = self.doctor('cursor')[1]
+        self.assertEqual(report['config_path'], str(self.project/'.datarim-runtime/jev-config.json'))
+        live = json.loads(Path(report['config_path']).read_text())
+        self.assertNotIn('_comment', live)
+        template = json.loads((ROOT/'plugins/dr-jev-control/config/jev-control.json').read_text())
+        self.assertIn('Template', template['_comment'])
+
     # -- defect: Codex trust was never measured for a project install ---------
 
     def test_codex_trust_is_read_from_the_project_hooks_file(self):
