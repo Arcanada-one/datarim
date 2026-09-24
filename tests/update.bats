@@ -9,7 +9,7 @@ setup() { setup_project_fixture; }
 }
 
 @test "unchanged update preserves the pinned runtime" {
-    install_project
+    install_project --without-jev
     [ "$status" -eq 0 ]
     run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT"
     [ "$status" -eq 0 ]
@@ -19,7 +19,7 @@ setup() { setup_project_fixture; }
 @test "enabling then disabling project Jev (--without-jev) retires only owned hooks" {
     mkdir -p "$PROJECT/.cursor"
     printf '%s\n' '{"version":1,"hooks":{"beforeShellExecution":[{"command":"foreign-guard"}]}}' > "$PROJECT/.cursor/hooks.json"
-    install_project
+    install_project --without-jev
     [ "$status" -eq 0 ]
     run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT" --with-jev
     [ "$status" -eq 0 ]
