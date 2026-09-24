@@ -4,6 +4,19 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Every question in the installer's refusal now states its default, the same as the `INSTALL.md` table:
+  Jev none; clients, the ones installed on the machine (still named explicitly in `--client`); the
+  `CLAUDE.md` link, yes when there is none; permission mode ask; `--init` yes; `--expose-skills` no;
+  latest release tag. A new "defaults" row in the answer → flag table (and in `INSTALL.md`) includes
+  `--init`, which an agent answering "defaults" had left out. A test keeps the refusal text and
+  `INSTALL.md` in agreement.
+- `jev <word>` with one unknown bare word (no spaces, not a subcommand, not an existing file) is refused
+  with "unknown subcommand '<word>'; subcommands: …". It used to start a client session with that word as
+  the prompt: `jev status --agent=claude` opened a nested Claude session. Sentences, subcommands, a file
+  given as the task, and client arguments after `--` work as before.
+
 ## [4.0.2] — 2026-09-24
 
 ### Fixed

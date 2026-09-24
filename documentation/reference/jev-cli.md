@@ -19,7 +19,10 @@ Installing the launchers: [INSTALL.md](../../INSTALL.md).
 
 The braces denote alternatives; pass one agent. An alias cannot select a
 different agent. An omitted task starts the client's interactive session without
-an initial routing request.
+an initial routing request. A task that is a single bare word (no spaces), not one of the
+subcommands above and not an existing file, is refused as a mistyped subcommand:
+`jev status` exits 2 instead of starting a client with the prompt "status". Quote
+a sentence, or put the word after `--` to hand it to the client.
 
 | Option | Meaning |
 |---|---|
