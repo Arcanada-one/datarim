@@ -913,7 +913,10 @@ class AnswersTokenTests(unittest.TestCase):
             asked.append(prompt)
             return next(answers)
         args = self.args(with_jev=None, client=None, permissions=None)
-        with patch.dict(os.environ, {'HOME': self.tmp.name}):
+        # The clients default is the clients installed on the machine; pin it so a runner with none installed
+        # asks the same six questions.
+        with patch.dict(os.environ, {'HOME': self.tmp.name}), \
+                patch.object(project_install, 'installed_clients', return_value=('claude',)):
             gate = project_install.answers_gate(args, self.project, interactive=True, ask=ask, say=said.append)
         self.assertEqual(gate, 'interactive')
         self.assertEqual((args.with_jev, args.client, args.permissions), (True, ('claude', 'codex'), 'full'))
