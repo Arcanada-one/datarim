@@ -12,7 +12,7 @@ Every command here was executed on a real host before being written down.
 | | Datarim | Jev | Install with |
 |---|---|---|---|
 | Framework + routing | yes | yes | `./install.sh --project P --init --with-jev` |
-| Framework only | yes | no | `./install.sh --project P --init` |
+| Framework only | yes | no | `./install.sh --project P --init --without-jev` |
 | **Routing only** | no | yes | `jev_host_install.py --client …` ← this page |
 | Neither | no | no | nothing to install |
 

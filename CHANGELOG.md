@@ -28,6 +28,23 @@ All notable changes to the Datarim framework are documented here. Format follows
 - Project install: `--without-jev`, `--no-host-jev` and `--no-context` turn a recorded choice off.
 - `jev doctor`: `hook_clients` lists the clients whose Jev hooks the install registered.
 
+### Changed (behaviour change for scripted installs)
+
+- **A fresh project install now requires an explicit Jev choice.** Without `--with-jev` or
+  `--without-jev`, `install.sh` / `project_install.py` on a project with no installation exits with code
+  `2` and prints, on stderr, the questions to ask the user: Jev (none, project or host), clients
+  (`--client`), and the permission mode for the `jev*` launchers. Scripts that ran
+  `install.sh --project P --init` must add `--without-jev` (the previous behaviour) or `--with-jev`.
+  `--dry-run` still works without a choice and prints the same questions as a note. Updates of an
+  existing installation keep the recorded choice and are unaffected. The reason: agents that installed
+  from a summarized copy of the docs never asked the user anything.
+- A `--with-jev` install prints the key file path on stderr and says to paste the key in an editor, not
+  to `echo`/`printf` it (shell history).
+- `jev doctor` reports `config_path`, the settings file Jev actually reads
+  (`.datarim-runtime/jev-config.json`, or the host `config.json`). The plugin's `jev-control.json` carries
+  a `_comment` marking it as the template; the installers drop that key from the copies they write.
+- `INSTALL.md` and the README Install block open with a one-line instruction for AI agents.
+
 ### Fixed
 
 - Updates remember `--with-jev`, `--host-jev`, `--context` and the client list, like `--expose-skills`
