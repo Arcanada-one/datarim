@@ -461,6 +461,29 @@ class InstallationLifecycleTests(unittest.TestCase):
                        'Rerun: ./install.sh --project <path> <flags from the answers>'):
             self.assertIn(needle, text)
 
+    def test_every_question_states_its_default_and_install_md_agrees(self):
+        import re
+        text = project_install.CHOICE_QUESTIONS
+        table = {}
+        for line in (ROOT/'INSTALL.md').read_text().splitlines():
+            cells = [c.strip() for c in line.strip().strip('|').split('|')]
+            if len(cells) == 3 and re.fullmatch(r'\d+a?', cells[0]):
+                table[cells[0]] = cells[2].replace('`', '')
+        rows = {'jev': '1', 'clients': '2', 'claude_import': '2a', 'init': '3', 'expose_skills': '4',
+                'permission': '5', 'release': '6'}
+        self.assertEqual(set(rows), set(project_install.QUESTION_DEFAULTS))
+        for key, default in project_install.QUESTION_DEFAULTS.items():
+            self.assertIn(f'Default: {default}', text, key)
+            self.assertIn(default, table[rows[key]], key)
+
+    def test_the_defaults_answer_includes_init(self):
+        line = next(l for l in project_install.CHOICE_QUESTIONS.splitlines() if l.strip().startswith('"defaults"'))
+        for flag in ('--without-jev', '--client', '--init'):
+            self.assertIn(flag, line)
+        row = next(l for l in (ROOT/'INSTALL.md').read_text().splitlines() if l.startswith('| "Defaults"'))
+        for flag in ('--without-jev', '--client', '--init'):
+            self.assertIn(flag, row)
+
     def test_a_jev_answer_without_a_client_list_is_refused_too(self):
         for changes in ({'with_jev': False, 'client': None}, {'with_jev': True, 'client': None},
                         {'with_jev': False, 'client': None, 'dry_run': True}):

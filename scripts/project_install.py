@@ -351,18 +351,30 @@ def install(args):
         return _install(args)
 
 
-CHOICE_QUESTIONS = """STOP. Nothing was installed. Ask the user these questions and wait for the answers.
-Do not choose for them.
+#: Each question's default, as INSTALL.md states it (a test keeps the two equal).
+QUESTION_DEFAULTS = {
+    'jev': 'none',
+    'clients': 'the ones installed on the machine',
+    'claude_import': 'yes, when there is no CLAUDE.md',
+    'permission': 'ask',
+    'init': 'yes',
+    'expose_skills': 'no',
+    'release': 'latest release tag',
+}
+_D = QUESTION_DEFAULTS
+CHOICE_QUESTIONS = f"""STOP. Nothing was installed. Ask the user these questions and wait for the answers.
+Do not choose for them. Offer each default; the user may answer "defaults".
 
 1. Jev: none, project (this project only) or host (every project of this user)?
-   Jev's safety floor, which refuses destructive shell commands, works WITHOUT any key.
-   A key only adds routing advice, so "no key" is not a reason to skip Jev.
-2. Clients: which of Claude Code, Codex, Cursor? With Claude Code, also link
-   CLAUDE.md to the project AGENTS.md (Claude Code reads only CLAUDE.md)?
-3. Permission mode for the jev* launchers: ask (default) or full (no prompts)?
-4. Create empty task files datarim/tasks.md and datarim/backlog.md now?
-5. Expose every framework skill in every session (costs context)? Default: no.
-6. Install from the latest release tag (default) or from main?
+   Default: {_D['jev']}. Jev's safety floor refuses destructive shell commands and
+   works WITHOUT any key. A key only adds routing advice, so "no key" is not a reason to skip Jev.
+2. Clients: which of Claude Code, Codex, Cursor? Default: {_D['clients']};
+   still name them explicitly in --client. With Claude Code, also link CLAUDE.md to the
+   project AGENTS.md (Claude Code reads only CLAUDE.md)? Default: {_D['claude_import']}.
+3. Permission mode for the jev* launchers: ask or full (no prompts)? Default: {_D['permission']}.
+4. Create empty task files datarim/tasks.md and datarim/backlog.md now? Default: {_D['init']}.
+5. Expose every framework skill in every session (costs context)? Default: {_D['expose_skills']}.
+6. Install from the latest release tag or from main? Default: {_D['release']}.
 
 When the user has answered:
 Rerun: ./install.sh --project <path> <flags from the answers>
@@ -377,7 +389,10 @@ Rerun: ./install.sh --project <path> <flags from the answers>
   Task files now                    --init
   Expose every skill                --expose-skills
   Permission mode full              after install: jev permissions full
-  Release tag                       before install: git checkout <tag>  (main: git checkout main)"""
+  Release tag                       before install: git checkout <tag>  (main: git checkout main)
+  "defaults"                        --without-jev --client <the installed clients> --init
+                                    (plus --claude-import when Claude Code is one of them and the
+                                    project has AGENTS.md but no CLAUDE.md)"""
 
 
 class ChoiceRequired(ValueError):
