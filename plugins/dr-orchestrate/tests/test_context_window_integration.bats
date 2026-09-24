@@ -19,6 +19,11 @@ setup() {
   chmod 700 "$DR_ORCH_CONTEXT_STATE" "$HOME" "$CODEX_HOME"
 }
 
+# A test that fails before its own session_close would otherwise leave its tmux session on the user's server.
+teardown() {
+  [ -z "${session:-}" ] || tmux kill-session -t "$session" 2>/dev/null || true
+}
+
 bind_instance() {
   local instance="$1" pid="$2" incarnation
   incarnation="$(jq -r .incarnation "$DR_ORCH_CONTEXT_STATE/instances/$instance.meta.json")"
@@ -474,7 +479,7 @@ trust_generated_codex_profile() {
   run env "${binding[@]}" bash "$ADAPTER" ingest-codex --kind notify --json "{\"type\":\"agent-turn-complete\",\"thread-id\":\"$thread\"}"
   [ "$status" -ne 0 ] && [ ! -e "$BATS_TEST_TMPDIR/actions" ]
   env "${binding[@]}" bash "$ADAPTER" ingest-codex --kind session_start --json "{\"session_id\":\"$thread\"}"
-  profile="$(jq -r .overlay "$DR_ORCH_CONTEXT_STATE/instances/$instance.meta.json")"; cp "$profile" "$BATS_TEST_TMPDIR/profile.backup"; sed -i 's/DATARIM_CONTEXT_PROFILE_CANARY/DATARIM_CONTEXT_PROFILE_TAMPER/' "$profile"
+  profile="$(jq -r .overlay "$DR_ORCH_CONTEXT_STATE/instances/$instance.meta.json")"; cp "$profile" "$BATS_TEST_TMPDIR/profile.backup"; perl -pi -e 's/DATARIM_CONTEXT_PROFILE_CANARY/DATARIM_CONTEXT_PROFILE_TAMPER/' "$profile"
   run env "${binding[@]}" bash "$ADAPTER" ingest-codex --kind notify --json "{\"type\":\"agent-turn-complete\",\"thread-id\":\"$thread\"}"
   [ "$status" -ne 0 ] && [ ! -e "$BATS_TEST_TMPDIR/actions" ]; cp "$BATS_TEST_TMPDIR/profile.backup" "$profile"; chmod 600 "$profile"
   printf '%s\n' '{"type":"event_msg","payload":{"note":"UNRELATED_ROLLOUT_CANARY"}}' >"$CODEX_HOME/sessions/2026/07/19/unrelated.jsonl"; chmod 600 "$CODEX_HOME/sessions/2026/07/19/unrelated.jsonl"
