@@ -21,12 +21,13 @@
 #   personal-id-gate.sh --help
 #
 # --regex FILE      Pattern file (default: dev-tools/personal-id-forbidden.regex)
-# --paths PATH...   Files or dirs to scan (default: shipped surface dirs)
+# --paths PATH...   Files or dirs to scan (default: every tracked file when
+#                   run from a git checkout, else the shipped surface dirs)
 # --whitelist FILE  One glob/path prefix per line; matched paths are skipped
 # --report          Print verbose findings to stdout
 # --check           Exit 0/1 (implied; explicit alias for scripting clarity)
 #
-# Shipped surface default paths (relative to script's parent dir):
+# Fallback surface outside a git checkout (relative to script's parent dir):
 #   cli skills agents commands templates scripts dev-tools AGENTS.md README.md
 #   docs documentation
 #
@@ -62,7 +63,7 @@ whitelist_file=""
 report=0
 
 usage() {
-    sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
     exit 2
 }
 
@@ -97,13 +98,36 @@ if [ ! -f "$regex_file" ]; then
     exit 2
 fi
 
-# Resolve paths relative to framework root when running from elsewhere.
+# Default scope. Inside a git checkout the gate scans EVERY tracked file.
+#
+# DEFAULT_PATHS is a hand-maintained list, and a hand-maintained list is always
+# one root file behind the tree: a root-level notes file carrying an absolute
+# home-directory path, CHANGELOG.md and every other top-level file sat outside
+# it, so the gate reported PASS on a repository whose public clone still shipped
+# them. "What a public clone receives" is exactly `git ls-files`, so that is the
+# scope whenever it can be computed. DEFAULT_PATHS stays as the fallback for a
+# consumer that runs the gate over an installed (non-git) copy.
+#
+# DATARIM_PERSONAL_ID_SCOPE=paths forces the DEFAULT_PATHS behaviour (tests).
+tracked_mode=0
 if [ ${#paths[@]} -eq 0 ]; then
-    paths=("${DEFAULT_PATHS[@]}")
+    if [ "${DATARIM_PERSONAL_ID_SCOPE:-tracked}" = "tracked" ] \
+        && git -C "$FRAMEWORK_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        tracked_mode=1
+    else
+        paths=("${DEFAULT_PATHS[@]}")
+    fi
 fi
 
 abs_paths=()
-for p in "${paths[@]}"; do
+if [ "$tracked_mode" -eq 1 ]; then
+    while IFS= read -r -d '' _tf; do
+        # Symlinks are listed by git but carry no scannable body of their own.
+        [ -f "${FRAMEWORK_ROOT}/${_tf}" ] && [ ! -L "${FRAMEWORK_ROOT}/${_tf}" ] \
+            && abs_paths+=("${FRAMEWORK_ROOT}/${_tf}")
+    done < <(git -C "$FRAMEWORK_ROOT" ls-files -z)
+fi
+for p in ${paths[@]+"${paths[@]}"}; do
     if [ -e "$p" ]; then
         abs_paths+=("$p")
     elif [ -e "${FRAMEWORK_ROOT}/${p}" ]; then
@@ -111,6 +135,14 @@ for p in "${paths[@]}"; do
     fi
     # silently skip missing paths (consumer may not have all defaults)
 done
+
+if [ "$report" -eq 1 ]; then
+    if [ "$tracked_mode" -eq 1 ]; then
+        echo "scope: tracked (${#abs_paths[@]} file(s))" >&2
+    else
+        echo "scope: paths (${#abs_paths[@]} root(s))" >&2
+    fi
+fi
 
 if [ ${#abs_paths[@]} -eq 0 ]; then
     [ "$report" -eq 1 ] && echo "no paths to scan (all defaults absent)"
