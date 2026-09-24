@@ -170,7 +170,8 @@ You can test without touching a real project's `.datarim-runtime/local` tree.
 # nosec-extract
 scratch="$(mktemp -d)"
 git -C "$scratch" init -q
-/path/to/datarim/install.sh --project "$scratch" --init --without-jev
+# A throwaway test project you own, so you give the installer's answers yourself.
+/path/to/datarim/install.sh --project "$scratch" --init --without-jev --client all   # scratch test project, not a user install
 cd "$scratch"
 
 bash .datarim-runtime/scripts/dr-plugin.sh enable /path/to/your-plugin
