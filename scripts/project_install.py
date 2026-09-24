@@ -660,16 +660,20 @@ def report_block(root, host_jev, with_jev, mode, clients):
     shell-startup warning.
     """
     flag = permission_state_dir(root, host_jev)/'FULL_PERMISSIONS'
-    lines = ['Include these lines in your report to the user, verbatim:',
-             f'permission mode: {mode} — {flag} (present = full, absent = ask; '
+    lines = [f'permission mode: {mode} — {flag} (present = full, absent = ask; '
              'change with `jev permissions full|ask`)']
     if with_jev:
         key = (Path.home()/'.config/jev/credentials/api-key') if host_jev \
             else Path(root)/'config/credentials/jev/api-key'
         lines.append(f'key (optional): {key}; the Jev floor works without it; paste it with an editor, '
                      'never with echo/printf')
-    lines.append('never put the key or any JEV_* / DATARIM_* variable in .zshrc/.bashrc; '
+    # Variables first: a paraphrase that kept only "the key" lost them.
+    lines.append('never in .zshrc/.bashrc: JEV_* or DATARIM_* variables (e.g. JEV_PERMISSIONS) or the key; '
                  'set them per shell or per launch')
+    if is_our_claude_link(root):
+        lines.append('AGENTS.md is not modified; CLAUDE.md links to it')
+    elif (Path(root)/'AGENTS.md').is_file():
+        lines.append('AGENTS.md is not modified by the installer')
     if with_jev and 'codex' in clients:
         lines.append('Codex: open `codex` once in this project and accept the hooks, or run `jev trust`')
     packaged = [(d, name) for d, name, client in (('.agents', 'Codex', 'codex'), ('.cursor', 'Cursor', 'cursor'))
@@ -679,7 +683,10 @@ def report_block(root, host_jev, with_jev, mode, clients):
         lines.append(' and '.join(f'{d}/skills/dr-*' for d, _ in packaged)
                      + ' are the /dr-* commands packaged for ' + '/'.join(n for _, n in packaged)
                      + ', not extra framework skills')
-    return '\n'.join(lines)
+    # A fenced block: an agent paraphrased the unfenced "verbatim" lines and
+    # dropped half of them.
+    return '\n'.join(['Copy the block below into your reply to the user unchanged '
+                      '(you may add your own text after it):', '```', *lines, '```'])
 
 
 def remembered_choices(args, previous):

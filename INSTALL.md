@@ -79,14 +79,16 @@ Follow these steps in order. Do not improvise other install methods.
      Jev config file path (see the [table](#configuration-and-secrets));
    - **where to put the Jev API key** (exact file path; open it in an editor, one
      line, file stays mode `0600`), then run `jev doctor --api`;
-   - never put the key or any `JEV_*` / `DATARIM_*` variable in shell startup
-     files (`.zshrc`, `.bashrc`); set them per shell or per launch;
+   - never in shell startup files (`.zshrc`, `.bashrc`): `JEV_*` or `DATARIM_*`
+     variables (e.g. `JEV_PERMISSIONS`) or the key; set them per shell or per
+     launch;
    - Codex only: the two approvals Codex will ask for (see
      [Codex hook trust](#codex-runs-hooks-only-after-you-trust-them));
    - how to update: `cd <SOURCE> && git pull` (or check out the new tag), then
      `./update.sh --project <PROJECT>`; the install choices are remembered, so no flags are needed;
-   - every line the installer printed after "Include these lines in your report
-     to the user, verbatim:", copied as printed;
+   - the fenced block the installer printed after "Copy the block below into
+     your reply to the user unchanged", copied unchanged (your own text may
+     follow it);
    - next step: open the client in the project and run `/dr-help` (Claude Code),
      or ask Codex or Cursor to run the `dr-help` skill.
 

@@ -4,6 +4,16 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The report lines after an install or update are now printed inside a fenced block, led by "Copy the
+  block below into your reply to the user unchanged (you may add your own text after it):". An agent had
+  paraphrased the unfenced "verbatim" lines, dropping half of the shell-startup line and the packaged-skills
+  line. The shell-startup line now names the variables first ("never in .zshrc/.bashrc: JEV_* or DATARIM_*
+  variables (e.g. JEV_PERMISSIONS) or the key; ..."). When the project has an `AGENTS.md`, the block now
+  says "AGENTS.md is not modified by the installer", or "AGENTS.md is not modified; CLAUDE.md links to it"
+  when `CLAUDE.md` is linked to it. The same agent had guessed what happened to `AGENTS.md`.
+
 ## [4.0.3] — 2026-09-25
 
 ### Fixed
