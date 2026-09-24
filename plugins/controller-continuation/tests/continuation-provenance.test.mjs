@@ -5,10 +5,10 @@ import { mkdtemp, mkdir, writeFile, chmod, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { validateProvenance, provenanceView, inspectWorkspace } from '../dev-tools/continuation-provenance.mjs';
+import { UNSUPPORTED_PLATFORM } from '../dev-tools/continuation-provenance-fs.mjs';
+import { LINUX } from './fixtures.mjs';
 
-// Fixtures must not be group- or world-writable: the reader refuses such entries by design
-// (mode & 0o7022). A host umask of 0002 would otherwise fail these tests for the wrong reason.
-process.umask(0o022);
+const linuxOnly = { skip: LINUX ? false : 'workspace comparison reads files only on Linux; the refusal is asserted separately' };
 
 const canonical = value => Array.isArray(value) ? '[' + value.map(canonical).join(',') + ']' :
   value && typeof value === 'object' ? '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonical(value[key])).join(',') + '}' : JSON.stringify(value);
@@ -97,7 +97,7 @@ async function workspace(fn) {
     await fn(root, data);
   } finally { await rm(root, { recursive: true, force: true }); }
 }
-test('current source modes and ordinary artifact edits are CHANGED, never renewed provenance', async () => workspace(async (root, data) => {
+test('current source modes and ordinary artifact edits are CHANGED, never renewed provenance', linuxOnly, async () => workspace(async (root, data) => {
   assert.equal((await inspectWorkspace(data.value, root, { requireMatch: true })).state, 'MATCH');
   const before = provenanceView(data.value);
   await chmod(join(root, 'app/main.ts'), 0o644);
@@ -108,7 +108,7 @@ test('current source modes and ordinary artifact edits are CHANGED, never renewe
   assert.equal((await inspectWorkspace(data.value, root)).artifacts[0].state, 'CHANGED');
   assert.equal(provenanceView(data.value), before);
 }));
-test('new source outside capture delta is unverified; protected changes always refuse', async () => workspace(async (root, data) => {
+test('new source outside capture delta is unverified; protected changes always refuse', linuxOnly, async () => workspace(async (root, data) => {
   await writeFile(join(root, 'app/new.ts'), 'new source', { mode: 0o600 });
   assert.equal((await inspectWorkspace(data.value, root)).individualUnindexedFiles, 'fresh-unverified');
   await chmod(join(root, 'app/protected.ts'), 0o644);
@@ -117,7 +117,7 @@ test('new source outside capture delta is unverified; protected changes always r
   await writeFile(join(root, 'app/protected.ts'), 'changed source');
   await assert.rejects(inspectWorkspace(data.value, root));
 }));
-test('omissions and credential names refuse after entry while templates remain readable', async () => workspace(async (root, data) => {
+test('omissions and credential names refuse after entry while templates remain readable', linuxOnly, async () => workspace(async (root, data) => {
   await writeFile(join(root, 'app/.env.example'), 'template', { mode: 0o600 });
   assert.equal((await inspectWorkspace(data.value, root)).state, 'CHANGED');
   for (const name of ['omitted.txt', '.env.production', 'credentials.json', 'private.key', '.pypirc']) {
@@ -125,4 +125,8 @@ test('omissions and credential names refuse after entry while templates remain r
     await assert.rejects(inspectWorkspace(data.value, root));
     await rm(join(root, 'app', name));
   }
+}));
+test('a matching workspace compares as MATCH on Linux and is refused with the exact category elsewhere', async () => workspace(async (root, data) => {
+  if (LINUX) assert.equal((await inspectWorkspace(data.value, root, { requireMatch: true })).state, 'MATCH');
+  else await assert.rejects(inspectWorkspace(data.value, root), { message: UNSUPPORTED_PLATFORM });
 }));

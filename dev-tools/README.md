@@ -48,7 +48,6 @@ Discipline in `code/datarim/AGENTS.md`).
 | `check-inventory-runtime-drift.sh` | ecosystem host-inventory↔runtime drift auditor (declared public IP / Tailscale IP / firewall posture vs SSH-probed runtime facts); consumer-owned weekly cross-check against its own inventory file (`--inventory <path>`), diff → ops warning event. Hardcodes no hosts/IPs. |
 | `check-live-evidence.sh` (structured mode, `lib/live-evidence.sh`) | acceptance/evidence gate in `commands/dr-{init,plan,do,write,edit,publish,qa,compliance,archive,quick,auto}.md` per `skills/immutability/SKILL.md` § Acceptance and Evidence Loop; `--contract --evidence --root --stage` exits 0 STAGE_PASS/preflight receipt, 1 BLOCKED, 2 usage |
 | `lib/heartbeat-receipts.py` | `lib/heartbeat-status.sh write` when `DATARIM_INTERACTION_RECEIPTS_DIR` and `DATARIM_INTERACTION_RUN_ID` are both set (opt-in; Python 3 only on that path) |
-| `continuation-bootstrap.mjs`, `continuation-provenance.mjs`, `continuation-provenance-fs.mjs` | `commands/dr-continue-checkpoint.md` (controller-launched worker only; Linux, fixed `/worker/runtime` and `/workspace` ABI) |
 
 ## Why runtime-shipped but no user CLI
 

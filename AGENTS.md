@@ -229,7 +229,6 @@ Before writing ANY file to `datarim/`:
 | `/dr-orchestrate run` | Core+Plugin | Self-driving Datarim pipeline runner (v2.5.0). **Command and autonomy policy are core** (no plugin needed — `dev-tools/rules/fb-rules.yaml` + `dev-tools/fb-policy-loader.sh`). Phase 1 lean rule-based tmux runner; Phase 2 adds multi-backend subagent inference (claude → codex → cursor) for unknown prompts, autonomy L1 → L2 (assisted), flock-race-safe cooldown, audit schema v2. v2.5.0 adds bot-interaction interface. **Tmux/bot transport runner is the opt-in plugin** — `dr-plugin enable <abs-path>/plugins/dr-orchestrate`. Security floor: whitelist + 0x1b escape-block + 500 ms micro + 60 s decision cooldown + 5-violations/hr 1 h pane block. JSONL audit, hash-only credentials. |
 | `/dr-save` | Utility | Capture current session to `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` before context is destroyed. 5-layer body, 32 KB cap (L1/L5 non-truncatable), append-only, claim-provenance enforcement, secret redaction. Cross-runtime: Claude Code / Codex CLI / Cursor. |
 | `/dr-continue` | Utility | Resume from session artefact in a **clean context window**. Re-verifies every claim (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrades provenance, routes to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. |
-| `/dr-continue-checkpoint` | Utility | Controller-only worker entry: reads a controller-bound ordinary answer and its provenance from the immutable `/worker/runtime` resources (Linux), checks the current workspace against the captured source, and enters exactly the recorded stage with production HOLD retained. Not a general resume command; unavailable without a controller launch. |
 | `/dr-help` | Utility | List all commands with descriptions and usage guidance |
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
@@ -242,7 +241,7 @@ Before writing ANY file to `datarim/`:
 > rule, and every learned action stays subject to per-space policy and the immutable
 > hard-gated floor.
 
-Command files: `${DATARIM_RUNTIME:?}/commands/{name}.md` (29 commands, including the plugin command)
+Command files: `${DATARIM_RUNTIME:?}/commands/{name}.md` (28 commands, including the plugin command)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 

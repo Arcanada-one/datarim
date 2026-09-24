@@ -2,7 +2,7 @@
 
 > **GENERATED FILE. DO NOT EDIT.** Source: `dev-tools/command-graph.yaml`. Regenerate with `python3 dev-tools/framework-graph.py --write`.
 
-Full Command Inventory (29 commands)
+Full Command Inventory (28 commands)
 
 ```mermaid
 graph LR
@@ -22,12 +22,6 @@ graph LR
     dr-status["/dr-status"]
     dr-save["/dr-save"] --> dr-continue["/dr-continue"]
     dr-continue["/dr-continue"] --> dr-next["/dr-next"]
-    dr-continue-checkpoint["/dr-continue-checkpoint"] --> dr-prd["/dr-prd"]
-    dr-continue-checkpoint["/dr-continue-checkpoint"] --> dr-design["/dr-design"]
-    dr-continue-checkpoint["/dr-continue-checkpoint"] --> dr-plan["/dr-plan"]
-    dr-continue-checkpoint["/dr-continue-checkpoint"] --> dr-do["/dr-do"]
-    dr-continue-checkpoint["/dr-continue-checkpoint"] --> dr-qa["/dr-qa"]
-    dr-continue-checkpoint["/dr-continue-checkpoint"] --> dr-compliance["/dr-compliance"]
     dr-help["/dr-help"]
     dr-doctor["/dr-doctor"]
     dr-auto["/dr-auto"]
@@ -59,7 +53,6 @@ graph LR
 - `/dr-next` — stage `utility` · entry point
 - `/dr-save` — stage `utility` · entry point
 - `/dr-continue` — stage `utility` · entry point
-- `/dr-continue-checkpoint` — stage `utility` · entry point
 - `/dr-help` — stage `utility` · entry point
 - `/dr-doctor` — stage `maintenance` · entry point
 - `/dr-auto` — stage `meta` · entry point

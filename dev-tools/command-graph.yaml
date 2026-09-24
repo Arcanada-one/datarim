@@ -112,13 +112,6 @@ commands:
     optional_at: []
     entry: true
 
-  dr-continue-checkpoint:
-    stage: utility
-    requires: []
-    precedes: [dr-prd, dr-design, dr-plan, dr-do, dr-qa, dr-compliance]
-    optional_at: []
-    entry: true
-
   dr-help:
     stage: utility
     requires: []
