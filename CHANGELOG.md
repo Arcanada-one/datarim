@@ -6,6 +6,7 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Fixed
 
+- INSTALL.md: the permission-mode question comes third, as in the installer's own list. It is applied after the install rather than by an installer flag, so an agent that asked the questions itself used to skip it. The agent's report now names the permission mode, and the update step is `./update.sh --project <path>` with no flags, because the choices are remembered. The environment table says its variables are set per shell or per launch, never in a shell startup file, where `JEV_PERMISSIONS=full` would turn off permission prompts for every launch.
 - Every question in the installer's refusal now states its default, the same as the `INSTALL.md` table:
   Jev none; clients, the ones installed on the machine (still named explicitly in `--client`); the
   `CLAUDE.md` link, yes when there is none; permission mode ask; `--init` yes; `--expose-skills` no;
