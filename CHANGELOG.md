@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [3.1.2] — 2026-09-24
+
 ### Fixed
 
 - Templates copied into projects (`accepted-risk.yml`, `module.yaml`, `datarim-config.yaml`) named their
@@ -12,6 +14,9 @@ All notable changes to the Datarim framework are documented here. Format follows
   `${DATARIM_RUNTIME:?}`, which fails with a clear message instead.
 
 ## [3.1.1] — 2026-09-24
+
+> Tagged but not published: the range held only documentation commits, which the release classifier does not
+> publish. These changes ship in 3.1.2.
 
 ### Fixed
 
