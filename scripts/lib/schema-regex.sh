@@ -50,7 +50,7 @@ SCHEMA_BACKLOG_RE='^- [A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)* · (pending|bl
 #   - D_REQ_ID_RE   : a D-REQ-NN declaration. TWO canonical forms are accepted —
 #                     the `#### D-REQ-NN: <desc>` heading form AND the
 #                     `- **D-REQ-NN** — <desc>` bold-list form the /dr-prd
-#                     Requirements section emits. (DEV-1547 / DEV-1552-FU both
+#                     Requirements section emits. (Two consumer PRDs both
 #                     declared D-REQs as a bullet list and tripped a false grade-F.)
 #   - COVERS_LINE_RE : a `Covers: D-REQ-NN[, D-REQ-NN ...]` binding on a V-AC. The
 #                      binding may be inline (e.g. trailing a bullet) — leading

@@ -152,13 +152,13 @@ RUN set -eu \
  && ln -sf /opt/claude-cli/bin/claude /usr/local/bin/claude \
  && rm /tmp/claude-cli.tgz
 
-RUN useradd -m -s /bin/bash connector
-USER connector
+RUN useradd -m -s /bin/bash app
+USER app
 ```
 
 ```yaml
 volumes:
-  - cli-auth:/home/connector/.claude
+  - cli-auth:/home/app/.claude
 ```
 
 `npm`-distributed CLIs install via the lockfile and signature verification:
@@ -226,7 +226,7 @@ In async Python (FastAPI/uvicorn), **always use a singleton `httpx.AsyncClient`*
 
 ### Why
 
-Real incident: Scrutator `embedder.py` created a new `httpx.AsyncClient` per call to `embed_texts()` and `embed_sparse()`. Each `index_document()` = 2 clients. After 2-3 requests (4-6 clients), TCP sockets exhausted → 503 with empty error message. Restarting the service temporarily fixed it (socket cleanup).
+Real incident: a search service's `embedder.py` created a new `httpx.AsyncClient` per call to `embed_texts()` and `embed_sparse()`. Each `index_document()` = 2 clients. After 2-3 requests (4-6 clients), TCP sockets exhausted → 503 with empty error message. Restarting the service temporarily fixed it (socket cleanup).
 
 ### Pattern
 

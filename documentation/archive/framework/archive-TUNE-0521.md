@@ -100,10 +100,10 @@ Exit code: 0
 | `commands/dr-compliance.md` | 43 | `$HOME/.claude/skills/immutability/SKILL.md` — `/dr-compliance Rules` |
 | `agents/architect.md` | 27 | `$HOME/.claude/skills/immutability/SKILL.md` — per-stage fragments |
 
-### Runtime symlink chain (DEVS)
+### Runtime symlink chain (shared dev host)
 
 ```
-/home/dev/.claude/skills → /opt/datarim/skills
+$HOME/.claude/skills → /opt/datarim/skills
 /opt/datarim/skills/immutability/SKILL.md — 14327 bytes, plain file
 ```
 
@@ -114,8 +114,8 @@ Per the enforcement program brief, the file is present on all three machines:
 | Machine | Path | Size |
 |---------|------|------|
 | Mac | `/.claude/skills/immutability/SKILL.md` | 14.0K |
-| DEVS | `/home/dev/.claude/skills/immutability/SKILL.md` | 14327 bytes |
-| dev-box | `/home/client/.claude/skills/immutability/SKILL.md` | 14327 bytes |
+| Shared dev host | `$HOME/.claude/skills/immutability/SKILL.md` | 14327 bytes |
+| Consumer host | `$HOME/.claude/skills/immutability/SKILL.md` | 14327 bytes |
 
 ## Confidence in remaining TUNE-0517 audit findings
 

@@ -133,16 +133,16 @@ YAML
 }
 
 @test "reassert writes the resolved space binding" {
-    run "$HELPER" reassert --root "$FAKE_ROOT" --task-id "$TASK_ID" --space arcanada
+    run "$HELPER" reassert --root "$FAKE_ROOT" --task-id "$TASK_ID" --space alpha
     [ "$status" -eq 0 ]
-    [ "$(yq eval -r '.space' "$PER_TASK_MARKER")" = arcanada ]
+    [ "$(yq eval -r '.space' "$PER_TASK_MARKER")" = alpha ]
 }
 
 @test "reassert replaces a marker with the wrong space binding" {
     # Seed a per-task marker with the wrong space, then reassert must rewrite it.
-    "$HELPER" reassert --root "$FAKE_ROOT" --task-id "$TASK_ID" --space client
-    [ "$(yq eval -r '.space' "$PER_TASK_MARKER")" = client ]
-    run "$HELPER" reassert --root "$FAKE_ROOT" --task-id "$TASK_ID" --space arcanada
+    "$HELPER" reassert --root "$FAKE_ROOT" --task-id "$TASK_ID" --space beta
+    [ "$(yq eval -r '.space' "$PER_TASK_MARKER")" = beta ]
+    run "$HELPER" reassert --root "$FAKE_ROOT" --task-id "$TASK_ID" --space alpha
     [ "$status" -eq 0 ]
-    [ "$(yq eval -r '.space' "$PER_TASK_MARKER")" = arcanada ]
+    [ "$(yq eval -r '.space' "$PER_TASK_MARKER")" = alpha ]
 }

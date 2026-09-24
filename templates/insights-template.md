@@ -27,7 +27,7 @@
 
 ## LTM Context
 
-(Relevant experience from past tasks via Scrutator LTM API, if available)
+(Relevant experience from past tasks via the long-term-memory (LTM) API, if available)
 
 ## Gap Discoveries
 

@@ -9,7 +9,7 @@
 #     acknowledged within 3000ms; returns 18 (fail-closed) otherwise.
 #
 # Backends (functions named _notify_<type>) implemented in Phase 3:
-#   _notify_telegram — POST sendMessage via @ArcanadaAssistantBot token.
+#   _notify_telegram — POST sendMessage via the configured bot token.
 #   _notify_stub     — test-only mock that succeeds.
 #   _notify_stub_fail — test-only mock that fails.
 #

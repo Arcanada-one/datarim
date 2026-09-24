@@ -313,13 +313,13 @@ write_ledger() {
 }
 
 # ---------------------------------------------------------------------------
-# `\E` in a landed line (DEV-1770 shape)
+# `\E` in a landed line (PHP `\Exception` shape)
 #
 # `git grep -F` implements fixed-string matching by wrapping the pattern in
 # \Q...\E, so a literal \E in the pattern ends the quoting and the remainder is
 # parsed as a regex. Every `\Exception` / `\ErrorException` reference in a PHP
 # repo therefore MISSED, and the gate falsely blocked an archive whose work was
-# demonstrably on main (observed in /dr-archive DEV-1762: 4 of 4 flagged lines
+# demonstrably on main (observed in a consumer /dr-archive: 4 of 4 flagged lines
 # contained `\Exception`).
 #
 # These scenarios use the SQUASH-merge shape on purpose: the branch must stay

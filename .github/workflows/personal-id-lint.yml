@@ -7,70 +7,19 @@
 
 name: personal-id-lint
 
-# The two `paths:` lists below MUST stay a superset of DEFAULT_PATHS in
-# scripts/personal-id-gate.sh. They previously mirrored an older, narrower
-# DEFAULT_PATHS and were never updated when the gate's scan surface widened, so
-# CI was blind to exactly the half of the tree (plugins/, config/, tests/,
-# .github/, root installers) that the gate had started scanning locally. A
-# passing CI run was then an artefact of the filter, not evidence of a clean
-# tree.
+# Trigger on EVERY push to main and every pull request — no `paths:` filter.
 #
-# Drift between the two is now caught by tests/personal-id-lint-scope.bats.
-#
-# The list is duplicated rather than shared via a YAML anchor: GitHub Actions
-# does not support anchors/aliases in workflow files. The regression test
-# checks BOTH copies.
+# The gate scans every tracked file (`git ls-files`), so any change anywhere can
+# introduce a finding. An earlier revision carried a `paths:` filter mirroring
+# the gate's hand-maintained DEFAULT_PATHS; root-level files (a notes file with
+# an absolute home path, CHANGELOG.md) sat outside both lists, and a leak could
+# land without the gate ever running. The absence of a filter is asserted by
+# tests/personal-id-lint-scope.bats.
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'cli/**'
-      - 'skills/**'
-      - 'agents/**'
-      - 'commands/**'
-      - 'templates/**'
-      - 'scripts/**'
-      - 'dev-tools/**'
-      - 'plugins/**'
-      - 'config/**'
-      - 'tests/**'
-      - '.github/**'
-      - 'docs/**'
-      - 'documentation/**'
-      - 'CLAUDE.md'
-      - 'AGENTS.md'
-      - 'README.md'
-      - 'SECURITY.md'
-      - 'CONTRIBUTING.md'
-      - 'CODE_OF_CONDUCT.md'
-      - 'install.sh'
-      - 'update.sh'
-      - 'validate.sh'
   pull_request:
     branches: [ main ]
-    paths:
-      - 'cli/**'
-      - 'skills/**'
-      - 'agents/**'
-      - 'commands/**'
-      - 'templates/**'
-      - 'scripts/**'
-      - 'dev-tools/**'
-      - 'plugins/**'
-      - 'config/**'
-      - 'tests/**'
-      - '.github/**'
-      - 'docs/**'
-      - 'documentation/**'
-      - 'CLAUDE.md'
-      - 'AGENTS.md'
-      - 'README.md'
-      - 'SECURITY.md'
-      - 'CONTRIBUTING.md'
-      - 'CODE_OF_CONDUCT.md'
-      - 'install.sh'
-      - 'update.sh'
-      - 'validate.sh'
   workflow_dispatch:
 
 permissions:
@@ -86,8 +35,25 @@ jobs:
         with:
           persist-credentials: false
 
+      # Consumer, client and host names cannot live in the shipped denylist
+      # (listing them publishes them). The maintainer keeps them in the
+      # PERSONAL_ID_OVERLAY repository secret, one extended regex per line; the
+      # gate merges it additively. Absent secret (a fork PR, a fresh clone) =
+      # shipped patterns only, stated in the log rather than passed silently.
       - name: Run personal-id gate
+        env:
+          PERSONAL_ID_OVERLAY: ${{ secrets.PERSONAL_ID_OVERLAY }}
         run: |
           set -euo pipefail
           chmod +x scripts/personal-id-gate.sh
-          bash scripts/personal-id-gate.sh --report
+          if [ -n "${PERSONAL_ID_OVERLAY:-}" ]; then
+            overlay="$(mktemp)"
+            printf '%s\n' "$PERSONAL_ID_OVERLAY" > "$overlay"
+            export DATARIM_PERSONAL_ID_OVERLAY="$overlay"
+            echo "private overlay: present ($(grep -cvE '^[[:space:]]*(#|$)' "$overlay") pattern(s))"
+          else
+            echo "::notice::private overlay: absent - shipped patterns only"
+          fi
+          # Findings are printed as path:line only; the matched text could be
+          # the very identifier the gate exists to keep out of public logs.
+          bash scripts/personal-id-gate.sh --report | sed -E 's/^([^:]+:[0-9]+):.*/\1/'

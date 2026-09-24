@@ -118,7 +118,7 @@ status: <enum>                # in_progress|blocked|not_started|pending|blocked-
 priority: <enum>              # P0|P1|P2|P3
 complexity: <enum>            # L1|L2|L3|L4
 type: <string>                # free-form (e.g. framework, infra, content, bugfix)
-project: <string>             # free-form (e.g. Datarim, Arcanada, Verdicus)
+project: <string>             # free-form (e.g. Datarim, Billing, Storefront)
 started: <date>               # YYYY-MM-DD
 parent: <TASK-ID|null>        # null if no parent
 related: <list[TASK-ID]>      # YAML list, empty list ok
@@ -188,7 +188,7 @@ Applied by `scripts/datarim-doctor.sh --fix`. Single transactional sequence guar
     - Priority normalized to `P[0-3]`; missing → `P3`.
     - Complexity normalized to `L[1-4]`; missing → `L2` (most common default).
     - Started missing → today (UTC).
-    - Project missing → derive from prefix (`TUNE` → `Datarim`, `INFRA` → `Arcanada`, …) or `unknown`.
+    - Project missing → derive from prefix (`TUNE` → `Datarim`, `INFRA` → `Infrastructure`, …) or `unknown`.
 7. Write to `datarim/tasks/{TASK-ID}-task-description.md`. **Skip if already exists with valid frontmatter** (idempotent).
 
 ### Pass 2 — Operational files (rewrite indexes)

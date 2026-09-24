@@ -8,7 +8,7 @@ target_aal: 2
 # Security Baseline (S1–S11)
 
 > **Authority:** RFC 2119 keywords (MUST / MUST NOT / SHOULD / MAY) apply throughout this document.
-> **Origin:** corporate security audit, 2026-04-28 — full audit log: `~/arcanada/documentation/archive/security/findings-2026-04-28.md` . Research baseline: `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md`.
+> **Origin:** corporate security audit, 2026-04-28 — full audit log kept in the maintainer's workspace (`documentation/archive/security/findings-2026-04-28.md`). Research baseline: an OSS CLI security research note of the same date (maintainer-private).
 > **Companion skills:** [`skills/security/SKILL.md`](../security/SKILL.md) (operational recipes — git history scrub, Tailscale+VPN coexistence, recon-vs-compromise heuristics, cross-stack relative-path includes) and [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md) (S4 consumer-side verify entry point).
 > **CI baseline:** [`tests/security/baseline.json`](../../tests/security/baseline.json) — machine-readable suppressions registry + required-jobs status.
 > **Standards mapping:** [`documentation/reference/standards-mapping.md`](../../documentation/reference/standards-mapping.md) (S8 — full ASVS / SOC 2 / ISO 27001 / CIS table).
@@ -215,12 +215,12 @@ ecosystem-specific Vault paths MUST NOT appear in any shipped framework artefact
 6. **Signed releases** — release artefacts MUST be cosign-signed (keyless OIDC preferred). Consumer-side verify recipe: [`documentation/how-to/release-verification.md`](../../documentation/how-to/release-verification.md) (canonical) + [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md) (AI-agent loadable entry point).
 7. **SLSA Level 2 provenance** — release workflow MUST emit `actions/attest-build-provenance` attestation linkable to the source commit.
 8. **Dependency monitoring** — Dependabot or Renovate MUST be configured for the repo; advisories at the declared severity threshold block merge.
-9. **Mandate-as-test** — every binary or library published to a public registry (crates.io / npm / PyPI / Docker Hub) MUST ship an integration test that encodes a shipped mandate as an executable assertion, so a mandate regression fails CI instead of reaching the registry. At minimum, assert the public output surface (`--help`, `--version`, banners, stdout, stderr) is free of internal task identifiers — grep it against the forbidden-identifier regex set (e.g. `\bARAS-\d{4}\b`, `\bAUTH-\d{4}\b`, one alternation per active task prefix). Extend the same shape to other shippable mandates (no-secrets-in-package, license-file-present, provenance-attestation-linkable). The test is the enforcement point; a prose rule alone is not sufficient.
+9. **Mandate-as-test** — every binary or library published to a public registry (crates.io / npm / PyPI / Docker Hub) MUST ship an integration test that encodes a shipped mandate as an executable assertion, so a mandate regression fails CI instead of reaching the registry. At minimum, assert the public output surface (`--help`, `--version`, banners, stdout, stderr) is free of internal task identifiers — grep it against the forbidden-identifier regex set (e.g. `\bPROJ-\d{4}\b`, `\bAPI-\d{4}\b`, one alternation per active task prefix). Extend the same shape to other shippable mandates (no-secrets-in-package, license-file-present, provenance-attestation-linkable). The test is the enforcement point; a prose rule alone is not sufficient.
 
 ### Implementation reference
 
 - Release workflow: [`.github/workflows/release.yml`](../../.github/workflows/release.yml) — supply-chain security implementation.
-- Reference implementation of Mandate-as-test: an ecosystem CLI asserts its `--version` / login output omits internal task identifiers — [`crates/cli/tests/version.rs`](https://github.com/Arcanada-one/host-agent-system/blob/c0573e6/crates/cli/tests/version.rs) (`Arcanada-one/host-agent-system` @ `c0573e6`).
+- Reference implementation of Mandate-as-test: a CLI asserts, in an ordinary integration test (e.g. `crates/cli/tests/version.rs`), that its `--version` / login output omits internal task identifiers — the mandate becomes a failing test rather than a review note.
 - Verify recipe (consumer-side): [`documentation/how-to/release-verification.md`](../../documentation/how-to/release-verification.md), [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md).
 - Stack-agnostic phrasing for dependency-audit references: see [`skills/security/SKILL.md`](../security/SKILL.md) § Stack-neutral phrasing.
 
@@ -504,9 +504,9 @@ Both skills cross-link freely; neither replaces the other. AGENTS.md § Security
 
 ## Source artefacts
 
-- Corporate audit, 2026-04-28: `~/arcanada/documentation/archive/security/findings-2026-04-28.md` 
+- Corporate audit, 2026-04-28: `documentation/archive/security/findings-2026-04-28.md` in the maintainer's workspace
 - Audit baseline (machine-readable): [`tests/security/baseline.json`](../../tests/security/baseline.json)
-- Research baseline: `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md` (575 LoC OSS CLI security research, 2026-04-28)
+- Research baseline: OSS CLI security research, 2026-04-28 (575 LoC, maintainer-private)
 - Recovery archive (incident → rule expansion): security incident archive at `documentation/archive/security/`
 - Companion operational recipes: [`skills/security/SKILL.md`](../security/SKILL.md)
 - Consumer-side verify entry: [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md), [`documentation/how-to/release-verification.md`](../../documentation/how-to/release-verification.md)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """What a launcher hands to the client, and when it asks for no prompts.
 
-Measured on DEV-BOX: `jevclaude --dangerously-skip-permissions` stopped with
+Measured on a consumer host: `jevclaude --dangerously-skip-permissions` stopped with
 "unrecognized arguments", because client options were accepted only after --.
 """
 from __future__ import annotations

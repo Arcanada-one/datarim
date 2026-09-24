@@ -75,9 +75,9 @@ teardown() {
 # --- resolver default: nested cwd, no --root, finds repo-root ---------------
 
 @test "C7 no --root from nested cwd resolves repo-root (not the nested dir)" {
-    mkdir -p "$TMPROOT/spaces/client/code"
+    mkdir -p "$TMPROOT/spaces/beta/code"
     command -v git >/dev/null && git -C "$TMPROOT" init -q
-    run bash -c 'cd "$1" && "$2" --scope=history' "$TMPROOT/spaces/client/code" "$DOCTOR"
+    run bash -c 'cd "$1" && "$2" --scope=history' "$TMPROOT/spaces/beta/code" "$DOCTOR"
     # detects the docs/ ledger at the real repo-root → exit 1 (dry-run finding)
     [ "$status" -eq 1 ]
 }

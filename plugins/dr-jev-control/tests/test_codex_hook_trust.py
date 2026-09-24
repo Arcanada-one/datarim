@@ -107,7 +107,7 @@ class CodexHookTrust(_CodexHome):
         self.assertEqual(result['disabled'], ['PreToolUse'])
 
     def test_enabled_true_before_the_hash_is_trusted(self):
-        """The order DEV-BOX's config carries."""
+        """The order one measured consumer host's config carries."""
         group = {'hooks': [self.hook('PreToolUse')], 'matcher': MATCHER}
         body = f'enabled = true\ntrusted_hash = "{codex_hook_hash("PreToolUse", group, group["hooks"][0])}"\n'
         self.write({'PreToolUse': [group]}, self.block('pre_tool_use:0:0', body))
@@ -151,7 +151,7 @@ class TrustOwnHooks(_CodexHome):
         return {'hooks': [{'type': 'command', 'command': '/opt/orca/codex-hook.sh', 'timeout': 9}]}
 
     def test_hooks_shifted_by_another_installer_are_trusted_again(self):
-        """The DEV-BOX measurement: Orca put its hook ahead of ours, the grant
+        """The consumer-host measurement: Orca put its hook ahead of ours, the grant
         stayed at the old index, and Codex skipped the Jev floor."""
         ours = {'hooks': [self.hook('UserPromptSubmit')]}
         foreign_digest = codex_hook_hash('UserPromptSubmit', self.foreign(), self.foreign()['hooks'][0])

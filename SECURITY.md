@@ -76,8 +76,8 @@ Out of scope:
 
 - Consumer projects that *use* the framework — report to that project's
   own security contact.
-- The Arcanada ecosystem services (Auth Arcana, Verdicus, etc.) — each
-  has its own `SECURITY.md`.
+- The maintainer's other services and products — each has its own
+  `SECURITY.md`.
 - Findings that require an attacker to already have full root access on
   the host running the framework.
 

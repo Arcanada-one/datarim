@@ -15,9 +15,9 @@ teardown() { rm -rf "$KB"; }
 
 # Write a space.yml under a spaces/<name>/ tree with a chosen backend.
 write_space_yml() {  # $1=backend $2=datarim_path
-    mkdir -p "$KB/spaces/arcanada"
-    cat > "$KB/spaces/arcanada/space.yml" <<EOF
-space: arcanada
+    mkdir -p "$KB/spaces/alpha"
+    cat > "$KB/spaces/alpha/space.yml" <<EOF
+space: alpha
 infra:
   knowledge_base:
     current_backend: $1
@@ -37,14 +37,14 @@ EOF
 @test "V-2b: space.yml file-based-datarim resolves datarim_path/backlog.md" {
     mkdir -p "$KB/datarim"
     write_space_yml file-based-datarim "$KB/datarim"
-    run bash -c "cd '$KB/spaces/arcanada'; source '$LIB'; resolve_backlog_sink"
+    run bash -c "cd '$KB/spaces/alpha'; source '$LIB'; resolve_backlog_sink"
     [ "$status" -eq 0 ]
     [ "$output" = "$KB/datarim/backlog.md" ]
 }
 
-@test "V-2c: space.yml non-file backend (future muneral) → exit 1, no path" {
-    write_space_yml muneral "$KB/datarim"
-    run bash -c "cd '$KB/spaces/arcanada'; source '$LIB'; resolve_backlog_sink"
+@test "V-2c: space.yml non-file backend (external tracker) → exit 1, no path" {
+    write_space_yml tracker "$KB/datarim"
+    run bash -c "cd '$KB/spaces/alpha'; source '$LIB'; resolve_backlog_sink"
     [ "$status" -eq 1 ]
     [ -z "$output" ]
 }

@@ -10,7 +10,7 @@ Pattern derived from a multi-host git-pull resolver script. Smoke-tested: 3/3 su
 
 ```bash
 # nosec-extract
-CLAUDE_BIN=/home/dev/.local/bin/claude
+CLAUDE_BIN="$HOME/.local/bin/claude"
 CLAUDE_TIMEOUT=300
 CLAUDE_MODEL=sonnet  # or opus for complex conflicts
 

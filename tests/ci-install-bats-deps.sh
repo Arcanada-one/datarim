@@ -68,7 +68,7 @@ done
 if [ "$PYTHON_ONLY" != true ]; then
     # Install only what is missing, and only when this account can actually
     # install. A self-hosted runner is a long-lived machine whose tools are
-    # already there: measured on host-devs-3, the ci-runner account already
+    # already there: measured on a shared dev host, the ci-runner account already
     # had jq, shellcheck and bats under ~/.local/bin and has no passwordless
     # sudo, so the unconditional `sudo apt-get` failed the job before a single
     # test ran -- over packages that did not need installing.

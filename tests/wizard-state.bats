@@ -208,9 +208,9 @@ for l in open(sys.argv[1]):
 @test "V-AC-5i: a full home path (incl. trailing filename) is redacted in a graph label" {
     source "$LIB"
     wizard_init "$ID" --root "$KB"
-    wizard_graph_node "$ID" n1 decision 'config at /home/dev/api-keys.txt loaded' --root "$KB"
+    wizard_graph_node "$ID" n1 decision 'config at /home/example/api-keys.txt loaded' --root "$KB"
     run grep -qF 'api-keys.txt' "$(gfile)"; [ "$status" -ne 0 ]
-    run grep -qF '/home/dev' "$(gfile)"; [ "$status" -ne 0 ]
+    run grep -qF '/home/example' "$(gfile)"; [ "$status" -ne 0 ]
     grep -q 'REDACTED' "$(gfile)"
 }
 

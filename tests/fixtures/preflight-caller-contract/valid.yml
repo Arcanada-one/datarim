@@ -35,7 +35,7 @@ jobs:
       - id: preflight
         uses: Arcanada-one/datarim/.github/actions/preflight-check@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         with:
-          target-host: host-prod
+          target-host: prod-host
           service-name: muneral
           extra-checks: |
             vault

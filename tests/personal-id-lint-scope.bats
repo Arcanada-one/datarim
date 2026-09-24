@@ -14,7 +14,8 @@
 # which is indistinguishable from CI being green because the tree is clean —
 # until someone widens the scan and finds real leaks.
 #
-# These assertions make that drift impossible to reintroduce silently.
+# The gate now scans `git ls-files` and the workflow has no paths filter, so
+# there is no second list left to drift. These assertions keep it that way.
 
 setup() {
     ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
@@ -30,56 +31,40 @@ default_paths() {
         | grep -v '^$'
 }
 
-@test "the gate declares a non-empty DEFAULT_PATHS" {
+@test "the gate declares a non-empty DEFAULT_PATHS fallback" {
     local n
     n="$(default_paths | wc -l)"
-    # A parse failure here would make every assertion below vacuously true.
+    # A parse failure here would make the fallback silently empty.
     [ "$n" -ge 10 ]
 }
 
-@test "every DEFAULT_PATHS entry is covered by the workflow paths filter" {
-    # Accept either form: a directory entry may legitimately be written as
-    # `'docs/**'` even when docs/ does not exist yet (the gate tolerates absent
-    # DEFAULT_PATHS entries, and the filter should already cover the directory
-    # for the commit that creates it).
-    local missing="" entry
-    while IFS= read -r entry; do
-        [ -n "$entry" ] || continue
-        if grep -qF "'${entry}'" "$WF" || grep -qF "'${entry}/**'" "$WF"; then
-            continue
-        fi
-        missing="${missing} ${entry}"
-    done < <(default_paths)
-
-    [ -z "$missing" ] || {
-        echo "DEFAULT_PATHS entries absent from personal-id-lint.yml paths filter:"
-        echo "  ${missing}"
-        echo "The gate would scan them locally but CI would never trigger on them."
-        return 1
-    }
+@test "inside a git checkout the gate scans every tracked file, not DEFAULT_PATHS" {
+    # The drift this file used to police (workflow filter vs DEFAULT_PATHS) had
+    # a second, quieter half: files outside BOTH lists — root-level notes,
+    # CHANGELOG.md — were never scanned at all. Tracked-file scope removes the
+    # list as the thing that can drift.
+    grep -q 'git -C "$FRAMEWORK_ROOT" ls-files -z' "$GATE"
+    local tracked scanned
+    tracked="$(git -C "$ROOT" ls-files | wc -l | tr -d ' ')"
+    run bash "$GATE" --report
+    scanned="$(printf '%s\n' "$output" | sed -nE 's/^scope: tracked \(([0-9]+) file.*/\1/p')"
+    [ -n "$scanned" ]
+    # Every tracked regular file is scanned (symlinks carry no body of their own).
+    local links
+    links="$(git -C "$ROOT" ls-files -s | awk '$1==120000' | wc -l | tr -d ' ')"
+    [ "$scanned" -eq $((tracked - links)) ]
 }
 
-@test "both the push and pull_request filters carry the same entry count" {
-    # GitHub Actions does not support YAML anchors, so the list is duplicated.
-    # A widened push filter with a stale pull_request filter is the worst case:
-    # green PRs, red main.
-    local push_n pr_n
-    push_n="$(python3 - "$WF" <<'PY'
+@test "the workflow runs on every change (no paths filter can hide a file)" {
+    python3 - "$WF" <<'PY'
 import sys, yaml
 wf = yaml.safe_load(open(sys.argv[1]))
 on = wf.get(True, wf.get("on"))
-print(len(on["push"]["paths"]))
+for ev in ("push", "pull_request"):
+    assert ev in on, f"workflow does not trigger on {ev}"
+    cfg = on[ev] or {}
+    assert "paths" not in cfg and "paths-ignore" not in cfg, f"{ev} carries a paths filter"
 PY
-)"
-    pr_n="$(python3 - "$WF" <<'PY'
-import sys, yaml
-wf = yaml.safe_load(open(sys.argv[1]))
-on = wf.get(True, wf.get("on"))
-print(len(on["pull_request"]["paths"]))
-PY
-)"
-    [ "$push_n" -eq "$pr_n" ]
-    [ "$push_n" -ge 10 ]
 }
 
 @test "the workflow uses no YAML anchors (GitHub Actions does not support them)" {

@@ -72,7 +72,7 @@ run_helper() {
 
 # ── Group A — defect 2: fixture literals in prose must not poison the ceiling ─
 #
-# Reproduced on host-devs 2026-07-30: `next-free-id.sh TUNE <workspace>`
+# Reproduced on a shared dev host 2026-07-30: `next-free-id.sh TUNE <workspace>`
 # returned TUNE-10001 against a real ceiling of TUNE-0541. Every poisoning
 # literal (TUNE-10000/9999/9876/9500/2026/1000) sits MID-LINE in backlog prose;
 # all 1077 genuine rows are line-leading `- {ID} ·`. The archive surface was
@@ -109,7 +109,7 @@ run_helper() {
     [ "$HID" = "TUNE-0002" ]
 }
 
-@test "A04: full host-devs reproduction — poisoned prose plus real rows to 0541" {
+@test "A04: full shared-dev-host reproduction — poisoned prose plus real rows to 0541" {
     {
         printf -- '- TUNE-0540 · real row\n'
         printf -- '- TUNE-0541 · real row\n'
@@ -142,7 +142,7 @@ run_helper() {
 
 # ── Group B — defect 1: live tmux / git names are a claim surface ─────────────
 #
-# Reproduced on host-devs 2026-07-30 11:24:55. A batch-spawned orchestrator
+# Reproduced on a shared dev host 2026-07-30 11:24:55. A batch-spawned orchestrator
 # reserves an ID in its tmux SESSION NAME (`dr-<space>-<TASK-ID>`) minutes
 # before any file records the claim. The allocator read files only, reported
 # RESEARCH-0012 then RESEARCH-0013 as free while both were in flight, forced a
@@ -152,7 +152,7 @@ run_helper() {
 
 @test "B01: a live tmux session name claims its ID" {
     printf -- '- TUNE-0001 · row\n' > "${FIXTURE_DIR}/datarim/tasks.md"
-    export DATARIM_ID_TMUX_SESSIONS="dr-arcanada-TUNE-0002"
+    export DATARIM_ID_TMUX_SESSIONS="dr-alpha-TUNE-0002"
 
     run_helper TUNE "${FIXTURE_DIR}"
     [ "$HSTATUS" -eq 0 ]
@@ -164,7 +164,7 @@ run_helper() {
     # Branch names are lowercase by convention (`tune-0002-some-slug`); the
     # ID they carry is not.
     printf -- '- TUNE-0001 · row\n' > "${FIXTURE_DIR}/datarim/tasks.md"
-    export DATARIM_ID_GIT_REFS="/home/dev/.worktrees/datarim/TUNE-0002
+    export DATARIM_ID_GIT_REFS="/home/example/.worktrees/datarim/TUNE-0002
 tune-0002-next-free-id"
 
     run_helper TUNE "${FIXTURE_DIR}"
@@ -176,10 +176,10 @@ tune-0002-next-free-id"
     # Files know RESEARCH-0011. Sessions hold 0012..0015, none of them yet
     # written anywhere. The allocator must skip the whole live block.
     printf -- '- RESEARCH-0011 · row\n' > "${FIXTURE_DIR}/datarim/tasks.md"
-    export DATARIM_ID_TMUX_SESSIONS="dr-arcanada-RESEARCH-0012
-dr-arcanada-RESEARCH-0013
-dr-arcanada-RESEARCH-0014
-dr-arcanada-RESEARCH-0015"
+    export DATARIM_ID_TMUX_SESSIONS="dr-alpha-RESEARCH-0012
+dr-alpha-RESEARCH-0013
+dr-alpha-RESEARCH-0014
+dr-alpha-RESEARCH-0015"
 
     run_helper RESEARCH "${FIXTURE_DIR}"
     [ "$HSTATUS" -eq 0 ]
@@ -188,12 +188,12 @@ dr-arcanada-RESEARCH-0015"
 
 @test "B04: live names feed the PROBE only — they must never lift the ceiling" {
     # Session and branch names are unconstrained free-form strings: they may be
-    # stale (host-devs currently runs TUNE-0541 under a session literally
-    # named `dr-arcanada-TUNE-0538`), abbreviated, or typo'd. That makes a hit
+    # stale (the dev host was running TUNE-0541 under a session literally
+    # named `dr-alpha-TUNE-0538`), abbreviated, or typo'd. That makes a hit
     # good enough to refuse an ID but not good enough to define the watermark.
     # Trusting them for the ceiling would rebuild defect 2 on a new surface.
     printf -- '- TUNE-0001 · row\n' > "${FIXTURE_DIR}/datarim/tasks.md"
-    export DATARIM_ID_TMUX_SESSIONS="dr-arcanada-TUNE-9999"
+    export DATARIM_ID_TMUX_SESSIONS="dr-alpha-TUNE-9999"
     export DATARIM_ID_GIT_REFS="tune-9998-stale-branch"
 
     run_helper TUNE "${FIXTURE_DIR}"

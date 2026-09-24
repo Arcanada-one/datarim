@@ -13,7 +13,7 @@
 #   T18     append_finding     (json mutation + counters)
 #   T19     emit_ops_bot       (canonical DTO payload shape)
 #   T20     emit_ops_bot       (fail-soft on missing OPSBOT_KEY)
-#   T21     per-host override  (PREFLIGHT_ARCANA_PROD_MIN_FREE_DISK_GB)
+#   T21     per-host override  (PREFLIGHT_PROD_HOST_MIN_FREE_DISK_GB)
 #   T22     fail-closed missing target-host
 #   T23     input regex rejection
 #   T24     end-to-end OK exit 0
@@ -36,7 +36,7 @@ setup() {
     export CURL_LOG
 
     # Required env for sourcing the script without running main
-    export PREFLIGHT_TARGET_HOST="host-prod"
+    export PREFLIGHT_TARGET_HOST="prod-host"
     export PREFLIGHT_SERVICE_NAME="opsbot"
     export PREFLIGHT_TEST_MODE=1
     export GITHUB_OUTPUT="$TMPROOT/gha_output"
@@ -430,11 +430,11 @@ EOF
     checks_len=$(echo "$payload" | jq '.meta.checks | length')
     [ "$agent" = "preflight-check" ]
     [[ "$title" == *"opsbot"* ]]
-    [[ "$title" == *"host-prod"* ]]
+    [[ "$title" == *"prod-host"* ]]
     [[ "$title" == *"FAIL"* ]]
     [ "$category" = "fatal" ]
-    [[ "$dedup" == preflight-host-prod-opsbot-* ]]
-    [ "$host" = "host-prod" ]
+    [[ "$dedup" == preflight-prod-host-opsbot-* ]]
+    [ "$host" = "prod-host" ]
     [ "$service" = "opsbot" ]
     [ "$audit" = "https://example/run/1" ]
     [ "$checks_len" -ge 1 ]
@@ -501,11 +501,11 @@ EOF
 
 # ---------- per-host override ----------
 
-@test "T21 per-host override: PREFLIGHT_ARCANA_PROD_MIN_FREE_DISK_GB=200" {
+@test "T21 per-host override: PREFLIGHT_PROD_HOST_MIN_FREE_DISK_GB=200" {
     mock_cmd_file df "$FIX/df-ok.txt"
     prepend_path
-    export PREFLIGHT_ARCANA_PROD_MIN_FREE_DISK_GB=200
-    export PREFLIGHT_TARGET_HOST=host-prod
+    export PREFLIGHT_PROD_HOST_MIN_FREE_DISK_GB=200
+    export PREFLIGHT_TARGET_HOST=prod-host
     source_script
     run check_disk
     fatal=$(jq '[.[] | select(.name=="disk" and .status=="fatal" and .metric=="free_gb")] | length' "$REPORT_FILE")
@@ -545,7 +545,7 @@ EOF
     chmod +x "$MOCK_BIN/nproc"
     prepend_path
     run env PATH="$PATH" \
-        PREFLIGHT_TARGET_HOST=host-prod \
+        PREFLIGHT_TARGET_HOST=prod-host \
         PREFLIGHT_SERVICE_NAME=opsbot \
         PREFLIGHT_EXTRA_CHECKS=$'vault\ntailscale\ntime-skew' \
         PREFLIGHT_OPS_BOT_EMIT=false \
@@ -562,7 +562,7 @@ EOF
     prepend_path
     unset OPSBOT_KEY
     run env PATH="$PATH" \
-        PREFLIGHT_TARGET_HOST=host-prod \
+        PREFLIGHT_TARGET_HOST=prod-host \
         PREFLIGHT_SERVICE_NAME=opsbot \
         PREFLIGHT_EXTRA_CHECKS="" \
         PREFLIGHT_OPS_BOT_EMIT=true \
@@ -580,7 +580,7 @@ EOF
     mock_cmd_file chronyc "$FIX/chrony-ok.txt"
     prepend_path
     run env PATH="$PATH" \
-        PREFLIGHT_TARGET_HOST=host-prod \
+        PREFLIGHT_TARGET_HOST=prod-host \
         PREFLIGHT_SERVICE_NAME=opsbot \
         PREFLIGHT_EXTRA_CHECKS=$'vault\ntailscale\ntime-skew' \
         PREFLIGHT_OPS_BOT_EMIT=false \
@@ -597,7 +597,7 @@ EOF
     mock_cmd_file chronyc "$FIX/chrony-ok.txt"
     prepend_path
     run env PATH="$PATH" \
-        PREFLIGHT_TARGET_HOST=host-prod \
+        PREFLIGHT_TARGET_HOST=prod-host \
         PREFLIGHT_SERVICE_NAME=opsbot \
         PREFLIGHT_EXTRA_CHECKS=$'vault\ntailscale\ntime-skew' \
         PREFLIGHT_OPS_BOT_EMIT=false \
@@ -615,7 +615,7 @@ EOF
     prepend_path
     unset OPSBOT_KEY
     run env PATH="$PATH" \
-        PREFLIGHT_TARGET_HOST=host-prod \
+        PREFLIGHT_TARGET_HOST=prod-host \
         PREFLIGHT_SERVICE_NAME=opsbot \
         PREFLIGHT_EXTRA_CHECKS="" \
         PREFLIGHT_OPS_BOT_EMIT=true \
@@ -631,7 +631,7 @@ EOF
     mock_curl 200
     prepend_path
     run env PATH="$PATH" \
-        PREFLIGHT_TARGET_HOST=host-prod \
+        PREFLIGHT_TARGET_HOST=prod-host \
         PREFLIGHT_SERVICE_NAME=opsbot \
         PREFLIGHT_EXTRA_CHECKS="" \
         PREFLIGHT_OPS_BOT_EMIT=true \
@@ -648,7 +648,7 @@ EOF
     mock_curl 500 '{"error":"unavailable"}'
     prepend_path
     run env PATH="$PATH" \
-        PREFLIGHT_TARGET_HOST=host-prod \
+        PREFLIGHT_TARGET_HOST=prod-host \
         PREFLIGHT_SERVICE_NAME=opsbot \
         PREFLIGHT_EXTRA_CHECKS="" \
         PREFLIGHT_OPS_BOT_EMIT=true \
@@ -665,7 +665,7 @@ EOF
     mock_cmd_fail curl 6
     prepend_path
     run env PATH="$PATH" \
-        PREFLIGHT_TARGET_HOST=host-prod \
+        PREFLIGHT_TARGET_HOST=prod-host \
         PREFLIGHT_SERVICE_NAME=opsbot \
         PREFLIGHT_EXTRA_CHECKS="" \
         PREFLIGHT_OPS_BOT_EMIT=true \
@@ -768,7 +768,7 @@ ACTION_YML="$BATS_TEST_DIRNAME/../.github/actions/preflight-check/action.yml"
 
 @test "T33 ops-bot-agent: invalid service identity exits 3 before checks" {
     run env \
-        PREFLIGHT_TARGET_HOST=host-prod \
+        PREFLIGHT_TARGET_HOST=prod-host \
         PREFLIGHT_SERVICE_NAME=opsbot \
         PREFLIGHT_OPS_BOT_AGENT='Muneral;invalid' \
         PREFLIGHT_EXTRA_CHECKS="" \

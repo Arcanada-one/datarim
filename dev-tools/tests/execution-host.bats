@@ -68,7 +68,7 @@ registry:
 EOF
     printf 'schema_version: 1\nname: plain\n' > "$NOMANDATE_WS/spaces/plain/space.yml"
 
-    # Empty map path (cache absent — the host-devs trap condition).
+    # Empty map path (cache absent — the shared-dev-host trap condition).
     ABSENT_MAP="$TEST_TMP/no-such-cache.yml"
 }
 
@@ -265,7 +265,7 @@ teardown() {
 
 # --- eh_decision_intent ----------------------------------------------------
 
-@test "eh_decision_intent: HOST-DEVS TRAP — cache absent + canon on-host + mutating -> ALLOW (0)" {
+@test "eh_decision_intent: SHARED-DEV-HOST TRAP — cache absent + canon on-host + mutating -> ALLOW (0)" {
     run bash -c "source '$LIB'; EH_TEST_HOSTNAME='canon-host' eh_decision_intent '$CANON_WS' '$ABSENT_MAP' mutating"
     [ "$status" -eq 0 ]
 }

@@ -40,7 +40,7 @@ the tool exists to fix — so keep the list complete, or use `--discover` (below
 
 ```bash
 # explicit roots
-dev-tools/cross-kb-evolution-digest.sh --kb ~/framework-kb --kb ~/spaces/client
+dev-tools/cross-kb-evolution-digest.sh --kb ~/framework-kb --kb ~/spaces/<project>
 
 # from a config file
 dev-tools/cross-kb-evolution-digest.sh --config ~/.claude/local/config/managed-kbs.conf

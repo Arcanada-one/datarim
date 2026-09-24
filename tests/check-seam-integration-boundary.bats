@@ -19,8 +19,8 @@ setup() {
     mkdir -p "$WORK/datarim"
     # Synthetic backlog: one mixed one-liner, one single-concern one-liner.
     cat > "$BACKLOG" <<'EOF'
-- FAKE-0001 · pending · P2 · L3 · Agent loop core — formalize the TurnOutcome state machine + Tool trait / ToolDispatcher seam in host-core, and wire --max-cost / --max-turns CLI flags into CostTracker → tasks/FAKE-0001-task-description.md
-- FAKE-0002 · pending · P2 · L3 · Formalize the TurnOutcome state machine and Tool trait seam in host-core (foundation only) → tasks/FAKE-0002-task-description.md
+- FAKE-0001 · pending · P2 · L3 · Agent loop core — formalize the TurnOutcome state machine + Tool trait / ToolDispatcher seam in agent-core, and wire --max-cost / --max-turns CLI flags into CostTracker → tasks/FAKE-0001-task-description.md
+- FAKE-0002 · pending · P2 · L3 · Formalize the TurnOutcome state machine and Tool trait seam in agent-core (foundation only) → tasks/FAKE-0002-task-description.md
 EOF
 }
 
@@ -31,7 +31,7 @@ teardown() {
 # ---------- AC-2: mixed seam + integration one-liner → FLAG ----------
 
 @test "FLAG: --line mixing a seam concern with an integration concern emits an advisory" {
-    run "$SCRIPT" --line "define a Tool trait seam in host-core and wire it into the CLI"
+    run "$SCRIPT" --line "define a Tool trait seam in agent-core and wire it into the CLI"
     [ "$status" -eq 0 ]                       # advisory never blocks by default
     [[ "$output" == *"ADVISORY"* ]]
     [[ "$output" == *"seam+integration"* ]]
@@ -53,7 +53,7 @@ teardown() {
 # ---------- AC-3: single-concern one-liners → PASS ----------
 
 @test "PASS: seam-only one-liner (no integration signal)" {
-    run "$SCRIPT" --strict --line "Formalize the TurnOutcome state machine and Tool trait seam in host-core"
+    run "$SCRIPT" --strict --line "Formalize the TurnOutcome state machine and Tool trait seam in agent-core"
     [ "$status" -eq 0 ]
     [[ "$output" == *"PASS"* ]]
     [[ "$output" != *"ADVISORY"* ]]

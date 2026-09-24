@@ -166,7 +166,7 @@ fi
 # may not REDEFINE a reserved one. Do not invert this — it is an anti-shadowing
 # guarantee, not an oversight.
 #
-# DEV-1790 follow-up: the guarantee was enforced SILENTLY, which is the actual
+# Follow-up: the guarantee was enforced SILENTLY, which is the actual
 # defect. A consumer project declared DEV → general (where its entire archive
 # corpus already lived) and QA → general; both prefixes are reserved, so both
 # rows were discarded without a word while the probe answered `development` /
@@ -237,7 +237,7 @@ prefix_to_area() {
     # Tier 1: the reserved, stack-agnostic runtime namespace (anti-shadowing).
     if subdir="$(area_prefix_to_subdir "$prefix")"; then
         # The project may not redefine a reserved prefix, but silently ignoring
-        # its declaration is what stranded DEV-1790's archive. Say so once.
+        # its declaration is what stranded a consumer's archive. Say so once.
         # `|| true`: the lookup exits non-zero when the project declares nothing
         # (the common case), and a bare assignment would abort under `set -e`.
         shadowed="$(lookup_project_prefix_from_claude_md "$prefix" "${ROOT_ABS:-$PWD}" 2>/dev/null || true)"
@@ -261,7 +261,7 @@ prefix_to_area() {
 
 validate_task_id() {
     local id="$1"
-    # TUNE-0088: accept compound IDs (e.g. DEV-1212-S8, DEV-1196-FOLLOWUP-lock-ownership-doc)
+    # TUNE-0088: accept compound IDs (e.g. DEV-0212-S8, DEV-0196-FOLLOWUP-lock-ownership-doc)
     [[ "$id" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]] && return 0 || return 1
 }
 
@@ -1121,7 +1121,7 @@ migrate_active_context() {
 parse_archive_bullet() {
     local line="$1"
     local id title date status_hint body context
-    # TUNE-0088: ID may be compound — DEV-1226, DEV-1212-S8, DEV-1196-FOLLOWUP-lock-ownership-doc.
+    # TUNE-0088: ID may be compound — DEV-0226, DEV-0212-S8, DEV-0196-FOLLOWUP-lock-ownership-doc.
     # Numeric component required (excludes false positives like **TODO**, **SECTION-1**).
     # S1: - **ID** — title (YYYY-MM-DD) → path
     if [[ "$line" =~ ^-[[:space:]]+\*\*([A-Z]+-[0-9]+(-[A-Za-z0-9]+)*)\*\*[[:space:]]+—[[:space:]]+(.+)[[:space:]]+\(([0-9]{4}-[0-9]{2}-[0-9]{2})\)[[:space:]]+→[[:space:]]+ ]]; then

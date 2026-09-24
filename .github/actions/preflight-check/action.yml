@@ -4,7 +4,7 @@ author: Arcanada-one
 inputs:
   target-host:
     required: true
-    description: Logical host name (host-prod, host-ai, etc) — used in metric keys and Ops Bot meta.
+    description: Logical host name (prod-host, ai-host, etc) — used in metric keys and Ops Bot meta.
   service-name:
     required: true
     description: Service name being deployed (opsbot, auth-arcana, etc).

@@ -3,6 +3,6 @@
   "initialized": true,
   "sealed": false,
   "version": "1.18.2",
-  "cluster_name": "vault-cluster-host-prod",
+  "cluster_name": "vault-cluster-prod-host",
   "ha_enabled": false
 }

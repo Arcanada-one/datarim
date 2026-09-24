@@ -120,7 +120,7 @@ When a Strategist gate must decide between one-MR delivery and per-phase staged 
 
 **Why this matters for plan §2 Strategist gate:** the gate's MR-count answer drives Operator workload (one merge vs N), QA cycle count (one cycle covering the whole shape vs N independent cycles), and design-doc scope (full architecture upfront vs per-component appendices). Misclassifying open-loop as closed-loop wastes review bandwidth; misclassifying closed-loop as open-loop ships broken intermediate states.
 
-Source: prior incident reflection §2.4 — 10 phases (model upgrade → knowledge base → evolution skill → retrieval hook → installer → sync cron → digest cron → auto-promotion gate → Client-internal contract → pre-merge rehearsal) formed a closed loop; one-MR delivery with 4 design docs released before code was the right strategy. Per-phase MRs would have shipped 10 broken intermediate states.
+Source: prior incident reflection §2.4 — 10 phases (model upgrade → knowledge base → evolution skill → retrieval hook → installer → sync cron → digest cron → auto-promotion gate → project-internal contract → pre-merge rehearsal) formed a closed loop; one-MR delivery with 4 design docs released before code was the right strategy. Per-phase MRs would have shipped 10 broken intermediate states.
 
 ## Embedded Phases (not separate pipeline stages)
 

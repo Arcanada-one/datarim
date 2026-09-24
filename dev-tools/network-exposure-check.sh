@@ -304,7 +304,7 @@ _resolve_var_silent() {
 # TUNE-0122: interpolate ${VAR...} tokens in ANY port segment.
 # Docker-compose long/short-form port strings put a ${VAR} not only in the host
 # slot (${HOST:-127.0.0.1}:8080:8080) but also in the published/target port slot
-# (127.0.0.1:${PORT:-3700}:3700, or the Transcribator dev form ${PORT:-3700}:3700).
+# (127.0.0.1:${PORT:-3700}:3700, or a service's dev form ${PORT:-3700}:3700).
 # The original parser only resolved a leading ${...} host token, so a variable in
 # a port position fell through to "unrecognized port form". This walks each
 # colon-separated segment of the host:port[:port] body (the optional /proto

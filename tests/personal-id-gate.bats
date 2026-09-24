@@ -82,14 +82,14 @@ FIXTURE
 
 # --- Real-public-IPv4 heuristic (forward leak prevention) ------------------
 
-@test "heuristic: fresh unlisted real public IP (188.34.155.2) → exit 1" {
-    printf 'ssh dev@188.34.155.2 to reach the new box\n' > "$TMP_DIR/newip.txt"
+@test "heuristic: fresh unlisted real public IP (9.9.9.9) → exit 1" {
+    printf 'ssh dev@9.9.9.9 to reach the new box\n' > "$TMP_DIR/newip.txt"
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/newip.txt" --check
     [ "$status" -eq 1 ]
 }
 
-@test "heuristic: another fresh unlisted real public IP (5.161.70.100) → exit 1" {
-    printf 'DB_HOST=5.161.70.100\n' > "$TMP_DIR/newip2.txt"
+@test "heuristic: another fresh unlisted real public IP (1.1.1.1) → exit 1" {
+    printf 'DB_HOST=1.1.1.1\n' > "$TMP_DIR/newip2.txt"
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/newip2.txt" --check
     [ "$status" -eq 1 ]
 }
@@ -149,7 +149,7 @@ FIXTURE
 }
 
 @test "heuristic: real public IP inside example-fence → exit 0 (fence wins)" {
-    printf '<!-- gate:example-only -->\nssh root@188.34.155.2 counter-example\n<!-- /gate:example-only -->\n' \
+    printf '<!-- gate:example-only -->\nssh root@9.9.9.9 counter-example\n<!-- /gate:example-only -->\n' \
         > "$TMP_DIR/fenced-ip.txt"
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/fenced-ip.txt" --check
     [ "$status" -eq 0 ]
@@ -164,4 +164,113 @@ But 8.8.8.8 out here is a routable public address and must be caught.
 FIXTURE
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/mixed-ip.txt" --check
     [ "$status" -eq 1 ]
+}
+
+# ---------------------------------------------------------------------------
+# Consumer-coupling classes. Each pair is a planted identifier that must go red
+# and a near miss that must stay green, so a pattern that matches nothing (or
+# everything) fails here rather than reporting a clean tree.
+# ---------------------------------------------------------------------------
+
+@test "consumer task id DEV-1926 cited as provenance → exit 1" {
+    printf 'ported from DEV-1926 in the client repo\n' > "$TMP_DIR/f.txt"
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
+    [ "$status" -eq 1 ]
+}
+
+@test "synthetic fixture ids DEV-0226 / DEV-9876 → exit 0" {
+    printf -- '- **DEV-0226** — fixture\n- **DEV-9876** — fixture\n' > "$TMP_DIR/f.txt"
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
+    [ "$status" -eq 0 ]
+}
+
+@test "vendor-specific tracker field asanaGid / asana_gid → exit 1" {
+    printf "fields: ['taskId', 'asanaGid']\n" > "$TMP_DIR/a.txt"
+    printf 'asana_gid: 42\n' > "$TMP_DIR/b.txt"
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/a.txt" --check
+    [ "$status" -eq 1 ]
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/b.txt" --check
+    [ "$status" -eq 1 ]
+}
+
+@test "generic tracker field trackerRef → exit 0" {
+    printf "fields: ['taskId', 'trackerRef']\n" > "$TMP_DIR/f.txt"
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
+    [ "$status" -eq 0 ]
+}
+
+@test "consumer project name (client) → exit 1" {
+    printf 'cd ~/code/client/local-stack\n' > "$TMP_DIR/f.txt"
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
+    [ "$status" -eq 1 ]
+}
+
+@test "host family host-devs is caught (word-boundary regression) → exit 1" {
+    # The old entry \bhost-dev\b could not match host-devs.
+    printf 'measured on host-devs\n' > "$TMP_DIR/f.txt"
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
+    [ "$status" -eq 1 ]
+}
+
+@test "absolute macOS home path /Users/<name> → exit 1" {
+    printf 'export X="/Users/jdoe/code/proj"\n' > "$TMP_DIR/f.txt"
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
+    [ "$status" -eq 1 ]
+}
+
+@test "absolute Linux home path /home/<name> → exit 1" {
+    printf 'dd of=/home/jdoe/images/sda\n' > "$TMP_DIR/f.txt"
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
+    [ "$status" -eq 1 ]
+}
+
+@test "agent project-state slug -Users-<name>- → exit 1" {
+    printf '~/.claude/projects/-Users-jdoe-work/memory/x.md\n' > "$TMP_DIR/f.txt"
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
+    [ "$status" -eq 1 ]
+}
+
+@test "home-path placeholders and URL paths stay clean → exit 0" {
+    cat > "$TMP_DIR/f.txt" <<'FIXTURE'
+/Users/example/code/myproject and /Users/YOUR_USER/.claude and /Users/<user>
+/home/example/x /home/app/.claude /home/runner/work /home/<user> $HOME/code
+https://hub.docker.com/v2/users/login and rm -rf /Users/../Users
+FIXTURE
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
+    [ "$status" -eq 0 ]
+}
+
+@test "tailnet MagicDNS suffix → exit 1" {
+    printf '"DNSName": "db.tail0a1b2c.ts.net."\n' > "$TMP_DIR/f.txt"
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
+    [ "$status" -eq 1 ]
+}
+
+@test "tracked scope: a planted root-level file is caught; the old path list never saw it" {
+    # Build a throwaway repo shaped like the framework (gate + regex at their
+    # real relative paths) and plant a leak at the ROOT, outside every
+    # DEFAULT_PATHS entry — the shape of the notes file that shipped a home path.
+    local repo="$TMP_DIR/repo"
+    mkdir -p "$repo/scripts" "$repo/dev-tools"
+    cp "$GATE" "$repo/scripts/personal-id-gate.sh"
+    cp "$REGEX" "$repo/dev-tools/personal-id-forbidden.regex"
+    printf 'checkout at /Users/jdoe/code/x\n' > "$repo/ROOT-NOTES.md"
+    git -C "$repo" init -q
+    git -C "$repo" add -A
+    # Relative DEFAULT_PATHS entries resolve against the CWD first, so run from
+    # inside the throwaway repo, not from the framework checkout.
+    cd "$repo"
+    # Red in tracked scope.
+    run env -u DATARIM_PERSONAL_ID_OVERLAY HOME="$TMP_DIR" bash "$repo/scripts/personal-id-gate.sh" --report
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"ROOT-NOTES.md:1:"* ]]
+    # The previous scope (DEFAULT_PATHS) reports PASS on the same tree: the
+    # blind spot this test exists to keep closed.
+    run env -u DATARIM_PERSONAL_ID_OVERLAY HOME="$TMP_DIR" DATARIM_PERSONAL_ID_SCOPE=paths \
+        bash "$repo/scripts/personal-id-gate.sh" --report
+    [ "$status" -eq 0 ]
+    # Green once the identifier is replaced.
+    printf 'checkout at $HOME/code/x\n' > "$repo/ROOT-NOTES.md"
+    run env -u DATARIM_PERSONAL_ID_OVERLAY HOME="$TMP_DIR" bash "$repo/scripts/personal-id-gate.sh" --report
+    [ "$status" -eq 0 ]
 }

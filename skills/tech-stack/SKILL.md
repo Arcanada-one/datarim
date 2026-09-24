@@ -60,7 +60,7 @@ Each row shows the **Default Recommendation** (starting point for routine work),
 | **Python API (Modern)** | Python, FastAPI, uvicorn, uv, ruff, pydantic, sqlalchemy, alembic, pytest. Docker. | Litestar (lower overhead, native dependency injection), Django Ninja (Django ecosystem needed) | Django ORM / admin required; real-time WebSocket-heavy (Django Channels) |
 | **API Gateway / BFF** | Node.js, Fastify, Zod, OpenAPI. Docker. | Hono (edge-deployable, lower cold-start), Envoy + ext_authz (data-plane proxy) | Deploying to CDN edge (Cloudflare Workers); need request transformation at proxy layer |
 
-> **Ecosystem backend mandate:** `documentation/architecture/backend-stack-standards.md` is the authoritative mandate for Arcanada backend projects. The rows above function as guidance within that constraint — the backend-standards document takes precedence where they differ.
+> **Ecosystem backend mandate:** `documentation/architecture/backend-stack-standards.md` is the authoritative mandate for the consumer ecosystem's backend projects. The rows above function as guidance within that constraint — the backend-standards document takes precedence where they differ.
 
 ### AI / ML Projects
 
@@ -108,7 +108,7 @@ Each row shows the **Default Recommendation** (starting point for routine work),
 | **Server backups** | `restic` + Backblaze B2 (native backend, client-side encryption, dedup, snapshots). Config via `/etc/restic/`, systemd timer for daily backups, `backup-healthcheck.sh` for monitoring. First backup + restore test is mandatory. Use binary-installed restic (apt version lacks `self-update`). | BorgBackup (compression, append-only repos), Kopia (GUI, wider cloud backend support) | Backup size >10 TB (restic prune performance); compliance requires WORM (write-once-read-many) storage |
 | **Database backups** | Per-engine tooling (`pg_dump`, `mysqldump`, `mongodump`) piped into restic — captures logical dump as a named file in the repo. | WAL-G (continuous archiving, point-in-time recovery), pgBackRest (parallel, incremental, enterprise PostgreSQL) | Point-in-time recovery required (not just daily snapshots); multi-TB database with <1h RPO |
 
-Source: prior incident reflection — restic + B2 proven across host-www/prod/db; standardize to avoid revisiting the choice per-server.
+Source: prior incident reflection — restic + B2 proven across the web, prod and db servers; standardize to avoid revisiting the choice per-server.
 
 ### Cross-Platform CLI / Desktop / Systems
 
@@ -213,7 +213,7 @@ Score each candidate 1-5 across the standard factors. Weight by project prioriti
 | Licence compatibility | | | | |
 | Cost | | | | |
 | Bundle/runtime cost | | | | |
-| Operational fit (Arcanada) | | | | |
+| Operational fit (ecosystem) | | | | |
 | Escape velocity | | | | |
 
 ### Technology-Radar Quadrant (Ecosystem-Level Annotation)
@@ -250,7 +250,7 @@ When the trigger classifier returns `Trigger: FULL`, generate a proposal using t
 | Licence compatibility | {licence family, copyleft/patent implications, transitive-licence risk} |
 | Cost | {monetary cost — free, paid tier, per-seat, usage-based} |
 | Bundle/runtime cost | {binary size, cold-start time, memory at idle, Docker image size} |
-| Operational fit (Arcanada) | {coherence with existing ecosystem — does Arcanada already run this? shared CLIs, shared infra?} |
+| Operational fit (ecosystem) | {coherence with existing ecosystem — does the ecosystem already run this? shared CLIs, shared infra?} |
 | Escape velocity | {low/medium/high — how hard to migrate away; vendor lock-in, skill availability, portability} |
 
 #### Option B: {Alternative Name}
@@ -299,7 +299,7 @@ This fast-track does NOT apply to medium/low CVEs or to implementation difficult
 ## Scaffold Checklist
 
 After creating a new project in `Projects/*/code/`:
-1. `git init` — initialize standalone repo (parent arcanada gitignores `Projects/*/code/`)
+1. `git init` — initialize standalone repo (the parent workspace gitignores `Projects/*/code/`)
 2. `pnpm outdated` / `uv pip list --outdated` — zero outdated = pass
 3. Verify `.gitignore` covers `node_modules/`, `dist/`, `.env`
 4. Initial commit with scaffold

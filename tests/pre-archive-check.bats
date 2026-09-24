@@ -315,7 +315,7 @@ EOF
 @test "conditional-shared: marker + --task-id + foreign hunks → exit 0 (auto-shared)" {
     make_marker_repo "$BATS_TEST_TMPDIR/fw"
     make_workflow_file "$BATS_TEST_TMPDIR/fw" "skills/foo.md" "# foo"
-    modify_with_task_id "$BATS_TEST_TMPDIR/fw" "skills/foo.md" "DEV-1210"
+    modify_with_task_id "$BATS_TEST_TMPDIR/fw" "skills/foo.md" "DEV-0210"
     run "$SCRIPT" --task-id TUNE-0056 "$BATS_TEST_TMPDIR/fw"
     [ "$status" -eq 0 ]
     [[ "$output" == *"foreign"* ]]
@@ -383,7 +383,7 @@ EOF
 @test "shared mode: body has foreign IDs + diff lines clean → mine-by-elimination (exit 0)" {
     make_marker_repo "$BATS_TEST_TMPDIR/fw"
     # Seed AGENTS.md-shape file: body has foreign historical task IDs
-    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference DEV-1210 fix and LTM-0009 benchmark."
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference DEV-0210 fix and LTM-0009 benchmark."
     # Modify with content that contains NO task IDs (e.g., version-line bump)
     echo "Updated for v1.18.3 release." >> "$BATS_TEST_TMPDIR/fw/doc.md"
     run "$SCRIPT" --task-id TUNE-0060 "$BATS_TEST_TMPDIR/fw"
@@ -395,8 +395,8 @@ EOF
 # taints; only +/- diff lines count toward mixed/own gate). NOT mine-by-elimination.
 @test "shared mode: diff lines contain only TASK_ID, body has foreign → own (not mixed; TUNE-0068)" {
     make_marker_repo "$BATS_TEST_TMPDIR/fw"
-    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference DEV-1210 fix."
-    # Diff line contains TUNE-0060 only; DEV-1210 lives in the unchanged body (hunk context).
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference DEV-0210 fix."
+    # Diff line contains TUNE-0060 only; DEV-0210 lives in the unchanged body (hunk context).
     echo "TUNE-0060: my edit on this line." >> "$BATS_TEST_TMPDIR/fw/doc.md"
     run "$SCRIPT" --task-id TUNE-0060 "$BATS_TEST_TMPDIR/fw"
     [ "$status" -eq 1 ]
@@ -487,7 +487,7 @@ EOF
 @test "shared mode: foreign diff line + own TASK_ID only in hunk context → foreign (TUNE-0068)" {
     make_marker_repo "$BATS_TEST_TMPDIR/fw"
     # Seed: committed body carries the current TASK_ID + a foreign baseline ID.
-    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference TUNE-0068 fix and DEV-1210 baseline."
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference TUNE-0068 fix and DEV-0210 baseline."
     # Modify: append a line whose only ID is foreign (TRANS-0021). The current
     # TASK_ID lives only on an unchanged context line.
     echo "TRANS-0021: foreign edit on this line." >> "$BATS_TEST_TMPDIR/fw/doc.md"
@@ -638,7 +638,7 @@ EOF
 
 ## Active
 
-- TRANS-0001 · in_progress · P1 · L4 · Transcribator → tasks/TRANS-0001-task-description.md
+- TRANS-0001 · in_progress · P1 · L4 · Speech service → tasks/TRANS-0001-task-description.md
 EOF
     cat > "$BATS_TEST_TMPDIR/fw/datarim/activeContext.md" <<'EOF'
 # Active Context
@@ -662,14 +662,14 @@ EOF
 
 ## Active
 
-- TRANS-0001 · in_progress · P1 · L4 · Transcribator → tasks/TRANS-0001-task-description.md
+- TRANS-0001 · in_progress · P1 · L4 · Speech service → tasks/TRANS-0001-task-description.md
 EOF
     cat > "$BATS_TEST_TMPDIR/fw/datarim/activeContext.md" <<'EOF'
 # Active Context
 
 ## Active Tasks
 
-- TRANS-0001 · in_progress · P1 · L4 · Transcribator → tasks/TRANS-0001-task-description.md
+- TRANS-0001 · in_progress · P1 · L4 · Speech service → tasks/TRANS-0001-task-description.md
 EOF
     git -C "$BATS_TEST_TMPDIR/fw" add datarim/
     git -C "$BATS_TEST_TMPDIR/fw" commit --quiet -m "seed thin active"
@@ -694,10 +694,10 @@ EOF
 @test "shared mode: index-file body has many TASK-IDs + own diff line → column 3 = own only (TUNE-0084)" {
     make_marker_repo "$BATS_TEST_TMPDIR/fw"
     make_workflow_file "$BATS_TEST_TMPDIR/fw" "datarim/tasks.md" "# Tasks
-- TRANS-0021 · in_progress · P1 · L3 · Transcribator → tasks/TRANS-0021-task-description.md
+- TRANS-0021 · in_progress · P1 · L3 · Speech service → tasks/TRANS-0021-task-description.md
 - LTM-0017 · in_progress · P2 · L2 · Long-Term Memory → tasks/LTM-0017-task-description.md
-- VERD-0026 · in_progress · P1 · L3 · Verdicus → tasks/VERD-0026-task-description.md
-- DEV-1212 · in_progress · P2 · L2 · Dev tooling → tasks/DEV-1212-task-description.md
+- VERD-0026 · in_progress · P1 · L3 · Review service → tasks/VERD-0026-task-description.md
+- DEV-0212 · in_progress · P2 · L2 · Dev tooling → tasks/DEV-0212-task-description.md
 - INFRA-0040 · in_progress · P1 · L3 · Infra → tasks/INFRA-0040-task-description.md"
     echo "- TUNE-0084 · in_progress · P3 · L2 · diff-only classification → tasks/TUNE-0084-task-description.md" \
         >> "$BATS_TEST_TMPDIR/fw/datarim/tasks.md"
@@ -710,7 +710,7 @@ EOF
     [[ "$output" != *"TRANS-0021"* ]]
     [[ "$output" != *"LTM-0017"* ]]
     [[ "$output" != *"VERD-0026"* ]]
-    [[ "$output" != *"DEV-1212"* ]]
+    [[ "$output" != *"DEV-0212"* ]]
     [[ "$output" != *"INFRA-0040"* ]]
 }
 
@@ -720,7 +720,7 @@ EOF
     make_marker_repo "$BATS_TEST_TMPDIR/fw"
     make_workflow_file "$BATS_TEST_TMPDIR/fw" "datarim/activeContext.md" "# Active Context
 - TUNE-0084 · in_progress · P3 · L2 · self
-- VERD-0026 · in_progress · P1 · L3 · Verdicus"
+- VERD-0026 · in_progress · P1 · L3 · Review service"
     echo "- TRANS-0021 · in_progress · P1 · L3 · foreign edit" \
         >> "$BATS_TEST_TMPDIR/fw/datarim/activeContext.md"
     run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/fw"
@@ -851,7 +851,7 @@ EOF
     [[ "$output" == *"backlog-archive.md"* ]]
 }
 
-# ---------- schema gate reachability + indent anchor (DEV-1790 follow-up) ----
+# ---------- schema gate reachability + indent anchor (reserved-prefix follow-up) ----
 
 # Two independent bypasses let non-compliant ledger rows accumulate unseen:
 #
@@ -894,7 +894,7 @@ EOF
     local repo="$BATS_TEST_TMPDIR/repo1"
     make_clean_repo "$repo"
     mkdir -p "$repo/datarim"
-    printf -- '- DEV-1234 · pending · P2 · L1 · Flush-left row\n  - DEV-5678 · pending · P3 · L2 · Indented row\n' \
+    printf -- '- DEV-0234 · pending · P2 · L1 · Flush-left row\n  - DEV-0678 · pending · P3 · L2 · Indented row\n' \
         > "$repo/datarim/backlog.md"
     git -C "$repo" add -A && git -C "$repo" commit --quiet -m ledger
 
