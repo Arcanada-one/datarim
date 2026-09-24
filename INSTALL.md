@@ -44,7 +44,7 @@ Follow these steps in order. Do not improvise other install methods.
    | 2 | Which clients do you use: Claude Code, Codex, Cursor? A project install cannot pick clients: it always writes the commands, and with `--with-jev` the hooks, for all three. The answer decides which client `jev doctor --agent=` checks and, for host Jev, which `--client` options to pass. | the ones installed on the machine |
    | 3 | Create empty task files `datarim/tasks.md` and `datarim/backlog.md` now (`--init`)? | yes |
    | 4 | Expose every framework skill to the clients' automatic discovery (`--expose-skills`)? It adds their descriptions to every session. | no |
-   | 5 | Only if Jev is installed: should `jev*` launchers start clients **without permission prompts** (`jev permissions full`)? | no (`ask`) |
+   | 5 | Should the `jev*` launchers (every install has them) start clients **without permission prompts** (`jev permissions full`)? Starting a client directly is not affected. | no (`ask`) |
    | 6 | Install the latest release tag, or `main`? | latest release tag |
 
    Also check, without asking, whether `PROJECT` contains nested git repositories
