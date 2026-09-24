@@ -91,7 +91,7 @@ teardown() {
 
 # --- P-6: overlay must not silence the shipped patterns ---------------------
 @test "P-6 overlay is additive — shipped patterns still enforced" {
-    printf 'contact operator about this\n' > "$TMP_DIR/name.txt"
+    printf 'notes at /Users/jdoe/x\n' > "$TMP_DIR/name.txt"
     printf '\\bunrelated-token\\b\n' > "$TMP_DIR/local.regex"
     run env DATARIM_PERSONAL_ID_OVERLAY="$TMP_DIR/local.regex" \
         bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/name.txt" --check

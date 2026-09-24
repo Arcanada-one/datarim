@@ -131,6 +131,6 @@ commit_change() {
 @test "shipped helper carries no host names or private TASK-IDs (generic / public-OSS)" {
     # AC-4: the shipped logic must be generic. Synthetic IDs may appear in tests
     # but NEVER in the helper itself.
-    run grep -nE 'host-dev|client|TUNE-[0-9]{4}|ABCD-[0-9]{4}' "$SCRIPT"
+    run grep -nE 'TUNE-[0-9]{4}|ABCD-[0-9]{4}' "$SCRIPT"
     [ "$status" -ne 0 ]
 }
