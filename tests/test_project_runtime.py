@@ -426,6 +426,48 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertIn(str(self.project/'config/credentials/jev/api-key'), err.getvalue())
         self.assertIn('paste the key on one line', err.getvalue())
 
+    # -- leftover client directories -------------------------------------------
+
+    def test_dropping_a_client_removes_its_directory_when_the_install_created_it(self):
+        project_install.install(self.args)
+        self.assertEqual(self.manifest()['created_dirs'], ['.agents', '.claude', '.cursor'])
+        project_install.install(self.with_args(client=('codex',)))
+        self.assertFalse((self.project/'.cursor').exists())
+        self.assertFalse((self.project/'.claude').exists())
+        self.assertTrue((self.project/'.agents').is_dir())
+        self.assertEqual(self.manifest()['created_dirs'], ['.agents'])
+
+    def test_a_directory_that_existed_before_the_install_is_kept_even_when_empty(self):
+        (self.project/'.cursor').mkdir()
+        project_install.install(self.args)
+        self.assertNotIn('.cursor', self.manifest()['created_dirs'])
+        project_install.install(self.with_args(client=('codex',)))
+        self.assertTrue((self.project/'.cursor').is_dir())
+
+    def test_a_created_directory_holding_other_files_is_kept(self):
+        project_install.install(self.args)
+        (self.project/'.cursor/rules.mdc').write_text('mine\n')
+        project_install.install(self.with_args(client=('codex',)))
+        self.assertEqual((self.project/'.cursor/rules.mdc').read_text(), 'mine\n')
+        self.assertFalse((self.project/'.cursor/skills').exists())
+
+    def test_uninstall_removes_the_empty_directories_it_created(self):
+        (self.project/'.claude').mkdir()
+        project_install.install(self.args)
+        project_install.uninstall(self.args)
+        for name in ('.agents', '.cursor'):
+            self.assertFalse((self.project/name).exists(), name)
+        self.assertTrue((self.project/'.claude').is_dir(), 'existed before the install')
+
+    def test_an_install_recorded_without_created_dirs_removes_nothing(self):
+        project_install.install(self.args)
+        path = self.project/'.datarim-runtime/installation.json'
+        data = json.loads(path.read_text())
+        del data['created_dirs']
+        path.write_text(json.dumps(data))
+        project_install.install(self.with_args(client=('codex',)))
+        self.assertTrue((self.project/'.cursor').is_dir())
+
     def test_client_option_parsing(self):
         self.assertEqual(project_install.parse_clients(['codex,claude', 'codex']), ('claude', 'codex'))
         self.assertEqual(project_install.parse_clients(['all']), ('claude', 'codex', 'cursor'))

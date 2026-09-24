@@ -135,6 +135,37 @@ CLIENT_DIRECTORY = {'.claude': 'claude', '.agents': 'codex', '.cursor': 'cursor'
 CLAUDE_MD = 'CLAUDE.md'
 
 
+#: Top-level directories the install may create for the clients.
+CLIENT_TOP_DIRECTORIES = ('.agents', '.claude', '.codex', '.cursor')
+
+
+def created_client_directories(root, files, previous):
+    """Client top-level directories this installation created, still present or
+    about to be: the previous record (entries that still exist) plus any
+    directory that does not exist yet and will receive a file now. A directory
+    that existed before the first install is never recorded, so it is never
+    removed."""
+    root = Path(root)
+    kept = {d for d in (previous or {}).get('created_dirs', []) if d in CLIENT_TOP_DIRECTORIES
+            and (root/d).is_dir() and not (root/d).is_symlink()}
+    new = {d for d in CLIENT_TOP_DIRECTORIES
+           if not (root/d).exists() and not (root/d).is_symlink()
+           and any(name.startswith(d + '/') for name in files)}
+    return sorted(kept | new)
+
+
+def remove_empty_created_directories(root, created):
+    """Remove each recorded client directory that is now empty. A dropped
+    client used to leave an empty `.cursor/` or `.claude/` behind."""
+    removed = []
+    for name in created:
+        path = Path(root)/name
+        if path.is_dir() and not path.is_symlink() and not any(path.iterdir()):
+            path.rmdir()
+            removed.append(name)
+    return removed
+
+
 def owning_client(name):
     """The client a generated project file belongs to, or None when shared."""
     return CLIENT_DIRECTORY.get(name.split('/', 1)[0])
@@ -613,6 +644,7 @@ def _install(args):
                     'with_jev': args.with_jev, 'host_jev': args.host_jev, 'contexts': args.context,
                     'expose_skills': expose, 'clients': list(clients),
                     'claude_import': claude_import, 'claude_md_link': (owned_link and link_action != 'remove') or link_action == 'create',
+                    'created_dirs': created_client_directories(root, files, previous),
                     'files': {n: digest(v) for n, v in files.items() if n not in released}}
         (stage / 'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
         for name in set(files) | obsolete:
@@ -692,6 +724,11 @@ def _install(args):
                 target = safe_path(root, 'datarim/'+name)
                 if not target.exists():
                     target.write_text('# '+name.removesuffix('.md').title()+'\n')
+        # Last, so a rollback never has to recreate a directory it removed.
+        removed = remove_empty_created_directories(root, manifest['created_dirs'])
+        if removed:
+            manifest['created_dirs'] = [d for d in manifest['created_dirs'] if d not in removed]
+            (runtime/'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
         print(json.dumps({'status': 'installed', **manifest, 'claude_md': link_action}))
         if args.with_jev:
             print(key_instructions(root, args.host_jev), file=sys.stderr)
@@ -795,6 +832,7 @@ def _uninstall(args):
             prune_empty_parents(root, target)
         else:
             target.write_text(original)
+    remove_empty_created_directories(root, manifest.get('created_dirs', []))
     # Keys, task state and the recovery bundle stay, so they stay hidden too.
     write_git_exclude(root, list(PRIVATE_IGNORES))
     print(json.dumps({'status': 'uninstalled', 'backup': str(backup), 'keys_and_state': 'preserved'}))
