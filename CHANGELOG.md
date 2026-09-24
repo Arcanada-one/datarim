@@ -4,6 +4,11 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.0.0] — 2026-09-24
+
+> Major version because a fresh project install now refuses to run without an explicit Jev choice
+> (`--with-jev` or `--without-jev`). Scripted fresh installs must add one of the two flags; updates are unaffected.
+
 ### Added
 
 - `INSTALL.md`: one install guide for people and AI agents. It lists the choices to make (Jev: none, per
