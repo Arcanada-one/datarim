@@ -28,6 +28,8 @@ Follow these steps in order. Do not improvise other install methods.
 1. **Read this whole file** before running anything. Fetch it raw —
    `curl -fsSL https://raw.githubusercontent.com/Arcanada-one/datarim/main/INSTALL.md`
    — or read `INSTALL.md` in a clone; a summarizing web fetch drops most of it.
+   To read the installer source, read it in the `SOURCE` clone; do not
+   download copies of it elsewhere.
    Do not choose the answers yourself. The installer enforces it: a fresh
    install run without a terminal prints the questions, the flag for each
    answer and a one-time answers token, exits with code 2 and writes nothing
@@ -77,6 +79,8 @@ Follow these steps in order. Do not improvise other install methods.
      Jev config file path (see the [table](#configuration-and-secrets));
    - **where to put the Jev API key** (exact file path; open it in an editor, one
      line, file stays mode `0600`), then run `jev doctor --api`;
+   - never put the key or any `JEV_*` / `DATARIM_*` variable in shell startup
+     files (`.zshrc`, `.bashrc`); set them per shell or per launch;
    - Codex only: the two approvals Codex will ask for (see
      [Codex hook trust](#codex-runs-hooks-only-after-you-trust-them));
    - how to update: `cd <SOURCE> && git pull` (or check out the new tag), then
@@ -185,12 +189,22 @@ is `~/.config/jev/credentials/api-key`.
 
 ### Scripted installs (CI)
 
-**Not for an AI agent installing Datarim for a person**: an agent must relay
-the installer's questions and use the token it prints. For unattended
-pipelines that provision a project with fixed, reviewed answers, set the
-environment variable `DATARIM_INSTALL_NONINTERACTIVE=1` and pass every answer
-flag (the Jev answer, `--client` and `--permissions`); the installer then needs
-no answers token. With any answer missing it refuses as usual.
+There is no switch that skips the answers token. An unattended pipeline that
+provisions a project with fixed, reviewed answers runs the installer twice:
+the first run refuses and prints the answers token on its rerun line, the
+second passes that token with the same answers. Replace `<flags>` with the
+reviewed answer flags, identical in both runs:
+
+```sh
+out="$(./install.sh --project "$PROJECT" <flags> 2>&1)"
+token="$(printf '%s\n' "$out" | sed -n 's/.*--answers \([0-9a-f][0-9a-f]*\) .*/\1/p' | tail -n 1)"
+[ -n "$token" ] || { printf '%s\n' "$out" >&2; exit 1; }
+./install.sh --project "$PROJECT" --answers "$token" <flags>
+```
+
+An AI agent installing Datarim for a person does not do this: it relays the
+questions the first run prints to the person and uses their answers. Each
+refusal issues a new token that replaces any earlier one.
 
 ### Option D — Jev without Datarim
 

@@ -6,15 +6,27 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Fixed
 
-- **Scripted fresh installs now need `DATARIM_INSTALL_NONINTERACTIVE=1`, or the answers token.** An
-  agent skipped `INSTALL.md` and read the answer → flag table inside `scripts/project_install.py`. It chose
-  the answers itself and passed every flag on its first run, so the refusal that asks the user never fired.
-  A fresh install run without a terminal now also needs `--answers <token>`. Only the refusal prints the
-  token. It is stored in the project's git directory, or in the user's state directory outside git, and
-  never in the working tree. It is valid for 60 minutes, for that project only, and used up by a
-  successful install. Pipelines that install with fixed, reviewed answers set
-  `DATARIM_INSTALL_NONINTERACTIVE=1` and pass every answer flag; that path needs no token. Updates are
-  unaffected.
+- **Scripted fresh installs now take two steps: run the installer once, then again with the answers token
+  that first run printed.** An agent skipped `INSTALL.md` and read the answer → flag table inside
+  `scripts/project_install.py`. It chose the answers itself and passed every flag on its first run, so the
+  refusal that asks the user never fired. A fresh install run without a terminal now also needs
+  `--answers <token>`. Only the refusal prints the token. It is stored in the project's git directory, or
+  in the user's state directory outside git, and never in the working tree. It is valid for 60 minutes,
+  for that project only, and used up by a successful install; each refusal issues a new token that
+  replaces any earlier one. Pipelines with fixed, reviewed answers capture the token from the first run's
+  output and pass it to the second (`INSTALL.md`, "Scripted installs (CI)"). Updates are unaffected.
+- The scripted path no longer uses an environment switch. For a short time `main` (never a release) had
+  one that skipped the token when every answer flag was given. An agent found it by reading the installer
+  source, and an agent that used it would have skipped the user. It is removed, so every fresh install
+  without a terminal goes through the token.
+- The refusal checks the project it is about to install into. Without an `AGENTS.md` it offers no
+  `CLAUDE.md` link: the sub-question and its `--claude-import` row are replaced by "(CLAUDE.md link: not
+  offered, the project has no AGENTS.md)", and the terminal path says the same. `--claude-import` on a
+  project without an `AGENTS.md` now fails before the answers gate, so it neither consumes nor issues a
+  token and writes nothing.
+- `INSTALL.md`, agent section: read the installer source in the `SOURCE` clone and do not download copies
+  of it elsewhere. The report to the user also says never to put the key, or any `JEV_*` / `DATARIM_*`
+  variable, in shell startup files (`.zshrc`, `.bashrc`), but to set them per shell or per launch.
 - At a terminal, a fresh install with answers missing now asks each question in turn, with Enter taking the
   default, and needs no token.
 - `--permissions ask|full` is now an installer answer. A fresh install requires it, a terminal install asks
