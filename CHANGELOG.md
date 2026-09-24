@@ -4,6 +4,13 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Templates copied into projects (`accepted-risk.yml`, `module.yaml`, `datarim-config.yaml`) named their
+  validator as `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/...`. Datarim 3.x installs nothing under the home
+  directory, so with `DATARIM_RUNTIME` unset that command pointed at a missing file. They now use
+  `${DATARIM_RUNTIME:?}`, which fails with a clear message instead.
+
 ## [3.1.1] — 2026-09-24
 
 ### Fixed

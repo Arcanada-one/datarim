@@ -11,7 +11,7 @@
 peer_review:
   # Provider for Layer 2 peer-review in /dr-verify.
   #
-  # Whitelist (enforced by ${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/resolve-peer-provider.sh):
+  # Whitelist (enforced by ${DATARIM_RUNTIME:?}/dev-tools/resolve-peer-provider.sh):
   #   sonnet      — cross_claude_family mode (via Claude Code subagent dispatch)
   #   haiku       — cross_claude_family mode (200K context — verify PRD/plan size)
   #   none        — disables Layer 2 entirely (Layer 1 floor + Layer 3 only)
