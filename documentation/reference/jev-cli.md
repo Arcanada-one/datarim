@@ -48,10 +48,18 @@ your own permission option: `--dangerously-skip-permissions` for Claude Code,
 for Cursor. `jev permissions ask` removes them; `jev permissions` shows the
 stored choice. The choice is stored per project, or per host for host Jev.
 
-`jev trust` re-grants Codex trust to Jev's own host hooks after another tool
-moved them in `~/.codex/hooks.json`; hooks you disabled stay disabled. With host
-Jev, `jevcodex` does the same before each launch unless `JEV_NO_AUTO_TRUST=1`.
-Neither touches project-level hooks.
+`jev trust` re-grants Codex trust to Jev's own hooks: the host hooks in
+`~/.codex/hooks.json` (for example after another tool moved them), or, run
+inside a project with its own Jev, the hooks in `<project>/.codex/hooks.json`.
+Hooks you disabled stay disabled. With host Jev, `jevcodex` does the same before
+each launch unless `JEV_NO_AUTO_TRUST=1`; for project hooks only an explicit
+`jev trust` does, because the project hook script lives in the project.
+
+`jev doctor` also reports a finding for every selected client whose Jev hook
+file or registered event is missing, `hook_clients` (the clients the install
+registered), and `native_agents_live`: per client, `live` with a delivery count
+and time once the ledger holds a `hook_delivery` record from it, otherwise
+`not_measured` with the reason.
 Direct mode replaces the dispatcher process, preserving terminal streams and the
 client's exit status. Dispatcher errors use 2; a missing executable uses 127;
 doctor findings use 1. Live exits follow the supervisor's recorded stop reason.
