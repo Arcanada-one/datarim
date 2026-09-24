@@ -520,7 +520,7 @@ def scope_hooks(host_mode, root, runtime, manifest, home=None):
     except (OSError, ValueError, AttributeError):
         enabled = True
     return {'selected': selected, 'files': files, 'entries': entries, 'ledgers': ledgers,
-            'telemetry_enabled': enabled}
+            'telemetry_enabled': enabled, 'config': config}
 
 
 def main():
@@ -613,6 +613,10 @@ def main():
                   'permissions': 'full' if full_permissions(state) else 'ask'}
         doctored = [c for c in scope['selected'] if not a.agent or c == a.agent]
         report['hook_clients'] = scope['selected']
+        # The settings file Jev reads now. The plugin's jev-control.json is only
+        # the template installers copy; editing it changes nothing installed.
+        live = scope['config']
+        report['config_path'] = str(live) if live is not None and Path(live).is_file() else None
         findings += registration_findings(doctored, scope['files'], scope['entries'])
         if not host_mode:
             gone = sorted(name for name in manifest.get('files', {})

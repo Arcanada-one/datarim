@@ -214,6 +214,7 @@ def install(args):
         (source/'plugins/dr-jev-control/config/jev-control.json').read_text())
     if not isinstance(existing, dict):
         raise ValueError('Host config must be an object')
+    existing.pop('_comment', None)  # marks the shipped template only
     if args.datarim_project is not None:
         existing['datarim_projects'] = sorted({str(Path(p).resolve(strict=True)) for p in args.datarim_project})
     else:
