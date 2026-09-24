@@ -166,7 +166,7 @@ fi
 # ---- project-local installation ----
 export TARGET_DIR=/tmp/consumer-project
 mkdir -p "$TARGET_DIR"
-sh /opt/datarim/install.sh --project "$TARGET_DIR" --with-jev --init
+sh /opt/datarim/install.sh --project "$TARGET_DIR" --client all --with-jev --init
 export INSTALL_REPO=/opt/datarim
 export VENDOR_FLAG="VENDOR_FLAG_PLACEHOLDER"
 bats /opt/datarim/tests/install-matrix/post-install.bats

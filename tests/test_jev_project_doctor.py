@@ -40,7 +40,8 @@ class ProjectDoctor(unittest.TestCase):
 
     def install(self, *extra):
         run = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
-                              str(self.project), '--with-jev', *extra],
+                              str(self.project), '--with-jev',
+                              *(extra if '--client' in extra else ('--client', 'all', *extra))],
                              env=self.env, capture_output=True, text=True, timeout=120)
         self.assertEqual(run.returncode, 0, run.stderr)
 

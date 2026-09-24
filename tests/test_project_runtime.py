@@ -121,7 +121,7 @@ class InstallationLifecycleTests(unittest.TestCase):
         (self.project/'AGENTS.md').write_text('# Original project rules\n')
         (self.project/'.gitignore').write_text('/build/\n')
         self.args = Namespace(project=str(self.project), with_jev=False,
-                              context=[], dry_run=False, init=True)
+                              client=project_install.CLIENTS, context=[], dry_run=False, init=True)
         self.source_patch = patch.object(project_install, 'SOURCE', self.source)
         self.source_patch.start()
         self.addCleanup(self.source_patch.stop)
@@ -278,7 +278,7 @@ class InstallationLifecycleTests(unittest.TestCase):
     def test_an_update_without_the_option_keeps_the_recorded_clients(self):
         project_install.install(self.with_args(client=('claude', 'cursor')))
         (self.source/'VERSION').write_text('next\n')
-        project_install.install(self.args)
+        project_install.install(self.with_args(client=None))
         self.assertTrue((self.project/'.claude/commands/dr-do.md').is_file())
         self.assertTrue((self.project/'.cursor/skills/dr-do/SKILL.md').is_file())
         self.assertFalse((self.project/'.agents/skills/dr-do/SKILL.md').exists())
@@ -401,8 +401,9 @@ class InstallationLifecycleTests(unittest.TestCase):
         return Namespace(**{**base, **changes})
 
     def test_a_fresh_install_without_a_choice_is_refused_before_any_write(self):
-        with self.assertRaisesRegex(project_install.ChoiceRequired, 'put these questions to the user'):
+        with self.assertRaisesRegex(project_install.ChoiceRequired, 'Ask the user these questions'):
             project_install.install(self.fresh())
+        self.assertEqual(sorted(p.name for p in self.project.iterdir()), ['.gitignore', 'AGENTS.md'])
         self.assertFalse((self.project/'.datarim-runtime').exists())
         self.assertFalse((self.project/'datarim').exists())
 
@@ -419,10 +420,29 @@ class InstallationLifecycleTests(unittest.TestCase):
 
     def test_the_printed_questions_match_install_md(self):
         text = project_install.CHOICE_QUESTIONS
-        for needle in ('--without-jev', '--with-jev', '--host-jev', '--client', 'jev permissions full',
-                       '--init', '--expose-skills', 'release tag', 'main',
-                       'AI agent: put these questions to the user, then rerun with their answers.'):
+        for needle in ('STOP.', 'Ask the user these questions and wait for the answers.',
+                       'Do not choose for them.', 'works WITHOUT any key', '"no key" is not a reason',
+                       '--without-jev', '--with-jev', '--host-jev', '--client', '--claude-import',
+                       'jev permissions full', '--init', '--expose-skills', 'release tag', 'main',
+                       'Rerun: ./install.sh --project <path> <flags from the answers>'):
             self.assertIn(needle, text)
+
+    def test_a_jev_answer_without_a_client_list_is_refused_too(self):
+        for changes in ({'with_jev': False, 'client': None}, {'with_jev': True, 'client': None},
+                        {'with_jev': False, 'client': None, 'dry_run': True}):
+            with self.subTest(**changes), self.assertRaises(project_install.ChoiceRequired):
+                project_install.install(self.with_args(**changes))
+        self.assertFalse((self.project/'.datarim-runtime').exists())
+
+    def test_a_client_list_without_a_jev_answer_is_refused(self):
+        with self.assertRaises(project_install.ChoiceRequired):
+            project_install.install(self.fresh(client=('claude',)))
+
+    def test_an_update_needs_neither_answer(self):
+        project_install.install(self.with_args(client=('codex',)))
+        (self.source/'VERSION').write_text('next\n')
+        project_install.install(self.fresh(client=None))
+        self.assertEqual(self.manifest()['clients'], ['codex'])
 
     def test_an_update_without_a_choice_keeps_the_recorded_one(self):
         project_install.install(self.args)
@@ -435,9 +455,14 @@ class InstallationLifecycleTests(unittest.TestCase):
                               str(self.project)], capture_output=True, text=True, timeout=120)
         self.assertEqual(run.returncode, 2)
         self.assertEqual(run.stdout, '')
-        for text in ('Datarim needs your choices', '--client claude,codex,cursor', 'jev permissions full',
-                     '--expose-skills', 'nothing was written'):
+        self.assertTrue(run.stderr.startswith('STOP. Nothing was installed.'), run.stderr[:80])
+        self.assertNotIn('datarim install:', run.stderr)
+        for text in ('--client claude,codex,cursor', 'jev permissions full', '--expose-skills'):
             self.assertIn(text, run.stderr)
+        run = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
+                              str(self.project), '--without-jev', '--dry-run'],
+                             capture_output=True, text=True, timeout=120)
+        self.assertEqual((run.returncode, run.stdout), (2, ''))
 
     def test_a_jev_install_says_where_the_key_goes(self):
         import contextlib, io
@@ -726,7 +751,7 @@ class IgnoredSourceTests(unittest.TestCase):
         target.mkdir()
         subprocess.run(['git', 'init', '-q', str(target)], check=True)
         result = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
-                                 str(target), '--init', '--without-jev', '--dry-run'], capture_output=True,
+                                 str(target), '--init', '--without-jev', '--client', 'all', '--dry-run'], capture_output=True,
                                 text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stderr)
         files = json.loads(result.stdout.strip().splitlines()[-1])["files"]
