@@ -207,6 +207,51 @@ class TrustOwnHooks(_CodexHome):
         text = (self.home/'.codex/config.toml').read_text()
         self.assertTrue(text.startswith('model = "x"\n\n' + other))
 
+    def test_an_interpreter_change_is_modified_and_re_granted(self):
+        """Hook commands used to name a versioned interpreter; moving them to
+        a stable one changes the command, which Codex's hash covers."""
+        entry = f'{self.home}/.local/share/jev/bin/jev-hook'
+        old = {'hooks': [self.hook('UserPromptSubmit',
+                                   f'/opt/py/python@3.13/bin/python3.13 {entry} codex UserPromptSubmit')]}
+        new = {'hooks': [self.hook('UserPromptSubmit', f'/opt/py/bin/python3 {entry} codex UserPromptSubmit')]}
+        self.write({'UserPromptSubmit': [new]},
+                   self.trusted_block('UserPromptSubmit', 'user_prompt_submit:0:0', old, old['hooks'][0]))
+        self.assertEqual(codex_hook_trust(SHA, self.home)['modified'], ['UserPromptSubmit'])
+        self.assertEqual(len(codex_trust_own_hooks(self.home)), 1)
+        self.assertEqual(codex_hook_trust(SHA, self.home)['state'], 'trusted')
+
+
+class ProjectHooks(unittest.TestCase):
+    """A project install registers `<project>/.codex/hooks.json`; Codex keeps
+    the grant in the user's config.toml under that file's path."""
+
+    def setUp(self):
+        self.base = Path(tempfile.mkdtemp())
+        self.home = self.base/'home'
+        (self.home/'.codex').mkdir(parents=True)
+        (self.home/'.codex/config.toml').write_text('')
+        self.hooks = self.base/'project/.codex/hooks.json'
+        self.hooks.parent.mkdir(parents=True)
+        self.entry = str(self.base/'project/.datarim-runtime/scripts/jev_hook.py')
+        group = {'matcher': MATCHER, 'hooks': [
+            {'type': 'command', 'timeout': 9, 'command': f'/usr/bin/python3 {self.entry} codex PreToolUse'}]}
+        self.hooks.write_text(json.dumps({'hooks': {'PreToolUse': [group]}}))
+
+    def test_the_host_reading_does_not_see_project_hooks(self):
+        self.assertEqual(codex_hook_trust(SHA, self.home)['state'], 'not_measured')
+
+    def test_project_hooks_are_measured_and_re_granted(self):
+        target = {'hooks': self.hooks, 'entry': self.entry}
+        self.assertEqual(codex_hook_trust(SHA, self.home, **target)['untrusted'], ['PreToolUse'])
+        self.assertEqual(codex_trust_own_hooks(self.home, **target), [f'{self.hooks}:pre_tool_use:0:0'])
+        self.assertEqual(codex_hook_trust(SHA, self.home, **target)['state'], 'trusted')
+
+    def test_a_release_pinned_host_command_does_not_count_as_a_project_hook(self):
+        self.hooks.write_text(json.dumps({'hooks': {'PreToolUse': [{'hooks': [
+            {'type': 'command', 'command': f'/p /h/releases/{SHA}/jev_hook.py codex PreToolUse'}]}]}}))
+        result = codex_hook_trust(SHA, self.home, hooks=self.hooks, entry=self.entry)
+        self.assertEqual(result['state'], 'not_measured')
+
 
 if __name__ == '__main__':
     unittest.main()
