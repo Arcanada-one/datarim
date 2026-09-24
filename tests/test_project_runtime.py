@@ -16,6 +16,32 @@ from project_scope import ScopeError, project_root
 import project_install
 
 
+def scripted_install(command, **kwargs):
+    """Run the installer the way a script or CI must: once, then again with the
+    answers token that refusal printed. There is no switch that skips it."""
+    import re
+    first = subprocess.run(command, capture_output=True, text=True, **kwargs)
+    match = re.search(r'--answers ([0-9a-f]+) <flags>', first.stderr)
+    if first.returncode == 2 and match:
+        return subprocess.run([*command, '--answers', match.group(1)], capture_output=True, text=True, **kwargs)
+    return first
+
+
+def issue_token_for_fresh_installs(test):
+    """Patch the answers gate so each fresh, fully answered install in `test`
+    carries a token issued the way a refusal issues one; the real gate still
+    validates and consumes it."""
+    real_gate = project_install.answers_gate
+    def gate(args, root, **kwargs):
+        if not project_install.missing_answers(args) and not (root/'.datarim-runtime/installation.json').is_file():
+            args.answers = project_install.issue_answers_token(root)
+        return real_gate(args, root, **kwargs)
+    for patcher in (patch.object(project_install, 'answers_gate', gate),
+                    patch.dict(os.environ, {'XDG_STATE_HOME': str(Path(test.tmp.name)/'state')})):
+        patcher.start()
+        test.addCleanup(patcher.stop)
+
+
 class ProjectScopeTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -172,11 +198,11 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.source_patch = patch.object(project_install, 'SOURCE', self.source)
         self.source_patch.start()
         self.addCleanup(self.source_patch.stop)
-        # Scripted installs: the CI escape hatch, and no terminal.
-        for patcher in (patch.dict(os.environ, {project_install.NONINTERACTIVE_ENV: '1'}),
-                        patch.object(project_install, 'is_interactive', return_value=False)):
-            patcher.start()
-            self.addCleanup(patcher.stop)
+        # Scripted installs: no terminal, and the answers token a refusal would print.
+        patcher = patch.object(project_install, 'is_interactive', return_value=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        issue_token_for_fresh_installs(self)
 
     def test_install_update_uninstall_leaves_shared_files_alone(self):
         project_install.install(self.args)
@@ -480,7 +506,16 @@ class InstallationLifecycleTests(unittest.TestCase):
                        'main', f"Rerun with the user's answers: ./install.sh --project {self.project} "
                                '--answers feedc0de <flags>'):
             self.assertIn(needle, text)
-        self.assertNotIn(project_install.NONINTERACTIVE_ENV, text)
+        self.assertIn('a new token replaces any earlier one', text)
+        self.assertNotIn('NONINTERACTIVE', text)
+        self.assertNotIn('NONINTERACTIVE', (ROOT/'scripts/project_install.py').read_text())
+
+    def test_without_agents_md_the_refusal_does_not_offer_the_claude_link(self):
+        (self.project/'AGENTS.md').unlink()
+        text = project_install.refusal_text(self.project, 'feedc0de')
+        self.assertIn('(CLAUDE.md link: not offered, the project has no AGENTS.md)', text)
+        self.assertNotIn('--claude-import', text)
+        self.assertNotIn('also link CLAUDE.md', text)
 
     def test_no_source_constant_carries_the_rerun_line_or_a_token(self):
         for name in ('CHOICE_QUESTIONS', 'FLAG_TABLE'):
@@ -820,7 +855,6 @@ class AnswersTokenTests(unittest.TestCase):
                         patch.dict(os.environ, {'XDG_STATE_HOME': str(base/'state')})):
             patcher.start()
             self.addCleanup(patcher.stop)
-        os.environ.pop(project_install.NONINTERACTIVE_ENV, None)
 
     def args(self, **changes):
         base = dict(project=str(self.project), with_jev=False, client=('codex',), permissions='ask',
@@ -899,12 +933,40 @@ class AnswersTokenTests(unittest.TestCase):
         self.assertEqual(sorted(p.name for p in plain.iterdir()), [])
         self.assertTrue(project_install.answers_token_valid(plain, token))
 
-    def test_the_ci_escape_hatch_needs_every_answer_and_no_token(self):
-        with patch.dict(os.environ, {project_install.NONINTERACTIVE_ENV: '1'}):
-            self.refused_token(permissions=None)
-            with contextlib_quiet():
-                project_install.install(self.args())
-        self.assertTrue(self.installed())
+    def test_no_environment_switch_skips_the_token(self):
+        """The CI escape hatch is gone: an agent read it in the source."""
+        with patch.dict(os.environ, {'DATARIM_INSTALL_NONINTERACTIVE': '1'}):
+            self.refused_token()
+        self.assertFalse(self.installed())
+
+    def test_a_refusal_replaces_the_earlier_token(self):
+        first = self.refused_token()
+        second = self.refused_token(permissions=None)
+        self.assertFalse(project_install.answers_token_valid(self.project, first))
+        self.assertTrue(project_install.answers_token_valid(self.project, second))
+
+    def test_claude_import_without_agents_md_fails_before_touching_the_token(self):
+        (self.project/'AGENTS.md').unlink()
+        token = self.refused_token()
+        before = (self.project/'.git/datarim-install-answers').read_bytes()
+        with self.assertRaisesRegex(ValueError, 'no AGENTS.md'):
+            project_install.install(self.args(answers=token, claude_import=True))
+        self.assertEqual((self.project/'.git/datarim-install-answers').read_bytes(), before)
+        self.assertTrue(project_install.answers_token_valid(self.project, token))
+        self.assertEqual(self.tree(), [])
+        with self.assertRaisesRegex(ValueError, 'no AGENTS.md'):
+            project_install.install(self.args(claude_import=True))  # no token: still no new one issued
+        self.assertEqual((self.project/'.git/datarim-install-answers').read_bytes(), before)
+
+    def test_a_terminal_says_the_claude_link_is_not_offered_without_agents_md(self):
+        (self.project/'AGENTS.md').unlink()
+        said = []
+        args = self.args(client=None, init=True)
+        answers = iter(['claude', 'no'])
+        project_install.answers_gate(args, self.project, interactive=True, ask=lambda p: next(answers),
+                                     say=said.append)
+        self.assertIn(project_install.NO_CLAUDE_LINK, said)
+        self.assertIsNone(getattr(args, 'claude_import', None))
 
     def test_a_terminal_asks_for_the_missing_answers(self):
         answers = iter(['project', 'claude,codex', '', 'full', '', ''])
@@ -941,23 +1003,23 @@ class AnswersTokenTests(unittest.TestCase):
 
     def test_permissions_are_required_written_reported_and_kept(self):
         import contextlib, io
-        with patch.dict(os.environ, {project_install.NONINTERACTIVE_ENV: '1'}):
-            self.refused_token(permissions=None)
-            err = io.StringIO()
-            with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
-                project_install.install(self.args(permissions='full'))
-            flag = self.project/'.datarim-runtime/state/jev/FULL_PERMISSIONS'
-            self.assertTrue(flag.is_file())
-            self.assertIn('permission mode: full (change with `jev permissions full|ask`)', err.getvalue())
-            (self.source/'VERSION').write_text('next\n')
-            err = io.StringIO()
-            with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
-                project_install.install(self.args(permissions=None, with_jev=None, client=None))
-            self.assertTrue(flag.is_file(), 'an update keeps the mode')
-            self.assertIn('permission mode: full', err.getvalue())
-            with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
-                project_install.install(self.args(permissions='ask', with_jev=None, client=None))
-            self.assertFalse(flag.exists())
+        self.refused_token(permissions=None)
+        token = self.refused_token(permissions='full')
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            project_install.install(self.args(permissions='full', answers=token))
+        flag = self.project/'.datarim-runtime/state/jev/FULL_PERMISSIONS'
+        self.assertTrue(flag.is_file())
+        self.assertIn('permission mode: full (change with `jev permissions full|ask`)', err.getvalue())
+        (self.source/'VERSION').write_text('next\n')
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            project_install.install(self.args(permissions=None, with_jev=None, client=None))
+        self.assertTrue(flag.is_file(), 'an update keeps the mode')
+        self.assertIn('permission mode: full', err.getvalue())
+        with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+            project_install.install(self.args(permissions='ask', with_jev=None, client=None))
+        self.assertFalse(flag.exists())
 
 
 @__import__('contextlib').contextmanager
@@ -1008,10 +1070,9 @@ class IgnoredSourceTests(unittest.TestCase):
         target = Path(self.tmp.name).resolve()/'project'
         target.mkdir()
         subprocess.run(['git', 'init', '-q', str(target)], check=True)
-        result = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
-                                 str(target), '--init', '--without-jev', '--client', 'all', '--permissions', 'ask',
-                                 '--dry-run'], capture_output=True, text=True, timeout=120,
-                                env=dict(os.environ, DATARIM_INSTALL_NONINTERACTIVE='1'))
+        result = scripted_install([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
+                                   str(target), '--init', '--without-jev', '--client', 'all', '--permissions', 'ask',
+                                   '--dry-run'], timeout=120)
         self.assertEqual(result.returncode, 0, result.stderr)
         files = json.loads(result.stdout.strip().splitlines()[-1])["files"]
         # Installed skill directories are named after the source path with '/'

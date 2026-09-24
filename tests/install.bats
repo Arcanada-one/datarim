@@ -4,7 +4,7 @@ load 'helpers/project_install'
 setup() { setup_project_fixture; }
 
 @test "explicit project installation never writes global agent discovery" {
-    install_project --client all --permissions ask --without-jev
+    install_answered --client all --permissions ask --without-jev
     [ "$status" -eq 0 ]
     [ -f "$PROJECT/.datarim-runtime/installation.json" ]
     # Datarim writes nothing into files a project shares: no AGENTS.md is created.
@@ -16,9 +16,9 @@ setup() { setup_project_fixture; }
 }
 
 @test "unchanged project install is idempotent" {
-    install_project --client all --permissions ask --without-jev
+    install_answered --client all --permissions ask --without-jev
     [ "$status" -eq 0 ]
-    install_project --client all --permissions ask --without-jev
+    install_answered --client all --permissions ask --without-jev
     [ "$status" -eq 0 ]
     [[ "$output" == *'"status": "unchanged"'* ]]
     [ ! -e "$PROJECT/.datarim-runtime-previous" ]
@@ -27,7 +27,7 @@ setup() { setup_project_fixture; }
 @test "the project's AGENTS.md is never modified" {
     printf '# Project\nPreserve operator policy.\n' > "$PROJECT/AGENTS.md"
     cp "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.before"
-    install_project --client all --permissions ask --with-jev --init
+    install_answered --client all --permissions ask --with-jev --init
     [ "$status" -eq 0 ]
     cmp "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.before"
     run grep -c 'datarim-project:begin' "$PROJECT/AGENTS.md"
@@ -35,7 +35,7 @@ setup() { setup_project_fixture; }
 }
 
 @test "project initialization creates only local task state" {
-    install_project --client all --permissions ask --without-jev --init
+    install_answered --client all --permissions ask --without-jev --init
     [ "$status" -eq 0 ]
     [ -f "$PROJECT/datarim/tasks.md" ]
     [ -f "$PROJECT/datarim/backlog.md" ]
@@ -43,7 +43,7 @@ setup() { setup_project_fixture; }
 }
 
 @test "Jev registers all native vendor schemas and a private empty key" {
-    install_project --client all --permissions ask --with-jev
+    install_answered --client all --permissions ask --with-jev
     [ "$status" -eq 0 ]
     run python3 - "$PROJECT" <<'CHECK'
 import json,sys
@@ -61,7 +61,7 @@ CHECK
 @test "foreign discovery collision fails without partial installation" {
     mkdir -p "$PROJECT/.agents/skills/dr-do"
     printf 'foreign skill' > "$PROJECT/.agents/skills/dr-do/SKILL.md"
-    install_project --client all --permissions ask --without-jev
+    install_answered --client all --permissions ask --without-jev
     [ "$status" -eq 2 ]
     [ ! -e "$PROJECT/.claude/commands/dr-do.md" ]
     [ ! -e "$PROJECT/.datarim-runtime" ]
@@ -71,7 +71,7 @@ CHECK
 
 @test "uninstall restores original instructions and preserves key and task state" {
     printf '# Original rules\n' > "$PROJECT/AGENTS.md"
-    install_project --client all --permissions ask --with-jev --init
+    install_answered --client all --permissions ask --with-jev --init
     [ "$status" -eq 0 ]
     install_project --uninstall
     [ "$status" -eq 0 ]
@@ -85,7 +85,7 @@ CHECK
 }
 
 @test "uninstall refuses to overwrite a subsequent operator edit" {
-    install_project --client all --permissions ask --without-jev
+    install_answered --client all --permissions ask --without-jev
     [ "$status" -eq 0 ]
     printf '\nOperator addition\n' >> "$PROJECT/.claude/commands/dr-do.md"
     install_project --uninstall
@@ -97,7 +97,7 @@ CHECK
 
 @test "an operator's AGENTS.md edits survive install and uninstall" {
     printf '# Rules\n' > "$PROJECT/AGENTS.md"
-    install_project --client all --permissions ask --without-jev
+    install_answered --client all --permissions ask --without-jev
     [ "$status" -eq 0 ]
     printf 'Operator addition\n' >> "$PROJECT/AGENTS.md"
     install_project --uninstall
@@ -112,7 +112,7 @@ CHECK
     printf '/build/\n' > "$PROJECT/.gitignore"
     git -C "$PROJECT" add -A
     git -C "$PROJECT" -c user.email=t@t -c user.name=t commit -qm init
-    install_project --client all --permissions ask --with-jev --init
+    install_answered --client all --permissions ask --with-jev --init
     [ "$status" -eq 0 ]
     run git -C "$PROJECT" status --porcelain
     [ "$status" -eq 0 ]
@@ -128,7 +128,7 @@ CHECK
     # Ported intent of 96a350f: the 2.x copy installer filtered by extension
     # and dropped heartbeat-receipts.py. The project installer copies whole
     # scopes; this pins that the helper arrives intact and works in place.
-    install_project --client all --permissions ask --without-jev
+    install_answered --client all --permissions ask --without-jev
     [ "$status" -eq 0 ]
     local runtime="$PROJECT/.datarim-runtime" receipts task
     cmp "$PRODUCT_ROOT/dev-tools/lib/heartbeat-receipts.py" "$runtime/dev-tools/lib/heartbeat-receipts.py"
@@ -168,7 +168,11 @@ CHECK
 }
 
 @test "a Jev install prints where the key goes and how to write it" {
-    run sh -c 'sh "$1" --project "$2" --client all --permissions ask --with-jev 2>&1 >/dev/null' _ "$PRODUCT_ROOT/install.sh" "$PROJECT"
+    install_project --client all --permissions ask --with-jev
+    token="$(answers_token "$output")"
+    [ -n "$token" ]
+    run sh -c 'sh "$1" --project "$2" --answers "$3" --client all --permissions ask --with-jev 2>&1 >/dev/null' \
+        _ "$PRODUCT_ROOT/install.sh" "$PROJECT" "$token"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Jev key file: $PROJECT/config/credentials/jev/api-key"* || "$output" == *'config/credentials/jev/api-key'* ]]
     [[ "$output" == *'paste the key on one line'* ]]
@@ -182,14 +186,13 @@ CHECK
     [ -z "$(ls -A "$PROJECT")" ]
 }
 
-@test "without the CI switch, full answer flags still need the printed answers token" {
-    unset DATARIM_INSTALL_NONINTERACTIVE
+@test "full answer flags still need the printed answers token, and no switch skips it" {
     git init -q "$PROJECT"
-    install_project --without-jev --client codex --permissions ask
+    DATARIM_INSTALL_NONINTERACTIVE=1 install_project --without-jev --client codex --permissions ask
     [ "$status" -eq 2 ]
     [[ "$output" == 'STOP. Nothing was installed.'* ]]
-    [[ "$output" != *DATARIM_INSTALL_NONINTERACTIVE* ]]
-    token="$(printf '%s\n' "$output" | sed -n 's/.*--answers \([0-9a-f]*\) <flags>.*/\1/p')"
+    [[ "$output" == *'a new token replaces any earlier one'* ]]
+    token="$(answers_token "$output")"
     [ -n "$token" ]
     [ "$(ls -A "$PROJECT")" = ".git" ]
     install_project --answers "$token" --without-jev --client codex --permissions ask
@@ -197,4 +200,14 @@ CHECK
     [[ "$output" == *'permission mode: ask (change with `jev permissions full|ask`)'* ]]
     [ -f "$PROJECT/.datarim-runtime/installation.json" ]
     [ ! -e "$PROJECT/.git/datarim-install-answers" ]
+}
+
+@test "without an AGENTS.md the refusal does not offer the CLAUDE.md link" {
+    install_project --without-jev --client claude --permissions ask
+    [ "$status" -eq 2 ]
+    [[ "$output" == *'(CLAUDE.md link: not offered, the project has no AGENTS.md)'* ]]
+    [[ "$output" != *'--claude-import'* ]]
+    printf '# Rules\n' > "$PROJECT/AGENTS.md"
+    install_project --without-jev --client claude --permissions ask
+    [[ "$output" == *'--claude-import'* ]]
 }

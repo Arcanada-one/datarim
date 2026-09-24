@@ -166,7 +166,12 @@ fi
 # ---- project-local installation ----
 export TARGET_DIR=/tmp/consumer-project
 mkdir -p "$TARGET_DIR"
-DATARIM_INSTALL_NONINTERACTIVE=1 sh /opt/datarim/install.sh --project "$TARGET_DIR" --client all --permissions ask --with-jev --init
+# Two steps, as any script must: the first run refuses and prints an answers
+# token, the second passes it with the same answers.
+set -- --client all --permissions ask --with-jev --init
+token="$(sh /opt/datarim/install.sh --project "$TARGET_DIR" "$@" 2>&1 | sed -n 's/.*--answers \([0-9a-f][0-9a-f]*\) <flags>.*/\1/p' | tail -n 1)"
+[ -n "$token" ] || { echo "[lane] no answers token in the installer's refusal" >&2; exit 1; }
+sh /opt/datarim/install.sh --project "$TARGET_DIR" --answers "$token" "$@"
 export INSTALL_REPO=/opt/datarim
 export VENDOR_FLAG="VENDOR_FLAG_PLACEHOLDER"
 bats /opt/datarim/tests/install-matrix/post-install.bats
