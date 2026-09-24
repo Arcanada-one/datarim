@@ -507,6 +507,13 @@ class InstallationLifecycleTests(unittest.TestCase):
                                '--answers feedc0de <flags>'):
             self.assertIn(needle, text)
         self.assertIn('a new token replaces any earlier one', text)
+        lines = text.splitlines()
+        self.assertEqual(lines[1], 'Relay the questions below word for word, with their defaults, and do not '
+                                   'recommend an answer. If you already asked the user something, still ask every '
+                                   "question below that they have not answered. Reply in the user's language.")
+        self.assertIn("The user's answers must cover all six questions.", lines)
+        self.assertGreater(lines.index("The user's answers must cover all six questions."),
+                           next(i for i, l in enumerate(lines) if l.startswith('6. ')))
         self.assertNotIn('NONINTERACTIVE', text)
         self.assertNotIn('NONINTERACTIVE', (ROOT/'scripts/project_install.py').read_text())
 
@@ -590,8 +597,33 @@ class InstallationLifecycleTests(unittest.TestCase):
         err = io.StringIO()
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
             project_install.install(self.with_args(with_jev=True))
-        self.assertIn(str(self.project/'config/credentials/jev/api-key'), err.getvalue())
-        self.assertIn('paste the key on one line', err.getvalue())
+        text = err.getvalue()
+        lines = text.splitlines()
+        lead = lines.index('Include these lines in your report to the user:')
+        block = lines[lead + 1:]
+        self.assertTrue(block[0].startswith('permission mode: ask (stored in '
+                                            f"{self.project/'.datarim-runtime/state/jev/FULL_PERMISSIONS'}"))
+        self.assertIn(f"key (optional): {self.project/'config/credentials/jev/api-key'}; the Jev floor works "
+                      'without it; paste it with an editor, never with echo/printf', block)
+        self.assertIn('never put the key or any JEV_* / DATARIM_* variable in .zshrc/.bashrc; '
+                      'set them per shell or per launch', block)
+        self.assertIn('Codex: open `codex` once in this project and accept the hooks, or run `jev trust`', block)
+
+    def test_the_report_block_without_jev_or_codex(self):
+        import contextlib, io
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            project_install.install(self.with_args(client=('claude',)))
+        text = err.getvalue()
+        self.assertIn('Include these lines in your report to the user:', text)
+        self.assertIn('never put the key or any JEV_* / DATARIM_* variable in .zshrc/.bashrc', text)
+        self.assertNotIn('key (optional)', text)
+        self.assertNotIn('Codex: open', text)
+        # An update prints the block too.
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            project_install.install(self.with_args(client=None, with_jev=None, permissions=None))
+        self.assertIn('\npermission mode: ask (stored in ', err.getvalue())
 
     # -- leftover client directories -------------------------------------------
 
@@ -1010,7 +1042,8 @@ class AnswersTokenTests(unittest.TestCase):
             project_install.install(self.args(permissions='full', answers=token))
         flag = self.project/'.datarim-runtime/state/jev/FULL_PERMISSIONS'
         self.assertTrue(flag.is_file())
-        self.assertIn('permission mode: full (change with `jev permissions full|ask`)', err.getvalue())
+        self.assertIn('permission mode: full (stored in ', err.getvalue())
+        self.assertIn('change with `jev permissions full|ask`)', err.getvalue())
         (self.source/'VERSION').write_text('next\n')
         err = io.StringIO()
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):

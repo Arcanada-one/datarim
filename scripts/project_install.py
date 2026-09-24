@@ -575,8 +575,13 @@ def refusal_text(root, token):
     return '\n'.join([
         'STOP. Nothing was installed. Ask the user these questions and wait for the answers. '
         'Do not choose for them.',
+        'Relay the questions below word for word, with their defaults, and do not recommend an answer. '
+        'If you already asked the user something, still ask every question below that they have not '
+        "answered. Reply in the user's language.",
         '',
         questions,
+        '',
+        "The user's answers must cover all six questions.",
         '',
         table,
         '',
@@ -617,17 +622,27 @@ def apply_permissions(root, host_jev, requested):
     return requested
 
 
-def permission_line(mode):
-    return f'permission mode: {mode} (change with `jev permissions full|ask`)'
-
-
-def key_instructions(root, host_jev):
-    """Where the Jev key goes and how to write it, for the installer's output."""
-    key = (Path.home()/'.config/jev/credentials/api-key') if host_jev else Path(root)/'config/credentials/jev/api-key'
-    return (f'Jev key file: {key}\n'
-            '  Open it in an editor and paste the key on one line. Do not echo/printf the key into it: '
-            'the command would land in your shell history.\n'
-            '  Then check it with: jev doctor --api')
+def report_block(root, host_jev, with_jev, mode, clients):
+    """Lines the agent copies into its report after a successful install or
+    update. Printed by the installer because its output is the one text that
+    reaches an agent unsummarized: in a live run an agent that never read
+    INSTALL.md placed the permission mode in the wrong file and left out the
+    shell-startup warning.
+    """
+    flag = permission_state_dir(root, host_jev)/'FULL_PERMISSIONS'
+    lines = ['Include these lines in your report to the user:',
+             f'permission mode: {mode} (stored in {flag}: present means full, absent means ask; '
+             'change with `jev permissions full|ask`)']
+    if with_jev:
+        key = (Path.home()/'.config/jev/credentials/api-key') if host_jev \
+            else Path(root)/'config/credentials/jev/api-key'
+        lines.append(f'key (optional): {key}; the Jev floor works without it; paste it with an editor, '
+                     'never with echo/printf')
+    lines.append('never put the key or any JEV_* / DATARIM_* variable in .zshrc/.bashrc; '
+                 'set them per shell or per launch')
+    if with_jev and 'codex' in clients:
+        lines.append('Codex: open `codex` once in this project and accept the hooks, or run `jev trust`')
+    return '\n'.join(lines)
 
 
 def remembered_choices(args, previous):
@@ -846,8 +861,8 @@ def _install(args):
             and link_action in (None, 'kept_existing', 'already_linked', 'no_agents_md')):
         if all((root/name).is_file() and (root/name).read_bytes() == data for name, data in files.items()):
             print(json.dumps({'status': 'unchanged', 'project': str(root)}))
-            print(permission_line(apply_permissions(root, args.host_jev, getattr(args, 'permissions', None))),
-                  file=sys.stderr)
+            mode = apply_permissions(root, args.host_jev, getattr(args, 'permissions', None))
+            print(report_block(root, args.host_jev, args.with_jev, mode, clients), file=sys.stderr)
             return
     stage = Path(tempfile.mkdtemp(prefix='.datarim-install-', dir=root))
     backups = {}
@@ -988,9 +1003,7 @@ def _install(args):
             (runtime/'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
         mode = apply_permissions(root, args.host_jev, getattr(args, 'permissions', None))
         print(json.dumps({'status': 'installed', **manifest, 'claude_md': link_action}))
-        if args.with_jev:
-            print(key_instructions(root, args.host_jev), file=sys.stderr)
-        print(permission_line(mode), file=sys.stderr)
+        print(report_block(root, args.host_jev, args.with_jev, mode, clients), file=sys.stderr)
     except Exception:
         recovery = []
         try:
