@@ -19,7 +19,7 @@ setup() {
     printf '# Tasks\n' > "$TMPROOT/datarim/tasks.md"
     printf '# Backlog\n' > "$TMPROOT/datarim/backlog.md"
     # deeply nested cwd inside the project (a "space"-style layout)
-    mkdir -p "$TMPROOT/spaces/aether/code/src"
+    mkdir -p "$TMPROOT/spaces/beta/code/src"
 }
 
 teardown() {
@@ -35,13 +35,13 @@ teardown() {
 }
 
 @test "R2 resolve from deeply nested cwd echoes repo-root (not nested dir)" {
-    run bash -c '. "$1"; cd "$2"; resolve_datarim_root' _ "$RESOLVER" "$TMPROOT/spaces/aether/code/src"
+    run bash -c '. "$1"; cd "$2"; resolve_datarim_root' _ "$RESOLVER" "$TMPROOT/spaces/beta/code/src"
     [ "$status" -eq 0 ]
     [ "$output" = "$(cd "$TMPROOT" && pwd)" ]
 }
 
 @test "R3 explicit start_dir arg overrides cwd" {
-    run bash -c '. "$1"; cd /; resolve_datarim_root "$2"' _ "$RESOLVER" "$TMPROOT/spaces/aether"
+    run bash -c '. "$1"; cd /; resolve_datarim_root "$2"' _ "$RESOLVER" "$TMPROOT/spaces/beta"
     [ "$status" -eq 0 ]
     [ "$output" = "$(cd "$TMPROOT" && pwd)" ]
 }
@@ -77,9 +77,9 @@ teardown() {
     command -v git >/dev/null || skip "git not available"
     # KB at the git toplevel; a closer sibling datarim/ deeper in the tree
     git -C "$TMPROOT" init -q
-    mkdir -p "$TMPROOT/spaces/aether/datarim"
-    printf '# Tasks\n' > "$TMPROOT/spaces/aether/datarim/tasks.md"
-    run bash -c '. "$1"; cd "$2"; resolve_datarim_root 2>/dev/null' _ "$RESOLVER" "$TMPROOT/spaces/aether/code/src"
+    mkdir -p "$TMPROOT/spaces/beta/datarim"
+    printf '# Tasks\n' > "$TMPROOT/spaces/beta/datarim/tasks.md"
+    run bash -c '. "$1"; cd "$2"; resolve_datarim_root 2>/dev/null' _ "$RESOLVER" "$TMPROOT/spaces/beta/code/src"
     [ "$status" -eq 0 ]
     # git anchor returns the toplevel KB, not the nested sibling
     [ "$output" = "$(cd "$TMPROOT" && pwd)" ]
@@ -95,8 +95,8 @@ teardown() {
 }
 
 @test "R9 nested repository cannot inherit parent KB without opt-in" {
-    mkdir -p "$TMPROOT/spaces/aether/.git"
-    run bash -c '. "$1"; resolve_datarim_root "$2"' _ "$RESOLVER" "$TMPROOT/spaces/aether/code/src"
+    mkdir -p "$TMPROOT/spaces/beta/.git"
+    run bash -c '. "$1"; resolve_datarim_root "$2"' _ "$RESOLVER" "$TMPROOT/spaces/beta/code/src"
     [ "$status" -eq 1 ]
     [[ "$output" == *"not an approved project context"* ]]
 }

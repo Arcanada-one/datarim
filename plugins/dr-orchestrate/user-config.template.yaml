@@ -44,6 +44,6 @@ bot_interaction:
   endpoint: ""                    # required iff provider=agent0017 (e.g. http://localhost:3010/prompts)
   shared_secret_ref: ""           # required iff provider=agent0017 (vault:secret/datarim/orchestrator/hmac_secret or env:NAME)
   outbound_backend: callback      # callback | redis (relevant when provider=agent0017)
-  redis_url: ""                   # required iff outbound_backend=redis (e.g. redis://arcana-db:6379/0)
+  redis_url: ""                   # required iff outbound_backend=redis (e.g. redis://redis-host:6379/0)
   inbound_bind: 127.0.0.1:8090    # advisory — adnanh/webhook bind from CLI flag
   bearer_secret_ref: ""           # vault:secret/datarim/orchestrator/bearer or env:NAME

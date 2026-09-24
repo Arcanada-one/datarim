@@ -7,7 +7,7 @@
 #
 #   T1: clean-pass fixture (process-only prose) → exit 0
 #   T2: tune-fail fixture (TUNE-0042 inline) → exit 1
-#   T3: dev-fail fixture (DEV-1183 inline) → exit 1
+#   T3: dev-fail fixture (DEV-0183 inline) → exit 1
 #   T4: escape-hatch-pass fixture (IDs inside <!-- gate:history-allowed -->)
 #       → exit 0
 #   T5: same-line-marker-fail fixture (bypass attempt) → exit 1
@@ -86,7 +86,7 @@ setup_diff_repo() {
 # Baseline
 
 - Pre-existing rule referencing TUNE-0042 in source incident.
-- Per DEV-1183, prefer machine-readable output.
+- Per DEV-0183, prefer machine-readable output.
 EOF
         git add runtime.md
         git commit -q -m "baseline"
@@ -168,7 +168,7 @@ EOF
 
 @test "T17: no-flag full-file scan still fails on pre-existing foreign TASK-ID (byte-identical regression)" {
     setup_diff_repo
-    # runtime.md at baseline already contains TUNE-0042 and DEV-1183.
+    # runtime.md at baseline already contains TUNE-0042 and DEV-0183.
     run "$GATE" "$DIFF_REPO/runtime.md"
     teardown_diff_repo
     [ "$status" -eq 1 ]

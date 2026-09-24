@@ -89,7 +89,7 @@ class CodexTierUsesTheAccountsOwnCatalogue(unittest.TestCase):
 class ResumeStillRoutes(unittest.TestCase):
     """Resuming is the normal way long work continues, so it must route too.
 
-    MEASURED 2026-09-22 on dev-ai: a session resumed with `jevcodex -- resume <id>`
+    MEASURED 2026-09-22 on a consumer host: a session resumed with `jevcodex -- resume <id>`
     produced 111 hook_delivery events and ZERO route events, because routing is
     gated on a positional task that a resume does not supply. The session kept
     whatever tier it was last started with.

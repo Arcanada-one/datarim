@@ -15,7 +15,7 @@ Underlying script: [`dev-tools/preflight-check.sh`](../../../dev-tools/preflight
 ```yaml
 jobs:
   deploy:
-    runs-on: [self-hosted, linux, arcana-prod, docker]
+    runs-on: [self-hosted, linux, prod-host, docker]
     steps:
       - uses: actions/checkout@v5
 
@@ -23,7 +23,7 @@ jobs:
         id: preflight
         uses: Arcanada-one/datarim/.github/actions/preflight-check@v1
         with:
-          target-host: arcana-prod
+          target-host: prod-host
           service-name: opsbot
           extra-checks: |
             vault
@@ -47,7 +47,7 @@ tag (`@v1`) for automatic non-breaking updates.
 
 | Name                  | Default                              | Description |
 |-----------------------|--------------------------------------|-------------|
-| `target-host`         | *(required)*                         | Logical host (e.g. `arcana-prod`, `arcana-ai`). Used in metric keys + Ops Bot meta. Must match `[a-z0-9-]+`. |
+| `target-host`         | *(required)*                         | Logical host (e.g. `prod-host`, `ai-host`). Used in metric keys + Ops Bot meta. Must match `[a-z0-9-]+`. |
 | `service-name`        | *(required)*                         | Service being deployed (e.g. `opsbot`, `auth-arcana`). Must match `[a-z0-9-]+`. |
 | `min-free-disk-gb`    | `2`                                  | Minimum free disk GB on each path in `PREFLIGHT_DISK_PATHS`. |
 | `disk-warn-percent`   | `80`                                 | Disk used-% triggering WARN. |
@@ -73,8 +73,8 @@ tag (`@v1`) for automatic non-breaking updates.
 ### Per-host overrides
 
 `PREFLIGHT_<HOST_UPPER>_MIN_FREE_DISK_GB` env var (set as `repository variable`)
-overrides `min-free-disk-gb` for a specific host. `arcana-prod` →
-`PREFLIGHT_ARCANA_PROD_MIN_FREE_DISK_GB`.
+overrides `min-free-disk-gb` for a specific host. `prod-host` →
+`PREFLIGHT_PROD_HOST_MIN_FREE_DISK_GB`.
 
 ### Required env
 
@@ -117,12 +117,12 @@ When `status != ok` and `OPSBOT_KEY` is set, the action POSTs to
 ```json
 {
   "agent": "preflight-check",
-  "title": "Pre-deploy preflight: opsbot on arcana-prod [FAIL]",
+  "title": "Pre-deploy preflight: opsbot on prod-host [FAIL]",
   "body": "disk: fatal (95 vs 90)|vault: ok (false vs false)|...",
   "category": "fatal",
-  "dedup_key": "preflight-arcana-prod-opsbot-20260510-17",
+  "dedup_key": "preflight-prod-host-opsbot-20260510-17",
   "meta": {
-    "host": "arcana-prod",
+    "host": "prod-host",
     "service": "opsbot",
     "audit_ref": "https://github.com/.../actions/runs/123",
     "checks": [

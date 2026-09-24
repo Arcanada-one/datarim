@@ -5,7 +5,7 @@ status: archived
 completed_date: {YYYY-MM-DD}
 complexity: L{1-4}
 type: {framework|infra|content|bugfix|...}
-project: {Datarim|Arcanada|...}
+project: {project name}
 related: []
 archive_doc: documentation/archive/{subdir}/archive-{TASK-ID}.md
 generated_by: {concrete model id that wrote this body, e.g. deepseek-v4-pro — omit the block entirely if a human wrote it}

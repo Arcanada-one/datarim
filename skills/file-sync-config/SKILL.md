@@ -101,7 +101,7 @@ Does the SECOND node have live edits, agents, or production runtime in this repo
 ├── YES → DO NOT sync the working tree.
 │        Exclude the entire /path/to/repo from sync.
 │        Use a `git pull` cron on the second node
-│        (see the arcanada-pull.sh pattern).
+│        (see the workspace-pull.sh pattern).
 └── NO  → The working tree can be synced (read-only side).
          Still exclude .git/ — every node keeps its own commit history.
 ```
@@ -242,7 +242,7 @@ Source: https://docs.syncthing.net/users/ignoring.html
 
 If you excluded `/Projects/*/code` from sync, the second node needs an alternate update mechanism:
 
-1. **Cron `git pull` script** — recommended pattern: `documentation/infrastructure/scripts/arcanada-pull.sh`:
+1. **Cron `git pull` script** — recommended pattern: `documentation/infrastructure/scripts/workspace-pull.sh`:
    - `git fetch` upstream.
    - Skip if local == remote.
    - Skip if the branch is not `main` / `master` (an agent is on a feature branch).
@@ -269,7 +269,7 @@ When configuring file-sync, verify each item:
 
 ## Related
 
-- `Areas/Architecture/file-sync-policy.md` (ADR) — vault-level convention for the Arcanada ecosystem.
+- `Areas/Architecture/file-sync-policy.md` (ADR) — vault-level convention for the consumer ecosystem.
 - `Areas/Infrastructure/Syncthing.md` — Syncthing deployment runbook.
-- `Areas/Infrastructure/scripts/arcanada-pull.sh` — git-pull cron with the CLI Claude conflict resolver.
+- `Areas/Infrastructure/scripts/workspace-pull.sh` — git-pull cron with the CLI Claude conflict resolver.
 - `${DATARIM_RUNTIME:?}/templates/cli-conflict-resolver-prompt.md` — reusable Claude prompt for conflict resolution.

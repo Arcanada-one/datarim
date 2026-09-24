@@ -33,7 +33,7 @@ toml_ok() { [ "$HAS_TOMLLIB" -eq 0 ] || python3 -c "import tomllib;tomllib.load(
     cat > "$CFG" <<'EOF'
 model = "gpt-5.6-sol"
 
-[projects."/home/dev/arcanada"]
+[projects."/home/example/workspace"]
 trust_level = "trusted"
 
 # keep this comment
@@ -43,7 +43,7 @@ EOF
     run reg; [ "$status" -eq 0 ]
     toml_ok
     grep -q 'model = "gpt-5.6-sol"' "$CFG"
-    grep -q '\[projects."/home/dev/arcanada"\]' "$CFG"
+    grep -q '\[projects."/home/example/workspace"\]' "$CFG"
     grep -q '# keep this comment' "$CFG"
     grep -q '\[mcp_servers.openaiDeveloperDocs\]' "$CFG"
     grep -q '\[mcp_servers.datarim\]' "$CFG"

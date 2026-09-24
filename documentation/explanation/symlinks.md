@@ -109,7 +109,7 @@ readlink ~/.claude/skills    # absolute path to code/datarim/skills (single sour
   falls back to copy mode automatically.
 - **Sync tools that dereference symlinks** (rclone, certain Dropbox modes)
   will materialise the symlink target into the cloud destination. See the
-  Arcanada-ecosystem File Sync Policy for the recommended exclusion patterns.
+  consumer ecosystem's File Sync Policy for the recommended exclusion patterns.
 - **CI runner images** that build the framework into a container image need
   a deliberate copy step — the symlink would point outside the image
   filesystem.

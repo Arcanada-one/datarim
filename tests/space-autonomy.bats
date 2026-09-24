@@ -8,12 +8,12 @@ setup() {
   export DR_AUTONOMY_AUDIT="$BATS_TEST_TMPDIR/autonomy.jsonl"
   export DATARIM_TASK_ID="TUNE-0436"
   export DR_AUTONOMY_ACTOR="bats-agent"
-  mkdir -p "$SPACES_ROOT/arcanada" "$SPACES_ROOT/aether"
+  mkdir -p "$SPACES_ROOT/alpha" "$SPACES_ROOT/beta"
   mkdir -p "$BATS_TEST_TMPDIR/escape"
 
-  cat > "$SPACES_ROOT/arcanada/space.yml" <<'YAML'
+  cat > "$SPACES_ROOT/alpha/space.yml" <<'YAML'
 space:
-  name: arcanada
+  name: alpha
   status: active
 autonomy:
   schema_version: 1
@@ -27,9 +27,9 @@ autonomy:
     cross_project_write: auto
 YAML
 
-  cat > "$SPACES_ROOT/aether/space.yml" <<'YAML'
+  cat > "$SPACES_ROOT/beta/space.yml" <<'YAML'
 space:
-  name: aether
+  name: beta
   status: active
 autonomy:
   schema_version: 1
@@ -88,33 +88,33 @@ gate() {
       --action "$2" --payload "$payload"
 }
 
-@test "Arcanada merge_main resolves auto" {
-  gate arcanada merge_main
+@test "Alpha merge_main resolves auto" {
+  gate alpha merge_main
   [ "$status" -eq 0 ] && [ "$(jq -r '.decision' <<<"$output")" = auto ]
 }
 
-@test "Aether merge_main remains operator-gated" {
-  gate aether merge_main
+@test "Beta merge_main remains operator-gated" {
+  gate beta merge_main
   [ "$status" -eq 10 ] && [ "$(jq -r '.decision' <<<"$output")" = operator ]
 }
 
 @test "feature branch push is explicitly auto in both existing spaces" {
-  gate arcanada feature_branch_push
+  gate alpha feature_branch_push
   [ "$status" -eq 0 ]
-  gate aether feature_branch_push
+  gate beta feature_branch_push
   [ "$status" -eq 0 ]
 }
 
-@test "finance floor overrides Arcanada auto policy" {
-  gate arcanada finance_action
+@test "finance floor overrides Alpha auto policy" {
+  gate alpha finance_action
   [ "$status" -eq 10 ] \
     && [ "$(jq -r '.floor_hit' <<<"$output")" = true ] \
     && [ "$(jq -r '.precedence_layer' <<<"$output")" = P0 ] \
-    && [ "$(jq -r '.space' <<<"$output")" = arcanada ]
+    && [ "$(jq -r '.space' <<<"$output")" = alpha ]
 }
 
 @test "secret rotation hard gate overrides an auto space policy" {
-  gate arcanada secret_rotation
+  gate alpha secret_rotation
   [ "$status" -eq 10 ] \
     && [ "$(jq -r '.decision' <<<"$output")" = operator ] \
     && [ "$(jq -r '.hard_gate_hit' <<<"$output")" = true ] \
@@ -122,47 +122,47 @@ gate() {
 }
 
 @test "commit-dropping force push is always gated" {
-  gate arcanada force_push '{"drops_commits":true}'
+  gate alpha force_push '{"drops_commits":true}'
   [ "$status" -eq 10 ] \
     && [ "$(jq -r '.effective_action_kind' <<<"$output")" = force_push_drops_commits ]
 }
 
 @test "non-dropping main update follows merge_main policy" {
-  gate arcanada force_push '{"drops_commits":false,"target_branch":"main"}'
+  gate alpha force_push '{"drops_commits":false,"target_branch":"main"}'
   [ "$status" -eq 0 ]
-  gate aether force_push '{"drops_commits":false,"target_branch":"main"}'
+  gate beta force_push '{"drops_commits":false,"target_branch":"main"}'
   [ "$status" -eq 10 ]
 }
 
 @test "non-dropping feature force push follows feature branch policy" {
-  gate aether force_push '{"drops_commits":false,"target_branch":"feat/safe-rewrite"}'
+  gate beta force_push '{"drops_commits":false,"target_branch":"feat/safe-rewrite"}'
   [ "$status" -eq 0 ] \
     && [ "$(jq -r '.effective_action_kind' <<<"$output")" = feature_branch_push ]
 }
 
 @test "irreversible DB operation without backup is always gated" {
-  gate arcanada irreversible_db_op '{"backup_verified":false}'
+  gate alpha irreversible_db_op '{"backup_verified":false}'
   [ "$status" -eq 10 ] \
     && [ "$(jq -r '.effective_action_kind' <<<"$output")" = irreversible_db_no_backup ]
 }
 
 @test "DB operation with verified backup follows space policy" {
-  gate arcanada irreversible_db_op '{"backup_verified":true}'
+  gate alpha irreversible_db_op '{"backup_verified":true}'
   [ "$status" -eq 0 ]
-  gate aether irreversible_db_op '{"backup_verified":true}'
+  gate beta irreversible_db_op '{"backup_verified":true}'
   [ "$status" -eq 10 ]
 }
 
 @test "missing autonomy block fails safe to operator" {
-  yq -i 'del(.autonomy)' "$SPACES_ROOT/arcanada/space.yml"
-  gate arcanada merge_main
+  yq -i 'del(.autonomy)' "$SPACES_ROOT/alpha/space.yml"
+  gate alpha merge_main
   [ "$status" -eq 10 ] \
     && [ "$(jq -r '.reason_code' <<<"$output")" = invalid_or_missing_autonomy ]
 }
 
 @test "one malformed policy value invalidates the whole block" {
-  yq -i '.autonomy.policy.secret_rotation = "yes"' "$SPACES_ROOT/arcanada/space.yml"
-  gate arcanada merge_main
+  yq -i '.autonomy.policy.secret_rotation = "yes"' "$SPACES_ROOT/alpha/space.yml"
+  gate alpha merge_main
   [ "$status" -eq 10 ] \
     && [ "$(jq -r '.reason_code' <<<"$output")" = invalid_or_missing_autonomy ]
 }
@@ -175,35 +175,35 @@ gate() {
 
 @test "missing immutable floor is an invariant error" {
   yq -i 'del(.always_gated_floor)' "$RULES_FILE"
-  gate arcanada merge_main
+  gate alpha merge_main
   [ "$status" -eq 2 ] \
     && [ "$(jq -r '.reason_code' <<<"$output")" = invalid_rules ]
 }
 
 @test "missing hard-gate list is an invariant error" {
   yq -i 'del(.hard_gated_actions)' "$RULES_FILE"
-  gate arcanada secret_rotation
+  gate alpha secret_rotation
   [ "$status" -eq 2 ] \
     && [ "$(jq -r '.reason_code' <<<"$output")" = invalid_rules ]
 }
 
 @test "unknown action kind fails safe to operator" {
-  gate arcanada unknown_action
+  gate alpha unknown_action
   [ "$status" -eq 10 ] \
     && [ "$(jq -r '.reason_code' <<<"$output")" = unmapped_action ]
 }
 
 @test "patch package release requires both release carve-out and space publish policy" {
-  gate arcanada public_package_release \
+  gate alpha public_package_release \
     '{"bump_level":"patch","escalate":false,"zero_x_breaking":false}'
   [ "$status" -eq 0 ]
-  gate aether public_package_release \
+  gate beta public_package_release \
     '{"bump_level":"patch","escalate":false,"zero_x_breaking":false}'
   [ "$status" -eq 10 ]
 }
 
-@test "major package release remains operator-gated in Arcanada" {
-  gate arcanada public_package_release \
+@test "major package release remains operator-gated in Alpha" {
+  gate alpha public_package_release \
     '{"bump_level":"major","escalate":false,"zero_x_breaking":false}'
   [ "$status" -eq 10 ] \
     && [ "$(jq -r '.reason_code' <<<"$output")" = release_carveout_denied ] \
@@ -211,14 +211,14 @@ gate() {
 }
 
 @test "0.x breaking package release remains operator-gated" {
-  gate arcanada public_package_release \
+  gate alpha public_package_release \
     '{"bump_level":"minor","escalate":false,"zero_x_breaking":true}'
   [ "$status" -eq 10 ] \
     && [ "$(jq -r '.reason_code' <<<"$output")" = release_carveout_denied ]
 }
 
 @test "core resolver writes the decision audit before returning" {
-  gate arcanada merge_main
+  gate alpha merge_main
   [ "$status" -eq 0 ] \
     && [ -s "$DR_AUTONOMY_AUDIT" ] \
     && [ "$(tail -1 "$DR_AUTONOMY_AUDIT" | jq -r '.decision')" = auto ] \
@@ -234,13 +234,13 @@ gate() {
 }
 
 @test "force push without an explicit no-loss discriminator fails safe" {
-  gate arcanada force_push '{}'
+  gate alpha force_push '{}'
   [ "$status" -eq 10 ] \
     && [ "$(jq -r '.effective_action_kind' <<<"$output")" = force_push_drops_commits ]
 }
 
 @test "non-dropping force push without a target branch fails safe" {
-  gate arcanada force_push '{"drops_commits":false}'
+  gate alpha force_push '{"drops_commits":false}'
   [ "$status" -eq 10 ] \
     && [ "$(jq -r '.reason_code' <<<"$output")" = unmapped_action ]
 }
@@ -249,7 +249,7 @@ gate() {
   mkdir -p "$BATS_TEST_TMPDIR/work/datarim"
   cat > "$BATS_TEST_TMPDIR/work/datarim/.auto-mode-active" <<'YAML'
 task_id: TUNE-0436
-space: arcanada
+space: alpha
 YAML
   run bash -c "cd '$BATS_TEST_TMPDIR/work' && \
     DATARIM_SPACES_ROOT='$SPACES_ROOT' \
@@ -257,5 +257,5 @@ YAML
     DR_AUTONOMY_AUDIT='$DR_AUTONOMY_AUDIT' \
     '$REPO_ROOT/dev-tools/resolve-space-autonomy.sh' gate --action merge_main"
   [ "$status" -eq 0 ] \
-    && [ "$(jq -r '.space' <<<"$output")" = arcanada ]
+    && [ "$(jq -r '.space' <<<"$output")" = alpha ]
 }

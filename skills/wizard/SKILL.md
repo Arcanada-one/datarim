@@ -73,14 +73,14 @@ an existing node). Validation **rejects** — it never best-effort-repairs.
 
 ## Graph artefact — graph-sink ingestion contract
 
-`datarim/wizard/{TASK-ID}.graph.jsonl` is the documented ingestion contract Munera
+`datarim/wizard/{TASK-ID}.graph.jsonl` is the documented ingestion contract an external task tracker
 consumes. One JSON object per line:
 
 - meta header: `{"v":1,"seq":0,"kind":"meta","ts":...,"task_id":...,"artifact":"wizard-graph"}`
 - node: `{"v":1,"seq":N,"kind":"node","ts":...,"id":<slug>,"type":"concept|requirement|decision","label":<redacted>}`
 - edge: `{"v":1,"seq":N,"kind":"edge","ts":...,"from":<node-id>,"to":<node-id>,"relation":"dependency|refines|resolves"}`
 
-The graph flows OUTBOUND to Munera/LTM, so node **labels are redacted at the sink
+The graph flows OUTBOUND to the task tracker / LTM, so node **labels are redacted at the sink
 boundary** (token shapes, `Bearer …`, PRIVATE KEY blocks, `user:pass@host`, home
 paths, RFC1918 addresses) before write. The local `wizard.jsonl` keeps raw interview
 text. Enrichment, merge, and query semantics belong to the graph sink — this skill only

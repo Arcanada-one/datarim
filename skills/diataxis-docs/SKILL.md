@@ -8,7 +8,7 @@ target_aal: 2
 # Diátaxis Documentation Taxonomy Mandate
 
 > Loaded by `/dr-init` project scaffolding, `/dr-optimize` audit, and `/dr-archive` surface verification.
-> Source-of-truth for documentation taxonomy contract across the Arcanada ecosystem.
+> Source-of-truth for documentation taxonomy contract across a consumer ecosystem.
 
 ## When This Skill Activates
 
@@ -153,7 +153,7 @@ Mandate compliance is verified by `/dr-optimize` Step 6 using a filesystem-prese
 
 ## Cross-References
 
-- Mandate section in `~/arcanada/AGENTS.md` (workspace contract, after Operational Resilience Mandate).
+- Mandate section in the consumer workspace's `AGENTS.md` (workspace contract, after Operational Resilience Mandate).
 - Scaffold templates at `${DATARIM_RUNTIME:?}/templates/documentation-diataxis/{tutorials,how-to,reference,explanation}/README.md`.
 - Bootstrap implementation in `skills/project-init/SKILL.md` Step 4.
 - Drift detector in `commands/dr-optimize.md` Step 6.

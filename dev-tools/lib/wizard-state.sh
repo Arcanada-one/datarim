@@ -2,7 +2,7 @@
 # wizard-state.sh — append-only JSONL state engine for the interactive
 # task-spec wizard (TUNE-0390). Sourced library: no shebang, no top-level
 # side-effects. Drives the /dr-wizard interview (discovery + consilium
-# composition); the arcana CLI/TUI carrier is ARAS-0028, the Munera graph
+# composition); the arcana CLI/TUI carrier is ARAS-0028, the task-tracker graph
 # sink is MUN-0036.
 #
 # State model. Two append-only JSONL artefacts per task, under the gitignored
@@ -40,7 +40,7 @@
 #   - S5 path: TASK-ID must match ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ (rejects .. / and
 #     leading dash); target must be a real file, never a symlink; append under
 #     an mkdir-lock (>> is atomic only <= PIPE_BUF).
-#   - S1 redaction: graph.jsonl flows OUTBOUND to Munera/LTM — node labels are
+#   - S1 redaction: graph.jsonl flows OUTBOUND to the task tracker / LTM — node labels are
 #     redacted (token shapes, Bearer, PRIVATE KEY, user:pass@host, home paths,
 #     RFC1918) before write. The local wizard.jsonl keeps raw interview text.
 

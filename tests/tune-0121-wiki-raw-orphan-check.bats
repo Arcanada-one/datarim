@@ -28,7 +28,7 @@ EOF
 }
 
 @test "T2 mismatched basename/content → finding + exit 1" {
-    cat > "$TMPROOT/wiki/_raw_/DEV-1315 project notes.md" <<'EOF'
+    cat > "$TMPROOT/wiki/_raw_/DEV-0315 project notes.md" <<'EOF'
 ## Методология BMAD и Agile
 
 BMAD is a multi-agent framework with 12+ specialized personas covering
@@ -36,7 +36,7 @@ planning, architecture, development, and QA phases.
 EOF
     run "$DOCTOR" --root="$TMPROOT/datarim"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"DEV-1315 project notes.md"* ]]
+    [[ "$output" == *"DEV-0315 project notes.md"* ]]
     [[ "$output" == *"basename/content mismatch"* ]]
 }
 
@@ -60,12 +60,12 @@ EOF
 }
 
 @test "T6 --fix does not touch wiki/_raw_ (advisory-only, report survives fix)" {
-    cat > "$TMPROOT/wiki/_raw_/DEV-1315 project notes.md" <<'EOF'
+    cat > "$TMPROOT/wiki/_raw_/DEV-0315 project notes.md" <<'EOF'
 ## Методология BMAD и Agile
 BMAD is a multi-agent framework.
 EOF
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix
-    [ -f "$TMPROOT/wiki/_raw_/DEV-1315 project notes.md" ]
+    [ -f "$TMPROOT/wiki/_raw_/DEV-0315 project notes.md" ]
     run "$DOCTOR" --root="$TMPROOT/datarim"
     [ "$status" -eq 1 ]
 }

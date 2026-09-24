@@ -18,7 +18,7 @@ setup() {
     TASKS="$WORK/tasks.md"
     # touched-file set: agent edited runbook.md and a compose file
     cat > "$TOUCHED" <<'EOF'
-spaces/aether/runbook.md
+spaces/beta/runbook.md
 docker-compose.yml
 EOF
     # KB with one real follow-up ID + one blocked_by-referable task
@@ -39,7 +39,7 @@ teardown() {
 @test "BLOCK: deferral phrase about a touched file with no artefact" {
     cat > "$REPORT" <<'EOF'
 ## Layer 3b
-The stale counter in spaces/aether/runbook.md is informational, not a blocker,
+The stale counter in spaces/beta/runbook.md is informational, not a blocker,
 out of scope for this task. Will fix later.
 EOF
     run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
@@ -72,7 +72,7 @@ EOF
 @test "PASS: touched-file deferral citing a real FU-ID present in backlog" {
     cat > "$REPORT" <<'EOF'
 ## Layer 3b
-The container count in spaces/aether/runbook.md needs re-verification after a
+The container count in spaces/beta/runbook.md needs re-verification after a
 7-day prod soak — deferred to follow-up FAKE-9001 (time-dependent).
 EOF
     run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED" --backlog "$BACKLOG" --tasks "$TASKS"
@@ -92,7 +92,7 @@ EOF
 @test "BLOCK: touched-file deferral citing a NON-existent FU-ID" {
     cat > "$REPORT" <<'EOF'
 ## Layer 3b
-The stale counter in spaces/aether/runbook.md is cosmetic, deferred to FAKE-7777.
+The stale counter in spaces/beta/runbook.md is cosmetic, deferred to FAKE-7777.
 EOF
     run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED" --backlog "$BACKLOG" --tasks "$TASKS"
     [ "$status" -eq 1 ]
@@ -124,7 +124,7 @@ EOF
 The gate output below is a sample, not a live claim about my own work:
 
 ```
-spaces/aether/runbook.md:5: "informational" on touched file 'runbook.md'
+spaces/beta/runbook.md:5: "informational" on touched file 'runbook.md'
 out of scope, not a blocker, will fix later
 ```
 
@@ -139,7 +139,7 @@ EOF
 ## Layer 3b
 Quoting the original incident for context:
 
-> The stale counter in spaces/aether/runbook.md is informational, not a blocker,
+> The stale counter in spaces/beta/runbook.md is informational, not a blocker,
 > out of scope for this task. Will fix later.
 
 That pattern is exactly what this gate now blocks. All my own wishes are met.
@@ -157,7 +157,7 @@ Sample gate output for reference:
 out of scope, not a blocker
 ```
 
-But really, the stale counter in spaces/aether/runbook.md is informational and
+But really, the stale counter in spaces/beta/runbook.md is informational and
 out of scope for this task — I will fix it later.
 EOF
     run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
@@ -272,18 +272,18 @@ EOF
     [[ "$output" == *"control"* || "$output" == *"ERROR"* ]]
 }
 
-# ---------- sentence-scoped co-occurrence (DEV-1770 second finding) ----------
+# ---------- sentence-scoped co-occurrence (second finding of the escape-layer review)
 #
 # Self-infliction is judged per paragraph, which over-matches on a long
 # single-line bullet: a deferral phrase about file A and an unrelated mention
 # of touched file B share a "paragraph" only because they share a line.
-# Observed at /dr-archive DEV-1762. Narrowing to the sentence must NOT weaken
+# Observed during a consumer project's /dr-archive. Narrowing to the sentence must NOT weaken
 # the same-sentence block.
 
 @test "PASS: deferral phrase and touched file are in DIFFERENT sentences of one line" {
     cat > "$REPORT" <<'EOF'
 ## Layer 3b
-The 4 failures in tests/e2e/dev-1590.spec.ts are pre-existing baseline noise. Separately, spaces/aether/runbook.md was updated and verified live.
+The 4 failures in tests/e2e/checkout.spec.ts are pre-existing baseline noise. Separately, spaces/beta/runbook.md was updated and verified live.
 EOF
     run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
     [ "$status" -eq 0 ]
@@ -292,7 +292,7 @@ EOF
 @test "BLOCK: deferral phrase and touched file in the SAME sentence still blocks" {
     cat > "$REPORT" <<'EOF'
 ## Layer 3b
-The stale counter in spaces/aether/runbook.md is pre-existing and out of scope. Separately, an unrelated topic follows here.
+The stale counter in spaces/beta/runbook.md is pre-existing and out of scope. Separately, an unrelated topic follows here.
 EOF
     run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
     [ "$status" -eq 1 ]
@@ -305,7 +305,7 @@ EOF
     cat > "$REPORT" <<'EOF'
 ## Layer 3b
 The change is out of scope for this cycle.
-It concerns spaces/aether/runbook.md and will not be finished here.
+It concerns spaces/beta/runbook.md and will not be finished here.
 EOF
     run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
     [ "$status" -eq 1 ]
@@ -314,7 +314,7 @@ EOF
 @test "BLOCK: a line with no sentence punctuation fails OPEN to the paragraph verdict" {
     cat > "$REPORT" <<'EOF'
 ## Layer 3b
-spaces/aether/runbook.md counter is pre-existing and out of scope for now
+spaces/beta/runbook.md counter is pre-existing and out of scope for now
 EOF
     run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
     [ "$status" -eq 1 ]

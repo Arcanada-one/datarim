@@ -8,10 +8,10 @@ setup() {
   export DATARIM_SPACES_ROOT="$BATS_TEST_TMPDIR/spaces"
   export DR_AUTONOMY_RULES="$BATS_TEST_TMPDIR/fb-rules.yaml"
   export DR_ORCH_AUTONOMY_AUDIT="$BATS_TEST_TMPDIR/autonomy.jsonl"
-  mkdir -p "$DATARIM_SPACES_ROOT/arcanada"
-  cat > "$DATARIM_SPACES_ROOT/arcanada/space.yml" <<'YAML'
+  mkdir -p "$DATARIM_SPACES_ROOT/alpha"
+  cat > "$DATARIM_SPACES_ROOT/alpha/space.yml" <<'YAML'
 space:
-  name: arcanada
+  name: alpha
 autonomy:
   schema_version: 1
   policy:
@@ -28,7 +28,7 @@ YAML
 }
 
 @test "action gate allows configured automatic action and writes audit first" {
-  run env DATARIM_ACTIVE_SPACE=arcanada \
+  run env DATARIM_ACTIVE_SPACE=alpha \
     "$PLUGIN_ROOT/scripts/action_gate.sh" gate --action merge_main
   [ "$status" -eq 0 ] \
     && [ -s "$DR_ORCH_AUTONOMY_AUDIT" ] \
@@ -36,14 +36,14 @@ YAML
 }
 
 @test "V-AC-26: framework command maps through cross-project write policy" {
-  run env DATARIM_ACTIVE_SPACE=arcanada \
+  run env DATARIM_ACTIVE_SPACE=alpha \
     "$PLUGIN_ROOT/scripts/action_gate.sh" gate --action framework_command
   [ "$status" -eq 0 ] \
     && [ "$(jq -r '.policy_key' "$DR_ORCH_AUTONOMY_AUDIT")" = cross_project_write ]
 }
 
 @test "action gate blocks floor action even in permissive space" {
-  run env DATARIM_ACTIVE_SPACE=arcanada \
+  run env DATARIM_ACTIVE_SPACE=alpha \
     "$PLUGIN_ROOT/scripts/action_gate.sh" gate --action finance_action
   [ "$status" -eq 10 ] \
     && [ "$(jq -r '.floor_hit' "$DR_ORCH_AUTONOMY_AUDIT")" = true ]
@@ -64,7 +64,7 @@ YAML
 
 @test "action gate defaults to the bundled policy file" {
   unset DR_AUTONOMY_RULES
-  run env DATARIM_ACTIVE_SPACE=arcanada \
+  run env DATARIM_ACTIVE_SPACE=alpha \
     "$PLUGIN_ROOT/scripts/action_gate.sh" gate --action merge_main
   [ "$status" -eq 0 ]
 }

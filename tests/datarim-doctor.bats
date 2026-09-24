@@ -384,13 +384,13 @@ EOF
 
 ## Archived
 
-- **DEV-1212** — старая задача (2026-04-01) → documentation/archive/development/archive-DEV-1212.md
-- **DEV-1226** — ещё одна архивная (2026-04-15) → documentation/archive/development/archive-DEV-1226.md
+- **DEV-0212** — старая задача (2026-04-01) → documentation/archive/development/archive-DEV-0212.md
+- **DEV-0226** — ещё одна архивная (2026-04-15) → documentation/archive/development/archive-DEV-0226.md
 EOF
     : > "$TMPROOT/datarim/tasks/TUNE-0085-task-description.md"
     mkdir -p "$TMPROOT/documentation/archive/development" "$TMPROOT/documentation/archive/general"
-    printf '%s\n' '# Archive — DEV-1212' '' 'id: DEV-1212' > "$TMPROOT/documentation/archive/development/archive-DEV-1212.md"
-    printf '%s\n' '# Archive — DEV-1226' '' 'id: DEV-1226' > "$TMPROOT/documentation/archive/development/archive-DEV-1226.md"
+    printf '%s\n' '# Archive — DEV-0212' '' 'id: DEV-0212' > "$TMPROOT/documentation/archive/development/archive-DEV-0212.md"
+    printf '%s\n' '# Archive — DEV-0226' '' 'id: DEV-0226' > "$TMPROOT/documentation/archive/development/archive-DEV-0226.md"
 
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
     [ "$status" -eq 0 ]
@@ -399,8 +399,8 @@ EOF
     # Active section preserved
     grep -qF -- '- TUNE-0085 · in_progress · P2 · L3' "$TMPROOT/datarim/tasks.md"
     # Bold-id bullets are gone
-    ! grep -q '\*\*DEV-1212\*\*' "$TMPROOT/datarim/tasks.md"
-    ! grep -q '\*\*DEV-1226\*\*' "$TMPROOT/datarim/tasks.md"
+    ! grep -q '\*\*DEV-0212\*\*' "$TMPROOT/datarim/tasks.md"
+    ! grep -q '\*\*DEV-0226\*\*' "$TMPROOT/datarim/tasks.md"
     # Post-fix dry-run is exit 0
     run "$DOCTOR" --root="$TMPROOT/datarim"
     [ "$status" -eq 0 ]
@@ -416,20 +416,20 @@ EOF
 
 ## Archived
 
-- **DEV-1300** — задача без архива (2026-04-20) → documentation/archive/development/archive-DEV-1300.md
+- **DEV-0300** — задача без архива (2026-04-20) → documentation/archive/development/archive-DEV-0300.md
 EOF
     : > "$TMPROOT/datarim/tasks/TUNE-0085-task-description.md"
-    # Note: no DEV-1300 archive doc pre-created → must be synthesised
+    # Note: no DEV-0300 archive doc pre-created → must be synthesised
 
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
     [ "$status" -eq 0 ]
     # Stub synthesised
-    [ -f "$TMPROOT/documentation/archive/development/archive-DEV-1300.md" ]
-    grep -q '^id: DEV-1300$' "$TMPROOT/documentation/archive/development/archive-DEV-1300.md"
-    grep -q '^status: completed$' "$TMPROOT/documentation/archive/development/archive-DEV-1300.md"
-    grep -q '^source: synthesised' "$TMPROOT/documentation/archive/development/archive-DEV-1300.md"
+    [ -f "$TMPROOT/documentation/archive/development/archive-DEV-0300.md" ]
+    grep -q '^id: DEV-0300$' "$TMPROOT/documentation/archive/development/archive-DEV-0300.md"
+    grep -q '^status: completed$' "$TMPROOT/documentation/archive/development/archive-DEV-0300.md"
+    grep -q '^source: synthesised' "$TMPROOT/documentation/archive/development/archive-DEV-0300.md"
     # Bullet stripped from operational file
-    ! grep -q '\*\*DEV-1300\*\*' "$TMPROOT/datarim/tasks.md"
+    ! grep -q '\*\*DEV-0300\*\*' "$TMPROOT/datarim/tasks.md"
     ! grep -q '^## Archived$' "$TMPROOT/datarim/tasks.md"
 }
 
@@ -443,22 +443,22 @@ EOF
 
 ## Archived
 
-- **DEV-1400** — collision case (2026-04-22) → documentation/archive/development/archive-DEV-1400.md
+- **DEV-0400** — collision case (2026-04-22) → documentation/archive/development/archive-DEV-0400.md
 EOF
     : > "$TMPROOT/datarim/tasks/TUNE-0085-task-description.md"
     mkdir -p "$TMPROOT/documentation/archive/development" "$TMPROOT/documentation/archive/general"
-    # Existing archive doc WITHOUT DEV-1400 literal → conflict
-    printf '%s\n' '# Unrelated archive' 'no task id literal here' > "$TMPROOT/documentation/archive/development/archive-DEV-1400.md"
-    sha_before="$(shasum "$TMPROOT/documentation/archive/development/archive-DEV-1400.md" | awk '{print $1}')"
+    # Existing archive doc WITHOUT DEV-0400 literal → conflict
+    printf '%s\n' '# Unrelated archive' 'no task id literal here' > "$TMPROOT/documentation/archive/development/archive-DEV-0400.md"
+    sha_before="$(shasum "$TMPROOT/documentation/archive/development/archive-DEV-0400.md" | awk '{print $1}')"
 
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
     [ "$status" -eq 0 ]
     # Existing archive untouched
-    sha_after="$(shasum "$TMPROOT/documentation/archive/development/archive-DEV-1400.md" | awk '{print $1}')"
+    sha_after="$(shasum "$TMPROOT/documentation/archive/development/archive-DEV-0400.md" | awk '{print $1}')"
     [ "$sha_before" = "$sha_after" ]
     # Bullet preserved in operational file with manual-migration marker
     grep -q 'pending manual migration' "$TMPROOT/datarim/tasks.md"
-    grep -qF -- '**DEV-1400**' "$TMPROOT/datarim/tasks.md"
+    grep -qF -- '**DEV-0400**' "$TMPROOT/datarim/tasks.md"
 }
 
 @test "T-ARCHIVE-A4 (TUNE-0085) Pass 6 strips ### Recently Archived from activeContext.md (S2 shape)" {
@@ -479,24 +479,24 @@ EOF
 
 ### Recently Archived
 
-- **DEV-1500** (completed, 2026-04-25) — TL;DR, must migrate to documentation/archive/.
-- **DEV-1501** (cancelled, 2026-04-26) — cancelled task TL;DR.
+- **DEV-0500** (completed, 2026-04-25) — TL;DR, must migrate to documentation/archive/.
+- **DEV-0501** (cancelled, 2026-04-26) — cancelled task TL;DR.
 EOF
     mkdir -p "$TMPROOT/documentation/archive/development" "$TMPROOT/documentation/archive/general"
-    printf '%s\n' '# Archive — DEV-1500' '' 'id: DEV-1500' > "$TMPROOT/documentation/archive/development/archive-DEV-1500.md"
-    # DEV-1501 missing → must be synthesised
+    printf '%s\n' '# Archive — DEV-0500' '' 'id: DEV-0500' > "$TMPROOT/documentation/archive/development/archive-DEV-0500.md"
+    # DEV-0501 missing → must be synthesised
 
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
     [ "$status" -eq 0 ]
     # ### Recently Archived header stripped
     ! grep -q 'Recently Archived' "$TMPROOT/datarim/activeContext.md"
-    ! grep -q '\*\*DEV-1500\*\*' "$TMPROOT/datarim/activeContext.md"
-    ! grep -q '\*\*DEV-1501\*\*' "$TMPROOT/datarim/activeContext.md"
+    ! grep -q '\*\*DEV-0500\*\*' "$TMPROOT/datarim/activeContext.md"
+    ! grep -q '\*\*DEV-0501\*\*' "$TMPROOT/datarim/activeContext.md"
     # Active mirror preserved
     grep -qE '^- INFRA-0099 · in_progress · P1 · L2 · ' "$TMPROOT/datarim/activeContext.md"
-    # DEV-1501 stub synthesised with cancelled status
-    [ -f "$TMPROOT/documentation/archive/development/archive-DEV-1501.md" ]
-    grep -q '^status: cancelled$' "$TMPROOT/documentation/archive/development/archive-DEV-1501.md"
+    # DEV-0501 stub synthesised with cancelled status
+    [ -f "$TMPROOT/documentation/archive/development/archive-DEV-0501.md" ]
+    grep -q '^status: cancelled$' "$TMPROOT/documentation/archive/development/archive-DEV-0501.md"
 }
 
 @test "T-ARCHIVE-A5 (TUNE-0085) Pass 6 idempotent: second --fix on migrated tree → no changes" {
@@ -509,11 +509,11 @@ EOF
 
 ## Archived
 
-- **DEV-1600** — entry (2026-04-28) → documentation/archive/development/archive-DEV-1600.md
+- **DEV-0600** — entry (2026-04-28) → documentation/archive/development/archive-DEV-0600.md
 EOF
     : > "$TMPROOT/datarim/tasks/TUNE-0085-task-description.md"
     mkdir -p "$TMPROOT/documentation/archive/development" "$TMPROOT/documentation/archive/general"
-    printf '%s\n' '# Archive — DEV-1600' '' 'id: DEV-1600' > "$TMPROOT/documentation/archive/development/archive-DEV-1600.md"
+    printf '%s\n' '# Archive — DEV-0600' '' 'id: DEV-0600' > "$TMPROOT/documentation/archive/development/archive-DEV-0600.md"
 
     "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt >/dev/null
     sha1="$(shasum "$TMPROOT/datarim/tasks.md" | awk '{print $1}')"
@@ -536,9 +536,9 @@ EOF
 
 ## Archived
 
-- **DEV-1700** — bullet1 (2026-04-29) → documentation/archive/development/archive-DEV-1700.md
-- **DEV-1701** — bullet2 (2026-04-30) → documentation/archive/development/archive-DEV-1701.md
-- **DEV-1702** — bullet3 (2026-05-01) → documentation/archive/development/archive-DEV-1702.md
+- **DEV-0700** — bullet1 (2026-04-29) → documentation/archive/development/archive-DEV-0700.md
+- **DEV-0701** — bullet2 (2026-04-30) → documentation/archive/development/archive-DEV-0701.md
+- **DEV-0702** — bullet3 (2026-05-01) → documentation/archive/development/archive-DEV-0702.md
 EOF
     : > "$TMPROOT/datarim/tasks/TUNE-0085-task-description.md"
     run "$DOCTOR" --root="$TMPROOT/datarim"
@@ -573,11 +573,11 @@ EOF
 - **TODO** — should not parse as task
 - **FIXME** — neither should this
 - **SECTION-1** — no digits → no match
-- **DEV-1226** — legitimate task (2026-04-15) → documentation/archive/general/archive-DEV-1226.md
+- **DEV-0226** — legitimate task (2026-04-15) → documentation/archive/general/archive-DEV-0226.md
 EOF
     : > "$TMPROOT/datarim/tasks/TUNE-0088-task-description.md"
     mkdir -p "$TMPROOT/documentation/archive/general"
-    printf '%s\n' '# Archive — DEV-1226' '' 'id: DEV-1226' > "$TMPROOT/documentation/archive/general/archive-DEV-1226.md"
+    printf '%s\n' '# Archive — DEV-0226' '' 'id: DEV-0226' > "$TMPROOT/documentation/archive/general/archive-DEV-0226.md"
 
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
     [ "$status" -eq 0 ]
@@ -600,20 +600,20 @@ EOF
 
 ## Archived
 
-- **DEV-1226** — pointer at general (2026-04-15) → documentation/archive/general/archive-DEV-1226.md
+- **DEV-0226** — pointer at general (2026-04-15) → documentation/archive/general/archive-DEV-0226.md
 EOF
     : > "$TMPROOT/datarim/tasks/TUNE-0088-task-description.md"
     # Canonical at GENERAL, NOT at development (prefix_to_area DEV→development)
     mkdir -p "$TMPROOT/documentation/archive/general" "$TMPROOT/documentation/archive/development"
-    printf '%s\n' '# Archive — DEV-1226' '' 'id: DEV-1226' > "$TMPROOT/documentation/archive/general/archive-DEV-1226.md"
+    printf '%s\n' '# Archive — DEV-0226' '' 'id: DEV-0226' > "$TMPROOT/documentation/archive/general/archive-DEV-0226.md"
 
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
     [ "$status" -eq 0 ]
     # Bullet stripped (explicit pointer found canonical at general)
-    run grep -qF -- '**DEV-1226**' "$TMPROOT/datarim/tasks.md"
+    run grep -qF -- '**DEV-0226**' "$TMPROOT/datarim/tasks.md"
     [ "$status" -ne 0 ]
     # No stub synthesised at development (the wrong area)
-    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1226.md" ]
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-0226.md" ]
 }
 
 @test "T-ARCHIVE-A7b (TUNE-0088) Pass 6 rejects path-traversal in explicit pointer" {
@@ -645,7 +645,7 @@ EOF
     fi
 }
 
-@test "T-ARCHIVE-A8 (TUNE-0088) parser handles compound IDs DEV-1212-S8 and DEV-1196-FOLLOWUP-*" {
+@test "T-ARCHIVE-A8 (TUNE-0088) parser handles compound IDs DEV-0212-S8 and DEV-0196-FOLLOWUP-*" {
     cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
 # Tasks
 
@@ -655,29 +655,29 @@ EOF
 
 ## Archived
 
-- **DEV-1212-S8** — compound id (2026-04-10) → documentation/archive/general/archive-DEV-1212-S8.md
-- **DEV-1196-FOLLOWUP-lock-ownership-doc** — long followup (2026-04-05) → documentation/archive/general/archive-DEV-1196-FOLLOWUP-lock-ownership-doc.md
-- **DEV-1182** soft-delete fix — mid-bold context (2026-04-08) → documentation/archive/general/archive-DEV-1182.md
+- **DEV-0212-S8** — compound id (2026-04-10) → documentation/archive/general/archive-DEV-0212-S8.md
+- **DEV-0196-FOLLOWUP-lock-ownership-doc** — long followup (2026-04-05) → documentation/archive/general/archive-DEV-0196-FOLLOWUP-lock-ownership-doc.md
+- **DEV-0182** soft-delete fix — mid-bold context (2026-04-08) → documentation/archive/general/archive-DEV-0182.md
 EOF
     : > "$TMPROOT/datarim/tasks/TUNE-0088-task-description.md"
     mkdir -p "$TMPROOT/documentation/archive/general"
-    printf '%s\n' '# Archive — DEV-1212-S8' '' 'id: DEV-1212-S8' > "$TMPROOT/documentation/archive/general/archive-DEV-1212-S8.md"
-    printf '%s\n' '# Archive — DEV-1196-FOLLOWUP-lock-ownership-doc' '' 'id: DEV-1196-FOLLOWUP-lock-ownership-doc' > "$TMPROOT/documentation/archive/general/archive-DEV-1196-FOLLOWUP-lock-ownership-doc.md"
-    printf '%s\n' '# Archive — DEV-1182' '' 'id: DEV-1182' > "$TMPROOT/documentation/archive/general/archive-DEV-1182.md"
+    printf '%s\n' '# Archive — DEV-0212-S8' '' 'id: DEV-0212-S8' > "$TMPROOT/documentation/archive/general/archive-DEV-0212-S8.md"
+    printf '%s\n' '# Archive — DEV-0196-FOLLOWUP-lock-ownership-doc' '' 'id: DEV-0196-FOLLOWUP-lock-ownership-doc' > "$TMPROOT/documentation/archive/general/archive-DEV-0196-FOLLOWUP-lock-ownership-doc.md"
+    printf '%s\n' '# Archive — DEV-0182' '' 'id: DEV-0182' > "$TMPROOT/documentation/archive/general/archive-DEV-0182.md"
 
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
     [ "$status" -eq 0 ]
     # All three bullets stripped (parser handled compound IDs)
-    run grep -q 'DEV-1212-S8' "$TMPROOT/datarim/tasks.md"
+    run grep -q 'DEV-0212-S8' "$TMPROOT/datarim/tasks.md"
     [ "$status" -ne 0 ]
-    run grep -q 'DEV-1196-FOLLOWUP' "$TMPROOT/datarim/tasks.md"
+    run grep -q 'DEV-0196-FOLLOWUP' "$TMPROOT/datarim/tasks.md"
     [ "$status" -ne 0 ]
-    run grep -qF -- '**DEV-1182**' "$TMPROOT/datarim/tasks.md"
+    run grep -qF -- '**DEV-0182**' "$TMPROOT/datarim/tasks.md"
     [ "$status" -ne 0 ]
     # No regressions to development/ subdir
-    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1212-S8.md" ]
-    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1196-FOLLOWUP-lock-ownership-doc.md" ]
-    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1182.md" ]
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-0212-S8.md" ]
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-0196-FOLLOWUP-lock-ownership-doc.md" ]
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-0182.md" ]
 }
 
 @test "T-ARCHIVE-A9 (TUNE-0088) Pass 6 headerless fallback strips legacy bullets in activeContext.md" {
@@ -696,25 +696,25 @@ EOF
 ## Active Tasks
 
 - TUNE-0088 · in_progress · P1 · L3 · stub → tasks/TUNE-0088-task-description.md
-- **DEV-1226** — headerless legacy (2026-04-15) → documentation/archive/general/archive-DEV-1226.md
-- **DEV-1212-S8** — compound headerless (2026-04-10) → documentation/archive/general/archive-DEV-1212-S8.md
+- **DEV-0226** — headerless legacy (2026-04-15) → documentation/archive/general/archive-DEV-0226.md
+- **DEV-0212-S8** — compound headerless (2026-04-10) → documentation/archive/general/archive-DEV-0212-S8.md
 EOF
     mkdir -p "$TMPROOT/documentation/archive/general"
-    printf '%s\n' '# Archive — DEV-1226' '' 'id: DEV-1226' > "$TMPROOT/documentation/archive/general/archive-DEV-1226.md"
-    printf '%s\n' '# Archive — DEV-1212-S8' '' 'id: DEV-1212-S8' > "$TMPROOT/documentation/archive/general/archive-DEV-1212-S8.md"
+    printf '%s\n' '# Archive — DEV-0226' '' 'id: DEV-0226' > "$TMPROOT/documentation/archive/general/archive-DEV-0226.md"
+    printf '%s\n' '# Archive — DEV-0212-S8' '' 'id: DEV-0212-S8' > "$TMPROOT/documentation/archive/general/archive-DEV-0212-S8.md"
 
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
     [ "$status" -eq 0 ]
     # One-liner active task preserved
     grep -qE '^- TUNE-0088 · in_progress · P1 · L3 ·' "$TMPROOT/datarim/activeContext.md"
     # Legacy bullets stripped
-    run grep -qF -- '**DEV-1226**' "$TMPROOT/datarim/activeContext.md"
+    run grep -qF -- '**DEV-0226**' "$TMPROOT/datarim/activeContext.md"
     [ "$status" -ne 0 ]
-    run grep -qF -- '**DEV-1212-S8**' "$TMPROOT/datarim/activeContext.md"
+    run grep -qF -- '**DEV-0212-S8**' "$TMPROOT/datarim/activeContext.md"
     [ "$status" -ne 0 ]
     # No stubs at development/ (the explicit pointer at general/ is correct)
-    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1226.md" ]
-    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1212-S8.md" ]
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-0226.md" ]
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-0212-S8.md" ]
 }
 
 @test "T-ARCHIVE-A9b (TUNE-0088) headerless fallback synthesises stub when canonical missing" {
@@ -755,22 +755,22 @@ EOF
 
 ## Archived
 
-- **DEV-1226** — no explicit pointer (2026-04-15)
+- **DEV-0226** — no explicit pointer (2026-04-15)
 EOF
     : > "$TMPROOT/datarim/tasks/TUNE-0088-task-description.md"
     # prefix_to_area maps DEV → development; canonical actually lives at general/
     mkdir -p "$TMPROOT/documentation/archive/general" "$TMPROOT/documentation/archive/development"
-    printf '%s\n' '# Archive — DEV-1226' '' 'id: DEV-1226' > "$TMPROOT/documentation/archive/general/archive-DEV-1226.md"
+    printf '%s\n' '# Archive — DEV-0226' '' 'id: DEV-0226' > "$TMPROOT/documentation/archive/general/archive-DEV-0226.md"
 
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
     [ "$status" -eq 0 ]
     # Bullet stripped (defensive find located canonical at unexpected subdir)
-    run grep -qF -- '**DEV-1226**' "$TMPROOT/datarim/tasks.md"
+    run grep -qF -- '**DEV-0226**' "$TMPROOT/datarim/tasks.md"
     [ "$status" -ne 0 ]
     # No stub created at development/ (defensive find prevented it)
-    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1226.md" ]
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-0226.md" ]
     # Original canonical at general/ untouched
-    [ -f "$TMPROOT/documentation/archive/general/archive-DEV-1226.md" ]
+    [ -f "$TMPROOT/documentation/archive/general/archive-DEV-0226.md" ]
 }
 
 @test "T-REPRODUCER (TUNE-0088) distributed-user vault: 14 mixed shapes stripped, no stubs in development/" {
@@ -783,24 +783,24 @@ EOF
 
 ## Archived
 
-- **DEV-1226** — S1 with explicit pointer (2026-04-15) → documentation/archive/general/archive-DEV-1226.md
-- **DEV-1227** — S1 (2026-04-14) → documentation/archive/general/archive-DEV-1227.md
-- **DEV-1212-S8** — compound (2026-04-10) → documentation/archive/general/archive-DEV-1212-S8.md
-- **DEV-1196-FOLLOWUP-lock-ownership-doc** — long followup (2026-04-05) → documentation/archive/general/archive-DEV-1196-FOLLOWUP-lock-ownership-doc.md
-- **DEV-1182** soft-delete fix — mid-bold (2026-04-08) → documentation/archive/general/archive-DEV-1182.md
-- **DEV-1174** Phase 8 Step 2 — mid-bold (2026-04-07) → documentation/archive/general/archive-DEV-1174.md
-- **DEV-1100** — S1 (2026-04-01) → documentation/archive/general/archive-DEV-1100.md
-- **DEV-1101** — S1 (2026-04-02) → documentation/archive/general/archive-DEV-1101.md
-- **DEV-1102** — S1 (2026-04-03) → documentation/archive/general/archive-DEV-1102.md
-- **DEV-1103** — S1 (2026-04-04) → documentation/archive/general/archive-DEV-1103.md
-- **DEV-1104** — S1 (2026-04-05) → documentation/archive/general/archive-DEV-1104.md
-- **DEV-1105** — S1 (2026-04-06) → documentation/archive/general/archive-DEV-1105.md
-- **DEV-1106** — S1 (2026-04-07) → documentation/archive/general/archive-DEV-1106.md
-- **DEV-1107** — S1 (2026-04-08) → documentation/archive/general/archive-DEV-1107.md
+- **DEV-0226** — S1 with explicit pointer (2026-04-15) → documentation/archive/general/archive-DEV-0226.md
+- **DEV-0227** — S1 (2026-04-14) → documentation/archive/general/archive-DEV-0227.md
+- **DEV-0212-S8** — compound (2026-04-10) → documentation/archive/general/archive-DEV-0212-S8.md
+- **DEV-0196-FOLLOWUP-lock-ownership-doc** — long followup (2026-04-05) → documentation/archive/general/archive-DEV-0196-FOLLOWUP-lock-ownership-doc.md
+- **DEV-0182** soft-delete fix — mid-bold (2026-04-08) → documentation/archive/general/archive-DEV-0182.md
+- **DEV-0174** Phase 8 Step 2 — mid-bold (2026-04-07) → documentation/archive/general/archive-DEV-0174.md
+- **DEV-0100** — S1 (2026-04-01) → documentation/archive/general/archive-DEV-0100.md
+- **DEV-0101** — S1 (2026-04-02) → documentation/archive/general/archive-DEV-0101.md
+- **DEV-0102** — S1 (2026-04-03) → documentation/archive/general/archive-DEV-0102.md
+- **DEV-0103** — S1 (2026-04-04) → documentation/archive/general/archive-DEV-0103.md
+- **DEV-0104** — S1 (2026-04-05) → documentation/archive/general/archive-DEV-0104.md
+- **DEV-0105** — S1 (2026-04-06) → documentation/archive/general/archive-DEV-0105.md
+- **DEV-0106** — S1 (2026-04-07) → documentation/archive/general/archive-DEV-0106.md
+- **DEV-0107** — S1 (2026-04-08) → documentation/archive/general/archive-DEV-0107.md
 EOF
     : > "$TMPROOT/datarim/tasks/TUNE-0088-task-description.md"
     mkdir -p "$TMPROOT/documentation/archive/general"
-    for id in DEV-1226 DEV-1227 DEV-1212-S8 DEV-1196-FOLLOWUP-lock-ownership-doc DEV-1182 DEV-1174 DEV-1100 DEV-1101 DEV-1102 DEV-1103 DEV-1104 DEV-1105 DEV-1106 DEV-1107; do
+    for id in DEV-0226 DEV-0227 DEV-0212-S8 DEV-0196-FOLLOWUP-lock-ownership-doc DEV-0182 DEV-0174 DEV-0100 DEV-0101 DEV-0102 DEV-0103 DEV-0104 DEV-0105 DEV-0106 DEV-0107; do
         printf '%s\n' "# Archive — $id" '' "id: $id" > "$TMPROOT/documentation/archive/general/archive-$id.md"
     done
 
@@ -904,7 +904,7 @@ EOF
 
 - TUNE-0194 · in_progress · P1 · L2 · stub → tasks/TUNE-0194-task-description.md
 
-### DEV-1210-FOLLOWUP-jwt-validate-cache
+### DEV-0210-FOLLOWUP-jwt-validate-cache
 
 - **Status:** pending
 - **Complexity:** Level 2
@@ -912,7 +912,7 @@ EOF
 
 JWT validate cache follow-up.
 
-### DEV-1194-FOLLOWUP-hook-section: hook section follow-up
+### DEV-0194-FOLLOWUP-hook-section: hook section follow-up
 
 - **Status:** pending
 - **Complexity:** Level 2
@@ -924,11 +924,11 @@ EOF
 
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
     [ "$status" -eq 0 ]
-    [ -f "$TMPROOT/datarim/tasks/DEV-1210-FOLLOWUP-jwt-validate-cache-task-description.md" ] || { echo "missing DEV-1210 desc"; ls "$TMPROOT/datarim/tasks/"; false; }
-    [ -f "$TMPROOT/datarim/tasks/DEV-1194-FOLLOWUP-hook-section-task-description.md" ] || { echo "missing DEV-1194 desc"; false; }
-    run grep -qE '^- DEV-1210-FOLLOWUP-jwt-validate-cache · ' "$TMPROOT/datarim/tasks.md"
+    [ -f "$TMPROOT/datarim/tasks/DEV-0210-FOLLOWUP-jwt-validate-cache-task-description.md" ] || { echo "missing DEV-0210 desc"; ls "$TMPROOT/datarim/tasks/"; false; }
+    [ -f "$TMPROOT/datarim/tasks/DEV-0194-FOLLOWUP-hook-section-task-description.md" ] || { echo "missing DEV-0194 desc"; false; }
+    run grep -qE '^- DEV-0210-FOLLOWUP-jwt-validate-cache · ' "$TMPROOT/datarim/tasks.md"
     [ "$status" -eq 0 ]
-    run grep -qE '^- DEV-1194-FOLLOWUP-hook-section · ' "$TMPROOT/datarim/tasks.md"
+    run grep -qE '^- DEV-0194-FOLLOWUP-hook-section · ' "$TMPROOT/datarim/tasks.md"
     [ "$status" -eq 0 ]
 }
 
@@ -942,20 +942,20 @@ EOF
 
 <!-- TUNE-0085: bullets pending manual migration — fix conflict in documentation/archive/, then re-run /dr-doctor --fix -->
 
-- **DEV-1182** — soft-delete fix (2026-05-01) → documentation/archive/general/archive-DEV-1182.md
-- **DEV-1196** — Round-3 (2026-05-02) → documentation/archive/general/archive-DEV-1196.md
+- **DEV-0182** — soft-delete fix (2026-05-01) → documentation/archive/general/archive-DEV-0182.md
+- **DEV-0196** — Round-3 (2026-05-02) → documentation/archive/general/archive-DEV-0196.md
 EOF
     : > "$TMPROOT/datarim/tasks/TUNE-0194-task-description.md"
     mkdir -p "$TMPROOT/documentation/archive/general"
-    printf '%s\n' '# Archive — DEV-1182' '' 'id: DEV-1182' > "$TMPROOT/documentation/archive/general/archive-DEV-1182.md"
-    printf '%s\n' '# Archive — DEV-1196' '' 'id: DEV-1196' > "$TMPROOT/documentation/archive/general/archive-DEV-1196.md"
+    printf '%s\n' '# Archive — DEV-0182' '' 'id: DEV-0182' > "$TMPROOT/documentation/archive/general/archive-DEV-0182.md"
+    printf '%s\n' '# Archive — DEV-0196' '' 'id: DEV-0196' > "$TMPROOT/documentation/archive/general/archive-DEV-0196.md"
 
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
     [ "$status" -eq 0 ]
-    run grep -qE '^- \*\*DEV-1182\*\*' "$TMPROOT/datarim/tasks.md"
-    [ "$status" -ne 0 ] || { echo "DEV-1182 still present"; cat "$TMPROOT/datarim/tasks.md"; false; }
-    run grep -qE '^- \*\*DEV-1196\*\*' "$TMPROOT/datarim/tasks.md"
-    [ "$status" -ne 0 ] || { echo "DEV-1196 still present"; false; }
+    run grep -qE '^- \*\*DEV-0182\*\*' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ] || { echo "DEV-0182 still present"; cat "$TMPROOT/datarim/tasks.md"; false; }
+    run grep -qE '^- \*\*DEV-0196\*\*' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ] || { echo "DEV-0196 still present"; false; }
 }
 
 @test "T-TUNE0194-A3 (TUNE-0194) Pass 7 strips HTML-comment archive notes when archive file exists" {
@@ -966,21 +966,21 @@ EOF
 
 - TUNE-0194 · in_progress · P1 · L2 · stub → tasks/TUNE-0194-task-description.md
 
-<!-- DEV-1391 archived 2026-05-12 → documentation/archive/general/archive-DEV-1391.md (closed via PR #42) -->
-<!-- DEV-1392 cancelled 2026-05-11 → documentation/archive/general/archive-DEV-1392.md (superseded by DEV-1400) -->
+<!-- DEV-0391 archived 2026-05-12 → documentation/archive/general/archive-DEV-0391.md (closed via PR #42) -->
+<!-- DEV-0392 cancelled 2026-05-11 → documentation/archive/general/archive-DEV-0392.md (superseded by DEV-0400) -->
 <!-- DEV-9999 archived 2026-05-12 → documentation/archive/general/archive-DEV-9999.md (orphan — no archive file) -->
 EOF
     : > "$TMPROOT/datarim/tasks/TUNE-0194-task-description.md"
     mkdir -p "$TMPROOT/documentation/archive/general"
-    printf '%s\n' '# Archive — DEV-1391' '' 'id: DEV-1391' > "$TMPROOT/documentation/archive/general/archive-DEV-1391.md"
-    printf '%s\n' '# Archive — DEV-1392' '' 'id: DEV-1392' > "$TMPROOT/documentation/archive/general/archive-DEV-1392.md"
+    printf '%s\n' '# Archive — DEV-0391' '' 'id: DEV-0391' > "$TMPROOT/documentation/archive/general/archive-DEV-0391.md"
+    printf '%s\n' '# Archive — DEV-0392' '' 'id: DEV-0392' > "$TMPROOT/documentation/archive/general/archive-DEV-0392.md"
 
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
     [ "$status" -eq 0 ]
-    run grep -qE 'DEV-1391 archived' "$TMPROOT/datarim/tasks.md"
-    [ "$status" -ne 0 ] || { echo "DEV-1391 not stripped"; cat "$TMPROOT/datarim/tasks.md"; false; }
-    run grep -qE 'DEV-1392 cancelled' "$TMPROOT/datarim/tasks.md"
-    [ "$status" -ne 0 ] || { echo "DEV-1392 not stripped"; false; }
+    run grep -qE 'DEV-0391 archived' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ] || { echo "DEV-0391 not stripped"; cat "$TMPROOT/datarim/tasks.md"; false; }
+    run grep -qE 'DEV-0392 cancelled' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ] || { echo "DEV-0392 not stripped"; false; }
     run grep -qE 'DEV-9999 archived' "$TMPROOT/datarim/tasks.md"
     [ "$status" -eq 0 ] || { echo "DEV-9999 orphan was stripped (should be preserved)"; false; }
 
@@ -1039,7 +1039,7 @@ EOF
     [ "$(grep -cE '^SCHEMA_BACKLOG_RE=' "$prearchive")" -eq 0 ]
 }
 
-# --- Reserved-prefix shadowing (DEV-1790 follow-up) --------------------------
+# --- Reserved-prefix shadowing (silent-discard follow-up) ---------------------
 # The runtime reserves a stack-agnostic prefix namespace; a project may ADD
 # prefixes but may not REDEFINE a reserved one (T-PFX-10, anti-shadowing). That
 # guarantee is correct and stays. What was wrong is that it applied SILENTLY:

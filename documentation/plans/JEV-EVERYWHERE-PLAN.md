@@ -13,10 +13,10 @@ graph. It is updated as work lands; each item carries a measured verdict
 |---|---|---|
 | P0-1 land PR #420 | **pass** | merged as `a95c8d7`; `main` carries `codex_hook_trust` and 37 Jev files |
 | P0-2 Mac → merged sha | **pass** (key + Codex gate: operator) | launchers at `a95c8d7`; `doctor` reports the new field |
-| P0-3 arcana-devs host Jev | **pass** for install; routing **not_measured** | `datarim_enabled: false`; 12 Orca hooks preserved, 0 lost; floor 15/15; `hook_delivery` written; key still empty |
-| P0-4 DEV-AI → merged sha | **pass** | 18 foreign hooks preserved, 0 lost; `doctor` clean; API `ok: true`, `jev-1.13.0`, 314 ms |
+| P0-3 shared-dev-host Jev | **pass** for install; routing **not_measured** | `datarim_enabled: false`; 12 Orca hooks preserved, 0 lost; floor 15/15; `hook_delivery` written; key still empty |
+| P0-4 consumer host → merged sha | **pass** | 18 foreign hooks preserved, 0 lost; `doctor` clean; API `ok: true`, `jev-1.13.0`, 314 ms |
 | P1-5 component routing | **pass** | see below |
-| P1-6 session handoff | **pass** | `DEV-AI-SESSION-HANDOFF.md`, commands dry-run before publication |
+| P1-6 session handoff | **pass** | an operator-local handoff, commands dry-run before use (kept out of the public tree: it named one host's live sessions) |
 | P2-7 repository docs | **pass** | new `jev-without-datarim.md`; tutorial now covers both Codex gates and where the key goes under `host_jev`; doc gates green |
 | P2-8 site docs | **pass** | published to datarim.club; live pages verified in en and ru |
 | P3-9 Codex research | **pass** (trust model corrected twice — see P3-9 below) | `--dangerously-bypass-hook-trust` measured working on 0.155.1; trust is a hash over the command, so the installer registers a stable command |
@@ -44,7 +44,7 @@ graph. It is updated as work lands; each item carries a measured verdict
 
 The strongest evidence available, because it needed no probe: the Mac's own
 ledger recorded 171 `hook_delivery` events carrying
-`session_id: faa6dc38-de5f-4db2-9b7b-8439929b388a` — this conversation — with
+`session_id: <this session>` — this conversation — with
 `advice_emitted: false`. The hook at `a95c8d7` is processing real tool calls
 every few seconds, and declining to advise only because the key file is empty.
 
@@ -52,7 +52,7 @@ One instrument note: `find -newermt "-20 minutes"` returns nothing on macOS,
 which first read as "the Mac hook is dead". It was writing that same minute.
 The honest query on this platform is `stat -f "%m %N"` sorted by time.
 
-### arcana-devs, what is proven and what waits on the key
+### The shared dev host: what is proven and what waits on the key
 
 Proven without a key: the hooks are registered (3 Jev entries beside the 12
 Orca ones), the floor is correct in both directions (15/15), and the hook path
@@ -67,7 +67,7 @@ produced there, so the end-to-end routing criterion for P0-3 stands at
 
 ### Safety floor, verified on both newly-installed machines
 
-15 commands through the real hook on arcana-devs and DEV-AI, 15/15 correct:
+15 commands through the real hook on the shared dev host and the consumer host, 15/15 correct:
 blocked `dd`/`mkfs` to a block device, `rm -rf /`, `/*`, and the spelling
 variants `-fr`, `-r -f`, `~`, `$HOME`, plus `git push --force`; allowed
 ordinary `dd`, `mkfs` to an image, `rm -rf ./build`, and — the discriminating
@@ -91,7 +91,7 @@ machine.
 ### P1-5, measured
 
 One prompt — *"Refactor the payment module, add unit tests, and review the diff
-for security issues"* — through the real hook wrapper on DEV-AI, 0.6 s:
+for security issues"* — through the real hook wrapper on the consumer host, 0.6 s:
 
 ```
 skills: security (0.95), verification-before-completion (0.92),
@@ -111,7 +111,7 @@ measured round trip was 0.5–0.6 s, but a slow network silently degrades to
 tier-only advice rather than failing loudly.
 
 And the cost, measured properly on three prompts of different sizes, three runs
-each on DEV-AI:
+each on the consumer host:
 
 | prompt | median latency | routing cost |
 |---|---|---|
@@ -159,7 +159,7 @@ What misled the earlier measurements:
   the count of `hook:` lines was read as proof about Jev's. Plugin hooks are keyed
   by plugin id, not by the `hooks.json` path, so they also survived the isolated
   `CODEX_HOME` experiment that #423 relied on.
-- **`enabled = true`.** Present on some blocks (DEV-AI 5 of 14), absent on others;
+- **`enabled = true`.** Present on some blocks (consumer host: 5 of 14), absent on others;
   Codex's TUI trust writes only `trusted_hash`. It never decided trust.
 
 How it was proved this time, with the ledger as the witness rather than the
@@ -189,11 +189,11 @@ to stand in for.
 
 | Machine | User | Work dir | Host Jev runtime | Jev hooks (Claude) | Codex hooks | Datarim |
 |---|---|---|---|---|---|---|
-| Mac | `ug` | many projects | `658fa20` (stale) | **yes** | file present | per-project, opt-in |
-| DEV-AI (`aether`) | `aether` | `~/code/aether/local-env` | `91846a1` | **yes** | file present, `trusted` | installed, `host_jev: true` |
-| arcana-devs | `dev` | `~/arcanada` | **none** | **none** (only Orca) | present, not Jev | not used, by operator decision |
+| Mac | `<user>` | many projects | `658fa20` (stale) | **yes** | file present | per-project, opt-in |
+| consumer host | `<user>` | `~/code/<project>` | `91846a1` | **yes** | file present, `trusted` | installed, `host_jev: true` |
+| shared dev host | `dev` | `~/<workspace>` | **none** | **none** (only Orca) | present, not Jev | not used, by operator decision |
 
-The arcana-devs gap is the largest and is P0. Mac being two releases behind is
+The shared-dev-host gap is the largest and is P0. Mac being two releases behind is
 why `codex_hook_trust` is absent there — the field ships in `91846a1`.
 
 ### P2-8, published — and a bigger problem than the missing Jev section
@@ -217,7 +217,7 @@ the new content with no `--with-claude` or `--copy` remaining.
 
 ## After #421 landed: the fix verified on the upgrade it was built for
 
-All three machines moved to `1184167`. On DEV-AI the upgrade exercised exactly
+All three machines moved to `1184167`. On the consumer host the upgrade exercised exactly
 the case `slot_reused` exists for, and it behaved correctly: with the witness
 pointing at the previous release's commands, the **first** `doctor` reported
 `slot_reused: [PostToolUse, PreToolUse, UserPromptSubmit]`, then recorded the
@@ -248,15 +248,15 @@ ignored, and the next person to see it should not have to re-derive this.
 
 ```
 P0-1 land PR #420 on main ──┬── P0-2 Mac host runtime → main
-                            ├── P0-3 arcana-devs host install (no Datarim)
-                            └── P0-4 DEV-AI re-point to main build
+                            ├── P0-3 shared dev host install (no Datarim)
+                            └── P0-4 consumer host re-point to main build
                                         │
         ┌───────────────────────────────┴───────────────┐
         │                                               │
 P1-5 prove component routing              P2-7 docs in repo ── P2-8 docs on site
    (skills/agents/commands/templates)                    │
         │                                               │
-P1-6 session handoff for DEV-1962/1926    P3-9 Codex research + best practice
+P1-6 handoff for two task sessions        P3-9 Codex research + best practice
                                           P3-10 installer/permissions audit
 ```
 
@@ -271,7 +271,7 @@ on `main`.
 Measured `MERGEABLE` / `CLEAN`, 19/19 required checks green.
 
 **Acceptance:** `main` contains `91846a1`'s tree; `gh pr view 420` reports
-`MERGED`; `Projects/Datarim/code/datarim` on `main` contains `scripts/jev.py`
+`MERGED`; the local checkout on `main` contains `scripts/jev.py`
 with `codex_hook_trust`.
 
 **Operator gate:** merging is publishing. Held for explicit operator approval.
@@ -286,25 +286,25 @@ merged `main` and re-accept the Codex trust gate (trust is keyed to
 field must be capable of reporting `untrusted` — verified by clearing `enabled`
 for one hook and re-running, then restoring.
 
-### P0-3 — arcana-devs: host Jev, no Datarim
+### P0-3 — Shared dev host: host Jev, no Datarim
 Install the host runtime for user `dev`, clients `claude` and `codex`, merging
 into the existing `~/.claude/settings.json` **without disturbing the Orca hooks
 already there**. Datarim is explicitly not installed: the operator has retired it
-for Arcanada; Muneral and Scrutator are used instead.
+for that workspace; an external task tracker and search index are used instead.
 
 **Acceptance:** `jev doctor` as `dev` reports `datarim_enabled: false`,
 `key_ready` true once the operator fills the key, hooks present; the pre-existing
 Orca hook entries are byte-identical before and after; a real prompt in
-`~/arcanada` produces a `route` event in the ledger.
+`~/<workspace>` produces a `route` event in the ledger.
 
 **Constraint:** the operator's fleet sessions, worktrees and CI runners on this
 host are untouchable.
 
-### P0-4 — DEV-AI to the merged revision
+### P0-4 — Consumer host to the merged revision
 Already at `91846a1`. Re-point to the merged sha and re-accept Codex gate 2.
 
 **Acceptance:** as P0-2, plus the existing project runtime in
-`~/code/aether/local-env` still resolves (`host_jev: true`).
+`~/code/<project>` still resolves (`host_jev: true`).
 
 ### P1-5 — Prove routing covers component choice, not just model tier
 The operator's claim to verify: Jev helps with **tool, skill, agent and template**
@@ -314,15 +314,15 @@ catalogue exists** (`if any(r.get('candidates', {}).values())`). Without Datarim
 there are no candidates and only tier advice is injected — correct by design,
 but undocumented and easy to read as "it doesn't work".
 
-**Acceptance:** an end-to-end measurement on DEV-AI showing, from the ledger and
+**Acceptance:** an end-to-end measurement on the consumer host showing, from the ledger and
 the injected context, a real prompt producing named skills with scores, a chosen
 agent, command and template; plus a negative control in a catalogue-free project
 showing tier-only advice; plus a token/latency measurement substantiating or
 refuting the "saves tokens" claim. If the saving cannot be measured, it is
 reported `not_measured` — not asserted.
 
-### P1-6 — Handoff for the DEV-AI test sessions
-The operator wants to resume `jev-DEV-1962` (Claude) and `jev-DEV-1926` (Codex)
+### P1-6 — Handoff for the consumer host's test sessions
+The operator wants to resume two task sessions (one Claude, one Codex)
 by hand, through Jev.
 
 **Acceptance:** a written handoff naming each session id, its client, its state,
@@ -366,7 +366,7 @@ the existing protected-directory refusals still hold.
 
 ### Cursor, prepared and verified as prepared
 
-Measured on Mac and DEV-AI: 3 Jev hooks each at `a95c8d7`
+Measured on Mac and the consumer host: 3 Jev hooks each at `a95c8d7`
 (`beforeShellExecution`, `beforeSubmitPrompt`, `postToolUse`), with 9 foreign
 Cursor hooks preserved on both. So "prepared" is a measured claim, not an
 intention — what remains untested is whether routing behaves correctly in a

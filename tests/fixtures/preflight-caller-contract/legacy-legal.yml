@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: Arcanada-one/datarim/.github/actions/preflight-check@fff2521000000000000000000000000000000000
         with:
-          target-host: arcana-prod
+          target-host: prod-host
           service-name: legal
           extra-checks: vault
           ops-bot-emit: "true"

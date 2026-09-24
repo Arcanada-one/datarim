@@ -24,15 +24,16 @@ For framework → workspace (or any cross-repo) relocation:
 
 ```bash
 OLD=code/datarim/documentation/archive/security/findings-2026-04-28.md
-NEW="$HOME/arcanada/documentation/archive/security/findings-2026-04-28.md"
+WORKSPACE="${WORKSPACE:?set to the destination workspace root}"
+NEW="$WORKSPACE/documentation/archive/security/findings-2026-04-28.md"
 
 # 1. Inventory references in BOTH source and destination repos
-grep -rln "$OLD" code/datarim/ "$HOME/arcanada/" | grep -v '.git/'
+grep -rln "$OLD" code/datarim/ "$WORKSPACE/" | grep -v '.git/'
 
 # 2. Move the file (preserve git history if same repo; cp + git rm + git add otherwise)
 git -C code/datarim rm "$OLD"
-cp "$NEW" "$HOME/arcanada/$NEW"  # if not already there
-git -C "$HOME/arcanada" add "$NEW"
+cp "$NEW" "$WORKSPACE/$NEW"  # if not already there
+git -C "$WORKSPACE" add "$NEW"
 
 # 3. Update each reference found in step 1 — same commit per repo
 # 4. Embed forensic line in relocated file frontmatter:

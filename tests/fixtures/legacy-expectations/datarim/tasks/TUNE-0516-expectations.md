@@ -63,8 +63,8 @@ parent_init_task: TUNE-0516-init-task.md
 
 - **4. Финальный deliverable — только ASCII на экспортируемой поверхности, без операторских имён, и пройдены все гейты пайплайна (lint, bats, shellcheck, подписанный коммит, архив).**
   - wish_id: shipped-surface-compliance
-  - Что хочу проверить: Все изменённые в рамках задачи файлы содержат только 7‑битные символы; ни в одном экспортируемом файле не встречаются имена и строки Arcanada, DEVS, dev-ai, Aether, tailscale, space.yml и им подобные; lint, bats, shellcheck завершаются успешно; финальный коммит имеет цифровую подпись; задача заархивирована в datarim/archive/.
-  - Как проверить (success criterion): `grep -rP '[^\x00-\x7F]' --include='*.md' --include='*.sh'` в репозитории не выдаёт результатов среди changed файлов; `grep -rE 'Arcanada|DEVS|dev-ai|Aether|tailscale|space\.yml'` — ноль попаданий в shipped‑файлах; вывод `check-expectations-checklist.sh --task TUNE-0516` и стандартные прогоны lint/bats/shellcheck показывают PASS; `git log --show-signature -1` содержит Valid; наличие артефакта в `datarim/archive/TUNE-0516-*.md`.
+  - Что хочу проверить: Все изменённые в рамках задачи файлы содержат только 7‑битные символы; ни в одном экспортируемом файле не встречаются имена и строки из операторского denylist (хосты, проекты, tailscale, space.yml и им подобные); lint, bats, shellcheck завершаются успешно; финальный коммит имеет цифровую подпись; задача заархивирована в datarim/archive/.
+  - Как проверить (success criterion): `grep -rP '[^\x00-\x7F]' --include='*.md' --include='*.sh'` в репозитории не выдаёт результатов среди changed файлов; `grep -rE -f <operator-denylist>` — ноль попаданий в shipped‑файлах; вывод `check-expectations-checklist.sh --task TUNE-0516` и стандартные прогоны lint/bats/shellcheck показывают PASS; `git log --show-signature -1` содержит Valid; наличие артефакта в `datarim/archive/TUNE-0516-*.md`.
   - Связанный AC из PRD: —
   - evidence_type: empirical
   - #### История статусов

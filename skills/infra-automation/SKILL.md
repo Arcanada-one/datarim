@@ -139,7 +139,7 @@ effective policy with `sshd -T`, not the drop-in.
 Check all PROD services:
 
 ```bash
-for svc in "3400 support" "3500 muneral" "3600 opsbot"; do
+for svc in "3400 support" "3500 tracker" "3600 opsbot"; do
   port=$(echo $svc | cut -d' ' -f1)
   name=$(echo $svc | cut -d' ' -f2)
   STATUS=$(ssh root@"$PROD_PUB_IP" "curl -sf -o /dev/null -w '%{http_code}' http://localhost:$port/health" 2>/dev/null)

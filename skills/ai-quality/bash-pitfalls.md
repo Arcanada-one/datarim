@@ -74,7 +74,7 @@ mysqldump --defaults-extra-file="$cnf" "$db"
 rm -f "$cnf"
 ```
 
-Pattern reused throughout `tools/scripts/restore-site.sh` in the Aether repo. Also: never `echo "$pass"` into a pipeline visible by `set -x`.
+Pattern reused throughout a production site-restore script. Also: never `echo "$pass"` into a pipeline visible by `set -x`.
 
 ### 5. `set -e` does NOT propagate through pipelines
 

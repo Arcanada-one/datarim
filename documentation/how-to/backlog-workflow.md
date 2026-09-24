@@ -187,7 +187,7 @@ A project manager who doesn't use Claude Code directly can still participate in 
 
 1. Open `datarim/backlog.md` in any text editor
 2. Choose the prefix:
-   - Project prefix (e.g., `SUP` for Support Center work, `VERD` for Verdicus) — if the task is scoped to one project
+   - Project prefix (e.g., `SUP` for support-desk work, `BILL` for a billing service) — if the task is scoped to one project
    - Area prefix (e.g., `INFRA`, `CONTENT`, `WEB`) — if it's cross-project or general
 3. Find the last number used for that prefix (check both `backlog.md` and `tasks.md` archived list), increment by 1
 4. Add a new entry at the appropriate priority position under `## Active Items`:
