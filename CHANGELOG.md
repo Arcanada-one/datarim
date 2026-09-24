@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.0.4] — 2026-09-25
+
 ### Fixed
 
 - The report lines after an install or update are now printed inside a fenced block, led by "Copy the
