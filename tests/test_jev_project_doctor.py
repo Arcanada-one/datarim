@@ -34,13 +34,14 @@ class ProjectDoctor(unittest.TestCase):
         self.project = base/'project'
         self.project.mkdir()
         (self.project/'AGENTS.md').write_text('# Rules\n')
-        self.env = dict(os.environ, HOME=str(self.home), CLAUDE_BIN='/usr/bin/true',
+        self.env = dict(os.environ, HOME=str(self.home), DATARIM_INSTALL_NONINTERACTIVE='1', CLAUDE_BIN='/usr/bin/true',
                         CODEX_BIN='/usr/bin/true', CURSOR_BIN='/usr/bin/true')
         self.env.pop('JEV_PERMISSIONS', None)
 
     def install(self, *extra):
         run = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
                               str(self.project), '--with-jev',
+                              '--permissions', 'ask',
                               *(extra if '--client' in extra else ('--client', 'all', *extra))],
                              env=self.env, capture_output=True, text=True, timeout=120)
         self.assertEqual(run.returncode, 0, run.stderr)
