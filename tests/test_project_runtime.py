@@ -599,15 +599,17 @@ class InstallationLifecycleTests(unittest.TestCase):
             project_install.install(self.with_args(with_jev=True))
         text = err.getvalue()
         lines = text.splitlines()
-        lead = lines.index('Include these lines in your report to the user, verbatim:')
-        block = lines[lead + 1:]
+        lead = lines.index('Copy the block below into your reply to the user unchanged (you may add your own text after it):')
+        self.assertEqual(lines[lead + 1], '```')
+        end = lines.index('```', lead + 2)
+        block = lines[lead + 2:end]
         self.assertEqual(block[0], 'permission mode: ask — '
                                    f"{self.project/'.datarim-runtime/state/jev/FULL_PERMISSIONS'} "
                                    '(present = full, absent = ask; change with `jev permissions full|ask`)')
         self.assertIn(f"key (optional): {self.project/'config/credentials/jev/api-key'}; the Jev floor works "
                       'without it; paste it with an editor, never with echo/printf', block)
-        self.assertIn('never put the key or any JEV_* / DATARIM_* variable in .zshrc/.bashrc; '
-                      'set them per shell or per launch', block)
+        self.assertIn('never in .zshrc/.bashrc: JEV_* or DATARIM_* variables (e.g. JEV_PERMISSIONS) or the key; set them per shell or per launch', block)
+        self.assertIn('AGENTS.md is not modified by the installer', block)
         self.assertIn('Codex: open `codex` once in this project and accept the hooks, or run `jev trust`', block)
         self.assertIn('.agents/skills/dr-* and .cursor/skills/dr-* are the /dr-* commands packaged for '
                       'Codex/Cursor, not extra framework skills', block)
@@ -618,9 +620,9 @@ class InstallationLifecycleTests(unittest.TestCase):
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
             project_install.install(self.with_args(client=('claude',)))
         text = err.getvalue()
-        self.assertIn('Include these lines in your report to the user, verbatim:', text)
+        self.assertIn('Copy the block below into your reply to the user unchanged (you may add your own text after it):', text)
         self.assertNotIn('skills/dr-*', text, 'Claude Code only: nothing is packaged as skills')
-        self.assertIn('never put the key or any JEV_* / DATARIM_* variable in .zshrc/.bashrc', text)
+        self.assertIn('never in .zshrc/.bashrc: JEV_* or DATARIM_* variables (e.g. JEV_PERMISSIONS) or the key; set them per shell or per launch', text)
         self.assertNotIn('key (optional)', text)
         self.assertNotIn('Codex: open', text)
         # An update prints the block too.
@@ -628,6 +630,24 @@ class InstallationLifecycleTests(unittest.TestCase):
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
             project_install.install(self.with_args(client=None, with_jev=None, permissions=None))
         self.assertIn('\npermission mode: ask — ', err.getvalue())
+
+    def test_the_agents_md_line_follows_the_project(self):
+        block = project_install.report_block(self.project, False, False, 'ask', ('claude',))
+        self.assertIn('\nAGENTS.md is not modified by the installer\n', block)
+        (self.project/'CLAUDE.md').symlink_to('AGENTS.md')
+        block = project_install.report_block(self.project, False, False, 'ask', ('claude',))
+        self.assertIn('\nAGENTS.md is not modified; CLAUDE.md links to it\n', block)
+        self.assertNotIn('not modified by the installer', block)
+        (self.project/'CLAUDE.md').unlink()
+        (self.project/'AGENTS.md').unlink()
+        self.assertNotIn('AGENTS.md', project_install.report_block(self.project, False, False, 'ask', ('claude',)))
+
+    def test_claude_import_install_reports_the_link(self):
+        import contextlib, io
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            project_install.install(self.with_args(client=('claude',), claude_import=True))
+        self.assertIn('AGENTS.md is not modified; CLAUDE.md links to it', err.getvalue())
 
     def test_the_packaged_commands_line_names_only_the_chosen_clients(self):
         text = project_install.report_block(self.project, False, False, 'ask', ('cursor',))
