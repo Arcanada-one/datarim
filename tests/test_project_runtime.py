@@ -235,6 +235,218 @@ class InstallationLifecycleTests(unittest.TestCase):
         project_install.install(self.args)
         self.assertEqual((self.project/'CLAUDE.md').read_text(), 'Always answer in French.\n')
 
+    # -- choosing clients ----------------------------------------------------
+
+    def with_args(self, **changes):
+        if changes.get('with_jev'):
+            config = self.source/'plugins/dr-jev-control/config/jev-control.json'
+            config.parent.mkdir(parents=True, exist_ok=True)
+            config.write_text('{"telemetry": {}}\n')
+        return Namespace(**{**vars(self.args), **changes})
+
+    def test_client_selection_writes_only_that_clients_files_and_hooks(self):
+        project_install.install(self.with_args(client=('codex',), with_jev=True))
+        self.assertTrue((self.project/'.agents/skills/dr-do/SKILL.md').is_file())
+        self.assertTrue((self.project/'.codex/hooks.json').is_file())
+        for name in ('.claude/commands/dr-do.md', '.cursor/skills/dr-do/SKILL.md',
+                     '.claude/settings.local.json', '.cursor/hooks.json'):
+            self.assertFalse((self.project/name).exists(), name)
+        manifest = json.loads((self.project/'.datarim-runtime/installation.json').read_text())
+        self.assertEqual(manifest['clients'], ['codex'])
+
+    def test_an_update_without_the_option_keeps_the_recorded_clients(self):
+        project_install.install(self.with_args(client=('claude', 'cursor')))
+        (self.source/'VERSION').write_text('next\n')
+        project_install.install(self.args)
+        self.assertTrue((self.project/'.claude/commands/dr-do.md').is_file())
+        self.assertTrue((self.project/'.cursor/skills/dr-do/SKILL.md').is_file())
+        self.assertFalse((self.project/'.agents/skills/dr-do/SKILL.md').exists())
+
+    def test_an_install_recorded_before_the_option_means_all_clients(self):
+        project_install.install(self.args)
+        manifest_path = self.project/'.datarim-runtime/installation.json'
+        manifest = json.loads(manifest_path.read_text())
+        del manifest['clients']
+        manifest_path.write_text(json.dumps(manifest))
+        (self.source/'VERSION').write_text('next\n')
+        project_install.install(self.args)
+        for name in ('.claude/commands/dr-do.md', '.agents/skills/dr-do/SKILL.md', '.cursor/skills/dr-do/SKILL.md'):
+            self.assertTrue((self.project/name).is_file(), name)
+
+    def test_removing_a_client_removes_its_files_and_only_its_hooks(self):
+        cursor_hooks = self.project/'.cursor/hooks.json'
+        cursor_hooks.parent.mkdir()
+        cursor_hooks.write_text(json.dumps({'version': 1, 'hooks': {'beforeShellExecution': [
+            {'command': 'foreign-guard'}]}}))
+        project_install.install(self.with_args(with_jev=True))
+        self.assertIn('jev_hook.py', (self.project/'.claude/settings.local.json').read_text())
+        project_install.install(self.with_args(with_jev=True, client=('codex',)))
+        # Created by the install and holding only Jev entries: removed.
+        self.assertFalse((self.project/'.claude/settings.local.json').exists())
+        self.assertFalse((self.project/'.claude/commands/dr-do.md').exists())
+        self.assertFalse((self.project/'.cursor/skills/dr-do/SKILL.md').exists())
+        # The project's own file: Jev's entries leave, the foreign one stays.
+        kept = json.loads(cursor_hooks.read_text())
+        self.assertEqual(kept['hooks']['beforeShellExecution'], [{'command': 'foreign-guard'}])
+        self.assertNotIn('jev_hook.py', cursor_hooks.read_text())
+        self.assertIn('jev_hook.py', (self.project/'.codex/hooks.json').read_text())
+        project_install.uninstall(self.args)
+        self.assertEqual(json.loads(cursor_hooks.read_text())['hooks']['beforeShellExecution'],
+                         [{'command': 'foreign-guard'}])
+
+    def test_a_file_created_where_a_retired_one_was_survives_uninstall(self):
+        project_install.install(self.args)
+        project_install.install(self.with_args(client=('codex',)))
+        mine = self.project/'.claude/commands/dr-do.md'
+        mine.parent.mkdir(parents=True, exist_ok=True)
+        mine.write_text('# My own command\n')
+        project_install.uninstall(self.args)
+        self.assertEqual(mine.read_text(), '# My own command\n')
+
+    # -- remembered choices ---------------------------------------------------
+    # An update without --with-jev used to withdraw the project's Jev hooks and
+    # its jev-config.json; one without --context withdrew nested repositories.
+
+    def update(self, **changes):
+        (self.source/'VERSION').write_text(f'update {changes}\n')
+        base = {k: v for k, v in vars(self.args).items() if k not in ('with_jev', 'context')}
+        project_install.install(Namespace(**{**base, **changes}))
+
+    def manifest(self):
+        return json.loads((self.project/'.datarim-runtime/installation.json').read_text())
+
+    def test_an_update_without_the_flag_keeps_jev(self):
+        project_install.install(self.with_args(with_jev=True))
+        self.update()
+        self.assertTrue(self.manifest()['with_jev'])
+        self.assertTrue((self.project/'.datarim-runtime/jev-config.json').is_file())
+        for name in project_install.HOOK_CONFIGS:
+            self.assertIn('jev_hook.py', (self.project/name).read_text(), name)
+
+    def test_without_jev_withdraws_the_hooks_and_keeps_the_key(self):
+        project_install.install(self.with_args(with_jev=True))
+        key = self.project/'config/credentials/jev/api-key'
+        self.assertTrue(key.is_file())
+        self.update(with_jev=False)
+        self.assertFalse(self.manifest()['with_jev'])
+        self.assertFalse((self.project/'.datarim-runtime/jev-config.json').exists())
+        for name in project_install.HOOK_CONFIGS:
+            self.assertFalse((self.project/name).exists(), name)
+        self.assertTrue(key.is_file())
+        self.update()
+        self.assertFalse(self.manifest()['with_jev'], 'turning Jev off is remembered too')
+
+    def test_without_jev_keeps_foreign_hooks_in_a_shared_file(self):
+        hooks = self.project/'.cursor/hooks.json'
+        hooks.parent.mkdir()
+        hooks.write_text(json.dumps({'version': 1, 'hooks': {'beforeShellExecution': [{'command': 'foreign-guard'}]}}))
+        project_install.install(self.with_args(with_jev=True))
+        self.update(with_jev=False)
+        self.assertEqual(json.loads(hooks.read_text())['hooks']['beforeShellExecution'], [{'command': 'foreign-guard'}])
+
+    def test_contexts_are_remembered_until_withdrawn(self):
+        nested = self.project/'child'
+        (nested/'.git').mkdir(parents=True)
+        project_install.install(self.with_args(context=['child']))
+        self.update()
+        self.assertEqual(self.manifest()['contexts'], ['child'])
+        self.update(no_context=True)
+        self.assertEqual(self.manifest()['contexts'], [])
+
+    def test_host_jev_needs_jev_even_when_remembered(self):
+        with self.assertRaisesRegex(ValueError, 'requires --with-jev'):
+            project_install.remembered_choices(Namespace(with_jev=None, host_jev=True, context=None), {})
+        self.assertEqual(project_install.remembered_choices(
+            Namespace(with_jev=None, host_jev=None, context=None),
+            {'with_jev': True, 'host_jev': True, 'contexts': ['a']}), (True, True, ['a']))
+        self.assertEqual(project_install.remembered_choices(
+            Namespace(with_jev=False, host_jev=None, context=None),
+            {'with_jev': True, 'host_jev': True}), (False, False, []))
+
+    def test_the_command_line_remembers_jev_through_update_sh(self):
+        project_install.install(self.with_args(with_jev=True))
+        with patch.object(sys, 'argv', ['project_install.py', '--project', str(self.project)]):
+            (self.source/'VERSION').write_text('cli\n')
+            self.assertEqual(project_install.main(), 0)
+        self.assertTrue(self.manifest()['with_jev'])
+        with patch.object(sys, 'argv', ['project_install.py', '--project', str(self.project), '--without-jev']):
+            self.assertEqual(project_install.main(), 0)
+        self.assertFalse(self.manifest()['with_jev'])
+
+    def test_client_option_parsing(self):
+        self.assertEqual(project_install.parse_clients(['codex,claude', 'codex']), ('claude', 'codex'))
+        self.assertEqual(project_install.parse_clients(['all']), ('claude', 'codex', 'cursor'))
+        self.assertEqual(project_install.parse_clients(None), ())
+        with self.assertRaises(ValueError):
+            project_install.parse_clients(['vim'])
+        run = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
+                              str(self.project), '--client', 'vim', '--dry-run'], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 2)
+        self.assertIn('Unknown client', run.stderr)
+
+    # -- Claude Code and AGENTS.md --------------------------------------------
+    # Claude Code loads CLAUDE.md, not AGENTS.md. --claude-import links the
+    # one to the other; a symlink rather than an `@AGENTS.md` import line,
+    # because the import was observed to be ignored in sessions started in a
+    # subdirectory, while the symlink was read there as well.
+
+    def test_claude_import_links_keeps_and_removes_the_link(self):
+        project_install.install(self.with_args(claude_import=True))
+        link = self.project/'CLAUDE.md'
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(os.readlink(link), 'AGENTS.md')
+        self.assertEqual(link.read_text(), '# Original project rules\n')
+        # Sticky: an update without the flag keeps it.
+        (self.source/'VERSION').write_text('next\n')
+        project_install.install(self.args)
+        self.assertTrue(link.is_symlink())
+        project_install.uninstall(self.args)
+        self.assertFalse(link.exists() or link.is_symlink())
+        self.assertEqual((self.project/'AGENTS.md').read_text(), '# Original project rules\n')
+
+    def test_no_claude_import_removes_only_the_link_this_install_made(self):
+        project_install.install(self.with_args(claude_import=True))
+        project_install.install(self.with_args(claude_import=False))
+        self.assertFalse((self.project/'CLAUDE.md').is_symlink())
+        manifest = json.loads((self.project/'.datarim-runtime/installation.json').read_text())
+        self.assertFalse(manifest['claude_import'])
+
+    def test_claude_import_never_touches_an_existing_claude_md(self):
+        (self.project/'CLAUDE.md').write_text('Always answer in French.\n')
+        project_install.install(self.with_args(claude_import=True))
+        self.assertEqual((self.project/'CLAUDE.md').read_text(), 'Always answer in French.\n')
+        project_install.uninstall(self.args)
+        self.assertEqual((self.project/'CLAUDE.md').read_text(), 'Always answer in French.\n')
+
+    def test_a_link_the_operator_made_is_not_removed_on_uninstall(self):
+        (self.project/'CLAUDE.md').symlink_to('AGENTS.md')
+        project_install.install(self.with_args(claude_import=True))
+        project_install.uninstall(self.args)
+        self.assertTrue((self.project/'CLAUDE.md').is_symlink())
+
+    def test_claude_import_needs_an_agents_md_and_the_claude_client(self):
+        (self.project/'AGENTS.md').unlink()
+        with self.assertRaisesRegex(ValueError, 'no AGENTS.md'):
+            project_install.install(self.with_args(claude_import=True))
+        (self.project/'AGENTS.md').write_text('# Rules\n')
+        with self.assertRaisesRegex(ValueError, 'claude client'):
+            project_install.install(self.with_args(claude_import=True, client=('codex',)))
+        self.assertFalse((self.project/'.datarim-runtime').exists())
+
+    def test_without_the_flag_no_claude_md_is_created(self):
+        project_install.install(self.args)
+        self.assertFalse((self.project/'CLAUDE.md').exists() or (self.project/'CLAUDE.md').is_symlink())
+
+    def test_the_link_is_hidden_from_git_status(self):
+        subprocess.run(['git', 'init', '-q', str(self.project)], check=True)
+        subprocess.run(['git', '-C', str(self.project), 'add', '-A'], check=True)
+        subprocess.run(['git', '-C', str(self.project), '-c', 'user.email=t@t', '-c', 'user.name=t',
+                        'commit', '-qm', 'init'], check=True)
+        project_install.install(self.with_args(claude_import=True))
+        status = subprocess.run(['git', '-C', str(self.project), 'status', '--porcelain'],
+                                capture_output=True, text=True, check=True).stdout
+        self.assertEqual(status, '')
+
     def test_concurrent_change_during_copy_is_preserved(self):
         target = self.project/'.claude/commands/dr-do.md'
         original_copy = project_install.shutil.copytree
