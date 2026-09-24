@@ -64,4 +64,4 @@ Load only the fragment relevant to the task:
 
 ## Why This Skill Is Split
 
-This skill contains diverse utility recipes spanning 12 domains. Loading all 500+ lines when an agent needs one date command wastes context tokens. The index entry stays short and routing-focused while preserving the full recipe library in directly addressable fragments.
+This skill contains diverse utility recipes split across 16 fragments. Loading all 900+ lines when an agent needs one date command wastes context tokens. The index entry stays short and routing-focused while preserving the full recipe library in directly addressable fragments.

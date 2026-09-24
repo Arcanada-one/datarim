@@ -58,8 +58,13 @@ PUBLISH="${REPO_ROOT}/commands/dr-publish.md"
 }
 
 @test "output routes actual dispatch through Publisher only" {
-    run grep -F "Projects/Publisher/code/arcanada-publisher" "$PUBLISH"
+    run grep -F "Publisher invocation" "$PUBLISH"
     [ "$status" -eq 0 ]
+}
+
+@test "shipped command names no deployment-specific publisher path" {
+    run grep -F "Projects/Publisher" "$PUBLISH"
+    [ "$status" -ne 0 ]
 }
 
 @test "CTA option 1 is the manual dispatch, not next-stage routing" {

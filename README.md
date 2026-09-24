@@ -116,7 +116,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 - **Plugin system (v1.23.0+)** — opt-in extension mechanism. `datarim-core`
   ships built-in; additional skills/agents/commands/templates are enabled via
   `/dr-plugin enable <source>` against a `plugin.yaml` manifest. Runtime symlinks
-  per-plugin namespace under `.datarim-runtime/<category>/<plugin-id>/`; root-position via
+  per-plugin namespace under `.datarim-runtime/local/<category>/<plugin-id>/`; root-position via
   `overrides:`. `dr-plugin doctor` runs 9 health checks (manifest-syntax,
   inventory-consistency, broken-symlinks, orphan-files, override-integrity,
   dependency-graph, git-state, snapshot-cleanup, skill-registry).

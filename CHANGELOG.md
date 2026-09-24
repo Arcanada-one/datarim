@@ -4,6 +4,26 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Documentation now matches the 3.x code in several places where it still described 2.x behaviour:
+  - `dr-orchestrate`: the resolver chain is `claude → codex → cursor` (`DR_ORCH_SUBAGENT_CHAIN`), not the
+    retired Coworker backend. The chain, timeout, confidence threshold and escalation backend come from
+    environment variables; the `subagent`/`escalation` keys shown for `user-config.yaml` were never read.
+  - The runtime-support section of the use-cases tutorial no longer mentions Coworker, RTK or a
+    `--with-cursor` flag; one project install serves all three clients.
+  - Plugin links live under `.datarim-runtime/local/<category>/<plugin-id>/`.
+  - Counts: `/dr-help` lists all 28 commands and 19 agents; the `cta-format` reference count,
+    `security` (S1–S11), `utilities` fragment count and the `datarim-doctor` 8-pass migration are
+    corrected.
+  - Pre-3.0 leftovers: home-directory symlink-install text in `datarim-system`, `datarim-doctor`,
+    `utilities/recovery` and several references; `progress.md` reads in `/dr-next` and related files;
+    the `dr-output-stop` hook is registered in the project's `.claude/settings.local.json`. The
+    `branch-integration-guard` and execution-host map paths are described as the code reads them, and
+    the docs now say plainly that the project installer does not register the guard.
+  - The publishing skill and `/dr-publish` no longer name a specific deployment's publishing tool,
+    account handle or domains; they use generic placeholders.
+
 ## [3.1.0] — 2026-09-24
 
 ### Security

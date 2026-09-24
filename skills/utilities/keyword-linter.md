@@ -109,9 +109,9 @@ Three fixtures + one regression invariant test minimum:
 - **Don't shellcheck-ignore `SC2086` blindly** when scanning user-supplied
   paths. The linter is read-only by contract — no `eval`, no command
   substitution on file content.
-- **Symlink runtime:** if the rule guards `~/.claude/{skills,agents,...}`
-  and they are symlinks to a repo, the linter sees one logical surface.
-  No need to scan twice.
+- **Scan the source, not the runtime copy:** `.datarim-runtime/` is a pinned
+  copy of the framework source, so scan the source repository once; scanning
+  both reports every finding twice.
 
 ## Bash 3.2 compatibility — single-grep alternation pattern
 

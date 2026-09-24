@@ -67,7 +67,7 @@ The following commands and contexts MUST NOT emit a Stage Header:
 ### Enforcement
 
 <!-- gate:history-allowed -->
-Programmatic enforcement is opt-in via the Claude Code Stop hook at `dev-tools/hooks/dr-output-stop.sh`. When registered in `~/.claude/settings.json § hooks.Stop[]`, the hook checks the first non-empty line of every assistant response against `^\*\*[A-Z][A-Z0-9]{1,9}-\d{4} · .+\*\*$` (Exception List above honoured: `/dr-help`, `/dr-status`, `/dr-doctor`, plus `/dr-init` until Step 4 emits the TASK-ID, plus `/dr-quick` until Step 2's probe emits the TASK-ID). Missing header on first occurrence → stdout JSON `{"decision":"block","reason":"..."}`; retry (`stop_hook_active=true`) degrades to stderr advisory (retry budget = 1). The same hook also enforces `human-summary.md § Output contract` when the user invoked `/dr-archive`, `/dr-compliance`, or `/dr-qa`. Opt-in instructions and the canonical `settings.json` snippet live in `documentation/how-to/dr-output-hook.md`.
+Programmatic enforcement is opt-in via the Claude Code Stop hook at `dev-tools/hooks/dr-output-stop.sh`. When registered in the project's `.claude/settings.local.json § hooks.Stop[]`, the hook checks the first non-empty line of every assistant response against `^\*\*[A-Z][A-Z0-9]{1,9}-\d{4} · .+\*\*$` (Exception List above honoured: `/dr-help`, `/dr-status`, `/dr-doctor`, plus `/dr-init` until Step 4 emits the TASK-ID, plus `/dr-quick` until Step 2's probe emits the TASK-ID). Missing header on first occurrence → stdout JSON `{"decision":"block","reason":"..."}`; retry (`stop_hook_active=true`) degrades to stderr advisory (retry budget = 1). The same hook also enforces `human-summary.md § Output contract` when the user invoked `/dr-archive`, `/dr-compliance`, or `/dr-qa`. Opt-in instructions and the canonical `settings.json` snippet live in `documentation/how-to/dr-output-hook.md`.
 <!-- /gate:history-allowed -->
 
 ## Canonical Block — Single Active Task
@@ -278,7 +278,7 @@ Loaded by the following agents (declared in their `Context Loading` section):
 - `agents/reviewer.md` — emits the CTA after `/dr-qa` (PASS, CONDITIONAL_PASS, BLOCKED).
 - `agents/compliance.md` — emits the CTA after `/dr-compliance` (COMPLIANT, NON-COMPLIANT).
 
-Referenced from all 15 `/dr-*` command files in `commands/dr-*.md`.
+Referenced from 23 of the 26 `/dr-*` command files in `commands/dr-*.md`; `dr-save`, `dr-continue` and `dr-orchestrate` do not emit the standard CTA block.
 
 ## Templates
 
@@ -286,7 +286,7 @@ Referenced from all 15 `/dr-*` command files in `commands/dr-*.md`.
 
 ## Snapshot Emission
 
-**Terminal step (mandatory).** After emitting the CTA block, every `/dr-*` command MUST persist the final operator-visible response (Summary + Gate Results + CTA block) to `datarim/snapshots/{TASK-ID}.snapshot.md` via the runtime-resolved wrapper `${DATARIM_RUNTIME:?}/dev-tools/snapshot-writer-wrapper.sh`. The wrapper forces bash execution; a direct `source scripts/lib/snapshot-writer.sh && write_stage_snapshot` invocation fails silently under zsh-parent shells (`BASH_SOURCE[0]: parameter not set`) — agents invoking via the Bash tool inherit the user's login shell. The runtime-prefixed path is mandatory: a bare relative `"${DATARIM_RUNTIME:?}/dev-tools/snapshot-writer-wrapper.sh"` resolves against the agent's cwd, which is frequently the consumer workspace root (for example `~/arcanada/`) where the wrapper is absent — invocation then fails closed with a misleading "not found in repo" warning. Contract: `skills/stage-snapshot-writer/SKILL.md`. The snapshot serves as primary context for `/dr-next` and `/dr-orchestrate` after `/clear` or terminal close.
+**Terminal step (mandatory).** After emitting the CTA block, every `/dr-*` command MUST persist the final operator-visible response (Summary + Gate Results + CTA block) to `datarim/snapshots/{TASK-ID}.snapshot.md` via the runtime-resolved wrapper `${DATARIM_RUNTIME:?}/dev-tools/snapshot-writer-wrapper.sh`. The wrapper forces bash execution; a direct `source scripts/lib/snapshot-writer.sh && write_stage_snapshot` invocation fails silently under zsh-parent shells (`BASH_SOURCE[0]: parameter not set`) — agents invoking via the Bash tool inherit the user's login shell. The runtime-prefixed path is mandatory: a bare relative `"${DATARIM_RUNTIME:?}/dev-tools/snapshot-writer-wrapper.sh"` resolves against the agent's cwd, which is frequently the consumer workspace root (for example `~/workspace/`) where the wrapper is absent — invocation then fails closed with a misleading "not found in repo" warning. Contract: `skills/stage-snapshot-writer/SKILL.md`. The snapshot serves as primary context for `/dr-next` and `/dr-orchestrate` after `/clear` or terminal close.
 
 The stage value and the command literal are bound by the invoking command file (not inferred by the agent) — see each `commands/dr-*.md` § Stage Snapshot Emission for the literal stage / command pair.
 

@@ -50,8 +50,8 @@ Your goal is to {primary goal}.
 
 **Context Loading**:
 - READ: datarim/{files}
-- ALWAYS APPLY: $HOME/.claude/skills/{mandatory-skills}
-- LOAD WHEN NEEDED: $HOME/.claude/skills/{optional-skills}
+- ALWAYS APPLY: ${DATARIM_RUNTIME:?}/skills/{mandatory-skills}
+- LOAD WHEN NEEDED: ${DATARIM_RUNTIME:?}/skills/{optional-skills}
 ```
 
 The `model` field is required for all agents and is `inherit` for every shipped agent — pinning a concrete model generation here breaks under runtimes that do not offer it. Express capability intent with `metadata.model_tier:` instead, resolved through `config/model-tiers.yaml`. See [Model Assignment Convention](../../skills/datarim-system/SKILL.md).
