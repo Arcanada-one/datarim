@@ -304,7 +304,7 @@ After creating a new project in `Projects/*/code/`:
 3. Verify `.gitignore` covers `node_modules/`, `dist/`, `.env`
 4. Initial commit with scaffold
 
-Source: prior incident — Model Connector code had no `.git` for weeks; discovered only at archive time.
+Source: prior incident — a service's code had no `.git` for weeks; discovered only at archive time.
 
 ## Docker Rules
 

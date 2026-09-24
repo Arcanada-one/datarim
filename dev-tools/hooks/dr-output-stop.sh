@@ -8,14 +8,14 @@
 # skills/human-summary/SKILL.md) is the canonical surface, this hook is the final
 # defensive layer per TUNE-0264.
 #
-# Usage (registered in ~/.claude/settings.json):
+# Usage (registered in the project's .claude/settings.local.json):
 #   {"hooks": {"Stop": [{"hooks": [{
 #     "type": "command",
-#     "command": "bash $HOME/.claude/dev-tools/hooks/dr-output-stop.sh",
+#     "command": "bash \"$CLAUDE_PROJECT_DIR/.datarim-runtime/dev-tools/hooks/dr-output-stop.sh\"",
 #     "timeout": 5
 #   }]}]}}
 #
-# Spec: code/datarim/docs/how-to/dr-output-hook.md
+# Spec: documentation/how-to/dr-output-hook.md
 
 set +e
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"

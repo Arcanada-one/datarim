@@ -249,17 +249,17 @@ Pre-launch checklist for websites — from domain configuration to analytics to 
 
 ## Runtime support
 
-Datarim is runtime-agnostic. One project install serves all three runtimes — each finds the `/dr-*` commands in its own project-local directory ([how](../how-to/multi-runtime.md)) — with different levels of integration:
+Datarim is runtime-agnostic. One project install (`install.sh --project <path>`) serves all three runtimes — each finds the `/dr-*` commands in its own project-local directory ([how](../how-to/multi-runtime.md)):
 
-| Runtime       | Install command              | Hook integration                                  | Bulk-read economy via RTK | Status        |
-|---------------|------------------------------|---------------------------|---------------------------|---------------|
-| Claude Code   | `install.sh --project <path>` | Native                    | Full                      | Primary       |
-| Codex CLI     | `install.sh --project <path>` | Shim via `coworker rtk`   | Full (with shim)          | Parity        |
-| Cursor        | `install.sh --project <path>` | Native `beforeShellExecution` hook (`rtk hook cursor`) | Full (via `coworker rtk`) | Parity        |
+| Runtime     | Where it finds the commands      | How you run one                     |
+|-------------|----------------------------------|-------------------------------------|
+| Claude Code | `.claude/commands/dr-*.md`       | `/dr-help`, `/dr-init "…"`, …       |
+| Codex CLI   | `.agents/skills/dr-*/SKILL.md`   | ask it to run the `dr-help` skill   |
+| Cursor      | `.cursor/skills/dr-*/SKILL.md`   | ask it to run the `dr-help` skill   |
 
-**Cursor parity via a native hook.** Cursor Agent has no Claude-style `PreToolUse` hook, but it exposes a native `beforeShellExecution` hook. `coworker rtk enable` (Coworker v0.6.2+) registers `rtk hook cursor` in `~/.cursor/hooks.json`; cursor-agent pipes each shell command to it and honours the rewritten `rtk <cmd>` form, so bulk-read output is compacted exactly as on Claude Code and Codex CLI. Verified live: inside cursor-agent, `ls -la` returns the rtk-compacted form rather than raw bytes — no shell-rc mutation involved. `install.sh --with-cursor` mirrors Datarim skills and the delegation rule; `coworker rtk enable` opts into the RTK token economy (default-off, all runtimes). An earlier «no native hook / inherited» framing was inaccurate; this matrix is the corrected source of truth.
+There is no per-client install flag: the same install writes all three entry points. `--expose-skills` additionally places every framework skill in each client's automatic discovery, and `--with-jev` registers Jev's hooks for all three clients in the project. Coworker and RTK are retired and not required.
 
-**Picking a runtime.** Use Claude Code if you want the primary path with everything wired in. Use Codex CLI if you prefer the OpenAI-side toolchain and accept the small bookkeeping of the `coworker rtk` shim. Use Cursor if Cursor is your existing editor — `install.sh --with-cursor` mirrors skills and the delegation rule, and `coworker rtk enable` wires the native `beforeShellExecution` hook for full RTK parity.
+**Picking a runtime.** Use whichever client you already work in; the workflow, commands and project state are the same in all three.
 
 ---
 

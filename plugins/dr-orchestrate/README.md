@@ -24,16 +24,16 @@ plugin does not send keys until the operator enables it.
 
 The orchestrator's effective autonomy is **resolved per-space at runtime** via the following chain:
 
-1. `space.yml § autonomy.policy` — the active space's machine-readable policy (e.g. `spaces/arcanada/space.yml`).
+1. `space.yml § autonomy.policy` — the active space's machine-readable policy (e.g. `spaces/<space>/space.yml`).
 2. `dev-tools/resolve-space-autonomy.sh gate --action <kind>` — evaluates the policy, returns `auto` or `escalate`.
 3. `scripts/action_gate.sh gate --action <kind>` — thin wrapper that delegates to the resolver above.
 
-**In a full-autonomy (root-managing) space such as Arcanada, the orchestrator and its agents execute ALL reversible work autonomously and escalate ONLY hard-gated floor actions.** Do not ask the operator about reversible actions (rsync, git operations on feature branches, writing PRDs, conveying briefs, cloning repositories, or resetting a local clone). The hard-gated floor (core `dev-tools/rules/fb-rules.yaml § hard_gated_actions`) — financial/legal operations, irreversible database mutations, git history rewrites, public publications without confirmation — always escalates regardless of per-space policy.
+**In a full-autonomy (root-managing) space, the orchestrator and its agents execute ALL reversible work autonomously and escalate ONLY hard-gated floor actions.** Do not ask the operator about reversible actions (rsync, git operations on feature branches, writing PRDs, conveying briefs, cloning repositories, or resetting a local clone). The hard-gated floor (core `dev-tools/rules/fb-rules.yaml § hard_gated_actions`) — financial/legal operations, irreversible database mutations, git history rewrites, public publications without confirmation — always escalates regardless of per-space policy.
 
 Pipeline phases by feature set (not a fixed autonomy level):
 
 - **Phase 1** — lean rule-based tmux runner.
-- **Phase 2** — multi-backend subagent inference (coworker → claude → codex) + race-safe cooldown + audit schema v2.
+- **Phase 2** — multi-backend subagent inference (claude → codex → cursor) + race-safe cooldown + audit schema v2.
 - **Phase 3** — actor/session-bound Save-as-rule confirmation, exact learned rules, 24-hour re-validation, and a seven-day TTL.
 
 ## Context-Window Self-Clearing
@@ -85,9 +85,12 @@ configurable fallback chain of AI CLI backends:
 
 | Backend | Invocation | Notes |
 |---------|-----------|-------|
-| `coworker-deepseek` (default primary) | `coworker ask --provider deepseek --profile classifier` | OSS coworker CLI; vendor-neutral classifier, not artifact review |
-| `claude` | `claude --print --output-format=json` | Wrapper carries `{type, result}`; resolver re-parses `.result` |
+| `claude` (default primary) | `claude --print --output-format=json` | Wrapper carries `{type, result}`; resolver re-parses `.result` |
 | `codex` | `codex exec --output-last-message -` | Best-effort; chain continues on parse fail |
+| `cursor` | `cursor-agent --print --output-format=json` | Same `.result` re-parse as `claude` |
+
+The order comes from `DR_ORCH_SUBAGENT_CHAIN` (default `claude codex cursor`);
+any other backend name is treated as unrecognised and skipped.
 
 Each backend has a 15 s wall-clock budget (`DR_ORCH_RESOLVER_TIMEOUT_S`), runs
 with FD 3 closed (bats-harness compatibility), and is skipped silently when the
@@ -96,7 +99,7 @@ extraction handles raw bodies, fenced ```` ```json ```` blocks, and prose-
 wrapped objects.
 
 The autonomous-vs-escalate decision lives in `cmd_run.sh`, gated on
-`subagent.confidence_threshold` (default `0.80`).
+`DR_ORCH_CONFIDENCE_THRESHOLD` (default `0.80`).
 
 ## Escalation
 
@@ -173,14 +176,8 @@ submit prompts to the orchestrator and receive escalation / progress events.
 
 ## Backend Install
 
-`coworker` and `claude` should be on `$PATH` of the host that runs the plugin.
-
-```bash
-# coworker (OSS)
-curl -fsSL https://raw.githubusercontent.com/Arcanada-one/coworker/main/install.sh | bash
-
-# claude CLI — see https://docs.claude.com/en/documentation/claude-code
-```
+At least one of `claude`, `codex` or `cursor-agent` should be on `$PATH` of
+the host that runs the plugin. Install each from its vendor's documentation.
 
 The chain falls through silently on missing backends; the resolver still emits
 a clean `chain_exhausted` envelope so the escalation path always runs.

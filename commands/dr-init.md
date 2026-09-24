@@ -44,7 +44,7 @@ receipt. A TBD acceptance skeleton does not authorize implementation.
 ### EXECUTION HOST
 
 1. Source the resolver: `source "${DATARIM_RUNTIME:?}/dev-tools/lib/execution-host.sh"`.
-2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
+2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (map path: `$DATARIM_EXEC_HOSTS_MAP` when set, else the machine-local `$HOME/.claude/local/config/execution-hosts.yml` that `dev-tools/check-execution-host-health.sh` also defaults to; the map is operator-local, never part of the project install, and absent means unconfigured).
 3. On **off-host** (exit code 10), AUTO-DISPATCH -- do NOT stop and hand the command back for the operator to type. The `required_host` binding IS the operator's standing authorization to run there, and dispatch (spawning a remote tmux session) is a reversible transport action; every irreversible step (prod deploy, secret rotation, force-push, public message) stays hard-gated on the remote agent downstream. Contract:
    a. **RUN vs INSPECT.** Auto-dispatch only when intent is to RUN the task (operator asked to run/execute/go, autonomous-mode marker active, or reached via `/dr-auto`). On INSPECT/read-only intent, do NOT dispatch: proceed locally read-only and surface the dispatch directive as information, not a blocking question.
    b. **Before dispatch, probe for an existing session for this task** on the required host. If one exists and is live: DO NOT relaunch -- attach and monitor. If it exists but is dead/stale: report it and ask before resuming (resuming a partially-done mutating task is not unconditionally reversible). If absent: dispatch.
@@ -92,7 +92,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
           --backlog "$DATARIM_ROOT/datarim/backlog.md" \
           --top-n 5 --min-overlap 2
       ```
-      `$DATARIM_RUNTIME` is the framework code root (`code/datarim` in the framework repo, `~/.claude` after install). `$DATARIM_ROOT` is the workspace root (the parent of `datarim/`), so the backlog resolves to `$DATARIM_ROOT/datarim/backlog.md` — same semantic the ID-assign helper and the doctor `--root` contract use.
+      `$DATARIM_RUNTIME` is the framework code root (the framework repo root in the framework repo, the project's `.datarim-runtime/` after install). `$DATARIM_ROOT` is the workspace root (the parent of `datarim/`), so the backlog resolves to `$DATARIM_ROOT/datarim/backlog.md` — same semantic the ID-assign helper and the doctor `--root` contract use.
     - Stream stdout straight to the operator. The script is **exit 0 by contract** — exit code is ignored even on parse anomalies.
     - In non-tty / CI runs (`DATARIM_NONINTERACTIVE=1` or `! [ -t 0 ]`): capture stdout into the step report, never prompt.
     - When the advisory surfaces matches, operator chooses: `duplicate` (abort + `/dr-init {EXISTING-ID}`), `refine-scope` (narrow new task to avoid collision), or `orthogonal` (continue — overlap is incidental). Default on no operator input: continue.

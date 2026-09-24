@@ -68,7 +68,7 @@ Deep maintenance that restructures the knowledge base for clarity and efficiency
 | **Merge duplicates** | Combine two documents covering the same topic into one |
 | **Extract patterns** | Find recurring themes across reflections and create a patterns page in `documentation/` |
 | **Build index** | Create or update `datarim/index.md` — a catalog of all documents (from both `datarim/` and `documentation/archive/`) with one-line summaries |
-| **Update progress** | Sync `progress.md` with actual state of tasks, backlog, and archives |
+| **Update progress** | Reconcile `tasks.md`, `backlog.md` and the per-task description files with the actual state of tasks and archives |
 | **Archive stale** | Move completed/obsolete documents to `archive/` with proper metadata |
 | **Cross-reference** | Add bidirectional links between related documents (PRD ↔ task ↔ reflection ↔ archive) |
 | **Tag extraction** | Identify common themes and add tags to document frontmatter |
@@ -157,7 +157,7 @@ Dream appends to `datarim/history/activity-log.md`:
 - Lint: 3 issues found (1 orphan, 1 broken link, 1 stale reference)
 - Fixed: renamed 2 files to match naming convention
 - Consolidated: merged duplicate reflection notes
-- Updated: index.md, progress.md
+- Updated: index.md, tasks.md
 - Duration: ~2 minutes
 
 ## [2026-04-08] dream | Quick lint

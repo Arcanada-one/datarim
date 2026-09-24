@@ -23,7 +23,7 @@ consumer-facing verification recipe lives in
   (e.g. operating model, mandatory skill schema). Major bumps require
   a written migration note in `CHANGELOG.md`.
 
-> **Autonomous patch/minor (v2.27.0+).** For Arcanada-owned packages the agent
+> **Autonomous patch/minor (v2.27.0+).** For packages the maintaining organisation owns, the agent
 > MAY drive a `patch`/`minor` release end-to-end without an operator prompt when
 > every fail-closed gate is green — `dev-tools/release-classify.sh` (verdict
 > `escalate=false`) then `dev-tools/release-gate.sh` (manifest version ==

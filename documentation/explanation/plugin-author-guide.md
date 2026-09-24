@@ -11,7 +11,7 @@ Plugins contain assets in up to four categories:
 - `commands` — slash-command implementations
 - `templates` — document templates
 
-When you enable a plugin, `dr-plugin` symlinks its assets from `datarim/plugin-storage/<id>/` into `~/.claude/<category>/<plugin-id>/`. Disabling removes the symlinks and restores any shadowed core files. Third-party plugins are never loaded automatically.
+When you enable a plugin, `dr-plugin` symlinks its assets from `datarim/plugin-storage/<id>/` into the project runtime at `.datarim-runtime/local/<category>/<plugin-id>/`. Disabling removes the symlinks and restores any shadowed core files. Third-party plugins are never loaded automatically.
 
 ## 2. Plugin layout
 
@@ -164,23 +164,25 @@ All symlinks created by `dr-plugin` are verified to point inside the resolved pl
 
 ## 8. Testing your plugin locally
 
-You can test without polluting your production `~/.claude/local` tree.
+You can test without touching a real project's `.datarim-runtime/local` tree.
 
 ```bash
 # nosec-extract
-export DR_PLUGIN_WORKSPACE=/tmp/test-workspace
-export DR_PLUGIN_RUNTIME_ROOT=/tmp/test-claude-local
+scratch="$(mktemp -d)"
+git -C "$scratch" init -q
+/path/to/datarim/install.sh --project "$scratch" --init
+cd "$scratch"
 
-mkdir -p "$DR_PLUGIN_WORKSPACE/datarim"
-cd "$DR_PLUGIN_WORKSPACE"
-
-dr-plugin enable /path/to/your-plugin
-dr-plugin list
-dr-plugin doctor
-dr-plugin disable your-plugin-id
+bash .datarim-runtime/scripts/dr-plugin.sh enable /path/to/your-plugin
+bash .datarim-runtime/scripts/dr-plugin.sh list
+bash .datarim-runtime/scripts/dr-plugin.sh doctor
+bash .datarim-runtime/scripts/dr-plugin.sh disable your-plugin-id
 ```
 
-Unset the variables to return to normal operation.
+`dr-plugin` only operates inside a project that has a Datarim install, and
+`DR_PLUGIN_RUNTIME_ROOT`, if set, must equal that project's
+`.datarim-runtime/local`; any other value is refused. Delete the scratch
+project when you are done.
 
 ## 9. Publishing
 

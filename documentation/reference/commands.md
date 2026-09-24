@@ -114,7 +114,7 @@ description: {one-line description}
 # /{command} -- {Title}
 
 **Role**: {Agent Name}
-**Source**: `$HOME/.claude/agents/{agent}.md`
+**Source**: `${DATARIM_RUNTIME:?}/agents/{agent}.md`
 
 ## Instructions
 0. **RESOLVE PATH**: Find datarim/ directory

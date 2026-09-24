@@ -1,7 +1,7 @@
 # Recovering Runtime Files from Compacted Session Context
 
-**When to use:** A runtime file in `${DATARIM_RUNTIME:?}/` (skill, agent, command, template) has been overwritten or deleted in the current session, and:
-- No git history exists for the runtime tree (typical case).
+**When to use:** A framework file (skill, agent, command, template) has been overwritten or deleted in the current session, and:
+- The lost content was never committed to the framework source repository, so re-running the project install (`install.sh --project <path>`, which rebuilds `.datarim-runtime/` from the source) cannot bring it back.
 - External backups (Time Machine, APFS snapshots, cloud sync) are unavailable or not configured.
 - The lost file was previously **invoked via the Skill tool** or **read via the Read tool** earlier in the same session.
 
@@ -15,12 +15,12 @@
 2. Extract the body text verbatim. Strip the surrounding `<system-reminder>...</system-reminder>` wrapping; keep the inner markdown.
 3. Validate the extracted content: check frontmatter opens with `---` / closes with `---`, sections are intact, no truncation markers (`... (truncated`).
 4. Write back with the Write tool to `${DATARIM_RUNTIME:?}/{agents,skills,commands,templates}/<name>.md`.
-5. Under symlink mode the write IS the commit-ready edit (runtime IS the repo by inode); under copy mode rebuild the runtime via `./install.sh --copy --force --yes` after committing the repo copy.
+5. Datarim 3.0 installs a pinned copy into each project, so the runtime is not the source: write the recovered file into the framework source repository, commit it there, then re-run `./install.sh --project <path>` to refresh `.datarim-runtime/`. A file written only into `.datarim-runtime/` is lost on the next install.
 
 **Limits:**
 
 - Only recovers files that were loaded **earlier in the same session before the incident**. Files never invoked in the session are not in the context.
 - If compaction was itself more aggressive than default, some skill bodies may be summarized rather than verbatim. Check for ellipses or `[summary]` markers before trusting.
-- Not a substitute for real backups — this is an emergent, opportunistic recovery path. Set up proper backup for the runtime tree (e.g. APFS snapshots or a git-tracked `~/.claude/`) for durability.
+- Not a substitute for real backups — this is an emergent, opportunistic recovery path. Commit framework edits to the source repository promptly; that repository is the durable copy, and `.datarim-runtime/` is rebuilt from it.
 
 **Source:** prior incident — `install.sh --force` during a prior incident /dr-archive overwrote 4 runtime files. 2 of them (`commands/dr-do.md`, `commands/dr-qa.md`) were recovered verbatim from system-reminder blocks preserved through /compact. Channel 2 of the Disaster Recovery checklist in `skills/evolution/SKILL.md`.

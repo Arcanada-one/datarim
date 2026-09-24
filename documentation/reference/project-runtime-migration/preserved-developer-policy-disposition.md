@@ -26,7 +26,7 @@ The patch is preserved twice and neither copy is to be dropped:
 ## Disposition: NOT applied to the product. Preserved for separate decision.
 
 This is a deliberate hold, not an oversight, and not a judgement that the policy is wrong. The
-patch is a coherent expression of a real Arcanada directive. It simply cannot be carried into this
+patch is a coherent expression of a real directive of the deployment that proposed it. It simply cannot be carried into this
 public product as written, for three reasons measured in the candidate tree on 2026-09-22 rather
 than assumed:
 
@@ -45,7 +45,7 @@ than assumed:
    has never implemented, so in practice it would not make test-first opt-in for consumers — it
    would simply remove the testing discipline, with the escape hatch inert.
 
-Points 1-3 are properties of the *product*, not objections to the *policy*. Arcanada is entitled
+Points 1-3 are properties of the *product*, not objections to the *policy*. That deployment is entitled
 to run graph-verified change in its own spaces; it already does, under its own mandate, and that
 is unaffected by this disposition.
 
@@ -54,7 +54,7 @@ is unaffected by this disposition.
 Should the product adopt this policy, it needs to be built rather than pasted:
 
 - A product-local statement of graph-verified change, written for consumers who have no access to
-  Arcanada's governance, replacing the private citations with public ones.
+  that deployment's governance, replacing the private citations with public ones.
 - A real `verification_policy` mechanism in the space/project contract, with a defined default,
   so that `tdd-required` is a switch that exists.
 - A decision on the default for consumers. Silently flipping every downstream project from
