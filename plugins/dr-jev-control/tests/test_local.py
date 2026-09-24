@@ -182,4 +182,20 @@ class TestJevClientBudgetOverride(unittest.TestCase):
         self.assertEqual(seen["timeout"], 15)
 
 
+
+class TestReportHintsNameCurrentLaunchers(unittest.TestCase):
+    """The empty-ledger hints pointed at `dr-claude-jev --live` and
+    `dr-jev route`, launchers that no longer exist."""
+
+    def test_hints_name_the_jev_launchers(self):
+        import cli_report
+        with tempfile.TemporaryDirectory() as directory:
+            cfg = {"telemetry": {"path": str(Path(directory)/"ledger.jsonl")}}
+            texts = [cli_report.render_last(cfg), cli_report.render_stats(cfg)]
+        for text in texts:
+            self.assertNotIn("dr-claude-jev", text)
+            self.assertNotIn("dr-jev", text)
+            self.assertIn("jevclaude", text)
+        self.assertIn("--live", texts[1])
+
 if __name__=='__main__':unittest.main()
