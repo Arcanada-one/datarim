@@ -51,6 +51,11 @@ The ledger is under `.datarim-runtime/state/jev/`; use `jev stats` to inspect
 predicted versus observed decisions. Key material lives outside that directory
 in `config/credentials/jev/api-key`. The installer preserves both across updates.
 
+`config/jev-control.json` in this plugin is the **template**, not a live settings
+file: a project install copies it to `.datarim-runtime/jev-config.json`, host
+Jev to `~/.config/jev/config.json`. Edit the copy. `jev doctor` names the file
+it reads as `config_path`.
+
 ## Switching policy
 
 Switches are evaluated at phase boundaries and paced between phases. Defaults:

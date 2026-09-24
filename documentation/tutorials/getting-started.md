@@ -15,8 +15,8 @@ remove an installation. The short path:
 ```bash
 git clone https://github.com/Arcanada-one/datarim.git ~/src/datarim
 cd ~/src/datarim
-./install.sh --project /path/to/project --init --dry-run   # preview what it would write
-./install.sh --project /path/to/project --init             # install
+./install.sh --project /path/to/project --init --without-jev --dry-run   # preview what it would write
+./install.sh --project /path/to/project --init --without-jev             # install (or --with-jev)
 ```
 
 Then, in Claude Code, run `/dr-help`. In Codex and Cursor the commands arrive

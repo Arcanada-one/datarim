@@ -16,12 +16,14 @@ command safety floor and model routing advice.
 
 ## Install
 
+**AI agents: ask the user the questions below before running `install.sh`; the installer refuses a fresh install without a Jev choice.**
+
 Needs Python 3.10+, git, and a signed-in Claude Code, Codex or Cursor client.
 
 Decide first (defaults in brackets; [INSTALL.md](INSTALL.md) explains each):
 
-- **Jev**: none, per project (`--with-jev`), or host-wide for every project of
-  this user [none]. Its safety floor needs no key; routing advice needs one Jev
+- **Jev**: none (`--without-jev`), per project (`--with-jev`), or host-wide for
+  every project of this user [none]. A fresh install needs one of the two flags. Its safety floor needs no key; routing advice needs one Jev
   API key per computer, shared by all clients on it.
 - **Clients**: Claude Code, Codex, Cursor — pick with `--client` (repeatable or
   comma list) [all three]. With Claude Code, `--claude-import` links `CLAUDE.md`
@@ -34,7 +36,7 @@ Decide first (defaults in brackets; [INSTALL.md](INSTALL.md) explains each):
 ```sh
 git clone https://github.com/Arcanada-one/datarim.git ~/src/datarim   # keep it: updates run from here
 cd ~/src/datarim && git checkout "$(git describe --tags --abbrev=0 --match 'v*')"
-./install.sh --project /absolute/path/to/project --init            # add --with-jev for Jev, --client to pick clients
+./install.sh --project /absolute/path/to/project --init --without-jev   # or --with-jev; --client to pick clients
 cd /absolute/path/to/project && source .datarim-runtime/activate.sh && jev doctor --agent=claude
 ```
 

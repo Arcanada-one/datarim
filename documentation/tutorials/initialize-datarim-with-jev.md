@@ -6,8 +6,9 @@ host-wide Jev. Jev is optional: a provider failure must not prevent plain
 Datarim work. This page explains the key, the checks and the entry points.
 
 The installation creates `config/credentials/jev/api-key` if absent, with mode
-0600 and a private parent directory. Open that file with an editor and paste one
-new key on one line. Use a different key on each computer. Never put it into
+0600 and a private parent directory, and prints its path. Open that file with an
+editor and paste one new key on one line; do not `echo`/`printf` the key into it
+(the command lands in your shell history). Use a different key on each computer. Never put it into
 shell history, README, settings JSON, a prompt, or a Git commit. The credentials
 directory is ignored by Git. Existing key files are never overwritten.
 

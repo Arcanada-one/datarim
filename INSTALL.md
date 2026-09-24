@@ -1,5 +1,8 @@
 # Installing Datarim
 
+**AI agents: ask the user the questions below before running `install.sh`; the installer refuses a fresh install without a Jev choice.** The questions are in
+[If you are an AI agent](#if-you-are-an-ai-agent-asked-to-install-datarim).
+
 This is the single install guide for Datarim and its optional companion, Jev. It is
 written for people and for AI agents alike. Every command, path and variable here
 was taken from the installer code (`scripts/project_install.py`,
@@ -26,7 +29,9 @@ Follow these steps in order. Do not improvise other install methods.
    `curl -fsSL https://raw.githubusercontent.com/Arcanada-one/datarim/main/INSTALL.md`
    — or read `INSTALL.md` in a clone; a summarizing web fetch drops most of it.
    Do not install anything until the user has answered question 1 below or told
-   you to use the defaults.
+   you to use the defaults. The installer enforces this: a fresh install without
+   `--with-jev` or `--without-jev` exits with code 2 and prints the questions;
+   `--dry-run` shows the plan and the same questions.
 2. **Establish the two paths.**
    - `PROJECT` — the absolute path of the project the user wants Datarim in
      (usually the current working directory). It must be an existing directory
@@ -119,9 +124,12 @@ changes nothing.
 ### Option A — Datarim only (default)
 
 ```sh
-./install.sh --project "$PROJECT" --init --dry-run
-./install.sh --project "$PROJECT" --init
+./install.sh --project "$PROJECT" --init --without-jev --dry-run
+./install.sh --project "$PROJECT" --init --without-jev
 ```
+
+`--without-jev` is required on a fresh install: without it, or `--with-jev`,
+the installer refuses and prints the questions above.
 
 ### Option B — Datarim with project-level Jev
 
@@ -177,7 +185,7 @@ install.
 | `--init` | Creates `datarim/tasks.md` and `datarim/backlog.md` if missing. Existing files are kept. |
 | `--expose-skills` | Also writes every framework skill into `.agents/skills/`, `.claude/skills/`, `.cursor/skills/`. Their descriptions load into every session. Kept across updates once set. |
 | `--context <relative/path>` | Lets an existing nested git repository use this installation. Repeat per repository. Without it, a nested repository is refused. Kept across updates; given again, it replaces the list; `--no-context` clears it. |
-| `--without-jev`, `--no-host-jev` | Turn off a recorded `--with-jev` or `--host-jev` on update. `--without-jev` withdraws the project's Jev hooks and `jev-config.json`; the key file stays. |
+| `--without-jev`, `--no-host-jev` | `--without-jev` is the "no Jev" answer a fresh install requires (it or `--with-jev`). On update they turn off a recorded `--with-jev` or `--host-jev`; `--without-jev` then withdraws the project's Jev hooks and `jev-config.json`; the key file stays. |
 | `--dry-run` | Prints the plan as JSON; writes nothing. |
 | `--uninstall` | See [Uninstall](#uninstall). |
 
@@ -202,7 +210,8 @@ install only adds Jev entries to it.
 ### The Jev API key
 
 Open the key file for your install in an editor, paste the key on one line,
-save. The file already exists with mode `0600`; keep it that way.
+save. Do not `echo` or `printf` the key into the file: the command lands in your
+shell history. A `--with-jev` install prints the exact key file path. The file already exists with mode `0600`; keep it that way.
 
 | Install | Key file |
 |---|---|
@@ -284,6 +293,9 @@ Expected `jev doctor` output (JSON), exit code `0`:
   `1`. Without `--agent`, doctor checks all three clients, so a client you do
   not use becomes a finding;
 - `"hook_clients"` — the clients whose Jev hooks this install registered;
+- `"config_path"` — the Jev settings file in use (`.datarim-runtime/jev-config.json`,
+  or `~/.config/jev/config.json` with host Jev); `null` without Jev. The
+  plugin's `config/jev-control.json` is only the template the installer copies;
 - `"native_agents_live"` — per client, `"state": "live"` with a delivery count
   and the last delivery time once the ledger holds a `hook_delivery` record
   from that client; `not_measured` (with a reason) until the client has run a
@@ -442,6 +454,7 @@ backups).
 | `Unmanaged or locally modified file: <path>` | A file the install would write already exists with other content (or you edited a managed file). Move or reconcile it, then rerun. |
 | `Existing unmanaged .datarim-runtime; refusing overwrite` | A `.datarim-runtime/` without `installation.json`, for example a manual copy. Move it away. |
 | `Another installation transaction owns this project` | Another install or update is running on the project. Wait for it. |
+| `Datarim needs your choices before installing` (exit code `2`) | A fresh install without `--with-jev` or `--without-jev`. Ask the user the questions it prints, then rerun with one of the two. Updates keep the recorded choice and never ask. |
 | `--host-jev requires --with-jev` | Pass both. |
 | `Install host Jev before selecting host ownership` | `--host-jev` without host Jev. Run `scripts/jev_host_install.py` first (option C). |
 | `jev install: Commit and verify the source revision before host installation` | Host Jev needs a clean git checkout. Discard local changes or check out a tag; a release tarball without `.git` cannot install host Jev. |

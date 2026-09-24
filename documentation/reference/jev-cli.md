@@ -55,7 +55,8 @@ Hooks you disabled stay disabled. With host Jev, `jevcodex` does the same before
 each launch unless `JEV_NO_AUTO_TRUST=1`; for project hooks only an explicit
 `jev trust` does, because the project hook script lives in the project.
 
-`jev doctor` also reports a finding for every selected client whose Jev hook
+`jev doctor` also reports `config_path`, the settings file it reads (the
+plugin's `jev-control.json` is only the template installers copy), a finding for every selected client whose Jev hook
 file or registered event is missing, `hook_clients` (the clients the install
 registered), and `native_agents_live`: per client, `live` with a delivery count
 and time once the ledger holds a `hook_delivery` record from it, otherwise
