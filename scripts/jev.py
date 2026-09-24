@@ -35,6 +35,26 @@ CLIENT_VALUE_OPTIONS = {
 }
 
 
+#: The words Jev itself handles as its first positional argument.
+SUBCOMMANDS = ('doctor', 'stats', 'on', 'off', 'permissions', 'trust')
+
+
+def bare_word_error(task):
+    """The refusal for a single bare word that is not a subcommand, or None.
+
+    `jev status --agent=claude` used to start a nested client session with
+    "status" as its prompt. A one-word task with no spaces that is not an
+    existing file is almost always a mistyped subcommand, so it is refused;
+    a sentence, or an existing file named as the task, still launches.
+    """
+    if task is None or task in SUBCOMMANDS or re.search(r'\s', task) or not task:
+        return None
+    if Path(task).exists():
+        return None
+    return (f"unknown subcommand '{task}'; subcommands: {', '.join(SUBCOMMANDS)}; "
+            'to send it as a task, quote a sentence or use --')
+
+
 def parse(argv=None):
     alias = {'jevcodex': 'codex', 'jevclaude': 'claude', 'jevcursor': 'cursor'}.get(Path(sys.argv[0]).name)
     p = argparse.ArgumentParser(
@@ -58,7 +78,7 @@ def parse(argv=None):
     p.add_argument('--continue-prompt')
     p.add_argument('--done-marker')
     p.add_argument('--version', action='version', version='Datarim Jev project dispatcher 1')
-    p.add_argument('task', nargs='?', help='Task, or doctor / stats / on / off / permissions / trust')
+    p.add_argument('task', nargs='?', help='Task, or ' + ' / '.join(SUBCOMMANDS))
     p.add_argument('setting', nargs='?', help=argparse.SUPPRESS)
     values = list(sys.argv[1:] if argv is None else argv)
     extra = []
@@ -90,6 +110,9 @@ def parse(argv=None):
     extra = ahead + unknown + extra
     if a.setting is not None and a.task != 'permissions':
         p.error(f'unexpected argument: {a.setting}')
+    refusal = bare_word_error(a.task)
+    if refusal:
+        p.error(refusal)
     if alias and a.agent != alias:
         p.error('An alias cannot select a different agent')
     if not a.live and any(x is not None for x in (a.max_turns, a.max_seconds, a.continue_prompt, a.done_marker)):

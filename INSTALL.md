@@ -148,6 +148,7 @@ safety floor works without any key; a missing key is not a reason to answer
 | Nested repositories to include | `--context <relative/path>`, once per repository |
 | Permission mode full | after the install: `jev permissions full` |
 | Release tag or `main` | before the install, in the source checkout: `git checkout <tag>` or `git checkout main` |
+| "Defaults" | `--without-jev --client <the clients installed on the machine> --init`, plus `--claude-import` when Claude Code is one of them and the project has an `AGENTS.md` but no `CLAUDE.md` |
 
 ### Only if the user chose host Jev: install host Jev first
 
