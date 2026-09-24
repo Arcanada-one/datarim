@@ -1,8 +1,8 @@
 // Independent framework consumer of the immutable controller provenance ABI.
 import { createHash } from 'node:crypto';
-import { readBoundFile, scanSourceTree, sourceParts } from './continuation-provenance-fs.mjs';
+import { readBoundFile, scanSourceTree, sourceParts, assertSupportedPlatform, DEFAULT_WORKSPACE_ROOT } from './continuation-provenance-fs.mjs';
 
-const LIMIT = 262144, WORKSPACE = '/workspace';
+const LIMIT = 262144;
 const BINDING = ['childRunId', 'answerId', 'intentDigest', 'checkpointId', 'checkpointDigest',
   'sourceProfileDigest', 'frameworkCommit', 'adapterVersion', 'inputDigest'];
 const fail = () => { throw new Error('continuation_provenance_unavailable'); };
@@ -109,6 +109,7 @@ export function provenanceView(value) {
 }
 /** Filesystem result is current comparison, never a new attestation. */
 export async function inspectWorkspace(value, workspaceRoot, { requireMatch = false } = {}) {
+  assertSupportedPlatform();
   const source = value.source, root = `${workspaceRoot}/${source.repository}`;
   let matches = true;
   const artifacts = [], observations = new Map(); let artifactBytes = 0;
@@ -136,6 +137,6 @@ export async function inspectWorkspace(value, workspaceRoot, { requireMatch = fa
     sourceSnapshot: { fileCount: files.length, digest: hash(canonical(files)) }, artifacts,
     individualUnindexedFiles: 'fresh-unverified', productionHold: true, approvalInheritance: 'none' };
 }
-export async function workspaceView(value, requireMatch = false) {
-  return boundedView(await inspectWorkspace(value, WORKSPACE, { requireMatch }));
+export async function workspaceView(value, requireMatch = false, workspaceRoot = DEFAULT_WORKSPACE_ROOT) {
+  return boundedView(await inspectWorkspace(value, workspaceRoot, { requireMatch }));
 }

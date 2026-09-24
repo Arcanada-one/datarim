@@ -1,15 +1,23 @@
 #!/usr/bin/env node
 // Ordinary-answer ABI v1. PREPARED and served bytes are not model consumption,
 // stage evidence, durable acknowledgement, or authorization to release HOLD.
+//
+// Linux only; every other platform is refused with `continuation_unsupported_platform`
+// (CLI exit 3, nothing on stdout) before any resource is opened. Roots come from
+// explicit `--runtime-root=` / `--workspace-root=` arguments with documented
+// defaults; no environment variable is ever read.
 import { constants } from 'node:fs';
-import { open, realpath } from 'node:fs/promises';
+import { access, open, realpath } from 'node:fs/promises';
+import { isAbsolute, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { validateProvenance, provenanceView, workspaceView } from './continuation-provenance.mjs';
-import { readBoundFile } from './continuation-provenance-fs.mjs';
+import { readBoundFile, assertSupportedPlatform, DEFAULT_RUNTIME_ROOT, DEFAULT_WORKSPACE_ROOT,
+  UNSUPPORTED_PLATFORM } from './continuation-provenance-fs.mjs';
 
-const ROOT = '/worker/runtime';
+export { DEFAULT_RUNTIME_ROOT, DEFAULT_WORKSPACE_ROOT, UNSUPPORTED_PLATFORM };
 const LIMIT = 65536;
+const MODES = ['--model-view', '--provenance-view', '--workspace-status'];
 const STAGES = ['prd', 'design', 'plan', 'do', 'qa', 'compliance'];
 const BINDING = ['childRunId', 'answerId', 'intentDigest', 'checkpointId',
   'checkpointDigest', 'sourceProfileDigest', 'frameworkCommit', 'adapterVersion', 'inputDigest'];
@@ -97,13 +105,16 @@ function validateBootstrap(b, now, fresh = true) {
   requireValue(matches(b.frameworkCommit, /^[a-f0-9]{40}$/)); hold(b);
   const c = b.checkpoint;
   shape(c, ['schemaVersion', 'parentVersion', 'questionId', 'questionVersion', 'questionContextDigest',
-    'checkpointId', 'parentRunId', 'taskId', 'asanaGid', 'question', 'sourceProfileDigest',
+    'checkpointId', 'parentRunId', 'taskId', 'trackerRef', 'question', 'sourceProfileDigest',
     'manifestDigest', 'createdAt', 'expiresAt', 'productionHold', 'approvalInheritance']);
   requireValue(c.schemaVersion === 1); hold(c);
   version(c.parentVersion); version(c.questionVersion);
   uuid(c.questionId); uuid(c.checkpointId); uuid(c.parentRunId);
   sha(c.questionContextDigest); sha(c.sourceProfileDigest); sha(c.manifestDigest);
-  requireValue(matches(c.taskId, /^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$/) && matches(c.asanaGid, /^[0-9]{1,32}$/));
+  requireValue(matches(c.taskId, /^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$/));
+  // Tracker-agnostic reference to the external work item, or null when there is
+  // none. Opaque to the reader, e.g. `jira:ABC-123` or `github:org/repo#42`.
+  requireValue(c.trackerRef === null || matches(c.trackerRef, /^[A-Za-z0-9][A-Za-z0-9_.:\/#@+-]{0,255}$/), 'tracker');
   const created = time(c.createdAt), expires = time(c.expiresAt);
   requireValue(created <= now && (!fresh || expires > now) && expires > created && expires - created <= 900000, 'expired');
   validateQuestion(c.question, b.response);
@@ -195,12 +206,29 @@ async function readResource(root, name, limit = LIMIT) {
     return parse(buffer.subarray(0, size), limit);
   } finally { await file.close(); }
 }
-async function resources() {
+function rootOption(value, fallback) {
+  const root = value === undefined ? fallback : value;
+  requireValue(typeof root === 'string' && isAbsolute(root) && resolve(root) === root && root !== '/', 'arguments');
+  return root;
+}
+async function notWritable(root) {
+  // The runtime root is an immutable controller mount. A directory this process
+  // can write (for example the workspace) cannot vouch for controller resources.
+  try { await access(root, constants.W_OK); } catch (error) {
+    if (['EACCES', 'EROFS', 'EPERM'].includes(error.code)) return true;
+    throw error;
+  }
+  return false;
+}
+async function resources(runtimeRoot) {
+  assertSupportedPlatform();
+  const ROOT = rootOption(runtimeRoot, DEFAULT_RUNTIME_ROOT);
   try {
-    requireValue(await realpath(ROOT) === ROOT, 'custody');
+    requireValue(await realpath(ROOT) === ROOT && await notWritable(ROOT), 'custody');
     const root = await open(ROOT, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
     try {
       const before = await root.stat({ bigint: true });
+      requireValue(before.isDirectory() && (before.mode & 0o022n) === 0n, 'custody');
       const data = { bootstrap: await readResource(root, 'continuation.json'), control: await readResource(root, 'continuation-control.json'),
         provenance: await readResource(root, 'continuation-provenance.json', 262144) };
       const current = await open(ROOT, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
@@ -214,12 +242,12 @@ async function resources() {
 }
 /** Hashes are meaningful only after the separate controller resource and index
  * were validated. Never infer replacement authority from an answer or source. */
-async function verifyRestartArtifacts(data){
+async function verifyRestartArtifacts(data, workspaceRoot){
   if(data.control.schemaVersion!==3)return;
   const r=data.control.stageRestart,index=data.provenance.artifactIndex;
   for(const path of [r.attestationPath,r.acceptancePath,r.evidencePath])requireValue(index.some(f=>f.path===path),'stage_restart_index');
-  const attestationBytes=await readBoundFile('/workspace',r.attestationPath);
-  const acceptanceBytes=await readBoundFile('/workspace',r.acceptancePath);
+  const attestationBytes=await readBoundFile(workspaceRoot,r.attestationPath);
+  const acceptanceBytes=await readBoundFile(workspaceRoot,r.acceptancePath);
   const shaBytes=b=>createHash('sha256').update(b).digest('hex');
   requireValue(shaBytes(attestationBytes)===index.find(f=>f.path===r.attestationPath).sha256&&
     shaBytes(acceptanceBytes)===r.acceptanceSha256&&index.find(f=>f.path===r.acceptancePath).sha256===r.acceptanceSha256,'stage_restart_artifacts');
@@ -229,36 +257,59 @@ async function verifyRestartArtifacts(data){
     a.classification==='controller-reviewed-replacement'&&a.taskCompletionEvidence===false&&a.productionHold===true&&a.approvalInheritance==='none'&&
     data.provenance.source.lineage.sanitizedRevision===r.candidateRevision,'stage_restart_attestation');
 }
-export async function readContinuationModelView() {
-  const data = await resources();
+export async function readContinuationModelView({ runtimeRoot, workspaceRoot } = {}) {
+  assertSupportedPlatform();
+  const workspace = rootOption(workspaceRoot, DEFAULT_WORKSPACE_ROOT);
+  const data = await resources(runtimeRoot);
   const view = renderContinuationModelView(data);
   validateProvenance(data.provenance, data.bootstrap, data.control);
-  await verifyRestartArtifacts(data);
+  await verifyRestartArtifacts(data, workspace);
   return view;
 }
-export async function readContinuationProvenanceView(workspaceStatus = false) {
-  const data = await resources();
+export async function readContinuationProvenanceView({ workspaceStatus = false, runtimeRoot, workspaceRoot } = {}) {
+  assertSupportedPlatform();
+  const workspace = rootOption(workspaceRoot, DEFAULT_WORKSPACE_ROOT);
+  const data = await resources(runtimeRoot);
   tree(data.bootstrap); tree(data.control);
   validateBootstrap(data.bootstrap, Date.now(), false); validateControl(data.control, data.bootstrap);
   const verified = validateProvenance(data.provenance, data.bootstrap, data.control);
   if (!workspaceStatus) return provenanceView(verified);
-  return workspaceView(verified);
+  return workspaceView(verified, false, workspace);
 }
-export async function prepareContinuation(input) {
+export async function prepareContinuation(input, { runtimeRoot, workspaceRoot } = {}) {
+  assertSupportedPlatform();
   shape(input, ['bootstrap', 'binding']); tree(input);
-  const data = await resources();
+  const workspace = rootOption(workspaceRoot, DEFAULT_WORKSPACE_ROOT);
+  const data = await resources(runtimeRoot);
   renderContinuationModelView(data);
   requireValue(canonical(input.bootstrap) === canonical(data.bootstrap), 'binding');
   validateBinding(input.binding, data.bootstrap);
-  await workspaceView(validateProvenance(data.provenance, data.bootstrap, data.control), true);
-  await verifyRestartArtifacts(data);
+  await workspaceView(validateProvenance(data.provenance, data.bootstrap, data.control), true, workspace);
+  await verifyRestartArtifacts(data, workspace);
   const { childRunId, answerId, checkpointId, inputDigest } = input.binding;
   return { kind: 'ordinary-answer-prepared', childRunId, answerId, checkpointId, inputDigest, productionHold: true };
 }
+/** `<mode> [--runtime-root=<abs>] [--workspace-root=<abs>]`, each flag at most once. */
+export function parseArguments(argv) {
+  const [mode, ...rest] = argv;
+  requireValue(MODES.includes(mode) && rest.length <= 2, 'arguments');
+  const options = {};
+  for (const argument of rest) {
+    const match = /^--(runtime-root|workspace-root)=(\/.*)$/.exec(argument);
+    requireValue(match, 'arguments');
+    const key = match[1] === 'runtime-root' ? 'runtimeRoot' : 'workspaceRoot';
+    requireValue(!(key in options), 'arguments');
+    options[key] = rootOption(match[2]);
+  }
+  return { mode, options };
+}
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    requireValue(process.argv.length === 3 && ['--model-view', '--provenance-view', '--workspace-status'].includes(process.argv[2]), 'arguments');
-    process.stdout.write(process.argv[2] === '--model-view' ? await readContinuationModelView() :
-      await readContinuationProvenanceView(process.argv[2] === '--workspace-status'));
+  let supported = true;
+  try { assertSupportedPlatform(); } catch { supported = false; }
+  if (!supported) { process.stderr.write(`${UNSUPPORTED_PLATFORM}\n`); process.exitCode = 3; }
+  else try {
+    const { mode, options } = parseArguments(process.argv.slice(2));
+    process.stdout.write(mode === '--model-view' ? await readContinuationModelView(options) :
+      await readContinuationProvenanceView({ ...options, workspaceStatus: mode === '--workspace-status' }));
   } catch { process.stderr.write('continuation_unavailable\n'); process.exitCode = 1; }
 }

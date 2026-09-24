@@ -6,17 +6,19 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readBoundFile, scanSourceTree } from '../dev-tools/continuation-provenance-fs.mjs';
+import { readBoundFile, scanSourceTree, assertSupportedPlatform, UNSUPPORTED_PLATFORM } from '../dev-tools/continuation-provenance-fs.mjs';
+import { LINUX } from './fixtures.mjs';
 
-// Fixtures must not be group- or world-writable: the reader refuses such entries by design
-// (mode & 0o7022). A host umask of 0002 would otherwise fail these tests for the wrong reason.
-process.umask(0o022);
+// Behaviour tests need the descriptor-anchored Linux walk. Off Linux they are
+// skipped (and counted as skipped), never passed by a blanket rejection; the
+// paired platform test below asserts the exact refusal instead.
+const linuxOnly = { skip: LINUX ? false : 'descriptor-anchored reads exist only on Linux; the refusal is asserted separately' };
 
 async function fixture(fn) {
   const root = await mkdtemp(join(tmpdir(), 'provenance-fs-'));
   try { await fn(root); } finally { await rm(root, { recursive: true, force: true }); }
 }
-test('bound reads reject links, traversal and special namespaces', async () => fixture(async root => {
+test('bound reads reject links, traversal and special namespaces', linuxOnly, async () => fixture(async root => {
   await writeFile(join(root, 'source.ts'), 'export const count = 1;\n', { mode: 0o600 });
   assert.equal((await readBoundFile(root, 'source.ts')).toString(), 'export const count = 1;\n');
   await symlink('source.ts', join(root, 'alias.ts'));
@@ -26,7 +28,7 @@ test('bound reads reject links, traversal and special namespaces', async () => f
   await link(join(root, 'source.ts'), join(root, 'hard.ts'));
   await assert.rejects(readBoundFile(root, 'source.ts'));
 }));
-test('source scan authenticates bytes and modes, skips only generated root git directory', async () => fixture(async root => {
+test('source scan authenticates bytes and modes, skips only generated root git directory', linuxOnly, async () => fixture(async root => {
   await mkdir(join(root, '.git')); await writeFile(join(root, '.git', 'ignored'), 'git metadata');
   await mkdir(join(root, 'src')); await mkdir(join(root, 'src', 'auth'));
   await writeFile(join(root, 'src', 'auth', 'login.ts'), 'known source\n', { mode: 0o600 });
@@ -37,31 +39,31 @@ test('source scan authenticates bytes and modes, skips only generated root git d
   await writeFile(join(root, '.env'), 'not a real secret');
   await assert.rejects(scanSourceTree(root));
 }));
-test('omissions are rejected before reading their contents', async () => fixture(async root => {
+test('omissions are rejected before reading their contents', linuxOnly, async () => fixture(async root => {
   await writeFile(join(root, 'omitted.txt'), 'forbidden input');
   await assert.rejects(scanSourceTree(root, { omissions: ['omitted.txt'] }));
 }));
-test('root and nested directory symlinks fail closed', async () => fixture(async root => {
+test('root and nested directory symlinks fail closed', linuxOnly, async () => fixture(async root => {
   await mkdir(join(root, 'real')); await writeFile(join(root, 'real', 'file.ts'), 'x');
   await symlink('real', join(root, 'alias'));
   await assert.rejects(readBoundFile(root, 'alias/file.ts'));
   await assert.rejects(scanSourceTree(join(root, 'alias')));
   await assert.rejects(scanSourceTree(root));
 }));
-test('bounded reads and scans reject oversized inputs without partial success', async () => fixture(async root => {
+test('bounded reads and scans reject oversized inputs without partial success', linuxOnly, async () => fixture(async root => {
   await writeFile(join(root, 'a.ts'), '12345');
   await assert.rejects(readBoundFile(root, 'a.ts', { maxBytes: 4 }));
   await assert.rejects(scanSourceTree(root, { maxTotalBytes: 4 }));
   await writeFile(join(root, 'b.ts'), '1');
   await assert.rejects(scanSourceTree(root, { maxFiles: 1 }));
 }));
-test('source fingerprint checks refuse in-place mutation during related artifact reads', async () => fixture(async root => {
+test('source fingerprint checks refuse in-place mutation during related artifact reads', linuxOnly, async () => fixture(async root => {
   await writeFile(join(root, 'a.ts'), 'before', { mode: 0o600 });
   await assert.rejects(scanSourceTree(root, { afterRead: async () => {
     await writeFile(join(root, 'a.ts'), 'after!');
   } }));
 }));
-test('final directory listing cannot hide an in-place leaf change after its hash', async () => fixture(async root => {
+test('final directory listing cannot hide an in-place leaf change after its hash', linuxOnly, async () => fixture(async root => {
   const source = join(root, 'source'); await mkdir(source);
   await writeFile(join(source, 'main.ts'), 'before', { mode: 0o600 });
   const loader = join(root, 'race-loader.mjs');
@@ -75,4 +77,17 @@ test('final directory listing cannot hide an in-place leaf change after its hash
   await assert.rejects(promisify(execFile)(process.execPath, ['--import', loader, '--input-type=module', '-e',
     `const {scanSourceTree}=await import(${JSON.stringify(module)}); await scanSourceTree(${JSON.stringify(source)});`]),
   error => error.stderr.includes('continuation_workspace_unavailable'));
+}));
+test('a valid tree is read on Linux and refused with the exact category on every other platform', async () => fixture(async root => {
+  await mkdir(join(root, 'src')); await writeFile(join(root, 'src', 'a.ts'), 'valid\n', { mode: 0o600 });
+  assert.throws(() => assertSupportedPlatform('darwin'), { message: UNSUPPORTED_PLATFORM });
+  assert.throws(() => assertSupportedPlatform('win32'), { message: UNSUPPORTED_PLATFORM });
+  assert.doesNotThrow(() => assertSupportedPlatform('linux'));
+  if (LINUX) {
+    assert.equal((await readBoundFile(root, 'src/a.ts')).toString(), 'valid\n');
+    assert.equal((await scanSourceTree(root)).length, 1);
+  } else {
+    await assert.rejects(readBoundFile(root, 'src/a.ts'), { message: UNSUPPORTED_PLATFORM });
+    await assert.rejects(scanSourceTree(root), { message: UNSUPPORTED_PLATFORM });
+  }
 }));

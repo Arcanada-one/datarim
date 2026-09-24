@@ -7,7 +7,6 @@ inventory:
   - dr-auto
   - dr-compliance
   - dr-continue
-  - dr-continue-checkpoint
   - dr-design
   - dr-do
   - dr-doctor
@@ -636,38 +635,6 @@ edges:
   relation: requires
   source: dev-tools/command-graph.yaml
   to: command:dr-save
-- from: command:dr-continue-checkpoint
-  relation: loads
-  source: commands/dr-continue-checkpoint.md
-  to: skill:immutability
-- from: command:dr-continue-checkpoint
-  relation: loads
-  source: commands/dr-continue-checkpoint.md
-  to: skill:verification-before-completion
-- from: command:dr-continue-checkpoint
-  relation: precedes
-  source: dev-tools/command-graph.yaml
-  to: command:dr-compliance
-- from: command:dr-continue-checkpoint
-  relation: precedes
-  source: dev-tools/command-graph.yaml
-  to: command:dr-design
-- from: command:dr-continue-checkpoint
-  relation: precedes
-  source: dev-tools/command-graph.yaml
-  to: command:dr-do
-- from: command:dr-continue-checkpoint
-  relation: precedes
-  source: dev-tools/command-graph.yaml
-  to: command:dr-plan
-- from: command:dr-continue-checkpoint
-  relation: precedes
-  source: dev-tools/command-graph.yaml
-  to: command:dr-prd
-- from: command:dr-continue-checkpoint
-  relation: precedes
-  source: dev-tools/command-graph.yaml
-  to: command:dr-qa
 - from: command:dr-design
   relation: delegates_to
   source: commands/dr-design.md
