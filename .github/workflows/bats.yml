@@ -51,10 +51,10 @@ jobs:
       # `runs-on: [self-hosted, linux, X64]` matches nearly every runner in the
       # fleet and they are NOT interchangeable -- the same point INFRA-0365
       # measured for the security audit. Here it showed up as the job landing on
-      # arcana-www-arcanada, where `/usr/bin/python3 -m venv` cannot build an
+      # a web-serving runner host, where `/usr/bin/python3 -m venv` cannot build an
       # interpreter: Python 3.10 there ships no ensurepip, so the step died
       # before a single contract ran. Measured as ci-runner, the account that
-      # runs the job: venv succeeds on arcana-devs (3.12), fails on arcana-www.
+      # runs the job: venv succeeds on the dev host (3.12), fails on the web host.
       #
       # Provisioned rather than pinned, following the remedy INFRA-0365 already
       # settled on: pinning to whichever hosts happen to be equipped today

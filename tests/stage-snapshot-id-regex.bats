@@ -3,7 +3,7 @@
 # Regression tests for the TASK-ID regex in snapshot-writer.sh.
 #
 # Verifies:
-#   - Slug-suffix IDs (e.g. DEV-1438-FU-engage-generator-perf) are accepted.
+#   - Slug-suffix IDs (e.g. DEV-0438-FU-report-generator-perf) are accepted.
 #   - Canonical short IDs (e.g. TUNE-0334) continue to be accepted.
 #   - Path-traversal and malformed IDs are still rejected (T-1 security control).
 #
@@ -41,10 +41,10 @@ setup() {
     [ -f "$TMPROOT/datarim/snapshots/TUNE-0334.snapshot.md" ]
 }
 
-@test "slug-suffix FU ID (DEV-1438-FU-engage-generator-perf) is accepted" {
+@test "slug-suffix FU ID (DEV-0438-FU-report-generator-perf) is accepted" {
     run write_stage_snapshot \
         --root "$TMPROOT" \
-        --task DEV-1438-FU-engage-generator-perf \
+        --task DEV-0438-FU-report-generator-perf \
         --stage 'do' \
         --command /dr-do \
         --captured-by agent \
@@ -52,7 +52,7 @@ setup() {
         --options-file "$OPTIONS" \
         --body-file "$BODY"
     [ "$status" -eq 0 ]
-    [ -f "$TMPROOT/datarim/snapshots/DEV-1438-FU-engage-generator-perf.snapshot.md" ]
+    [ -f "$TMPROOT/datarim/snapshots/DEV-0438-FU-report-generator-perf.snapshot.md" ]
 }
 
 @test "multi-segment suffix ID (INFRA-0042-hotfix-db) is accepted" {
@@ -228,14 +228,14 @@ setup() {
 @test "snapshot written for slug-suffix ID has correct task_id in frontmatter" {
     write_stage_snapshot \
         --root "$TMPROOT" \
-        --task DEV-1438-FU-engage-generator-perf \
+        --task DEV-0438-FU-report-generator-perf \
         --stage 'do' \
         --command /dr-do \
         --captured-by agent \
         --recommended-next /dr-qa \
         --options-file "$OPTIONS" \
         --body-file "$BODY"
-    local snap="$TMPROOT/datarim/snapshots/DEV-1438-FU-engage-generator-perf.snapshot.md"
-    grep -q '^task_id: DEV-1438-FU-engage-generator-perf$' "$snap"
+    local snap="$TMPROOT/datarim/snapshots/DEV-0438-FU-report-generator-perf.snapshot.md"
+    grep -q '^task_id: DEV-0438-FU-report-generator-perf$' "$snap"
     grep -q '^artifact: stage-snapshot$' "$snap"
 }

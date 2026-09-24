@@ -32,6 +32,19 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Fixed
 
+- **Public surface depersonalised; the personal-identifier gate now sees the
+  whole tree.** Consumer project names, consumer task IDs cited as provenance,
+  maintainer host names, absolute home paths, a tailnet DNS suffix and
+  owner-workspace paths are replaced with neutral descriptions or placeholders
+  across skills, docs, tests and fixtures; a host-specific session handoff is
+  removed. `personal-id-gate.sh` scans every tracked file instead of a
+  hand-maintained directory list (root-level files were never scanned), the
+  workflow runs on every change, and the denylist gains classes for consumer
+  task IDs, vendor-specific tracker fields, home paths, agent project-state
+  slugs and tailnet suffixes (the old host-family entry ended in a word
+  boundary, so a plural host name slipped past it). Private names are merged from an optional
+  `PERSONAL_ID_OVERLAY` secret. `redact_trace` no longer hard-codes one fleet's
+  host prefix; set `DR_FLEET_REDACT_HOST_RE` for bare host names.
 - **Jev floor silently off in Codex after another tool rewrote `hooks.json`.**
   Codex keys hook trust by position; an IDE relay inserting its hooks ahead of
   Jev's moved them off their approval, and Codex skipped them. New `jev trust`
@@ -416,7 +429,7 @@ To migrate a machine that ran 2.x:
   ended the quoting early and the remainder was parsed as a regex. Every
   `\Exception` / `\ErrorException` reference in a PHP repo was therefore
   invisible to gate 0.13, producing a false "work is not on main" archive block
-  (observed at `/dr-archive DEV-1762`: 4 of 4 flagged lines contained
+  (observed at a consumer project's `/dr-archive`: 4 of 4 flagged lines contained
   `\Exception`, all of them demonstrably on `main`). The check now reads each
   blob and pipes it to GNU `grep -F`, which has no such escape layer. Verification
   is two-pass to keep it fast: per-path first, then ONE batched `grep -F -f` scan
@@ -1200,7 +1213,7 @@ A KB-integrity protection bundle. One architectural defect produced three sympto
 - **TUNE-0308 epic completion.** Outsider-friendly English instruction surface refresh across 164 shipped files; `dev-tools/check-jargon-gloss.sh` validator + jargon manifest enforcing first-use glosses for in-house terms.
 - **TUNE-0319 init-task Q&A round-trip extension.** `dev-tools/append-init-task-qa.sh` extended with `--decided-by agent` rationale-length gate (≥50 non-whitespace chars), `--conflict-with <wish_id>` flag, and `/dr-qa` Layer 3b retroactive backfill detector. Skill `skills/init-task-persistence/SKILL.md` § Q&A round-trip contract; bats coverage in `tests/append-init-task-qa.bats`.
 - **`/dr-archive` body-english fail-hard flip.** `dev-tools/check-body-english.sh` flips from advisory warning to fail-hard block at archive time on any shipped artefact carrying non-allowlisted non-ASCII without the `<!-- allow-non-ascii: <reason> -->` marker.
-- **English-Only mandate in 4 CLAUDE.md.** `~/.claude/CLAUDE.md`, `~/arcanada/CLAUDE.md`, `Projects/Datarim/CLAUDE.md`, `code/datarim/CLAUDE.md` carry the same English-Only Shipped Instruction Surface rule with shared allowlist and validator-marker contract.
+- **English-Only mandate in 4 CLAUDE.md.** `~/.claude/CLAUDE.md`, `<workspace>/CLAUDE.md`, `Projects/Datarim/CLAUDE.md`, `code/datarim/CLAUDE.md` carry the same English-Only Shipped Instruction Surface rule with shared allowlist and validator-marker contract.
 - **V-AC axis-split Pattern 2.** `skills/v-ac-axis-split/SKILL.md` gains Pattern 2 — gate-activation axis dry-run during `/dr-plan` Component Breakdown.
 
 ### Changed
@@ -1534,7 +1547,7 @@ A new skill defines a 4-sub-section recap (what was done / what worked / what di
 
 ### Notes
 
-- **TUNE-0161 — Public surface scan (Class B):** workspace `~/arcanada/CLAUDE.md` § Documentation Taxonomy Mandate added; `datarim.club` site (skill page + getting-started + changelog + content counts + config version) updated in same release.
+- **TUNE-0161 — Public surface scan (Class B):** workspace `<workspace>/CLAUDE.md` § Documentation Taxonomy Mandate added; `datarim.club` site (skill page + getting-started + changelog + content counts + config version) updated in same release.
 - **TUNE-0161 — First consumer reframe:** TUNE-0117 (Diátaxis reorg для `datarim.club`) cross-linked as first consumer of the framework mandate.
 - **TUNE-0161 — Hard CI gate** intentionally deferred to a separate backlog item (`INFRA-* — Diátaxis CI gate enforcement`), trigger: ≥3 live consumers post-mandate. Same detector flips from soft warning to `exit 1`.
 

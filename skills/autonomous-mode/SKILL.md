@@ -28,7 +28,7 @@ task_id: TUNE-XXXX
 activated_at: 2026-05-24T12:00:00Z
 activated_by: /dr-auto
 mode: continue|bootstrap
-space: arcanada
+space: example
 nonce: <hex>              # optional — present only for a delegated dispatch
 dispatch_session: dr-<space>-<TASK-ID>   # optional — the owning tmux session
 ```
@@ -190,7 +190,7 @@ Consumed by `/dr-archive` Step 0.5 (pre-reflection): the inline-log surfaces as 
 
 > Production deploys, secret rotation, irreversible DB operations (DROP / TRUNCATE without backup), public communications (Telegram channel posts, blog posts, social media), finance / legal actions, force-push to `main` / `master`, deletion of git history, and any action affecting > 1 human user.
 
-**Carve-out (consumer mandate § Carve-out):** the consumer's `autonomous-agents.md` MAY define narrowly-scoped exceptions to this list. The reference Arcanada mandate carves out **autonomous public-package release of patch / minor versions** when every fail-closed pre-publish gate is green (`escalate=false`); `major` and any `0.x` breaking change still escalate, with a GitHub conditional `environment` as a second backstop. The machine-readable shape is `dev-tools/rules/fb-rules.yaml` § `hard_gate_carve_outs` (core path; provenance in `documentation/how-to/evolution-log.md`). Read the consumer mandate's carve-out section before treating a release action as hard-gated — do not quote the carve-out from memory.
+**Carve-out (consumer mandate § Carve-out):** the consumer's `autonomous-agents.md` MAY define narrowly-scoped exceptions to this list. The reference consumer mandate carves out **autonomous public-package release of patch / minor versions** when every fail-closed pre-publish gate is green (`escalate=false`); `major` and any `0.x` breaking change still escalate, with a GitHub conditional `environment` as a second backstop. The machine-readable shape is `dev-tools/rules/fb-rules.yaml` § `hard_gate_carve_outs` (core path; provenance in `documentation/how-to/evolution-log.md`). Read the consumer mandate's carve-out section before treating a release action as hard-gated — do not quote the carve-out from memory.
 
 Before escalation, resolve the action through
 `${DATARIM_RUNTIME:?}/dev-tools/resolve-space-autonomy.sh gate --action <kind> --payload <json>`.
@@ -214,7 +214,7 @@ operator.
 
 **Workspace branch discipline (pre-file-edit check):** before editing any file in a workspace-root repository (one outside the task's own code repo — e.g. a shared mandate or doc tree), confirm `git branch --show-current` matches the active task. In a shared workspace with several parallel task branches checked out, a routine edit otherwise lands on whichever branch happens to be current and travels with the wrong merge. If the current branch does not match the task, create a task-named branch (or escalate) before writing — do not edit on a sibling task's branch.
 
-**Not hard-gated:** infra-side actions on Arcanada-owned resources (SSH, `docker restart`, `git push` on a feature branch, Vault read, Cloudflare API read) — these are permitted per `feedback_autonomous_ops`.
+**Not hard-gated:** infra-side actions on operator-owned resources (SSH, `docker restart`, `git push` on a feature branch, Vault read, Cloudflare API read) — these are permitted per `feedback_autonomous_ops`.
 
 ## Independent Compliance on Framework Self-Modification
 
@@ -278,4 +278,4 @@ When auto-mode is active (env var + matching marker), this command:
 - `skills/cta-format/SKILL.md` § Snapshot Emission (terminal-step contract at the end of each stage)
 - `skills/init-task-persistence/SKILL.md` § Q&A round-trip (the L5 logging mechanism via `append-init-task-qa.sh`)
 - Memory: `feedback_l1_proposals_close_in_cycle` (the L1-rule precedent, originally scoped to `/dr-archive` only)
-- Memory: `feedback_autonomous_ops` (the infra-side autonomy scope — SSH / Cloudflare / Vault / docker / git on Arcanada resources)
+- Memory: `feedback_autonomous_ops` (the infra-side autonomy scope — SSH / Cloudflare / Vault / docker / git on operator-owned resources)

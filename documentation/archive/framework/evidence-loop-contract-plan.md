@@ -1,16 +1,16 @@
 ---
 type: operating-model-contract
-id: DEV-1926
+id: evidence-loop-contract
 class: B
 status: approved
 ---
 
-# DEV-1926 Evidence-Loop Operating-Model Contract and Implementation Plan
+# Evidence-Loop Operating-Model Contract and Implementation Plan
 
 ## 1. Purpose, Boundary, and Ratification
 
 - Authorized-user operating rule: every task acceptance case must exist in the version 1 contract before implementation begins. Evidence must then be executed, discrepancies fixed, tests retested, and independent review repeated until all gates are green.
-- No canonical framework PRD exists in this workspace. This approved written contract is the scoped ratification for DEV-1926.
+- No canonical framework PRD exists in this workspace. This approved written contract is the scoped ratification for this change.
 - Scope is the isolated framework checkout only: no deploy, push, or merge.
 - The implementation modifies the existing `check-live-evidence.sh`; no new evidence skill is created. The existing immutability skill remains the owner of shared normative rules.
 - Contract and implementation must land in the same commit.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# spec-graph-dreq-bullet-form.bats — DEV-1547 / DEV-1552-FU
+# spec-graph-dreq-bullet-form.bats — D-REQ bullet-list form regression
 #
 # The /dr-prd template's Requirements section emits D-REQs as a bold bullet
 # list (`- **D-REQ-NN** — …`), not `#### D-REQ-NN` headings. The spec-graph

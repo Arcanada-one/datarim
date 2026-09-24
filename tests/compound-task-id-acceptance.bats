@@ -4,7 +4,7 @@
 # compound shapes {PREFIX-NNNN-suffix...} (follow-up tasks).
 #
 # Contract: skills/datarim-system/SKILL.md § Unified Task Numbering allows
-# compound IDs (e.g. `DEV-1234-FU-slug`, `DEV-1234-FOLLOWUP-slug`). The four
+# compound IDs (e.g. `DEV-0234-FU-slug`, `DEV-0234-FOLLOWUP-slug`). The four
 # scripts below previously enforced the bare `^[A-Z]+-[0-9]{4}$` shape and
 # rejected compound IDs end-to-end across the pipeline.
 #
@@ -29,9 +29,9 @@ setup() {
     git -C "$WORK" config user.name t
 
     # init-task fixture (compound ID)
-    cat > "$WORK/datarim/tasks/DEV-1234-FU-slug-init-task.md" <<'EOF'
+    cat > "$WORK/datarim/tasks/DEV-0234-FU-slug-init-task.md" <<'EOF'
 ---
-task_id: DEV-1234-FU-slug
+task_id: DEV-0234-FU-slug
 artifact: init-task
 schema_version: 1
 captured_at: 2026-05-27
@@ -51,16 +51,16 @@ _(empty)_
 EOF
 
     # expectations fixture (compound ID, schema_version 2, bullet-list shape)
-    cat > "$WORK/datarim/tasks/DEV-1234-FU-slug-expectations.md" <<'EOF'
+    cat > "$WORK/datarim/tasks/DEV-0234-FU-slug-expectations.md" <<'EOF'
 ---
-task_id: DEV-1234-FU-slug
+task_id: DEV-0234-FU-slug
 artifact: expectations
 schema_version: 2
 captured_at: 2026-05-27
 captured_by: /dr-init
 agent: planner
 status: canonical
-parent_init_task: DEV-1234-FU-slug-init-task.md
+parent_init_task: DEV-0234-FU-slug-init-task.md
 ---
 
 ## Ожидания
@@ -85,8 +85,8 @@ teardown() {
 # -----------------------------------------------------------------------------
 # T1: check-init-task-presence.sh accepts compound task_id frontmatter.
 # -----------------------------------------------------------------------------
-@test "T1: check-init-task-presence accepts DEV-1234-FU-slug" {
-    run bash "$INIT_TASK" --task DEV-1234-FU-slug --root "$WORK"
+@test "T1: check-init-task-presence accepts DEV-0234-FU-slug" {
+    run bash "$INIT_TASK" --task DEV-0234-FU-slug --root "$WORK"
     [ "$status" -eq 0 ]
 }
 
@@ -95,10 +95,10 @@ teardown() {
 #     We only exercise the regex — the script needs --question/--answer files
 #     so we provide minimal fixtures.
 # -----------------------------------------------------------------------------
-@test "T2: append-init-task-qa accepts --task DEV-1234-FU-slug" {
+@test "T2: append-init-task-qa accepts --task DEV-0234-FU-slug" {
     qf="$WORK/q.txt"; af="$WORK/a.txt"
     printf 'Q?' > "$qf"; printf 'A.' > "$af"
-    run bash "$APPEND_QA" --root "$WORK" --task DEV-1234-FU-slug \
+    run bash "$APPEND_QA" --root "$WORK" --task DEV-0234-FU-slug \
         --stage do --round 1 \
         --question-file "$qf" --answer-file "$af" \
         --decided-by operator --summary "test"
@@ -110,16 +110,16 @@ teardown() {
 # -----------------------------------------------------------------------------
 # T3: check-expectations-checklist.sh --task accepts compound ID.
 # -----------------------------------------------------------------------------
-@test "T3: check-expectations-checklist --task accepts DEV-1234-FU-slug" {
-    run bash "$EXPECTATIONS" --task DEV-1234-FU-slug --root "$WORK"
+@test "T3: check-expectations-checklist --task accepts DEV-0234-FU-slug" {
+    run bash "$EXPECTATIONS" --task DEV-0234-FU-slug --root "$WORK"
     [ "$status" -eq 0 ]
 }
 
 # -----------------------------------------------------------------------------
 # T4: check-expectations-checklist.sh --verify accepts compound ID.
 # -----------------------------------------------------------------------------
-@test "T4: check-expectations-checklist --verify accepts DEV-1234-FU-slug" {
-    run bash "$EXPECTATIONS" --verify DEV-1234-FU-slug --root "$WORK"
+@test "T4: check-expectations-checklist --verify accepts DEV-0234-FU-slug" {
+    run bash "$EXPECTATIONS" --verify DEV-0234-FU-slug --root "$WORK"
     [ "$status" -eq 0 ]
     [[ "$output" == *PASS* ]]
 }
@@ -128,8 +128,8 @@ teardown() {
 # T5: pre-archive-check.sh --task-id accepts compound ID at regex gate.
 #     A clean workspace + no schema files → script runs past the regex check.
 # -----------------------------------------------------------------------------
-@test "T5: pre-archive-check --task-id accepts DEV-1234-FU-slug" {
-    run bash "$PRE_ARCHIVE" --task-id DEV-1234-FU-slug --shared "$WORK" --no-schema-check
+@test "T5: pre-archive-check --task-id accepts DEV-0234-FU-slug" {
+    run bash "$PRE_ARCHIVE" --task-id DEV-0234-FU-slug --shared "$WORK" --no-schema-check
     # We only care that the regex did NOT reject the compound ID
     # (previous behaviour was exit 2 with «invalid --task-id» message).
     ! echo "$output" | grep -q "invalid --task-id"
@@ -141,7 +141,7 @@ teardown() {
 @test "T6: append-init-task-qa rejects lowercase prefix" {
     qf="$WORK/q.txt"; af="$WORK/a.txt"
     printf 'Q?' > "$qf"; printf 'A.' > "$af"
-    run bash "$APPEND_QA" --root "$WORK" --task "dev-1234" \
+    run bash "$APPEND_QA" --root "$WORK" --task "dev-0234" \
         --stage do --round 1 \
         --question-file "$qf" --answer-file "$af" \
         --decided-by operator --summary "test"

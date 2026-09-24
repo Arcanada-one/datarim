@@ -67,7 +67,7 @@ class HookBoundaryTests(unittest.TestCase):
     def test_floor_blocks_writes_that_destroy_a_whole_filesystem(self):
         """Raw-device writes are more irreversible than the rm -rf the floor already blocks.
 
-        MEASURED 2026-09-22 on dev-ai against the installed host runtime: `rm -rf /` was
+        MEASURED 2026-09-22 on a consumer host against the installed host runtime: `rm -rf /` was
         denied while `dd if=/dev/zero of=/dev/sda` and `mkfs.ext4 /dev/sda1` were allowed.
         Both destroy every file on the device at once, below the filesystem, where neither
         permissions nor file-level backups help. The module's own stated criterion is
@@ -93,7 +93,7 @@ class HookBoundaryTests(unittest.TestCase):
                     # Paths that END in a device-looking name but are ordinary
                     # files. MUTATION-CHECKED: without these, anchoring the
                     # pattern to /dev/ could be dropped and no test would fail.
-                    'dd if=/dev/zero of=/home/aether/images/sda',
+                    'dd if=/dev/zero of=/home/example/images/sda',
                     'dd if=backup of=./nvme0n1',
                     'mkfs.ext4 /var/tmp/vda']
         for command in commands:

@@ -36,16 +36,16 @@ setup() {
 
   # action_gate fixture: permissive space so framework_command executes.
   export DATARIM_SPACES_ROOT="$BATS_TEST_TMPDIR/spaces"
-  export DATARIM_ACTIVE_SPACE=arcanada
+  export DATARIM_ACTIVE_SPACE=alpha
   export DR_AUTONOMY_RULES="$BATS_TEST_TMPDIR/fb-rules.yaml"
   export DR_ORCH_AUTONOMY_AUDIT="$BATS_TEST_TMPDIR/autonomy.jsonl"
-  mkdir -p "$DATARIM_SPACES_ROOT/arcanada" "$AUDIT_DIR"
+  mkdir -p "$DATARIM_SPACES_ROOT/alpha" "$AUDIT_DIR"
   # audit_sink refuses group/other-writable audit parents; the default
   # umask on some CI hosts creates 775 directories.
   chmod 700 "$AUDIT_DIR"
-  cat > "$DATARIM_SPACES_ROOT/arcanada/space.yml" <<'YAML'
+  cat > "$DATARIM_SPACES_ROOT/alpha/space.yml" <<'YAML'
 space:
-  name: arcanada
+  name: alpha
 autonomy:
   schema_version: 1
   policy:

@@ -15,10 +15,10 @@ setup() {
   unset DR_AUTONOMY_RULES
   # Provide a minimal spaces root so policy decisions can resolve.
   export DATARIM_SPACES_ROOT="$BATS_TEST_TMPDIR/spaces"
-  mkdir -p "$DATARIM_SPACES_ROOT/arcanada"
-  cat > "$DATARIM_SPACES_ROOT/arcanada/space.yml" <<'YAML'
+  mkdir -p "$DATARIM_SPACES_ROOT/alpha"
+  cat > "$DATARIM_SPACES_ROOT/alpha/space.yml" <<'YAML'
 space:
-  name: arcanada
+  name: alpha
 autonomy:
   schema_version: 1
   policy:
@@ -30,7 +30,7 @@ autonomy:
     verify: auto
     cross_project_write: auto
 YAML
-  export DATARIM_ACTIVE_SPACE=arcanada
+  export DATARIM_ACTIVE_SPACE=alpha
   export DR_AUTONOMY_AUDIT="$BATS_TEST_TMPDIR/autonomy.jsonl"
 }
 
@@ -89,7 +89,7 @@ YAML
   run bash -c "
     export DATARIM_RUNTIME='$REPO_ROOT'
     export DATARIM_SPACES_ROOT='$DATARIM_SPACES_ROOT'
-    export DATARIM_ACTIVE_SPACE=arcanada
+    export DATARIM_ACTIVE_SPACE=alpha
     source '$REPO_ROOT/dev-tools/lib/space-autonomy.sh'
     autonomy_decision force_push '{\"drops_commits\":true}'
   "
@@ -102,7 +102,7 @@ YAML
   run bash -c "
     export DATARIM_RUNTIME='$REPO_ROOT'
     export DATARIM_SPACES_ROOT='$DATARIM_SPACES_ROOT'
-    export DATARIM_ACTIVE_SPACE=arcanada
+    export DATARIM_ACTIVE_SPACE=alpha
     source '$REPO_ROOT/dev-tools/lib/space-autonomy.sh'
     autonomy_decision feature_branch_push '{}'
   "

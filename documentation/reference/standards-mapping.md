@@ -159,5 +159,5 @@ Datarim baseline = **developer-tool security floor**. Consumer projects layer th
 
 - `skills/security-baseline/SKILL.md` § S1–S9 (canonical rule reference)
 - `documentation/archive/security/findings-2026-04-28.md` (corporate audit baseline)
-- `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md` (research baseline)
+- OSS CLI security research baseline, 2026-04-28 (maintainer-private)
 - `tests/security/baseline.json` (machine-readable suppressions registry)

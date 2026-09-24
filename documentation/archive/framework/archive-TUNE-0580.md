@@ -26,11 +26,11 @@ verification_outcome:
 
 - **«Confirm the 15 working-tree modifications are still byte-identical to mac-handoff/2026-07-20 once TUNE-0578 resolves the branch»** — неприменимо на момент архивации. Ветка `mac-handoff/2026-07-20` больше не существует (удалена в рамках TUNE-0578, согласно её compliance-report), а working tree клона уже чист — сравнивать больше не с чем, проверка байт-в-байт не может быть выполнена постфактум и потеряла смысл.
 - **«Have the owner reset the shared working tree; do not run git checkout -- or git stash on paths you did not modify»** — выполнено кем-то ранее. Живая проверка (`git status`) на момент архивации показала полностью чистое дерево на ветке `main`, синхронизированной с `origin/main`. В этой сессии никаких mutating-команд к общему клону не применялось — необходимости не возникло, так как дерево уже было чистым.
-- **«git status on Projects/Websites/datarim.club is empty»** — выполнено. Подтверждено напрямую: `git -C /Users/ug/arcanada/Projects/Websites/datarim.club status --porcelain` вернул ноль строк.
+- **«git status on Projects/Websites/datarim.club is empty»** — выполнено. Подтверждено напрямую: `git -C <workspace>/Projects/Websites/datarim.club status --porcelain` вернул ноль строк.
 
 ## Артефакты задачи
 
-- Живая проверка `git status` / `git branch --show-current` в `/Users/ug/arcanada/Projects/Websites/datarim.club`, подтвердившая чистое дерево на `main`.
+- Живая проверка `git status` / `git branch --show-current` в `<workspace>/Projects/Websites/datarim.club`, подтвердившая чистое дерево на `main`.
 - `datarim/reflection/reflection-TUNE-0580.md` — рефлексия сессии.
 - Никаких изменений в общем клоне в рамках этой сессии не производилось — уборка уже была выполнена ранее, вне зафиксированного трека этой задачи (см. § Operator Handoff).
 
@@ -56,7 +56,7 @@ verification_outcome:
 |---|---|---|
 | Confirm 15 mods byte-identical to mac-handoff/2026-07-20 | n/a | Ветка `mac-handoff/2026-07-20` уже удалена (per compliance-report-TUNE-0578.md §6); сравнение более невозможно и не требуется, так как дерево уже чисто |
 | Owner resets shared working tree per constraints | pass | Дерево уже чисто на момент проверки; ни `git checkout --`, ни `git stash` в этой сессии не запускались |
-| `git status` on the clone is empty | pass | `git -C /Users/ug/arcanada/Projects/Websites/datarim.club status --porcelain` → 0 строк, ветка `main`, up to date with `origin/main` |
+| `git status` on the clone is empty | pass | `git -C <workspace>/Projects/Websites/datarim.club status --porcelain` → 0 строк, ветка `main`, up to date with `origin/main` |
 
 ### Lessons Learned
 

@@ -21,9 +21,19 @@ set -o pipefail
 # Ordered passes matter: secrets first (so a `token=/a/path` value is elided
 # whole before the path pass runs), then paths, then network identifiers, then
 # ssh user@host targets, then bare mesh hostnames.
+#
+# Bare mesh hostnames have no universal shape, so the fleet names its own:
+#   DR_FLEET_REDACT_HOST_RE   extended regex for bare host names (e.g.
+#                             'fleet-[A-Za-z0-9-]+'); unset = no extra pass.
+# An earlier revision hard-coded one operator's host prefix here, which put a
+# private naming scheme into a public library and still missed every other
+# fleet's hosts.
 redact_trace() {
     local s="${1:-}"
+    local host_re="${DR_FLEET_REDACT_HOST_RE:-}"
+    local -a host_pass=()
     s="${s:0:1000}"
+    [ -z "$host_re" ] || host_pass=(-e "s/${host_re//\//\\/}/<HOST>/g")
     printf '%s' "$s" \
         | sed -E \
             -e 's/([Pp][Aa][Ss][Ss][Ww]?[Oo]?[Rr]?[Dd]?|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee][_-]?[Kk][Ee][Yy]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Kk][Ee][Yy])[[:space:]]*[=:][[:space:]]*[^[:space:]"'"'"']+/\1=<REDACTED>/g' \
@@ -34,5 +44,5 @@ redact_trace() {
             -e 's/[0-9]{1,3}(\.[0-9]{1,3}){3}/<HOST>/g' \
             -e 's/[A-Za-z0-9._-]+@[A-Za-z0-9._-]+/<HOST>/g' \
             -e 's/[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.(ai|com|club|org|net|group|online|app|wiki|io|dev|local)([:/][^[:space:]]*)?/<HOST>/g' \
-            -e 's/arcana-[A-Za-z0-9-]+/<HOST>/g'
+            ${host_pass[@]+"${host_pass[@]}"}
 }

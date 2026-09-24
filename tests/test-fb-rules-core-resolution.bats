@@ -93,10 +93,10 @@ YAML
   tmpdir="$(mktemp -d)"
   spaces_dir="$tmpdir/spaces"
   audit_file="$tmpdir/audit.jsonl"
-  mkdir -p "$spaces_dir/arcanada"
-  cat > "$spaces_dir/arcanada/space.yml" <<'YAML'
+  mkdir -p "$spaces_dir/alpha"
+  cat > "$spaces_dir/alpha/space.yml" <<'YAML'
 space:
-  name: arcanada
+  name: alpha
 autonomy:
   schema_version: 1
   policy:
@@ -104,7 +104,7 @@ autonomy:
 YAML
   run env DATARIM_RUNTIME="$REPO_ROOT" \
       DATARIM_SPACES_ROOT="$spaces_dir" \
-      DATARIM_ACTIVE_SPACE=arcanada \
+      DATARIM_ACTIVE_SPACE=alpha \
       DR_ORCH_AUTONOMY_AUDIT="$audit_file" \
       DR_AUTONOMY_AUDIT="$audit_file" \
       "$PLUGIN_ROOT/scripts/action_gate.sh" gate --action merge_main
@@ -118,10 +118,10 @@ YAML
   tmp_runtime="$tmpdir/nocore"
   spaces_dir="$tmpdir/spaces"
   audit_file="$tmpdir/audit.jsonl"
-  mkdir -p "$spaces_dir/arcanada" "$tmp_runtime"
-  cat > "$spaces_dir/arcanada/space.yml" <<'YAML'
+  mkdir -p "$spaces_dir/alpha" "$tmp_runtime"
+  cat > "$spaces_dir/alpha/space.yml" <<'YAML'
 space:
-  name: arcanada
+  name: alpha
 autonomy:
   schema_version: 1
   policy:
@@ -129,7 +129,7 @@ autonomy:
 YAML
   run env DATARIM_RUNTIME="$tmp_runtime" \
       DATARIM_SPACES_ROOT="$spaces_dir" \
-      DATARIM_ACTIVE_SPACE=arcanada \
+      DATARIM_ACTIVE_SPACE=alpha \
       DR_ORCH_AUTONOMY_AUDIT="$audit_file" \
       DR_AUTONOMY_AUDIT="$audit_file" \
       "$PLUGIN_ROOT/scripts/action_gate.sh" gate --action merge_main

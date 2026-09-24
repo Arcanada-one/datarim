@@ -122,7 +122,7 @@ resolve_backlog_sink() {
                 printf '%s/backlog.md' "$dpath"; return 0
             fi
         elif [ -n "$backend" ]; then
-            # Known non-file backend (e.g. future muneral): no file sink.
+            # Known non-file backend (e.g. an external task tracker): no file sink.
             return 1
         fi
     fi

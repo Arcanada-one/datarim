@@ -5,7 +5,7 @@ status: in_progress
 priority: P2
 complexity: L2
 type: {framework|infra|content|bugfix|...}
-project: {Datarim|Arcanada|...}
+project: {project name}
 started: {YYYY-MM-DD}
 parent: null
 related: []

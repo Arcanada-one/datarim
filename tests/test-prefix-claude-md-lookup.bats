@@ -152,7 +152,7 @@ EOF
 EOF
     cd "$TMPROOT"
     # Resolution contract is unchanged: the reserved runtime prefix wins.
-    # DEV-1790 follow-up added a WARN naming the ignored row; bats `run` merges
+    # The reserved-prefix follow-up added a WARN naming the ignored row; bats `run` merges
     # stderr into $output, so assert the resolved value on stdout alone.
     local stdout
     stdout="$("$DOCTOR" --probe-prefix=INFRA 2>/dev/null)"

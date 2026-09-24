@@ -20,14 +20,14 @@ setup() {
     ID="FAKE-9001"
     ID2="FAKE-9002"
     NONCE="abcdef0123456789"
-    SESS="dr-arcanada-FAKE-9001"
+    SESS="dr-alpha-FAKE-9001"
     PT="$ROOT/datarim/.auto/${ID}.mode"
     LEGACY="$ROOT/datarim/.auto-mode-active"
 }
 
 # ── V-AC-1: autonomous path — valid nonce + session => active ──────────────────
 @test "V-AC-1 valid nonce+session subagent-active => active" {
-    run "$HELPER" reassert --root "$ROOT" --task-id "$ID" --space arcanada \
+    run "$HELPER" reassert --root "$ROOT" --task-id "$ID" --space alpha \
         --nonce "$NONCE" --dispatch-session "$SESS"
     [ "$status" -eq 0 ]
     [ -f "$PT" ]
@@ -47,7 +47,7 @@ setup() {
 
 # ── V-AC-S2a: wrong nonce => non-auto (replay/forgery reject) ──────────────────
 @test "V-AC-S2a wrong nonce => non-auto" {
-    "$HELPER" reassert --root "$ROOT" --task-id "$ID" --space arcanada \
+    "$HELPER" reassert --root "$ROOT" --task-id "$ID" --space alpha \
         --nonce "$NONCE" --dispatch-session "$SESS"
     run "$HELPER" subagent-active --root "$ROOT" --task-id "$ID" --auto-signal true \
         --nonce "ffffffffffffffff" --dispatch-session "$SESS"
@@ -57,17 +57,17 @@ setup() {
 
 # ── V-AC-S2b: wrong dispatch-session => non-auto ───────────────────────────────
 @test "V-AC-S2b wrong dispatch-session => non-auto" {
-    "$HELPER" reassert --root "$ROOT" --task-id "$ID" --space arcanada \
+    "$HELPER" reassert --root "$ROOT" --task-id "$ID" --space alpha \
         --nonce "$NONCE" --dispatch-session "$SESS"
     run "$HELPER" subagent-active --root "$ROOT" --task-id "$ID" --auto-signal true \
-        --nonce "$NONCE" --dispatch-session "dr-arcanada-FAKE-9099"
+        --nonce "$NONCE" --dispatch-session "dr-alpha-FAKE-9099"
     [ "$status" -eq 0 ]
     [ "$output" = "non-auto" ]
 }
 
 # ── V-AC-S2c: stale marker (mtime > 24h) => non-auto ───────────────────────────
 @test "V-AC-S2c stale marker (>24h) => non-auto" {
-    "$HELPER" reassert --root "$ROOT" --task-id "$ID" --space arcanada \
+    "$HELPER" reassert --root "$ROOT" --task-id "$ID" --space alpha \
         --nonce "$NONCE" --dispatch-session "$SESS"
     # Backdate the marker 25 hours (GNU touch -d, BSD touch -t fallback).
     old_epoch=$(( $(date +%s) - 90000 ))
@@ -82,8 +82,8 @@ setup() {
 
 # ── V-AC-S2d: marker for a different task-id => non-auto for this id ────────────
 @test "V-AC-S2d marker for different task => non-auto" {
-    "$HELPER" reassert --root "$ROOT" --task-id "$ID2" --space arcanada \
-        --nonce "$NONCE" --dispatch-session "dr-arcanada-FAKE-9002"
+    "$HELPER" reassert --root "$ROOT" --task-id "$ID2" --space alpha \
+        --nonce "$NONCE" --dispatch-session "dr-alpha-FAKE-9002"
     run "$HELPER" subagent-active --root "$ROOT" --task-id "$ID" --auto-signal true \
         --nonce "$NONCE" --dispatch-session "$SESS"
     [ "$status" -eq 0 ]
@@ -92,8 +92,8 @@ setup() {
 
 # ── collision-safety: two per-task markers coexist independently ───────────────
 @test "collision two per-task markers coexist, each validates only its own id" {
-    "$HELPER" reassert --root "$ROOT" --task-id "$ID"  --space arcanada
-    "$HELPER" reassert --root "$ROOT" --task-id "$ID2" --space arcanada
+    "$HELPER" reassert --root "$ROOT" --task-id "$ID"  --space alpha
+    "$HELPER" reassert --root "$ROOT" --task-id "$ID2" --space alpha
     [ -f "$ROOT/datarim/.auto/${ID}.mode" ]
     [ -f "$ROOT/datarim/.auto/${ID2}.mode" ]
     run "$HELPER" subagent-active --root "$ROOT" --task-id "$ID" --auto-signal true
@@ -104,7 +104,7 @@ setup() {
 
 # ── resolve: per-task path when present ────────────────────────────────────────
 @test "resolve prints per-task path when present" {
-    "$HELPER" reassert --root "$ROOT" --task-id "$ID" --space arcanada
+    "$HELPER" reassert --root "$ROOT" --task-id "$ID" --space alpha
     run "$HELPER" resolve --root "$ROOT" --task-id "$ID"
     [ "$status" -eq 0 ]
     [ "$output" = "$PT" ]

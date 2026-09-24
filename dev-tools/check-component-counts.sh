@@ -29,7 +29,7 @@
 # check does NOT extend to the public site (datarim.club — pages/about.php,
 # content/en.php, content/ru.php). That is a repo-vs-site check and belongs
 # in check-repo-site-sync.sh's registry-driven mechanism (would need a new
-# registry.yml entry/field in the separate arcanada workspace, which this
+# registry.yml entry/field in the separate consumer workspace, which this
 # repo's dev-tools cannot and must not touch). See TUNE-0174 PR body.
 #
 # Dependency floor: pure bash + find + grep + wc. No yq, no python.

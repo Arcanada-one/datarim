@@ -52,7 +52,7 @@ run_hook_write() {
 
 # --- V-1 (AC-1): architecture creative-doc -> silent allow ------------------
 @test "V-1 architecture creative-doc -> silent allow (write directly)" {
-    run run_hook_write "$TMP_DOC_DIR/creative-DEV-1462-self-healing-reviewer-architecture.md"
+    run run_hook_write "$TMP_DOC_DIR/creative-DEV-0462-self-healing-reviewer-architecture.md"
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }
@@ -78,7 +78,7 @@ run_hook_write() {
 
 # --- V-3 (AC-3): fail-soft when allowlist absent ---------------------------
 @test "V-3 allowlist absent -> architecture doc denied (fail-soft to gate)" {
-    run run_hook_write "$TMP_DOC_DIR/creative-DEV-1462-architecture.md" "$TMP_DOC_DIR/does-not-exist.patterns"
+    run run_hook_write "$TMP_DOC_DIR/creative-DEV-0462-architecture.md" "$TMP_DOC_DIR/does-not-exist.patterns"
     [ "$status" -eq 0 ]
     decision=$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')
     [ "$decision" = "deny" ]

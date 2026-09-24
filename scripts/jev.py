@@ -310,7 +310,7 @@ def codex_trust_own_hooks(home=None):
 
     Codex keys trust by position (`<file>:<event>:<i>:<j>`), so another tool
     inserting its hooks ahead of ours moves them to keys whose stored hash is
-    someone else's, and Codex skips them without a word. Measured on DEV-AI
+    someone else's, and Codex skips them without a word. Measured on a consumer host
     2026-09-23: an Orca relay reconnect rewrote hooks.json, and the Jev floor
     stopped running in Codex an hour after a clean "Trust all". This writes
     what "Trust all" would, for Jev's exact command only. A hook the operator

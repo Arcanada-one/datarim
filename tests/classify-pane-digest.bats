@@ -19,7 +19,7 @@ setup() {
     mkdir -p "$ROOT/datarim"
     NOW=1800000000
     BARE="$BATS_TEST_TMPDIR/bare.txt"
-    printf 'dev@host:~/arcanada$ ' > "$BARE"
+    printf 'dev@host:~/alpha$ ' > "$BARE"
     ACTIVE="$BATS_TEST_TMPDIR/active.txt"
     printf '● Working (2m 14s • esc to interrupt)\n  reading files...\n' > "$ACTIVE"
 }

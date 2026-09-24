@@ -74,12 +74,12 @@ _write_config() {
         "bot_interaction:" \
         "  provider: agent0017" \
         "  outbound_backend: redis" \
-        "  redis_url: redis://arcana-db:6379/0"
+        "  redis_url: redis://redis-host:6379/0"
 
     bot_interaction_load "$cfg"
 
     [ "${DR_ORCH_OUTBOUND_BACKEND:-}" = "redis" ]
-    [ "${DR_ORCH_OUTBOUND_REDIS_URL:-}" = "redis://arcana-db:6379/0" ]
+    [ "${DR_ORCH_OUTBOUND_REDIS_URL:-}" = "redis://redis-host:6379/0" ]
 }
 
 # T5: missing bot_interaction block → exit 0, no mutations.

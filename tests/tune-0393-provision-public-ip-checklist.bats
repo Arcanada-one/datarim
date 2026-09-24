@@ -3,7 +3,7 @@
 #
 # Covers: skills/infra-automation/SKILL.md carries a post-provision checklist
 # rule requiring a routable public IP to be recorded in the server inventory
-# before a provisioning task closes (root cause: arcana-prod had a null
+# before a provisioning task closes (root cause: prod-host had a null
 # public_ip from bootstrap, so an operator SSHing to a known address did not
 # recognize the host from the inventory record — SPACE-0029 "dark server"
 # false perception).

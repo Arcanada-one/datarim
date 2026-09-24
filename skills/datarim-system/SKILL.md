@@ -142,7 +142,7 @@ status: <enum>                # in_progress|blocked|not_started|pending|blocked-
 priority: <enum>              # P0|P1|P2|P3
 complexity: <enum>            # L1|L2|L3|L4
 type: <string>                # free-form (framework, infra, content, …)
-project: <string>             # free-form (Datarim, Arcanada, Verdicus, …)
+project: <string>             # free-form (Datarim, Billing, Storefront, …)
 started: <date>               # YYYY-MM-DD
 parent: <TASK-ID|null>
 related: <list[TASK-ID]>      # empty list ok

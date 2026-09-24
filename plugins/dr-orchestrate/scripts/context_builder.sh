@@ -89,7 +89,7 @@ build_context() {
     brief="$(cat "$brief_file")"
 
     # KB component is a retrieval REFERENCE, never a dump (design C2).
-    local kb_ref="retrieval-on-demand via Scrutator (semantic NN); query at runtime, do not preload"
+    local kb_ref="retrieval-on-demand via the search index (semantic NN); query at runtime, do not preload"
 
     assembled="$(cat <<CTX
 === SKILL ===

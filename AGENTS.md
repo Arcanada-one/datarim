@@ -436,7 +436,7 @@ Datarim ships skills, templates, agents, and commands that AI agents copy into r
 
 Every Datarim-managed project SHOULD run `templates/security-workflow.yml` (drop-in) or call `Arcanada-one/datarim/.github/workflows/reusable-security.yml@<tag>` (preferred). Local dry-run: run `templates/security-workflow.yml` locally (security audit is integrated into `/dr-qa`).
 
-**Source:** corporate audit findings 2026-04-28 + research baseline `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md`.
+**Source:** corporate audit findings 2026-04-28 + an OSS CLI security research baseline (2026-04-28, maintainer-private).
 
 ---
 
@@ -468,7 +468,7 @@ Mandate level:
 ## Public Surface Hygiene Mandate (cross-link)
 
 > **Status:** mandatory for every Datarim consumer that ships public packages (npm / PyPI / Docker Hub / web). The canonical text lives in the **consumer's** ecosystem `AGENTS.md` — Datarim ships the contract surface (forbidden-regex set + retroactive-sweep recipe), not the canonical text, because the regex set is ecosystem-owned (consumer's task-prefix registry) and audit-tagged per consumer.
-> **Reference consumer:** `<consumer-workspace>/AGENTS.md` § Public Surface Hygiene Mandate (Arcanada ecosystem canonical).
+> **Reference consumer:** `<consumer-workspace>/AGENTS.md` § Public Surface Hygiene Mandate (the consumer ecosystem's canonical text).
 
 Datarim framework's contribution:
 
@@ -482,24 +482,24 @@ Consumers MUST mirror the canonical mandate text and the forbidden-regex extensi
 
 ---
 
-## Arcanada Ecosystem Security Policy Mandate (cross-link)
+## Ecosystem Security Policy Mandate (cross-link)
 
-> **Status:** mandatory for every Datarim consumer that ships `Arcanada-one/*`
-> ecosystem service repos. The canonical text lives in the **consumer's**
+> **Status:** mandatory for every Datarim consumer that ships ecosystem
+> service repos. The canonical text lives in the **consumer's**
 > ecosystem `AGENTS.md` — Datarim ships the contract surface (template +
 > YAML schema + reusable workflows + presence-gate script), not the
 > canonical text, because reporting destinations and SLA tiers are
 > ecosystem-owned.
-> **Reference consumer:** `<consumer-workspace>/AGENTS.md` § Arcanada Ecosystem
-> Security Policy Mandate (Arcanada ecosystem canonical).
+> **Reference consumer:** `<consumer-workspace>/AGENTS.md` § Ecosystem
+> Security Policy Mandate (the consumer ecosystem's canonical text).
 
 Datarim framework's contribution:
 
 - **`templates/SECURITY.md`** — canonical 10-section Markdown template
   (Reporting / Disclosure SLA / Supported Versions / CI Gate Floor /
   Accepted Risks / Hardening Baseline / Standards Mapping / Embargo Policy
-  / Hall of Fame / Scope). Placeholders: `{{REPO_NAME}}`, `{{STACK}}`,
-  `{{SUPPORTED_VERSIONS_TABLE}}`.
+  / Hall of Fame / Scope). Placeholders: `{{REPO_NAME}}`, `{{ORGANIZATION}}`,
+  `{{SECURITY_EMAIL}}`, `{{STACK}}`, `{{SUPPORTED_VERSIONS_TABLE}}`.
 - **`templates/accepted-risk.yml`** — machine-readable suppression register,
   schema v1. Enforced: `re_review` window `<= last_review + 90` days,
   `severity` / `scope` / `reviewed_by` enums, advisory-id regex

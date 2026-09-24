@@ -36,7 +36,7 @@ EOF
     # IPv4, ssh user@host) that MUST be scrubbed before the record is emitted.
     DATA="$TMP/audit-data.tsv"
     printf '%s\n' \
-"1700000000000-0	id=uuid-1	ts=2026-07-21T00:00:00Z	type=audit	task_id=DEMO-0001	reason=ran ssh dev@arcana-devs cat /home/dev/secret/key -- token=SECRET123abc against 10.1.2.3	outcome=success" \
+"1700000000000-0	id=uuid-1	ts=2026-07-21T00:00:00Z	type=audit	task_id=DEMO-0001	reason=ran ssh dev@fleet-devs cat /home/example/secret/key -- token=SECRET123abc against 10.1.2.3	outcome=success" \
 "1700000000001-0	id=uuid-2	ts=2026-07-21T00:01:00Z	type=agent-killed	task_id=DEMO-0002	reason=killed after SLA timeout" \
         > "$DATA"
 }
@@ -104,9 +104,9 @@ EOF
     # secret material
     ! printf '%s' "$output" | grep -q 'SECRET123abc'
     # absolute path
-    ! printf '%s' "$output" | grep -q '/home/dev/secret'
+    ! printf '%s' "$output" | grep -q '/home/example/secret'
     # mesh hostname
-    ! printf '%s' "$output" | grep -q 'arcana-devs'
+    ! printf '%s' "$output" | grep -q 'fleet-devs'
     # IPv4 address
     ! printf '%s' "$output" | grep -q '10.1.2.3'
 }
@@ -124,12 +124,23 @@ EOF
 @test "redact_trace scrubs secrets, paths, hosts and IPs" {
     source "$REDACT_LIB"
     local out
-    out=$(redact_trace 'ssh dev@arcana-prod token=abc123XYZ path /var/lib/foo host db.arcanada.club ip 192.168.0.5')
+    out=$(redact_trace 'ssh dev@fleet-prod token=abc123XYZ path /var/lib/foo host db.example.club ip 192.168.0.5')
     ! printf '%s' "$out" | grep -q 'abc123XYZ'
     ! printf '%s' "$out" | grep -q '/var/lib/foo'
-    ! printf '%s' "$out" | grep -q 'arcana-prod'
-    ! printf '%s' "$out" | grep -q 'db.arcanada.club'
+    ! printf '%s' "$out" | grep -q 'fleet-prod'
+    ! printf '%s' "$out" | grep -q 'db.example.club'
     ! printf '%s' "$out" | grep -q '192.168.0.5'
+}
+
+@test "redact_trace scrubs bare fleet host names only when the fleet names their shape" {
+    source "$REDACT_LIB"
+    local out
+    # Unset: a bare host name has no universal shape, so it is left alone.
+    out=$(redact_trace 'restarted fleet-db1 cleanly')
+    [ "$out" = 'restarted fleet-db1 cleanly' ]
+    # Set: the fleet's own pattern is applied as the last pass.
+    out=$(DR_FLEET_REDACT_HOST_RE='fleet-[A-Za-z0-9-]+' redact_trace 'restarted fleet-db1 cleanly')
+    [ "$out" = 'restarted <HOST> cleanly' ]
 }
 
 @test "redact_trace leaves benign text intact" {

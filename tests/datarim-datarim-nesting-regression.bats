@@ -14,7 +14,7 @@ setup() {
     mkdir -p "$TMPROOT/datarim"
     printf '# Tasks\n' > "$TMPROOT/datarim/tasks.md"
     printf '# Backlog\n' > "$TMPROOT/datarim/backlog.md"
-    mkdir -p "$TMPROOT/spaces/aether/code"
+    mkdir -p "$TMPROOT/spaces/beta/code"
     BODY="$(mktemp)"
     printf '**TUNE-0001 · demo**\n\nbody\n' > "$BODY"
     OPTS="$(mktemp)"
@@ -56,7 +56,7 @@ _run_writer() {
         --root "$3" --task TUNE-0001 --stage do --command /dr-do \
         --captured-by agent --recommended-next /dr-qa \
         --options-file "$4" --body-file "$5"' \
-        _ "$TMPROOT/spaces/aether/code" "$WRAPPER" "$TMPROOT" "$OPTS" "$BODY"
+        _ "$TMPROOT/spaces/beta/code" "$WRAPPER" "$TMPROOT" "$OPTS" "$BODY"
     [ "$status" -eq 0 ]
     [ -f "$TMPROOT/datarim/snapshots/TUNE-0001.snapshot.md" ]
     [ ! -e "$TMPROOT/datarim/datarim" ]

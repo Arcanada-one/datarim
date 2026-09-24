@@ -3,9 +3,9 @@
   "BackendState": "Running",
   "Self": {
     "ID": "n6azheccQp11CNTRL",
-    "HostName": "arcana-prod",
-    "DNSName": "arcana-prod.tailb1f805.ts.net.",
-    "TailscaleIPs": ["100.87.118.10"],
+    "HostName": "prod-host",
+    "DNSName": "prod-host.example-tailnet.ts.net.",
+    "TailscaleIPs": ["100.64.0.10"],
     "Online": true
   }
 }

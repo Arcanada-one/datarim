@@ -296,8 +296,8 @@ candidates="$(
         # Self-infliction is normally judged per PARAGRAPH. That over-matches on
         # a long single-line bullet, where a deferral phrase about file A and an
         # unrelated mention of touched file B share one "paragraph" only because
-        # they share one line (observed in /dr-archive DEV-1762: "pre-existing"
-        # described tests/e2e/dev-1590.spec.ts while error.php was named later in
+        # they share one line (observed in a consumer /dr-archive: "pre-existing"
+        # described an e2e spec file while error.php was named later in
         # the same line for an unrelated reason).
         #
         # So when the phrase and the touched basename are provably in DIFFERENT

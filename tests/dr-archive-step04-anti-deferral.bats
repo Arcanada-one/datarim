@@ -19,7 +19,7 @@ setup() {
     printf '# Tasks\n## Active\n' > "$WORK/datarim/tasks.md"
     printf '# Backlog\n' > "$WORK/datarim/backlog.md"
     TOUCHED="$WORK/touched.txt"
-    printf 'spaces/aether/runbook.md\n' > "$TOUCHED"
+    printf 'spaces/beta/runbook.md\n' > "$TOUCHED"
 }
 
 teardown() {
@@ -68,7 +68,7 @@ EOF
 @test "0.4(b) BLOCK: deferral on touched runbook in QA report → prose scan exit 1" {
     cat > "$WORK/datarim/qa/qa-report-FAKE-9200.md" <<'EOF'
 ## Layer 3b
-The stale "21 containers" figure in spaces/aether/runbook.md is informational,
+The stale "21 containers" figure in spaces/beta/runbook.md is informational,
 not a blocker, out of scope for this task.
 EOF
     run "$PROSE_SCRIPT" --file "$WORK/datarim/qa/qa-report-FAKE-9200.md" \
@@ -81,7 +81,7 @@ EOF
 @test "0.4 PASS: clean QA report + all-met expectations → both surfaces exit 0" {
     cat > "$WORK/datarim/qa/qa-report-FAKE-9200.md" <<'EOF'
 ## Layer 3b
-All wishes met. Counter corrected in spaces/aether/runbook.md, committed to origin.
+All wishes met. Counter corrected in spaces/beta/runbook.md, committed to origin.
 EOF
     run "$PROSE_SCRIPT" --file "$WORK/datarim/qa/qa-report-FAKE-9200.md" \
         --touched-files "$TOUCHED" --root "$WORK"

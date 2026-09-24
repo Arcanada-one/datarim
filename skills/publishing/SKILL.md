@@ -742,8 +742,9 @@ if any item fails, fix it before publishing.
 - [ ] Model/product names are current: if the content names an AI model or
   product version, confirm it is still the canonical current version before
   publishing (e.g. DeepSeek version, Claude model ID).
-- [ ] No "Aether" named in public content — replace with "primary work" or
-  omit the reference entirely.
+- [ ] No private client or project names in public content (the operator
+  keeps that list) — replace with a neutral description such as "primary work",
+  or omit the reference entirely.
 
 ### Technical correctness
 

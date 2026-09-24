@@ -24,11 +24,45 @@
 \bpaxbeach\b
 \byuval\b
 
-# Ecosystem-specific hostnames / project names
-\barcana-dev\b
+# Ecosystem-specific hostnames / project names.
+# The host family is matched as a prefix: an earlier `\barcana-dev\b` entry
+# could not see `arcana-devs` (no word boundary between "dev" and "s"), nor
+# the -prod / -www / -db / -ai siblings, so every one of them shipped.
+\barcana-[a-z0-9]+
+\bdev-ai\b
 
-# Ecosystem-specific Vault/credential paths
-arcanada/aether
+# Consumer project names. A consumer's project name has no place in a
+# framework that any project can adopt. This one was already disclosed by the
+# narrower Vault-path entry it replaces (`arcanada/aether`), so listing the bare
+# name adds nothing a reader could not already see. Further consumer names go
+# in the private overlay (see below), never here.
+\baether\b
+
+# Consumer task IDs. `DEV-` is a universal area prefix, and this repository
+# uses it for synthetic fixtures in the 0xxx and 9xxx ranges only. A DEV-1xxx
+# to DEV-8xxx number is a real task from a consumer project's tracker cited as
+# provenance; describe the incident instead of citing its ticket.
+\bDEV-[1-8][0-9]{3}\b
+
+# Consumer-specific tracker fields. A field named after one vendor's tracker
+# (e.g. an Asana GID) couples a public contract to one customer's tooling; use
+# a generic tracker reference field instead.
+\basana_?gid\b
+
+# Absolute home-directory paths name a person and a machine. Use $HOME, `~`,
+# or a placeholder such as /Users/example, /home/example, /Users/YOUR_USER,
+# or /home/<user>; /home/app is the conventional container service account. Matched case-sensitively so a URL path such as
+# /v2/users/login is not mistaken for a macOS home. /home/runner and /home/dependabot are GitHub-hosted runner
+# accounts, not people.
+(?-i:/Users/)(?!example\b|YOUR_USER\b)[A-Za-z0-9_][A-Za-z0-9._-]*
+/home/(?!example\b|app\b|runner\b|dependabot\b|linuxbrew\b)[A-Za-z0-9_][A-Za-z0-9._-]*
+
+# The same home directory as encoded in an agent runtime's per-project state
+# directory name (e.g. ~/.claude/projects/-Users-<name>-<project>/).
+(?-i:-(?:Users|home)-)(?!example-)[A-Za-z0-9._]+-
+
+# A tailnet's MagicDNS suffix is unique to one organisation's network.
+\btail[0-9a-f]{6}\.ts\.net\b
 
 # Personal Asana PAT variable names (any ASANA_*_PAT pattern)
 ASANA_[A-Z_]*PAT

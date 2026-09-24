@@ -187,7 +187,7 @@ for doc in "${SPEC_DOCS[@]}"; do
     #   (b) "- **D-REQ-NN** — ..." bold-list form (the form the /dr-prd template's
     #       Requirements section emits as a bullet list). Recognising both keeps the
     #       Covers/dreq-dangling resolution from false-firing on a well-formed PRD
-    #       that declared its D-REQs as a bullet list (DEV-1547, DEV-1552-FU).
+    #       that declared its D-REQs as a bullet list (two consumer PRDs did).
     while IFS= read -r hline; do
         [ -n "$hline" ] || continue
         lineno="${hline%%:*}"

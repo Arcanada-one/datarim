@@ -66,7 +66,7 @@ fi
 [ -d "$ROOT" ] || { printf 'check-class-b-not-shipped: not a directory: %s\n' "$ROOT" >&2; exit 2; }
 
 # Class-b denylist. Keep in sync with the consumer-side declaration
-# (`space.yml § datarim_fleet.class_b_scripts` in the Arcanada workspace).
+# (`space.yml § datarim_fleet.class_b_scripts` in the consumer workspace).
 # Each entry is a basename that must NOT exist under <root>/dev-tools/.
 CLASS_B_SCRIPTS=(
     datarim-exec-guard.sh

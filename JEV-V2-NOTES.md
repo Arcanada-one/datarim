@@ -8,10 +8,10 @@ The launchers now:
 - make `dr-claude-jev` use the same resolved plugin home;
 - keep the existing user-scope installer workflow.
 
-For this checkout at `/Users/ug/code/datarim-jev-integrated`:
+For a checkout at `$HOME/code/datarim-jev-integrated`:
 
 ```bash
-export DATARIM_JEV_HOME="/Users/ug/code/datarim-jev-integrated/plugins/dr-jev-control"
+export DATARIM_JEV_HOME="$HOME/code/datarim-jev-integrated/plugins/dr-jev-control"
 export TYPESAFE_API_KEY="..."
 export PATH="$HOME/.local/bin:$PATH"
 python3 plugins/dr-jev-control/scripts/install.py --scope user
