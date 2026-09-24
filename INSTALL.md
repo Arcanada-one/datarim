@@ -1,6 +1,6 @@
 # Installing Datarim
 
-**AI agents: ask the user the questions below before running `install.sh`; the installer refuses a fresh install without a Jev choice.** The questions are in
+**AI agents: ask the user the questions below before running `install.sh`; the installer refuses a fresh install without the answers.** The questions are in
 [If you are an AI agent](#if-you-are-an-ai-agent-asked-to-install-datarim).
 
 This is the single install guide for Datarim and its optional companion, Jev. It is
@@ -29,10 +29,11 @@ Follow these steps in order. Do not improvise other install methods.
    `curl -fsSL https://raw.githubusercontent.com/Arcanada-one/datarim/main/INSTALL.md`
    — or read `INSTALL.md` in a clone; a summarizing web fetch drops most of it.
    Do not install anything until the user has answered the questions below or
-   told you to use the defaults. The installer enforces the Jev question: a fresh
-   install without `--with-jev` or `--without-jev` exits with code 2, prints the
-   questions and writes nothing — `--dry-run` included. Never add either flag
-   yourself before the user has answered.
+   told you to use the defaults. The installer enforces it: a fresh install
+   without a Jev answer (`--with-jev` or `--without-jev`) and a `--client` list
+   exits with code 2, prints the questions and the flag for each answer, and
+   writes nothing — `--dry-run` included. Never add those flags yourself before
+   the user has answered.
 2. **Establish the two paths.**
    - `PROJECT` — the absolute path of the project the user wants Datarim in
      (usually the current working directory). It must be an existing directory
@@ -59,8 +60,9 @@ Follow these steps in order. Do not improvise other install methods.
    (`find "$PROJECT" -mindepth 2 -name .git -not -path '*/node_modules/*'`). If it
    does and the user wants Datarim to work inside them, add one
    `--context <relative/path>` per repository.
-4. **Run the commands** for the chosen combination from
-   [Step 3](#step-3--install), always with `--dry-run` first, then for real.
+4. **Run the installer** as shown in [Step 3](#step-3--install), with the flags
+   the answers give ([Answers and flags](#answers-and-flags)), `--dry-run` first,
+   then for real.
    Never write an API key yourself and never ask the user to paste a key into
    the chat.
 5. **Verify** with [Step 5](#step-5--verify). Every check has an expected result.
@@ -119,64 +121,55 @@ Set the project path once (absolute):
 PROJECT=/absolute/path/to/project
 ```
 
-Without the user's answers, run only this; it stops and prints the questions:
+Run the installer with only the project path:
 
 ```sh
-./install.sh --project "$PROJECT" --init   # stops and asks: choose --with-jev or --without-jev
+./install.sh --project "$PROJECT"   # prints the questions to ask and the flags for each answer
 ```
 
-Once the user has answered, run the option that matches the answer, each with
-`--dry-run` first: it prints the files it would write and changes nothing.
+On a fresh project it installs nothing: it prints the questions to ask the
+user and the flag for each answer, and exits with code `2`. Ask the questions,
+wait for the answers, then run it again with the flags the answers give (add
+`--dry-run` first to see the plan). Never pick the answers yourself. Jev's
+safety floor works without any key; a missing key is not a reason to answer
+"no Jev".
 
-### Option A — Datarim only (the user chose no Jev)
+### Answers and flags
 
-```sh
-./install.sh --project "$PROJECT" --init --without-jev --dry-run
-./install.sh --project "$PROJECT" --init --without-jev
-```
+| Answer | Flag |
+|---|---|
+| Jev: none | `--without-jev` |
+| Jev: project | `--with-jev`. Hooks go into this project only, for the chosen clients (`.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json`), and an empty key file is created at `config/credentials/jev/api-key` (mode `0600`). Not on a machine that already has host Jev: both sets of hooks would run. |
+| Jev: host | `--with-jev --host-jev`, after the host step below |
+| Clients | `--client` with the chosen ones, e.g. `--client claude,codex`; required on a fresh install |
+| Link `CLAUDE.md` to `AGENTS.md` (Claude Code) | `--claude-import` |
+| Create task files now | `--init` |
+| Every skill in every session | `--expose-skills` |
+| Nested repositories to include | `--context <relative/path>`, once per repository |
+| Permission mode full | after the install: `jev permissions full` |
+| Release tag or `main` | before the install, in the source checkout: `git checkout <tag>` or `git checkout main` |
 
-`--without-jev` is the recorded answer "no Jev". Do not pass it on the user's
-behalf: without it, or `--with-jev`, the installer refuses and prints the
-questions.
-
-### Option B — Datarim with project-level Jev (the user chose project Jev)
-
-Jev hooks are registered **in this project only**, for the clients you select
-(`.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json`; all
-three when you pass no `--client`), and an empty key file is created at
-`config/credentials/jev/api-key` (mode `0600`).
-
-```sh
-./install.sh --project "$PROJECT" --init --with-jev --client claude,codex --dry-run
-./install.sh --project "$PROJECT" --init --with-jev --client claude,codex
-```
-
-Do not use this option on a machine that already has host Jev: both sets of
-hooks would run. Use option C instead.
-
-### Option C — host-wide Jev, and Datarim in this project (the user chose host Jev)
+### Only if the user chose host Jev: install host Jev first
 
 Host Jev is installed once per user and applies to every directory that user
 opens. It writes `~/.config/jev/`, `~/.local/share/jev/`, `~/.local/state/jev/`,
 the launchers `~/.local/bin/{jev,jevclaude,jevcodex,jevcursor}` (that directory
 must be on `PATH`), and merges its hooks into each chosen client's user config
 (`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.cursor/hooks.json`),
-keeping every existing hook.
+keeping every existing hook. Skip this step for any other Jev answer.
 
 ```sh
-# one --client per client you use; one --datarim-project per project that may use Datarim
+# one --client per client the user chose; one --datarim-project per project that may use Datarim
 python3 scripts/jev_host_install.py --client claude --client codex --client cursor \
   --datarim-project "$PROJECT" --dry-run
 python3 scripts/jev_host_install.py --client claude --client codex --client cursor \
   --datarim-project "$PROJECT"
-
-./install.sh --project "$PROJECT" --init --with-jev --host-jev --dry-run
-./install.sh --project "$PROJECT" --init --with-jev --host-jev
 ```
 
-`--datarim-project` **replaces** the host's list of Datarim projects; when you
-add a project later, pass every project again. The key file is
-`~/.config/jev/credentials/api-key`.
+Then run the project install with `--with-jev --host-jev` and the other flags
+from the answers. `--datarim-project` **replaces** the host's list of Datarim
+projects; when you add a project later, pass every project again. The key file
+is `~/.config/jev/credentials/api-key`.
 
 ### Option D — Jev without Datarim
 
@@ -188,13 +181,13 @@ install.
 
 | Option | Effect |
 |---|---|
-| `--client <name>` | `claude`, `codex`, `cursor` or `all`; repeat it or give a comma list. Only these clients get command files and (with `--with-jev`) hooks. Default: the clients recorded by the previous install, else all three. Kept across updates; a client you leave out on an update loses its command files and Jev hooks. |
+| `--client <name>` | `claude`, `codex`, `cursor` or `all`; repeat it or give a comma list. Only these clients get command files and (with `--with-jev`) hooks. Required on a fresh install. Kept across updates; a client you leave out on an update loses its command files and Jev hooks. |
 | `--claude-import` | Creates `CLAUDE.md` as a symlink to the project's `AGENTS.md`, so Claude Code (which reads `CLAUDE.md`, not `AGENTS.md`) loads your project rules. Only when no `CLAUDE.md` exists: an existing file or link is never changed. Kept across updates; `--no-claude-import` or uninstall removes only a link the install made. A symlink rather than an `@AGENTS.md` import line, because the import was observed to be ignored in sessions started in a subdirectory. |
 | `--init` | Creates `datarim/tasks.md` and `datarim/backlog.md` if missing. Existing files are kept. |
 | `--expose-skills` | Also writes every framework skill into `.agents/skills/`, `.claude/skills/`, `.cursor/skills/`. Their descriptions load into every session. Kept across updates once set. |
 | `--context <relative/path>` | Lets an existing nested git repository use this installation. Repeat per repository. Without it, a nested repository is refused. Kept across updates; given again, it replaces the list; `--no-context` clears it. |
 | `--without-jev`, `--no-host-jev` | `--without-jev` is the "no Jev" answer a fresh install requires (it or `--with-jev`). On update they turn off a recorded `--with-jev` or `--host-jev`; `--without-jev` then withdraws the project's Jev hooks and `jev-config.json`; the key file stays. |
-| `--dry-run` | Prints the plan as JSON; writes nothing. On a fresh install it needs the Jev choice too. |
+| `--dry-run` | Prints the plan as JSON; writes nothing. On a fresh install it needs the Jev answer and `--client` too. |
 | `--uninstall` | See [Uninstall](#uninstall). |
 
 ### What the project install writes
@@ -223,8 +216,8 @@ shell history. A `--with-jev` install prints the exact key file path. The file a
 
 | Install | Key file |
 |---|---|
-| Project Jev (option B) | `<project>/config/credentials/jev/api-key` |
-| Host Jev (option C or D) | `~/.config/jev/credentials/api-key` |
+| Project Jev (answer "project") | `<project>/config/credentials/jev/api-key` |
+| Host Jev (answer "host", or Jev without Datarim) | `~/.config/jev/credentials/api-key` |
 
 With host Jev the project's own key file stays empty and unread; that is
 correct. Never put the key in a shell command (it lands in history), a commit, a
@@ -462,9 +455,9 @@ backups).
 | `Unmanaged or locally modified file: <path>` | A file the install would write already exists with other content (or you edited a managed file). Move or reconcile it, then rerun. |
 | `Existing unmanaged .datarim-runtime; refusing overwrite` | A `.datarim-runtime/` without `installation.json`, for example a manual copy. Move it away. |
 | `Another installation transaction owns this project` | Another install or update is running on the project. Wait for it. |
-| `Datarim needs your choices before installing` (exit code `2`) | A fresh install without `--with-jev` or `--without-jev` (with or without `--dry-run`). Ask the user the questions it prints, then rerun with their answers. Updates keep the recorded choice and never ask. |
+| `STOP. Nothing was installed.` (exit code `2`) | A fresh install without a Jev answer (`--with-jev` / `--without-jev`) or without `--client`, with or without `--dry-run`. Ask the user the questions it prints, wait for the answers, then rerun with the flags it lists. Updates keep the recorded answers and never ask. |
 | `--host-jev requires --with-jev` | Pass both. |
-| `Install host Jev before selecting host ownership` | `--host-jev` without host Jev. Run `scripts/jev_host_install.py` first (option C). |
+| `Install host Jev before selecting host ownership` | `--host-jev` without host Jev. Run `scripts/jev_host_install.py` first ([host Jev step](#only-if-the-user-chose-host-jev-install-host-jev-first)). |
 | `jev install: Commit and verify the source revision before host installation` | Host Jev needs a clean git checkout. Discard local changes or check out a tag; a release tarball without `.git` cannot install host Jev. |
 | `jev install: Host Jev requires the pinned provider endpoint` | `~/.config/jev/config.json` has another `api.base_url`. Restore `https://api.typesafe.ai/v1/systemone`. |
 | `jev: No project-local Datarim installation in this directory` | You are outside the project (or the project has no install). `cd` into it. |

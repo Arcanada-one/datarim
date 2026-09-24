@@ -54,7 +54,7 @@ skill. The answer should come from `.datarim-runtime/commands/dr-help.md`.
 
 `--with-jev` also registers Jev's hooks for the selected clients in the project;
 `--with-jev --host-jev` reuses a Jev you installed for the whole machine instead
-(see [INSTALL.md](../../INSTALL.md), options B and C). Codex runs a hook only
+(see [INSTALL.md, Answers and flags](../../INSTALL.md#answers-and-flags)). Codex runs a hook only
 after you approve it in its TUI — see
 [the Jev control plane guide](claude-code-jev-control-plane.md). `jev doctor`
 reports a finding when a selected client's hook file or entry is missing, the

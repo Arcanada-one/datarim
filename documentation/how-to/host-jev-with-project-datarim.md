@@ -32,7 +32,7 @@ client has loaded, trusted, or executed its hooks.
 
 `--datarim-project` replaces the host's whole `datarim_projects` list; pass
 every approved project each time. The complete install sequence is in
-[INSTALL.md](../../INSTALL.md), option C.
+[INSTALL.md](../../INSTALL.md#only-if-the-user-chose-host-jev-install-host-jev-first), the host Jev step.
 
 ## Add the host key
 
@@ -62,14 +62,14 @@ reenables them. Neither command removes that guard.
 
 ## Enable Datarim in a project
 
-After registering host Jev, initialize the approved project:
+After registering host Jev, run the project installer in the approved project:
 
 ```sh
-python3 scripts/project_install.py --project /absolute/path/to/project \
-  --init --with-jev --host-jev
+./install.sh --project /absolute/path/to/project   # prints the questions to ask and the flags for each answer
 ```
 
-`--host-jev` assigns hook ownership to the existing host installation and avoids
+Ask the user its questions; for the Jev answer "host" it lists
+`--with-jev --host-jev`. `--host-jev` assigns hook ownership to the existing host installation and avoids
 registering a second set of project hooks. The host config's `datarim_projects`
 allowlist must also contain the physical project root. Nested Git repositories
 require explicit `--context relative/path` entries on the project installation.

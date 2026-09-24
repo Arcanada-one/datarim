@@ -76,26 +76,60 @@ class ProjectScopeTests(unittest.TestCase):
         self.assertFalse((ROOT/'AGENTS.md').is_symlink())
         self.assertFalse((ROOT/'CLAUDE.md').exists())
 
-    def test_no_quick_install_line_pre_answers_the_jev_choice(self):
-        """An agent copied the README quick line, which carried --without-jev,
-        so the installer's refusal never fired and nobody was asked."""
+    #: History that records what earlier releases did; not instructions.
+    DOC_HISTORY = ('CHANGELOG.md', 'JEV-V2-NOTES.md', 'JEV-INTEGRATION-REPORT.md',
+                   'documentation/archive/', 'documentation/plans/', 'documentation/evolution/',
+                   'documentation/how-to/evolution-log.md')
+
+    @staticmethod
+    def pre_answered_install_commands(text):
+        """Fresh-install commands in `text` that already carry an answer.
+
+        A summarizing fetch keeps complete command lines and drops every "ask
+        the user first" sentence around them: an agent copied one with
+        --without-jev and never asked. Continuation lines are joined, inline
+        code spans may wrap, and a trailing comment does not count. Update and
+        uninstall commands, and lines marked `not a user install`, are exempt.
+        """
         import re
-        for path, heading in ((ROOT/'README.md', '## Install'),
-                              (ROOT/'documentation/tutorials/getting-started.md', '## Install into a project'),
-                              (ROOT/'INSTALL.md', '## Step 3')):
-            text = path.read_text()
-            section = text[text.index(heading):]
-            first_block = re.search(r'```(?:sh|bash)\n(.*?)```', section, re.S).group(1)
-            install_lines = [line for line in first_block.splitlines() if 'install.sh' in line]
-            if path.name == 'INSTALL.md':  # Step 3 opens with PROJECT=; the next block is the quick line
-                blocks = re.findall(r'```(?:sh|bash)\n(.*?)```', section, re.S)
-                install_lines = [line for line in blocks[1].splitlines() if 'install.sh' in line]
-            self.assertTrue(install_lines, path)
-            for line in install_lines:
-                command, _, comment = line.partition('#')
-                self.assertNotIn('--with-jev', command, path)
-                self.assertNotIn('--without-jev', command, path)
-                self.assertIn('stops and asks', comment, path)
+        joined = re.sub(r'\\\n\s*', ' ', text)
+        candidates = joined.splitlines() + [' '.join(m.split()) for m in re.findall(r'`([^`]+)`', joined)]
+        found = []
+        for line in candidates:
+            if not re.search(r'(install\.sh|project_install\.py)\s', line) or '--project' not in line:
+                continue
+            if '--uninstall' in line or 'not a user install' in line or re.search(r'#\s*update\b', line):
+                continue
+            command = line.split(' #', 1)[0]
+            if re.search(r'--with-jev|--without-jev|--client\b', command):
+                found.append(line.strip())
+        return found
+
+    def test_no_doc_shows_a_fresh_install_command_with_the_answers(self):
+        found = {}
+        listed = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '*.md'], capture_output=True, text=True)
+        names = listed.stdout.split() or [str(p.relative_to(ROOT)) for p in ROOT.rglob('*.md')]
+        for name in names:
+            if name.startswith(self.DOC_HISTORY):
+                continue
+            hits = self.pre_answered_install_commands((ROOT/name).read_text(errors='replace'))
+            if hits:
+                found[name] = hits
+        self.assertEqual(found, {})
+
+    def test_the_doc_scan_catches_the_shapes_that_leaked(self):
+        leaked = ('./install.sh --project "$PROJECT" --init --without-jev',
+                  'python3 scripts/project_install.py --project /p \\\n  --init --with-jev --host-jev',
+                  'Run `./install.sh --project /p\n--with-jev` for this project',
+                  './install.sh --project P --client claude')
+        for text in leaked:
+            self.assertTrue(self.pre_answered_install_commands(text), text)
+        allowed = ('./install.sh --project "$PROJECT"   # prints the questions; flags: --with-jev',
+                   './install.sh --project "$PROJECT" --uninstall',
+                   './update.sh --project "$PROJECT" --without-jev',
+                   './install.sh --project P --client all   # scratch test project, not a user install')
+        for text in allowed:
+            self.assertFalse(self.pre_answered_install_commands(text), text)
 
     def test_installer_rejects_global_flags(self):
         run = subprocess.run([str(ROOT/'install.sh'), '--with-claude'], capture_output=True, text=True)
