@@ -10,8 +10,10 @@ All notable changes to the Datarim framework are documented here. Format follows
   project or per host; permission mode; `--expose-skills`; `--init`; nested repositories), the exact
   commands for each, a configuration and secrets table taken from the code (key files, config files,
   environment variables, what reads each), verification with expected `jev doctor` output, update,
-  uninstall and troubleshooting. A short section tells an AI agent which questions to ask, which commands
-  to run, how to verify and what to report.
+  uninstall and troubleshooting. A short section tells an AI agent to read the file raw, which questions to
+  ask before installing, which commands to run, how to verify and what to report. Verification includes
+  checks that need no key: a safety-floor denial through the hook, `hook_delivery` records in the ledger,
+  and which doctor answers what (`jev doctor` for Jev, `datarim-doctor.sh` for task-file structure).
 - README: an Install block near the top, with the quick path and a pointer for users who hand the
   repository to an AI agent. `AGENTS.md` points an installing agent to `INSTALL.md`.
 
@@ -22,7 +24,13 @@ All notable changes to the Datarim framework are documented here. Format follows
   `--context` (the getting-started page showed an update without them, which removes project Jev hooks);
   `jev doctor` exits `1` for any client that is not installed unless `--agent` is given; the Jev CLI
   reference now documents `jev permissions` and `jev trust` instead of stating that no permission or trust
-  flags are ever added; host Jev's `--datarim-project` replaces the whole project list.
+  flags are ever added; host Jev's `--datarim-project` replaces the whole project list; a project install
+  always writes command files and (with `--with-jev`) hooks for all three clients; one Jev key serves every
+  client on a computer and an exported `TYPESAFE_API_KEY` is ignored; `codex_hook_trust` in `jev doctor`
+  covers host Jev only.
+- `JEV-V2-NOTES.md`, `JEV-INTEGRATION-REPORT.md` and the `working-with-jev-orchestrator` tutorial are
+  marked as Datarim 2.x history (`dr-jev`, `dr-claude-jev`, user-scope install). The `dr-jev-control`
+  plugin README no longer says Codex and Cursor run without hooks.
 - `templates/security-workflow.yml` pinned a commit that no longer exists on the default branch after the
   history rewrite; it now pins the v3.1.2 commit and explains how to resolve a tag to its commit. The
   reusable workflow is named `reusable-security-audit.yml` in `AGENTS.md` and the `security-baseline`

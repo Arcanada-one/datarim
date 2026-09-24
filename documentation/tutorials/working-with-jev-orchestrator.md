@@ -1,5 +1,10 @@
 # Работа с Jev-оркестратором: практическое руководство
 
+> **Historical: Datarim 2.x only. The commands below are not installed by 3.x.** The `dr-jev` and `dr-claude-jev`
+> launchers, `install.py --scope user`, and an exported `TYPESAFE_API_KEY` describe the retired
+> user-scope integration. Datarim 3.x installs Jev per project or per host and reads the key from a
+> private file: see [INSTALL.md](../../INSTALL.md) and the [Jev CLI reference](../reference/jev-cli.md).
+
 Это руководство отвечает на один вопрос: **что набирать в терминале теперь**, когда к Datarim
 добавился оркестратор Jev.
 

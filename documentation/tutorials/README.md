@@ -31,8 +31,10 @@ Kebab-case `.md` filenames describing the learning goal, for example
 | File | What it teaches |
 |------|-----------------|
 | [`getting-started.md`](getting-started.md) | Install Datarim, initialise it in a project, and run your first task end to end. |
+| [`initialize-datarim.md`](initialize-datarim.md) | What a project install does and how it behaves afterwards. |
+| [`initialize-datarim-with-jev.md`](initialize-datarim-with-jev.md) | The Jev key, checks and entry points after a project install with Jev. |
 | [`use-cases.md`](use-cases.md) | Worked examples across domains, plus the canonical runtime support matrix. |
-| [`working-with-jev-orchestrator.md`](working-with-jev-orchestrator.md) | Which commands to type once the optional Jev orchestrator is installed: static vs live routing, Claude Code vs Codex, and how to switch the integration off. |
+| [`working-with-jev-orchestrator.md`](working-with-jev-orchestrator.md) | Historical, Datarim 2.x: the retired `dr-jev` / `dr-claude-jev` launchers. For 3.x see [`INSTALL.md`](../../INSTALL.md) and the [Jev CLI reference](../reference/jev-cli.md). |
 
 ---
 

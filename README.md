@@ -18,8 +18,20 @@ command safety floor and model routing advice.
 
 Needs Python 3.10+, git, and a signed-in Claude Code, Codex or Cursor client.
 
+Decide first (defaults in brackets; [INSTALL.md](INSTALL.md) explains each):
+
+- **Jev**: none, per project (`--with-jev`), or host-wide for every project of
+  this user [none]. Its safety floor needs no key; routing advice needs one Jev
+  API key per computer, shared by all clients on it.
+- **Clients**: one install serves Claude Code, Codex and Cursor together; there
+  is nothing to choose at install time.
+- **Permission mode** for the `jev*` launchers: ask, or `jev permissions full`
+  [ask].
+- **Task files** now (`--init`) [yes]; **all skills** in every session
+  (`--expose-skills`) [no].
+
 ```sh
-git clone https://github.com/Arcanada-one/datarim.git ~/src/datarim
+git clone https://github.com/Arcanada-one/datarim.git ~/src/datarim   # keep it: updates run from here
 cd ~/src/datarim && git checkout "$(git describe --tags --abbrev=0 --match 'v*')"
 ./install.sh --project /absolute/path/to/project --init            # add --with-jev for Jev
 cd /absolute/path/to/project && source .datarim-runtime/activate.sh && jev doctor --agent=claude
@@ -29,11 +41,14 @@ Then open your client in the project and run `/dr-help` (in Codex or Cursor, ask
 it to run the `dr-help` skill).
 
 **Using an AI agent?** Give it this repository URL and ask it to install
-Datarim — it follows [INSTALL.md](INSTALL.md).
+Datarim — it follows [INSTALL.md](INSTALL.md). Agents should read it raw:
+`curl -fsSL https://raw.githubusercontent.com/Arcanada-one/datarim/main/INSTALL.md`.
 
-[INSTALL.md](INSTALL.md) is the complete guide: the options to choose (Jev per
-project or per host, permission mode, `--expose-skills`), where API keys and
-settings live, verification, update, uninstall and troubleshooting.
+[INSTALL.md](INSTALL.md) is the complete guide: every option, where API keys and
+settings live, verification, update, uninstall and troubleshooting. After
+installing: [what a project install does](documentation/tutorials/initialize-datarim.md),
+[Jev key and checks](documentation/tutorials/initialize-datarim-with-jev.md),
+[first task](documentation/tutorials/getting-started.md).
 
 ---
 

@@ -1,5 +1,10 @@
 # Datarim + Jev + Claude Code — Final Integration Report
 
+> **Historical: Datarim 2.x only. Do not follow these steps.** The `dr-jev` and `dr-claude-jev`
+> launchers, `install.py --scope user`, and an exported `TYPESAFE_API_KEY` describe the retired
+> user-scope integration. Datarim 3.x installs Jev per project or per host and reads the key from a
+> private file: see [INSTALL.md](INSTALL.md) and the [Jev CLI reference](documentation/reference/jev-cli.md).
+
 This build integrates TypeSafe Jev as a System-One decision control plane in front of Claude Code and Datarim.
 
 ## Finalized behavior

@@ -6,8 +6,10 @@ client finds the `/dr-*` commands through its own project-local directory.
 
 ## Install
 
-Install once per project as described in [INSTALL.md](../../INSTALL.md); there
-is no per-client install step.
+Install once per project as described in [INSTALL.md](../../INSTALL.md). There
+is no option to choose clients: every install writes the command files for all
+three, and `--with-jev` registers hooks for all three. A client you do not use
+simply never reads its files.
 
 | Client | Where it finds the commands | How you run one |
 |---|---|---|
