@@ -492,6 +492,28 @@ def hook_liveness(ledgers, clients, selected, telemetry_enabled=True):
     return out
 
 
+def trust_message(written, trust, host_mode):
+    """What `jev trust` did, in words that match what `jev doctor` reports.
+
+    It used to print "Codex already trusts every Jev hook (or has none
+    installed)" whenever it wrote nothing -- also for a project whose hooks
+    Codex had never reviewed, while doctor said not_measured.
+    """
+    if written:
+        return f'Jev: Codex trust re-granted to {len(written)} Jev hook(s)'
+    if trust['state'] == 'trusted':
+        return 'Jev: Codex already trusts every Jev hook'
+    reason = str(trust.get('reason', ''))
+    if reason == 'no Codex hook configuration' or reason.startswith('no Jev hooks'):
+        return 'Jev: no Jev hooks are registered for Codex here; nothing to trust'
+    if trust.get('disabled') and not trust.get('untrusted') and not trust.get('modified'):
+        return ('Jev: the Jev hooks are disabled in Codex (/hooks); `jev trust` leaves that choice alone. '
+                'Enable them in codex under /hooks')
+    where = 'on this host' if host_mode else 'in the project'
+    return ('Jev: Codex has not reviewed these ' + ('host' if host_mode else 'project') + ' hooks yet: '
+            f'open codex {where} and choose \'Trust all and continue\'')
+
+
 def scope_hooks(host_mode, root, runtime, manifest, home=None):
     """Where this scope's Jev hooks are registered and where they report.
 
@@ -580,10 +602,11 @@ def main():
     codex_target = {} if host_mode else {'hooks': scope['files']['codex'], 'entry': scope['entries'][0]}
     if a.task == 'trust':
         written = codex_trust_own_hooks(**codex_target)
-        print(f'Jev: Codex trust re-granted to {len(written)} Jev hook(s)' if written
-              else 'Jev: Codex already trusts every Jev hook (or has none installed)')
-        print('codex_hook_trust:', codex_hook_trust(manifest['source_sha'], **codex_target)['state'])
-        return 0
+        trust = codex_hook_trust(manifest['source_sha'], **codex_target)
+        print(trust_message(written, trust, host_mode))
+        print('codex_hook_trust:', trust['state'])
+        return 0 if written or trust['state'] == 'trusted' or trust.get('reason') == 'no Codex hook configuration' \
+            or str(trust.get('reason', '')).startswith('no Jev hooks') else 1
     if a.task == 'doctor':
         import subprocess
         findings = []

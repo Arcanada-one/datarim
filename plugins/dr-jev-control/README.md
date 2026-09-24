@@ -7,10 +7,11 @@ Speed, quality, and cost improvements require measurement on real tasks.
 
 ## Install and use
 
-Install with [INSTALL.md](../../INSTALL.md): `./install.sh --project /path/to/project
---with-jev` for this project only (no user-level hooks, skills, instructions, or
-launchers), or host-wide Jev with `scripts/jev_host_install.py` plus
-`--with-jev --host-jev` on the project.
+Install with [INSTALL.md](../../INSTALL.md): `./install.sh --project /path/to/project`
+prints the questions to ask and the flags for each answer. The Jev answer
+"project" installs Jev for this project only (no user-level hooks, skills,
+instructions, or launchers); "host" uses host-wide Jev from
+`scripts/jev_host_install.py`.
 
 - [Datarim with Jev tutorial](../../documentation/tutorials/initialize-datarim-with-jev.md)
 - [Configuration and operation](../../documentation/how-to/configure-and-use-jev.md)

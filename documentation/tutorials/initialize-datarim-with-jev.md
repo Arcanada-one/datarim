@@ -1,8 +1,8 @@
 # Initialize Datarim with Jev
 
-Install with [INSTALL.md](../../INSTALL.md), option B (`--init --with-jev`)
-for Jev in this project only, or option C (`--with-jev --host-jev`) to reuse a
-host-wide Jev. Jev is optional: a provider failure must not prevent plain
+Install with [INSTALL.md](../../INSTALL.md): run `./install.sh --project "$PROJECT"`;
+it prints the questions to ask and the flags for each answer. The Jev answer
+"project" puts Jev in this project only; "host" reuses a host-wide Jev. Jev is optional: a provider failure must not prevent plain
 Datarim work. This page explains the key, the checks and the entry points.
 
 The installation creates `config/credentials/jev/api-key` if absent, with mode

@@ -4,7 +4,7 @@ load 'helpers/project_install'
 setup() { setup_project_fixture; }
 
 @test "explicit project installation never writes global agent discovery" {
-    install_project --without-jev
+    install_project --client all --without-jev
     [ "$status" -eq 0 ]
     [ -f "$PROJECT/.datarim-runtime/installation.json" ]
     # Datarim writes nothing into files a project shares: no AGENTS.md is created.
@@ -16,9 +16,9 @@ setup() { setup_project_fixture; }
 }
 
 @test "unchanged project install is idempotent" {
-    install_project --without-jev
+    install_project --client all --without-jev
     [ "$status" -eq 0 ]
-    install_project --without-jev
+    install_project --client all --without-jev
     [ "$status" -eq 0 ]
     [[ "$output" == *'"status": "unchanged"'* ]]
     [ ! -e "$PROJECT/.datarim-runtime-previous" ]
@@ -27,7 +27,7 @@ setup() { setup_project_fixture; }
 @test "the project's AGENTS.md is never modified" {
     printf '# Project\nPreserve operator policy.\n' > "$PROJECT/AGENTS.md"
     cp "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.before"
-    install_project --with-jev --init
+    install_project --client all --with-jev --init
     [ "$status" -eq 0 ]
     cmp "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.before"
     run grep -c 'datarim-project:begin' "$PROJECT/AGENTS.md"
@@ -35,7 +35,7 @@ setup() { setup_project_fixture; }
 }
 
 @test "project initialization creates only local task state" {
-    install_project --without-jev --init
+    install_project --client all --without-jev --init
     [ "$status" -eq 0 ]
     [ -f "$PROJECT/datarim/tasks.md" ]
     [ -f "$PROJECT/datarim/backlog.md" ]
@@ -43,7 +43,7 @@ setup() { setup_project_fixture; }
 }
 
 @test "Jev registers all native vendor schemas and a private empty key" {
-    install_project --with-jev
+    install_project --client all --with-jev
     [ "$status" -eq 0 ]
     run python3 - "$PROJECT" <<'CHECK'
 import json,sys
@@ -61,7 +61,7 @@ CHECK
 @test "foreign discovery collision fails without partial installation" {
     mkdir -p "$PROJECT/.agents/skills/dr-do"
     printf 'foreign skill' > "$PROJECT/.agents/skills/dr-do/SKILL.md"
-    install_project --without-jev
+    install_project --client all --without-jev
     [ "$status" -eq 2 ]
     [ ! -e "$PROJECT/.claude/commands/dr-do.md" ]
     [ ! -e "$PROJECT/.datarim-runtime" ]
@@ -71,7 +71,7 @@ CHECK
 
 @test "uninstall restores original instructions and preserves key and task state" {
     printf '# Original rules\n' > "$PROJECT/AGENTS.md"
-    install_project --with-jev --init
+    install_project --client all --with-jev --init
     [ "$status" -eq 0 ]
     install_project --uninstall
     [ "$status" -eq 0 ]
@@ -85,7 +85,7 @@ CHECK
 }
 
 @test "uninstall refuses to overwrite a subsequent operator edit" {
-    install_project --without-jev
+    install_project --client all --without-jev
     [ "$status" -eq 0 ]
     printf '\nOperator addition\n' >> "$PROJECT/.claude/commands/dr-do.md"
     install_project --uninstall
@@ -97,7 +97,7 @@ CHECK
 
 @test "an operator's AGENTS.md edits survive install and uninstall" {
     printf '# Rules\n' > "$PROJECT/AGENTS.md"
-    install_project --without-jev
+    install_project --client all --without-jev
     [ "$status" -eq 0 ]
     printf 'Operator addition\n' >> "$PROJECT/AGENTS.md"
     install_project --uninstall
@@ -112,7 +112,7 @@ CHECK
     printf '/build/\n' > "$PROJECT/.gitignore"
     git -C "$PROJECT" add -A
     git -C "$PROJECT" -c user.email=t@t -c user.name=t commit -qm init
-    install_project --with-jev --init
+    install_project --client all --with-jev --init
     [ "$status" -eq 0 ]
     run git -C "$PROJECT" status --porcelain
     [ "$status" -eq 0 ]
@@ -128,7 +128,7 @@ CHECK
     # Ported intent of 96a350f: the 2.x copy installer filtered by extension
     # and dropped heartbeat-receipts.py. The project installer copies whole
     # scopes; this pins that the helper arrives intact and works in place.
-    install_project --without-jev
+    install_project --client all --without-jev
     [ "$status" -eq 0 ]
     local runtime="$PROJECT/.datarim-runtime" receipts task
     cmp "$PRODUCT_ROOT/dev-tools/lib/heartbeat-receipts.py" "$runtime/dev-tools/lib/heartbeat-receipts.py"
@@ -148,13 +148,13 @@ CHECK
 
 @test "a fresh install without a Jev choice refuses and names the questions" {
     install_project --init
-    [ "$status" -ne 0 ]
-    [[ "$output" == *'Datarim needs your choices before installing'* ]]
-    [[ "$output" == *'--with-jev or --without-jev'* ]]
+    [ "$status" -eq 2 ]
+    [[ "$output" == 'STOP. Nothing was installed.'* ]]
+    [[ "$output" == *'Do not choose for them.'* ]]
+    [[ "$output" == *'works WITHOUT any key'* ]]
     [[ "$output" == *'--client claude,codex,cursor'* ]]
     [[ "$output" == *'jev permissions full'* ]]
-    [ ! -e "$PROJECT/.datarim-runtime" ]
-    [ ! -e "$PROJECT/datarim" ]
+    [ -z "$(ls -A "$PROJECT")" ]
 }
 
 @test "a dry run without a Jev choice is refused too and prints no plan" {
@@ -162,15 +162,22 @@ CHECK
     [ "$status" -eq 2 ]
     [ -z "$output" ]
     run sh "$PRODUCT_ROOT/install.sh" --project "$PROJECT" --init --dry-run
-    [[ "$output" == *'AI agent: put these questions to the user, then rerun with their answers.'* ]]
+    [[ "$output" == *'Rerun: ./install.sh --project <path> <flags from the answers>'* ]]
     [[ "$output" == *'--expose-skills'* ]]
     [ ! -e "$PROJECT/.datarim-runtime" ]
 }
 
 @test "a Jev install prints where the key goes and how to write it" {
-    run sh -c 'sh "$1" --project "$2" --with-jev 2>&1 >/dev/null' _ "$PRODUCT_ROOT/install.sh" "$PROJECT"
+    run sh -c 'sh "$1" --project "$2" --client all --with-jev 2>&1 >/dev/null' _ "$PRODUCT_ROOT/install.sh" "$PROJECT"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Jev key file: $PROJECT/config/credentials/jev/api-key"* || "$output" == *'config/credentials/jev/api-key'* ]]
     [[ "$output" == *'paste the key on one line'* ]]
     [[ "$output" == *'Do not echo/printf the key'* ]]
+}
+
+@test "a Jev answer without a client list is refused and writes nothing" {
+    install_project --without-jev
+    [ "$status" -eq 2 ]
+    [[ "$output" == 'STOP. Nothing was installed.'* ]]
+    [ -z "$(ls -A "$PROJECT")" ]
 }

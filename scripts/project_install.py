@@ -341,23 +341,43 @@ def project_lock(root):
 
 def install(args):
     root = project_directory(args.project)
+    # Refuse before the lock file is created: a refused install writes nothing.
+    if not (root/'.datarim-runtime'/'installation.json').is_file() and (
+            getattr(args, 'with_jev', None) is None or not getattr(args, 'client', None)):
+        raise ChoiceRequired(CHOICE_QUESTIONS)
     if args.dry_run:
         return _install(args)
     with project_lock(root):
         return _install(args)
 
 
-CHOICE_QUESTIONS = """Datarim needs your choices before installing (the same questions as INSTALL.md):
-  1) Jev: none (--without-jev) / project (--with-jev) / host (run scripts/jev_host_install.py
-     first, then --with-jev --host-jev).
-  2) Clients: --client claude,codex,cursor [all three]; with Claude Code, --claude-import links
-     CLAUDE.md to AGENTS.md.
-  3) Permission mode for the jev* launchers: ask [default], or `jev permissions full` after install.
-  4) Create empty task files now (--init)? [yes]
-  5) Expose every framework skill in every session (--expose-skills)? [no]
-  6) Install from the latest release tag or from main? [latest release tag]
-AI agent: put these questions to the user, then rerun with their answers.
-Rerun with --with-jev or --without-jev; nothing was written."""
+CHOICE_QUESTIONS = """STOP. Nothing was installed. Ask the user these questions and wait for the answers.
+Do not choose for them.
+
+1. Jev: none, project (this project only) or host (every project of this user)?
+   Jev's safety floor, which refuses destructive shell commands, works WITHOUT any key.
+   A key only adds routing advice, so "no key" is not a reason to skip Jev.
+2. Clients: which of Claude Code, Codex, Cursor? With Claude Code, also link
+   CLAUDE.md to the project AGENTS.md (Claude Code reads only CLAUDE.md)?
+3. Permission mode for the jev* launchers: ask (default) or full (no prompts)?
+4. Create empty task files datarim/tasks.md and datarim/backlog.md now?
+5. Expose every framework skill in every session (costs context)? Default: no.
+6. Install from the latest release tag (default) or from main?
+
+When the user has answered:
+Rerun: ./install.sh --project <path> <flags from the answers>
+
+  Answer                            Flag
+  Jev none                          --without-jev
+  Jev project                       --with-jev
+  Jev host                          first: python3 scripts/jev_host_install.py --client <each client>
+                                    --datarim-project <path>; then --with-jev --host-jev
+  Clients                           --client claude,codex,cursor (the ones chosen)
+  Link CLAUDE.md to AGENTS.md       --claude-import
+  Task files now                    --init
+  Expose every skill                --expose-skills
+  Permission mode full              after install: jev permissions full
+  Release tag                       before install: git checkout <tag>  (main: git checkout main)"""
 
 
 class ChoiceRequired(ValueError):
@@ -411,12 +431,13 @@ def _install(args):
         previous = json.loads(manifest.read_text())
         if previous.get('project') != str(root):
             raise ValueError('Installation project mismatch')
-    if previous is None and getattr(args, 'with_jev', None) is None:
+    if previous is None and (getattr(args, 'with_jev', None) is None or not getattr(args, 'client', None)):
         # Scripted and agent-driven installs used to run without asking the
         # user anything; the questions in the docs did not survive a
         # summarizing fetch. A fresh install needs the Jev choice explicitly.
         # --dry-run refuses too: an agent that copied a quick line took the
-        # printed plan as permission to run the real install.
+        # printed plan as permission to run the real install. The client list
+        # is an answer too: a default of "all three" let an agent skip it.
         raise ChoiceRequired(CHOICE_QUESTIONS)
     args.with_jev, args.host_jev, args.context = remembered_choices(args, previous)
     if args.host_jev:
@@ -855,8 +876,8 @@ def main():
                              'session); by default only the /dr-* commands are exposed')
     parser.add_argument('--client', action='append', default=None, metavar='CLIENT',
                         help='Install for this client only: claude, codex, cursor or all; repeat the option '
-                             'or give a comma list. Default: the clients recorded by the previous install, '
-                             'else all three. A client left out on update loses its managed files and hooks.')
+                             'or give a comma list. Required on a fresh install; an update keeps the recorded '
+                             'list. A client left out on update loses its managed files and hooks.')
     parser.add_argument('--claude-import', action=argparse.BooleanOptionalAction, default=None,
                         help='Link CLAUDE.md to the project AGENTS.md so Claude Code, which reads only '
                              'CLAUDE.md, loads the project rules. Only created when no CLAUDE.md exists; '
@@ -878,6 +899,9 @@ def main():
         parser.error(str(exc))
     try:
         uninstall(args) if args.uninstall else install(args)
+    except ChoiceRequired as exc:
+        print(exc, file=sys.stderr)  # the questions alone: this output reaches the agent verbatim
+        return 2
     except (ValueError, OSError) as exc:
         print(f'datarim install: {exc}', file=sys.stderr)
         return 2

@@ -76,26 +76,60 @@ class ProjectScopeTests(unittest.TestCase):
         self.assertFalse((ROOT/'AGENTS.md').is_symlink())
         self.assertFalse((ROOT/'CLAUDE.md').exists())
 
-    def test_no_quick_install_line_pre_answers_the_jev_choice(self):
-        """An agent copied the README quick line, which carried --without-jev,
-        so the installer's refusal never fired and nobody was asked."""
+    #: History that records what earlier releases did; not instructions.
+    DOC_HISTORY = ('CHANGELOG.md', 'JEV-V2-NOTES.md', 'JEV-INTEGRATION-REPORT.md',
+                   'documentation/archive/', 'documentation/plans/', 'documentation/evolution/',
+                   'documentation/how-to/evolution-log.md')
+
+    @staticmethod
+    def pre_answered_install_commands(text):
+        """Fresh-install commands in `text` that already carry an answer.
+
+        A summarizing fetch keeps complete command lines and drops every "ask
+        the user first" sentence around them: an agent copied one with
+        --without-jev and never asked. Continuation lines are joined, inline
+        code spans may wrap, and a trailing comment does not count. Update and
+        uninstall commands, and lines marked `not a user install`, are exempt.
+        """
         import re
-        for path, heading in ((ROOT/'README.md', '## Install'),
-                              (ROOT/'documentation/tutorials/getting-started.md', '## Install into a project'),
-                              (ROOT/'INSTALL.md', '## Step 3')):
-            text = path.read_text()
-            section = text[text.index(heading):]
-            first_block = re.search(r'```(?:sh|bash)\n(.*?)```', section, re.S).group(1)
-            install_lines = [line for line in first_block.splitlines() if 'install.sh' in line]
-            if path.name == 'INSTALL.md':  # Step 3 opens with PROJECT=; the next block is the quick line
-                blocks = re.findall(r'```(?:sh|bash)\n(.*?)```', section, re.S)
-                install_lines = [line for line in blocks[1].splitlines() if 'install.sh' in line]
-            self.assertTrue(install_lines, path)
-            for line in install_lines:
-                command, _, comment = line.partition('#')
-                self.assertNotIn('--with-jev', command, path)
-                self.assertNotIn('--without-jev', command, path)
-                self.assertIn('stops and asks', comment, path)
+        joined = re.sub(r'\\\n\s*', ' ', text)
+        candidates = joined.splitlines() + [' '.join(m.split()) for m in re.findall(r'`([^`]+)`', joined)]
+        found = []
+        for line in candidates:
+            if not re.search(r'(install\.sh|project_install\.py)\s', line) or '--project' not in line:
+                continue
+            if '--uninstall' in line or 'not a user install' in line or re.search(r'#\s*update\b', line):
+                continue
+            command = line.split(' #', 1)[0]
+            if re.search(r'--with-jev|--without-jev|--client\b', command):
+                found.append(line.strip())
+        return found
+
+    def test_no_doc_shows_a_fresh_install_command_with_the_answers(self):
+        found = {}
+        listed = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '*.md'], capture_output=True, text=True)
+        names = listed.stdout.split() or [str(p.relative_to(ROOT)) for p in ROOT.rglob('*.md')]
+        for name in names:
+            if name.startswith(self.DOC_HISTORY):
+                continue
+            hits = self.pre_answered_install_commands((ROOT/name).read_text(errors='replace'))
+            if hits:
+                found[name] = hits
+        self.assertEqual(found, {})
+
+    def test_the_doc_scan_catches_the_shapes_that_leaked(self):
+        leaked = ('./install.sh --project "$PROJECT" --init --without-jev',
+                  'python3 scripts/project_install.py --project /p \\\n  --init --with-jev --host-jev',
+                  'Run `./install.sh --project /p\n--with-jev` for this project',
+                  './install.sh --project P --client claude')
+        for text in leaked:
+            self.assertTrue(self.pre_answered_install_commands(text), text)
+        allowed = ('./install.sh --project "$PROJECT"   # prints the questions; flags: --with-jev',
+                   './install.sh --project "$PROJECT" --uninstall',
+                   './update.sh --project "$PROJECT" --without-jev',
+                   './install.sh --project P --client all   # scratch test project, not a user install')
+        for text in allowed:
+            self.assertFalse(self.pre_answered_install_commands(text), text)
 
     def test_installer_rejects_global_flags(self):
         run = subprocess.run([str(ROOT/'install.sh'), '--with-claude'], capture_output=True, text=True)
@@ -121,7 +155,7 @@ class InstallationLifecycleTests(unittest.TestCase):
         (self.project/'AGENTS.md').write_text('# Original project rules\n')
         (self.project/'.gitignore').write_text('/build/\n')
         self.args = Namespace(project=str(self.project), with_jev=False,
-                              context=[], dry_run=False, init=True)
+                              client=project_install.CLIENTS, context=[], dry_run=False, init=True)
         self.source_patch = patch.object(project_install, 'SOURCE', self.source)
         self.source_patch.start()
         self.addCleanup(self.source_patch.stop)
@@ -278,7 +312,7 @@ class InstallationLifecycleTests(unittest.TestCase):
     def test_an_update_without_the_option_keeps_the_recorded_clients(self):
         project_install.install(self.with_args(client=('claude', 'cursor')))
         (self.source/'VERSION').write_text('next\n')
-        project_install.install(self.args)
+        project_install.install(self.with_args(client=None))
         self.assertTrue((self.project/'.claude/commands/dr-do.md').is_file())
         self.assertTrue((self.project/'.cursor/skills/dr-do/SKILL.md').is_file())
         self.assertFalse((self.project/'.agents/skills/dr-do/SKILL.md').exists())
@@ -401,8 +435,9 @@ class InstallationLifecycleTests(unittest.TestCase):
         return Namespace(**{**base, **changes})
 
     def test_a_fresh_install_without_a_choice_is_refused_before_any_write(self):
-        with self.assertRaisesRegex(project_install.ChoiceRequired, 'put these questions to the user'):
+        with self.assertRaisesRegex(project_install.ChoiceRequired, 'Ask the user these questions'):
             project_install.install(self.fresh())
+        self.assertEqual(sorted(p.name for p in self.project.iterdir()), ['.gitignore', 'AGENTS.md'])
         self.assertFalse((self.project/'.datarim-runtime').exists())
         self.assertFalse((self.project/'datarim').exists())
 
@@ -419,10 +454,29 @@ class InstallationLifecycleTests(unittest.TestCase):
 
     def test_the_printed_questions_match_install_md(self):
         text = project_install.CHOICE_QUESTIONS
-        for needle in ('--without-jev', '--with-jev', '--host-jev', '--client', 'jev permissions full',
-                       '--init', '--expose-skills', 'release tag', 'main',
-                       'AI agent: put these questions to the user, then rerun with their answers.'):
+        for needle in ('STOP.', 'Ask the user these questions and wait for the answers.',
+                       'Do not choose for them.', 'works WITHOUT any key', '"no key" is not a reason',
+                       '--without-jev', '--with-jev', '--host-jev', '--client', '--claude-import',
+                       'jev permissions full', '--init', '--expose-skills', 'release tag', 'main',
+                       'Rerun: ./install.sh --project <path> <flags from the answers>'):
             self.assertIn(needle, text)
+
+    def test_a_jev_answer_without_a_client_list_is_refused_too(self):
+        for changes in ({'with_jev': False, 'client': None}, {'with_jev': True, 'client': None},
+                        {'with_jev': False, 'client': None, 'dry_run': True}):
+            with self.subTest(**changes), self.assertRaises(project_install.ChoiceRequired):
+                project_install.install(self.with_args(**changes))
+        self.assertFalse((self.project/'.datarim-runtime').exists())
+
+    def test_a_client_list_without_a_jev_answer_is_refused(self):
+        with self.assertRaises(project_install.ChoiceRequired):
+            project_install.install(self.fresh(client=('claude',)))
+
+    def test_an_update_needs_neither_answer(self):
+        project_install.install(self.with_args(client=('codex',)))
+        (self.source/'VERSION').write_text('next\n')
+        project_install.install(self.fresh(client=None))
+        self.assertEqual(self.manifest()['clients'], ['codex'])
 
     def test_an_update_without_a_choice_keeps_the_recorded_one(self):
         project_install.install(self.args)
@@ -435,9 +489,14 @@ class InstallationLifecycleTests(unittest.TestCase):
                               str(self.project)], capture_output=True, text=True, timeout=120)
         self.assertEqual(run.returncode, 2)
         self.assertEqual(run.stdout, '')
-        for text in ('Datarim needs your choices', '--client claude,codex,cursor', 'jev permissions full',
-                     '--expose-skills', 'nothing was written'):
+        self.assertTrue(run.stderr.startswith('STOP. Nothing was installed.'), run.stderr[:80])
+        self.assertNotIn('datarim install:', run.stderr)
+        for text in ('--client claude,codex,cursor', 'jev permissions full', '--expose-skills'):
             self.assertIn(text, run.stderr)
+        run = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
+                              str(self.project), '--without-jev', '--dry-run'],
+                             capture_output=True, text=True, timeout=120)
+        self.assertEqual((run.returncode, run.stdout), (2, ''))
 
     def test_a_jev_install_says_where_the_key_goes(self):
         import contextlib, io
@@ -726,7 +785,7 @@ class IgnoredSourceTests(unittest.TestCase):
         target.mkdir()
         subprocess.run(['git', 'init', '-q', str(target)], check=True)
         result = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
-                                 str(target), '--init', '--without-jev', '--dry-run'], capture_output=True,
+                                 str(target), '--init', '--without-jev', '--client', 'all', '--dry-run'], capture_output=True,
                                 text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stderr)
         files = json.loads(result.stdout.strip().splitlines()[-1])["files"]

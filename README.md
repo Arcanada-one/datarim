@@ -16,17 +16,18 @@ command safety floor and model routing advice.
 
 ## Install
 
-**AI agents: ask the user the questions below before running `install.sh`; the installer refuses a fresh install without a Jev choice.**
+**AI agents: ask the user the questions below before running `install.sh`; the installer refuses a fresh install without the answers.**
 
 Needs Python 3.10+, git, and a signed-in Claude Code, Codex or Cursor client.
 
 Decide first (defaults in brackets; [INSTALL.md](INSTALL.md) explains each):
 
 - **Jev**: none (`--without-jev`), per project (`--with-jev`), or host-wide for
-  every project of this user [none]. A fresh install needs one of the two flags. Its safety floor needs no key; routing advice needs one Jev
-  API key per computer, shared by all clients on it.
+  every project of this user [none]. Its safety floor needs no key, so "no
+  key" is not a reason to skip Jev; routing advice needs one Jev API key per
+  computer, shared by all clients on it.
 - **Clients**: Claude Code, Codex, Cursor — pick with `--client` (repeatable or
-  comma list) [all three]. With Claude Code, `--claude-import` links `CLAUDE.md`
+  comma list); a fresh install needs the list. With Claude Code, `--claude-import` links `CLAUDE.md`
   to your `AGENTS.md`, since Claude Code reads only `CLAUDE.md` [off].
 - **Permission mode** for the `jev*` launchers: ask, or `jev permissions full`
   [ask].
@@ -36,12 +37,13 @@ Decide first (defaults in brackets; [INSTALL.md](INSTALL.md) explains each):
 ```sh
 git clone https://github.com/Arcanada-one/datarim.git ~/src/datarim   # keep it: updates run from here
 cd ~/src/datarim && git checkout "$(git describe --tags --abbrev=0 --match 'v*')"
-./install.sh --project /absolute/path/to/project --init   # stops and asks: choose --with-jev or --without-jev
+./install.sh --project /absolute/path/to/project   # prints the questions to ask and the flags for each answer
 ```
 
-The installer stops there and prints the questions above; nothing is written.
-Rerun it with the user's answers — the command for each choice is in
-[INSTALL.md, Step 3](INSTALL.md#step-3--install) — then check it with
+On a fresh project the installer writes nothing: it prints the questions to ask
+and the flag for each answer. Ask the user, wait for the answers, rerun with
+those flags ([INSTALL.md, Answers and flags](INSTALL.md#answers-and-flags)),
+then check it with
 `cd /absolute/path/to/project && source .datarim-runtime/activate.sh && jev doctor --agent=claude`.
 Then open your client in the project and run `/dr-help` (in Codex or Cursor, ask
 it to run the `dr-help` skill). Updates (`./update.sh --project …`) keep the

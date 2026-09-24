@@ -40,7 +40,8 @@ class ProjectDoctor(unittest.TestCase):
 
     def install(self, *extra):
         run = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
-                              str(self.project), '--with-jev', *extra],
+                              str(self.project), '--with-jev',
+                              *(extra if '--client' in extra else ('--client', 'all', *extra))],
                              env=self.env, capture_output=True, text=True, timeout=120)
         self.assertEqual(run.returncode, 0, run.stderr)
 
@@ -117,6 +118,22 @@ class ProjectDoctor(unittest.TestCase):
         # The grants are keyed by the project's own hooks file.
         self.assertIn(f'[hooks.state."{self.project}/.codex/hooks.json:pre_tool_use:0:0"]',
                       (self.home/'.codex/config.toml').read_text())
+
+    def test_trust_without_a_codex_config_says_codex_has_not_reviewed_the_hooks(self):
+        """`jev trust` said "Codex already trusts every Jev hook (or has none
+        installed)" while doctor said not_measured."""
+        self.install('--client', 'codex')
+        run = self.jev('trust')
+        self.assertEqual(run.returncode, 1, run.stdout)
+        self.assertIn('Codex has not reviewed these project hooks yet', run.stdout)
+        self.assertIn("open codex in the project and choose 'Trust all and continue'", run.stdout)
+        self.assertNotIn('already trusts', run.stdout)
+
+    def test_trust_in_a_project_without_codex_hooks_has_nothing_to_do(self):
+        self.install('--client', 'claude')
+        run = self.jev('trust')
+        self.assertEqual(run.returncode, 0, run.stdout)
+        self.assertIn('nothing to trust', run.stdout)
 
     def test_no_codex_config_is_not_measured_with_its_own_reason(self):
         self.install('--client', 'codex')

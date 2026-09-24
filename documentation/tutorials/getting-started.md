@@ -15,13 +15,13 @@ remove an installation. The short path:
 ```bash
 git clone https://github.com/Arcanada-one/datarim.git ~/src/datarim
 cd ~/src/datarim
-./install.sh --project /path/to/project --init   # stops and asks: choose --with-jev or --without-jev
+./install.sh --project /path/to/project   # prints the questions to ask and the flags for each answer
 ```
 
-The installer stops and prints the questions (Jev, clients, permission mode and
-the rest); nothing is written, not even with `--dry-run`. Answer them, then
-rerun with the flags for your choice from
-[INSTALL.md, Step 3](../../INSTALL.md#step-3--install).
+On a fresh project the installer writes nothing, not even with `--dry-run`: it
+prints the questions (Jev, clients, permission mode and the rest) and the flag
+for each answer. Answer them, then rerun with those flags
+([INSTALL.md, Answers and flags](../../INSTALL.md#answers-and-flags)).
 
 Then, in Claude Code, run `/dr-help`. In Codex and Cursor the commands arrive
 as skills named `dr-*`: ask the agent to run the `dr-help` skill.
