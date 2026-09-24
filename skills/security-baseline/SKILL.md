@@ -306,7 +306,7 @@ updates:
 
 Consumer projects add their language ecosystem (e.g. one `package-ecosystem` block per dependency manifest). Datarim itself ships only the `github-actions` ecosystem block — the framework has no language manifests in scope.
 
-`${DATARIM_RUNTIME:?}/templates/security-workflow.yml` is the canonical drop-in for consumer projects. Reusable workflow path: `Arcanada-one/datarim/.github/workflows/reusable-security.yml@<tag>` (preferred — single source of truth, version-pinned).
+`${DATARIM_RUNTIME:?}/templates/security-workflow.yml` is the canonical drop-in for consumer projects. Reusable workflow path: `Arcanada-one/datarim/.github/workflows/reusable-security-audit.yml@<commit-sha>  # vX.Y.Z` (preferred — single source of truth, pinned to the commit a release tag resolves to: `git ls-remote https://github.com/Arcanada-one/datarim 'refs/tags/vX.Y.Z^{}'`).
 
 ### Pre-push local validation (advisory)
 

@@ -5,91 +5,22 @@ project at a time** and runs only when you call one of its `/dr-*` commands.
 It adds nothing to your agents' instructions otherwise, and nothing it writes
 appears in `git status`.
 
-## Prerequisites
-
-- **Python 3.10+** and **git**.
-- At least one agent client: [Claude Code](https://code.claude.com/docs/en/overview),
-  [Codex CLI](https://github.com/openai/codex), or Cursor.
-- A project directory — ideally a git repository.
-
 ## Install into a project
 
+Follow [INSTALL.md](../../INSTALL.md) — the one install guide. It covers the
+prerequisites, the options (Jev per project or per host, permission mode,
+`--expose-skills`), where keys and settings live, and how to verify, update and
+remove an installation. The short path:
+
 ```bash
-# nosec-extract
-git clone https://github.com/Arcanada-one/datarim.git
-cd datarim
+git clone https://github.com/Arcanada-one/datarim.git ~/src/datarim
+cd ~/src/datarim
 ./install.sh --project /path/to/project --init --dry-run   # preview what it would write
 ./install.sh --project /path/to/project --init             # install
 ```
 
-Add `--with-jev` to install Jev alongside (routing advice and a safety floor;
-see [Initialize Datarim with Jev](initialize-datarim-with-jev.md)), or
-`--with-jev --host-jev` to reuse a Jev you already installed for the whole
-machine. `--expose-skills` additionally puts every framework skill into your
-clients' automatic discovery — their descriptions are then loaded into every
-session, so leave it off unless you want that.
-
-### What the install writes
-
-| Where | What | Visible in git |
-|---|---|---|
-| `.datarim-runtime/` | the framework at this revision | no |
-| `.claude/commands/dr-*.md` | the commands for Claude Code | no |
-| `.agents/skills/dr-*/`, `.cursor/skills/dr-*/` | the same commands for Codex and Cursor | no |
-| `datarim/` (with `--init`) | this project's task state | no |
-| `.git/info/exclude` | the rules that keep all of the above out of `git status` | never committed |
-
-It does **not** touch `AGENTS.md`, `CLAUDE.md`, `.gitignore` or your home
-directory. Each command carries the path to `.datarim-runtime/` and tells the
-agent to read the framework rules from there — so the framework is loaded when
-you run a command, and not otherwise. In a repository shared with people who do
-not use Datarim, they see nothing.
-
-If the project is not a git repository there is nothing to hide, and no
-exclude file is written.
-
-### Check it
-
-```bash
-cd /path/to/project
-git status --short                     # nothing from Datarim
-source .datarim-runtime/activate.sh    # current shell only
-jev doctor
-```
-
 Then, in Claude Code, run `/dr-help`. In Codex and Cursor the commands arrive
 as skills named `dr-*`: ask the agent to run the `dr-help` skill.
-
-### Upgrading from 2.x
-
-Datarim 2.x installed globally (`./install.sh --with-claude`, symlinks into
-`~/.claude/`). Those flags no longer exist. Remove the old symlinks in
-`~/.claude/{agents,skills,commands,templates,scripts,tests,dev-tools}` (and the
-Codex and Cursor equivalents) that resolve into your Datarim checkout — only
-those — and install per project as above.
-
-A project installed from `main` before 3.0 had a block appended to its
-`AGENTS.md` and rules appended to `.gitignore`. The next install or update
-removes both, keeps everything else in those files, and stops managing them.
-
-## Updating
-
-```bash
-cd /path/to/datarim && git pull
-./install.sh --project /path/to/project
-```
-
-The update is a single transaction: it verifies every file it will change,
-refuses to overwrite anything you edited, and rolls back on failure.
-
-## Removing
-
-```bash
-./install.sh --project /path/to/project --uninstall
-```
-
-The runtime moves to `.datarim-uninstalled/`; keys and task state stay, and stay
-hidden from git.
 
 ---
 

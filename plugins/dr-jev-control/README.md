@@ -7,8 +7,10 @@ Speed, quality, and cost improvements require measurement on real tasks.
 
 ## Install and use
 
-Install from the framework root with `./install.sh --project /path/to/project
---with-jev`. No user-level hooks, skills, instructions, or launchers are installed.
+Install with [INSTALL.md](../../INSTALL.md): `./install.sh --project /path/to/project
+--with-jev` for this project only (no user-level hooks, skills, instructions, or
+launchers), or host-wide Jev with `scripts/jev_host_install.py` plus
+`--with-jev --host-jev` on the project.
 
 - [Datarim with Jev tutorial](../../documentation/tutorials/initialize-datarim-with-jev.md)
 - [Configuration and operation](../../documentation/how-to/configure-and-use-jev.md)
@@ -33,12 +35,14 @@ a missing mapping is reported instead of being recorded as an applied switch.
 
 ## Project hooks and state
 
-Claude project hooks provide prompt routing, pre-tool risk advice, and optional
-post-tool validation. Codex and Cursor use the dispatcher/supervisor; Claude hooks
-are not claimed to run in those clients.
+`--with-jev` registers native hooks for all three clients in the project:
+`.claude/settings.local.json`, `.codex/hooks.json` and `.cursor/hooks.json`. They
+provide prompt routing, pre-tool risk advice, post-tool validation and the
+deterministic safety floor, which refuses destructive shell commands without a
+key or network. Codex runs them only after you trust them in its TUI.
 
-`jev off` disables Jev advice for the current project. Its deterministic Claude
-safety floor remains active while the registered project hook is installed.
+`jev off` disables Jev advice for the current project. The deterministic safety
+floor remains active while the registered project hooks are installed.
 `DATARIM_JEV_DISABLE=1` disables advice for the invoking shell. Neither switch
 turns another project on or off.
 

@@ -42,10 +42,15 @@ Only these paths are created or modified:
 ```
 ~/.config/jev/config.json
 ~/.config/jev/installation.json
-~/.claude/settings.json          (merged, see below)
+~/.config/jev/credentials/api-key   (created empty, never overwritten)
+~/.claude/settings.json             (merged, see below; likewise ~/.codex/hooks.json, ~/.cursor/hooks.json)
 ~/.local/bin/jev jevclaude jevcodex jevcursor
+~/.local/share/jev/bin/jev-hook
 ~/.local/share/jev/releases/<sha>/
+~/.local/state/jev/install-backup-<time>/
 ```
+
+This page is the Jev-only case (option D) of [INSTALL.md](../../INSTALL.md).
 
 **Existing hooks are preserved.** Measured on a host whose
 `~/.claude/settings.json` already carried twelve unrelated hooks: after

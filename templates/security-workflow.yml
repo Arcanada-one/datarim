@@ -1,5 +1,9 @@
 # Copy to .github/workflows/security-audit.yml in the consumer repository.
 # Select the actual stack and pin both refs to the same reviewed Datarim commit.
+# Pin to the commit a release tag points to, never to a branch:
+#   git ls-remote https://github.com/Arcanada-one/datarim 'refs/tags/vX.Y.Z^{}'
+# The pin below is v3.1.2. Commit hashes from before the 2026-09-24 history
+# rewrite no longer exist on the default branch; re-resolve them from a tag.
 name: security-audit
 on:
   pull_request:
@@ -9,8 +13,8 @@ permissions:
   contents: read
 jobs:
   audit:
-    uses: Arcanada-one/datarim/.github/workflows/reusable-security-audit.yml@29f28486f2206098e5a9a571477c42fc5b7324bf
+    uses: Arcanada-one/datarim/.github/workflows/reusable-security-audit.yml@998e544ac9625306aca39e45336d7336d86bd423 # v3.1.2
     with:
       stack: framework
-      datarim_ref: 29f28486f2206098e5a9a571477c42fc5b7324bf
+      datarim_ref: 998e544ac9625306aca39e45336d7336d86bd423 # v3.1.2
       runner_labels: '["ubuntu-latest"]'

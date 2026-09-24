@@ -8,6 +8,48 @@
 
 **Website:** [datarim.club](https://datarim.club) — releases, changelog, and the full command/skill/agent catalogue.
 
+Datarim installs into one project at a time and gives Claude Code, Codex and
+Cursor a structured `/dr-*` workflow. Jev, its optional companion, adds a
+command safety floor and model routing advice.
+
+---
+
+## Install
+
+Needs Python 3.10+, git, and a signed-in Claude Code, Codex or Cursor client.
+
+Decide first (defaults in brackets; [INSTALL.md](INSTALL.md) explains each):
+
+- **Jev**: none, per project (`--with-jev`), or host-wide for every project of
+  this user [none]. Its safety floor needs no key; routing advice needs one Jev
+  API key per computer, shared by all clients on it.
+- **Clients**: one install serves Claude Code, Codex and Cursor together; there
+  is nothing to choose at install time.
+- **Permission mode** for the `jev*` launchers: ask, or `jev permissions full`
+  [ask].
+- **Task files** now (`--init`) [yes]; **all skills** in every session
+  (`--expose-skills`) [no].
+
+```sh
+git clone https://github.com/Arcanada-one/datarim.git ~/src/datarim   # keep it: updates run from here
+cd ~/src/datarim && git checkout "$(git describe --tags --abbrev=0 --match 'v*')"
+./install.sh --project /absolute/path/to/project --init            # add --with-jev for Jev
+cd /absolute/path/to/project && source .datarim-runtime/activate.sh && jev doctor --agent=claude
+```
+
+Then open your client in the project and run `/dr-help` (in Codex or Cursor, ask
+it to run the `dr-help` skill).
+
+**Using an AI agent?** Give it this repository URL and ask it to install
+Datarim — it follows [INSTALL.md](INSTALL.md). Agents should read it raw:
+`curl -fsSL https://raw.githubusercontent.com/Arcanada-one/datarim/main/INSTALL.md`.
+
+[INSTALL.md](INSTALL.md) is the complete guide: every option, where API keys and
+settings live, verification, update, uninstall and troubleshooting. After
+installing: [what a project install does](documentation/tutorials/initialize-datarim.md),
+[Jev key and checks](documentation/tutorials/initialize-datarim-with-jev.md),
+[first task](documentation/tutorials/getting-started.md).
+
 ---
 
 ## What is Datarim?
@@ -221,13 +263,6 @@ loaded only when you run a command, and nothing it writes appears in
 `git status`. Coworker and RTK are not required. Per-client details:
 [multi-runtime](documentation/how-to/multi-runtime.md).
 
-## Prerequisites
-
-- Python 3.10 or newer and Git.
-- An installed, authenticated agent client: Codex CLI, Claude Code, or Cursor CLI.
-- A project directory you explicitly want to enable.
-- For optional Jev classification: a separate Jev API key for each host.
-
 ## Operating Model
 
 This repository is the framework source. Changes are reviewed and merged here;
@@ -235,58 +270,20 @@ projects receive a pinned copy under `.datarim-runtime/`. No runtime is installe
 in user home directories, and no shell startup file is modified. Task knowledge
 belongs to the consumer project, never to this source repository.
 
-## Installation
-
-Start with the walkthrough for your intended setup:
-
-- [Initialize Datarim without Jev](documentation/tutorials/initialize-datarim.md)
-- [Initialize Datarim together with Jev](documentation/tutorials/initialize-datarim-with-jev.md)
-- [Use Jev on its own, without Datarim](documentation/how-to/jev-without-datarim.md)
-- [Configure and use Jev](documentation/how-to/configure-and-use-jev.md)
-- [Use host Jev with project-local Datarim](documentation/how-to/host-jev-with-project-datarim.md)
-- [Jev command reference](documentation/reference/jev-cli.md)
-
 Jev does not require Datarim. Routing, the ledger and the deterministic safety
 floor work on a machine that has never installed the framework; what a project
 catalogue adds is skill, agent, command and template selection on top of the
-model tier.
-
-```sh
-./install.sh --project /absolute/path/to/project --init --with-jev
-cd /absolute/path/to/project
-source .datarim-runtime/activate.sh
-jev doctor
-```
-
-The installer preserves existing project instructions, creates a protected empty
-key file, and refuses conflicts. Add the host's key using an editor, then run
-`jev doctor --api` to check the connection. Omit `--with-jev` to use Datarim alone.
-
-All four entrypoints share project checks and the same configuration:
-
-```sh
-jevcodex "Investigate the failing test"
-jevclaude "Review this change"
-jevcursor "Explain this module"
-jev --agent=codex "Investigate the failing test"
-```
-
-Run `./update.sh --project /absolute/path/to/project --with-jev` from the reviewed
-source checkout to update a project. Follow the walkthrough for backup handling
-and uninstall. Activation is limited to the current shell; each invocation
-checks its actual working directory, including after you leave the project.
+model tier. Installing either one: [INSTALL.md](INSTALL.md).
 
 ---
 
 ## Quick Start
 
+After [installing](INSTALL.md) into your project:
+
 ```bash
 # Navigate to your project
 cd your-project
-
-# Install Datarim into this project (commands, runtime, local task state)
-/path/to/datarim/install.sh --project "$PWD" --init
-# It does not modify AGENTS.md, CLAUDE.md or .gitignore; git status stays clean.
 
 # Start Claude Code
 claude
@@ -802,7 +799,8 @@ the contract surface ships with the framework as `skills/diataxis-docs/SKILL.md`
 
 ### Reference docs
 
-- [`documentation/tutorials/getting-started.md`](documentation/tutorials/getting-started.md) — first-run tutorial and installer contract.
+- [`INSTALL.md`](INSTALL.md) — install, configure, update and remove Datarim and Jev (the one install guide).
+- [`documentation/tutorials/getting-started.md`](documentation/tutorials/getting-started.md) — first-run tutorial, from an installed project to a first task.
 - [`documentation/reference/commands.md`](documentation/reference/commands.md) — slash-command reference, including `/dr-verify` tri-layer self-verification.
 - [`documentation/reference/skills.md`](documentation/reference/skills.md), [`documentation/reference/agents.md`](documentation/reference/agents.md), [`documentation/explanation/pipeline.md`](documentation/explanation/pipeline.md) — runtime catalogues and pipeline flow.
 - [`documentation/explanation/symlinks.md`](documentation/explanation/symlinks.md) — symlink-default operating model, copy-mode fallback, migration recipe.
@@ -910,7 +908,8 @@ datarim/
   templates/         # Task and document templates (28 templates)
   documentation/              # Extended documentation and use cases
   AGENTS.md          # Framework rules (commands read it from .datarim-runtime/)
-  install.sh         # Automated installer
+  install.sh         # Project installer (see INSTALL.md)
+  INSTALL.md         # Install guide for people and AI agents
   LICENSE            # MIT license
   README.md          # This file
 ```

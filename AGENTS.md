@@ -3,6 +3,7 @@
 > **Version:** 3.1.2
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** `AGENTS.md` is the sole project-instruction format. Install this framework only inside an explicitly enabled project. Codex, Claude Code, and Cursor use their native AGENTS loaders; no alternate instruction files or import adapters are installed. See `documentation/reference/jev-cli.md` for client requirements.
+> **Installing Datarim?** This file holds the framework's runtime rules, which the `/dr-*` commands load after installation; it is not an install guide. To install Datarim (and optionally Jev) into a project, follow `INSTALL.md` at the root of the source repository (https://github.com/Arcanada-one/datarim/blob/main/INSTALL.md), including its section for AI agents. Do not install into, or start task work in, the Datarim source checkout.
 
 ## CLI-Agent Models and Versions
 
@@ -434,7 +435,7 @@ Datarim ships skills, templates, agents, and commands that AI agents copy into r
 
 ### CI verification (consumer projects)
 
-Every Datarim-managed project SHOULD run `templates/security-workflow.yml` (drop-in) or call `Arcanada-one/datarim/.github/workflows/reusable-security.yml@<tag>` (preferred). Local dry-run: run `templates/security-workflow.yml` locally (security audit is integrated into `/dr-qa`).
+Every Datarim-managed project SHOULD run `templates/security-workflow.yml` (drop-in) or call `Arcanada-one/datarim/.github/workflows/reusable-security-audit.yml@<commit-sha>  # vX.Y.Z` (preferred; resolve a release tag to its commit with `git ls-remote https://github.com/Arcanada-one/datarim 'refs/tags/vX.Y.Z^{}'`). Local dry-run: run `templates/security-workflow.yml` locally (security audit is integrated into `/dr-qa`).
 
 **Source:** corporate audit findings 2026-04-28 + an OSS CLI security research baseline (2026-04-28, maintainer-private).
 

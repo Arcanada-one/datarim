@@ -24,9 +24,15 @@ commands under that directory are replaced. No shell startup file is changed.
 The four launchers are written to `~/.local/bin`, which must be on your PATH.
 
 The installer records a private backup and reports its path. Native Codex hook
-definitions require review through `/hooks` in a fresh Codex session. No trust
-bypass is enabled. A successful file installation is not evidence that a client
-has loaded, trusted, or executed its hooks.
+definitions require review through `/hooks` in a fresh Codex session; the
+installer does not grant that trust. Afterwards, `jev trust` (and `jevcodex`,
+unless `JEV_NO_AUTO_TRUST=1`) re-grants it to Jev's own hooks only, when another
+tool has moved them. A successful file installation is not evidence that a
+client has loaded, trusted, or executed its hooks.
+
+`--datarim-project` replaces the host's whole `datarim_projects` list; pass
+every approved project each time. The complete install sequence is in
+[INSTALL.md](../../INSTALL.md), option C.
 
 ## Add the host key
 

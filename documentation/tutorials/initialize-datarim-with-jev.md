@@ -1,18 +1,9 @@
 # Initialize Datarim with Jev
 
-First follow the project and `AGENTS.md` preparation in
-[Initialize Datarim](initialize-datarim.md). Jev is optional: a provider failure
-must not prevent plain Datarim work.
-
-Use the same installer for a new project or an existing project-local Datarim:
-
-```bash
-python3 "$DATARIM_SOURCE/scripts/project_install.py" --project "$DATARIM_PROJECT" --init --with-jev --dry-run
-python3 "$DATARIM_SOURCE/scripts/project_install.py" --project "$DATARIM_PROJECT" --init --with-jev
-cd "$DATARIM_PROJECT"
-source .datarim-runtime/activate.sh
-jev doctor
-```
+Install with [INSTALL.md](../../INSTALL.md), option B (`--init --with-jev`)
+for Jev in this project only, or option C (`--with-jev --host-jev`) to reuse a
+host-wide Jev. Jev is optional: a provider failure must not prevent plain
+Datarim work. This page explains the key, the checks and the entry points.
 
 The installation creates `config/credentials/jev/api-key` if absent, with mode
 0600 and a private parent directory. Open that file with an editor and paste one
@@ -72,8 +63,12 @@ The first Codex session asks you to trust the working directory, then shows
 `Hooks need review — N hooks are new or changed`; choose **Trust all and
 continue**. Declining is silent, and the client's own hook screen cannot show
 you the difference — its `Active` column counts hooks that are *installed*.
-Confirm with `jev doctor --agent=codex`, which reports `codex_hook_trust` as
-`trusted`, `untrusted` or `not_measured`. The
+`jev doctor --agent=codex` reports `codex_hook_trust` only for **host** Jev: it
+reads `~/.codex/hooks.json` and matches host-install commands, so for the
+project hooks of this install it answers `not_measured` (or describes a host Jev,
+if the machine has one). Confirm the project hooks instead by the ledger: after
+one Codex session, `.datarim-runtime/state/jev/ledger.jsonl` should contain
+`hook_delivery` records with `"client": "codex"`. The
 [control-plane guide](../how-to/claude-code-jev-control-plane.md) has the
 detail, including the flag for automation that cannot answer a prompt.
 

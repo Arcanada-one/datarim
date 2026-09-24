@@ -4,18 +4,8 @@ Datarim is installed explicitly inside a consumer project. It does not install
 global rules, commands, hooks, or executables. The framework source checkout is
 not a task workspace. Python 3.10 or newer is required.
 
-1. Obtain a reviewed Datarim checkout and record its commit. Set
-   `DATARIM_SOURCE` to its absolute path and `DATARIM_PROJECT` to the existing
-   consumer project's absolute path. Do not point either variable at your home.
-2. Preview and initialize:
-
-```bash
-python3 "$DATARIM_SOURCE/scripts/project_install.py" --project "$DATARIM_PROJECT" --init --dry-run
-python3 "$DATARIM_SOURCE/scripts/project_install.py" --project "$DATARIM_PROJECT" --init
-cd "$DATARIM_PROJECT"
-source .datarim-runtime/activate.sh
-jev doctor
-```
+Install with [INSTALL.md](../../INSTALL.md), option A (`--init`, no Jev). This
+page explains what that install does and how it behaves afterwards.
 
 The installer copies a runtime into `.datarim-runtime/`, writes the `/dr-*`
 commands for each client (`.claude/commands/`, `.agents/skills/dr-*`,
@@ -53,8 +43,7 @@ Nested independent repositories require explicit `--context relative/path`
 entries at installation. An unapproved nested repository cannot inherit this
 project's runtime merely because it lives below it.
 
-To preview and remove managed installation files, run the installer with
-`--uninstall --dry-run`, then `--uninstall`. Local edits to managed files stop
+To remove an installation, follow [INSTALL.md § Uninstall](../../INSTALL.md#uninstall). Local edits to managed files stop
 removal. Task state and credentials are retained. A protected
 `.datarim-uninstalled/` recovery bundle is retained for inspection.
 

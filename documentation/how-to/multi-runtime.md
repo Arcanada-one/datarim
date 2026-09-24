@@ -6,9 +6,10 @@ client finds the `/dr-*` commands through its own project-local directory.
 
 ## Install
 
-```bash
-./install.sh --project /path/to/project --init
-```
+Install once per project as described in [INSTALL.md](../../INSTALL.md). There
+is no option to choose clients: every install writes the command files for all
+three, and `--with-jev` registers hooks for all three. A client you do not use
+simply never reads its files.
 
 | Client | Where it finds the commands | How you run one |
 |---|---|---|
@@ -41,8 +42,9 @@ skill. The answer should come from `.datarim-runtime/commands/dr-help.md`.
 ## With Jev
 
 `--with-jev` also registers Jev's hooks for all three clients in the project;
-`--with-jev --host-jev` reuses a Jev you installed for the whole machine instead.
-Codex runs a hook only after you approve it in its TUI — see
+`--with-jev --host-jev` reuses a Jev you installed for the whole machine instead
+(see [INSTALL.md](../../INSTALL.md), options B and C). Codex runs a hook only
+after you approve it in its TUI — see
 [the Jev control plane guide](claude-code-jev-control-plane.md).
 
 ## Datarim MCP server (optional)
@@ -61,7 +63,4 @@ See [the MCP server reference](../reference/mcp-server.md).
 
 ## Coming from 2.x
 
-2.x linked `~/.claude/{agents,skills,commands,…}` and `~/.codex/…` into the
-Datarim checkout (`./install.sh --with-claude --with-codex`). Those flags are
-gone. Remove only the links that resolve into your Datarim checkout, then
-install per project as above.
+See [INSTALL.md § Coming from Datarim 2.x](../../INSTALL.md#coming-from-datarim-2x).
