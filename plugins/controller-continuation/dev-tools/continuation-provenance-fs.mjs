@@ -1,4 +1,11 @@
-// Bounded Linux descriptor reads. These helpers confer no provenance authority.
+// Bounded, descriptor-anchored reads. These helpers confer no provenance authority.
+//
+// Linux only. Every path component is opened relative to its parent's descriptor
+// through /proc/self/fd/<fd>/<name> with O_NOFOLLOW, which is the only way Node
+// can get openat() semantics. Other platforms have no equivalent (macOS /dev/fd
+// does not resolve names through a directory descriptor), so they are refused
+// with a distinct error before any I/O rather than served by a weaker walk that
+// would report MATCH on a raceable path.
 import { constants } from 'node:fs';
 import { open, readdir, realpath } from 'node:fs/promises';
 import { resolve, isAbsolute } from 'node:path';
@@ -7,6 +14,15 @@ import { createHash } from 'node:crypto';
 const FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK | constants.O_NOATIME;
 const FILE_LIMIT = 8 * 1024 * 1024;
 const TOTAL_LIMIT = 128 * 1024 * 1024;
+/** Documented defaults. Callers override them only through explicit arguments,
+ * never through environment variables (an inherited variable is a redirect vector). */
+export const DEFAULT_RUNTIME_ROOT = '/worker/runtime';
+export const DEFAULT_WORKSPACE_ROOT = '/workspace';
+export const UNSUPPORTED_PLATFORM = 'continuation_unsupported_platform';
+/** Refuse every non-Linux platform before any filesystem access. */
+export function assertSupportedPlatform(platform = process.platform) {
+  if (platform !== 'linux') throw new Error(UNSUPPORTED_PLATFORM);
+}
 const fail = () => { throw new Error('continuation_workspace_unavailable'); };
 const requireValue = value => { if (!value) fail(); };
 const identity = info => ['dev', 'ino', 'mode', 'uid', 'gid', 'nlink', 'size', 'mtimeNs', 'ctimeNs']
@@ -36,7 +52,8 @@ function owned(info) {
   requireValue(info.uid === BigInt(process.getuid()) && (info.mode & 0o7022n) === 0n);
 }
 async function rootHandle(path) {
-  requireValue(process.platform === 'linux' && isAbsolute(path) && resolve(path) === path && path !== '/' &&
+  assertSupportedPlatform();
+  requireValue(isAbsolute(path) && resolve(path) === path && path !== '/' &&
     await realpath(path) === path);
   // Ancestors need not be owned by this uid. Opening a directory without
   // enumerating it does not read its contents; NOATIME is reserved for data.
@@ -77,6 +94,7 @@ async function verifyRoot(path, handle, before) {
   finally { await current.close(); }
 }
 export async function readBoundFile(root, relative, { maxBytes = FILE_LIMIT } = {}) {
+  assertSupportedPlatform();
   requireValue(Number.isSafeInteger(maxBytes) && maxBytes > 0 && maxBytes <= FILE_LIMIT);
   const parts = sourceParts(relative), handle = await rootHandle(root);
   const rootBefore = await handle.stat({ bigint: true }), parents = [], opened = [handle];
@@ -98,6 +116,7 @@ export async function readBoundFile(root, relative, { maxBytes = FILE_LIMIT } = 
   }
 }
 export async function scanSourceTree(root, { omissions = [], maxFiles = 20000, maxTotalBytes = TOTAL_LIMIT, afterRead = async () => {} } = {}) {
+  assertSupportedPlatform();
   requireValue(Number.isSafeInteger(maxFiles) && maxFiles > 0 && maxFiles <= 20000 &&
     Number.isSafeInteger(maxTotalBytes) && maxTotalBytes > 0 && maxTotalBytes <= TOTAL_LIMIT && typeof afterRead === 'function');
   const excluded = new Set(omissions), handle = await rootHandle(root);

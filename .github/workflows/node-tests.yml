@@ -1,0 +1,75 @@
+name: node-tests
+
+# Runs every node:test suite in the repository on Linux and macOS.
+#
+# DISCOVERY, NOT ENUMERATION (same rule as bats.yml): the job globs every
+# tracked *.test.mjs / *.test.js / *.test.cjs file, so a suite added tomorrow
+# runs the moment it lands. Finding zero files fails the job instead of
+# passing an empty run.
+#
+# WHY BOTH PLATFORMS: the controller-continuation plugin is Linux-only by
+# design and refuses every other platform with an exact error category. On
+# ubuntu the Linux-behaviour tests must all run, so a skip there fails the job.
+# That stops a platform guard from quietly turning the real tests into skips.
+# On macOS those tests are skipped, and the paired platform tests assert the
+# exact refusal on the same fixture that must succeed on Linux. Neither leg can
+# vouch for the other.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: node-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node-test:
+    name: node --test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # Same major as reusable-security-audit.yml. The suites use
+          # node:module registerHooks, which needs Node >= 22.15.
+          node-version: '24'
+
+      - name: Run every discovered node test suite
+        env:
+          IS_LINUX: ${{ runner.os == 'Linux' }}
+        run: |
+          set -euo pipefail
+          files=()
+          while IFS= read -r -d '' file; do files+=("$file"); done \
+            < <(git ls-files -z -- '*.test.mjs' '*.test.js' '*.test.cjs')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::no node test files discovered; refusing an empty pass"
+            exit 1
+          fi
+          printf 'discovered: %s\n' "${files[@]}"
+          tap="$RUNNER_TEMP/node-tests.tap"
+          node --test \
+            --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=tap --test-reporter-destination="$tap" \
+            "${files[@]}"
+          grep -Eq '^# pass [1-9][0-9]*$' "$tap" || { echo "::error::no test passed"; exit 1; }
+          if [ "$IS_LINUX" = "true" ] && ! grep -qx '# skipped 0' "$tap"; then
+            echo "::error::tests were skipped on Linux; every suite must run here"
+            grep -E '^# (tests|pass|skipped)' "$tap"
+            exit 1
+          fi
+          grep -E '^# (tests|pass|fail|skipped)' "$tap"

@@ -11,13 +11,24 @@ All notable changes to the Datarim framework are documented here. Format follows
   invalidate affected downstream evidence instead of retaining an earlier pass.
 - Snapshot exact interaction-consumption receipts into heartbeats, with bounded
   validation and rejection of stale, foreign or malformed receipt state.
-- `/dr-continue-checkpoint`: a controller-launched worker entry that reads a
-  controller-bound ordinary answer, the complete controller provenance and the
-  current workspace comparison from immutable `/worker/runtime` resources
-  (Linux only), then enters exactly the recorded stage with production HOLD
-  retained. Control v3 adds a narrowly validated QA-to-DO restart after a
-  reviewed source replacement. Not a general resume command; without a
-  controller launch it reports itself unavailable.
+- Opt-in plugin `controller-continuation` (`plugins/controller-continuation/`)
+  with the worker entry `/dr-continue-checkpoint`, for projects that run their
+  own external controller. The entry reads a controller-bound ordinary answer,
+  the complete controller provenance and the current workspace comparison from
+  immutable runtime resources, then enters exactly the recorded stage with
+  production HOLD retained. Control v3 adds a narrowly validated QA-to-DO
+  restart after a reviewed source replacement. It is not a core command and is
+  not counted among the 28. Roots are explicit arguments,
+  `--runtime-root=` (default `/worker/runtime`) and `--workspace-root=`
+  (default `/workspace`); no environment variable is read, and the runtime
+  root must not be writable by the worker. The checkpoint carries a
+  tracker-agnostic `trackerRef` (`null` or an opaque reference). Linux only:
+  every other platform is refused before any I/O with
+  `continuation_unsupported_platform` (CLI exit 3, empty stdout). There is no
+  weaker portable mode.
+- CI: new `node-tests` workflow runs every tracked `*.test.{mjs,js,cjs}` suite
+  with Node 24 on `ubuntu-latest` and `macos-latest`. Discovery is fail-closed:
+  zero files fails the job, and so does any skipped test on Linux.
 
 ### Fixed
 
