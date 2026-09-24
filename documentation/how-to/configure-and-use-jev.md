@@ -12,7 +12,7 @@ Configuration is local to the installed project (host Jev uses the paths in
 | `.datarim-runtime/state/jev/DISABLED` | Project off switch |
 | `.datarim-runtime/state/jev/FULL_PERMISSIONS` | Written by `jev permissions full`, removed by `jev permissions ask`: `jev*` launchers start clients without permission prompts. `JEV_PERMISSIONS=full\|ask` overrides it for one launch |
 | `config/credentials/jev/api-key` | Jev API key, one per computer and shared by every client on it; mode 0600. An exported `TYPESAFE_API_KEY` is ignored |
-| `.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json` | Project-local Jev hook registrations, written for all three clients; unrelated settings preserved |
+| `.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json` | Project-local Jev hook registrations, written for the selected clients (`--client`; all three by default); unrelated settings preserved |
 
 The default API is TypeSafe systemone with model `jev-latest`. Configure its
 endpoint, timeout and retries in `jev-config.json`; do not send a real key to an

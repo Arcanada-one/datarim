@@ -35,7 +35,8 @@ a missing mapping is reported instead of being recorded as an applied switch.
 
 ## Project hooks and state
 
-`--with-jev` registers native hooks for all three clients in the project:
+`--with-jev` registers native hooks in the project for the clients selected with
+`--client` (all three by default):
 `.claude/settings.local.json`, `.codex/hooks.json` and `.cursor/hooks.json`. They
 provide prompt routing, pre-tool risk advice, post-tool validation and the
 deterministic safety floor, which refuses destructive shell commands without a
