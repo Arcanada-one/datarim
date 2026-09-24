@@ -18,9 +18,12 @@ command safety floor and model routing advice.
 
 **AI agents: run `./install.sh --project <path>` first and relay the questions it prints to the user; rerun with their answers and the token the installer printed. It refuses a fresh install without them.**
 
+**Step 1: run `./install.sh --project <path>` with no answer flags. Ask the user nothing before that run; the installer prints the questions.**
+
 Needs Python 3.10+, git, and a signed-in Claude Code, Codex or Cursor client.
 
-Decide first (defaults in brackets; [INSTALL.md](INSTALL.md) explains each):
+What the installer will ask (defaults in brackets; [INSTALL.md](INSTALL.md) explains each). An agent
+relays the installer's own wording, all six questions, without recommending an answer:
 
 - **Jev**: none (`--without-jev`), per project (`--with-jev`), or host-wide for
   every project of this user [none]. Its safety floor needs no key, so "no

@@ -6,6 +6,27 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Fixed
 
+- The installer's own output now carries the rules an agent needs, because it is the one text that reaches
+  an agent unsummarized. In a live run the agent asked the user from the README before running the
+  installer, dropped two questions and recommended answers. After getting the token it reran without asking
+  the rest. It never read `INSTALL.md`, so its report missed the shell-startup warning and named the wrong
+  file for the permission mode.
+  - The refusal now says, right after its STOP sentence, to relay the questions word for word with their
+    defaults, not to recommend an answer, to ask every question the user has not answered even if the
+    agent already asked something, and to reply in the user's language. After the questions it adds "The
+    user's answers must cover all six questions."
+  - After every successful install or update the installer prints a block led by "Include these lines in
+    your report to the user:". It gives the permission mode and the exact switch file that stores it, and
+    the key path with the note that the Jev floor works without a key (paste it with an editor, never with
+    echo/printf). It warns never to put the key or any `JEV_*` / `DATARIM_*` variable in `.zshrc` /
+    `.bashrc`, and when Codex is a client with Jev, it says how to accept its hooks.
+  - The README Install block and `INSTALL.md` step 1 now say: run `./install.sh --project <path>` with no
+    answer flags first, and ask the user nothing before that run.
+- `jev doctor --agent=<client>` reports `native_agents_live` for every registered client whenever more than
+  one is registered, not only for the one requested. A report showing `hook_clients [claude, codex]` next to
+  only `claude: live` had been read as "live for both". A client with no deliveries shows "no deliveries
+  yet".
+
 - **Scripted fresh installs now take two steps: run the installer once, then again with the answers token
   that first run printed.** An agent skipped `INSTALL.md` and read the answer → flag table inside
   `scripts/project_install.py`. It chose the answers itself and passed every flag on its first run, so the
