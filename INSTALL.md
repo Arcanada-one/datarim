@@ -1,6 +1,6 @@
 # Installing Datarim
 
-**AI agents: ask the user the questions below before running `install.sh`; the installer refuses a fresh install without the answers.** The questions are in
+**AI agents: run `./install.sh --project <path>` first and relay the questions it prints to the user; rerun with their answers and the token the installer printed. It refuses a fresh install without them.** The steps are in
 [If you are an AI agent](#if-you-are-an-ai-agent-asked-to-install-datarim).
 
 This is the single install guide for Datarim and its optional companion, Jev. It is
@@ -28,12 +28,11 @@ Follow these steps in order. Do not improvise other install methods.
 1. **Read this whole file** before running anything. Fetch it raw —
    `curl -fsSL https://raw.githubusercontent.com/Arcanada-one/datarim/main/INSTALL.md`
    — or read `INSTALL.md` in a clone; a summarizing web fetch drops most of it.
-   Do not install anything until the user has answered the questions below or
-   told you to use the defaults. The installer enforces it: a fresh install
-   without a Jev answer (`--with-jev` or `--without-jev`) and a `--client` list
-   exits with code 2, prints the questions and the flag for each answer, and
-   writes nothing — `--dry-run` included. Never add those flags yourself before
-   the user has answered.
+   Do not choose the answers yourself. The installer enforces it: a fresh
+   install run without a terminal prints the questions, the flag for each
+   answer and a one-time answers token, exits with code 2 and writes nothing
+   to the project — `--dry-run` included. It proceeds only when rerun with
+   the user's answers **and** that token (`--answers`), within an hour.
 2. **Establish the two paths.**
    - `PROJECT` — the absolute path of the project the user wants Datarim in
      (usually the current working directory). It must be an existing directory
@@ -43,15 +42,17 @@ Follow these steps in order. Do not improvise other install methods.
      `PROJECT` (the installer refuses a source inside the project) and it must
      **last**: updates and uninstall run from it later. Suggest `~/src/datarim`
      unless the user names another place; never `/tmp` or a scratch directory.
-3. **Ask the user these questions** unless they have already answered them. Offer
-   the default; accept the default if the user says "just install it".
+3. **Run `./install.sh --project "$PROJECT"` and relay the questions it prints**
+   to the user, word for word, with their defaults; wait for the answers. They
+   are the questions below. Accept the defaults only if the user says so
+   ("defaults", "just install it").
 
    | # | Question | Default |
    |---|---|---|
    | 1 | Install Jev? **none** / **project** (this project only) / **host** (every project of this user on this machine) | none |
    | 2 | Which clients do you use: Claude Code, Codex, Cursor? Pass one `--client` per client (or a comma list); the project install then writes the commands, and with `--with-jev` the hooks, only for those. The same answer gives host Jev its `--client` options and decides which client `jev doctor --agent=` checks. | the ones installed on the machine |
    | 2a | If Claude Code is one of them and the project has an `AGENTS.md`: link `CLAUDE.md` to it (`--claude-import`)? Claude Code reads `CLAUDE.md`, not `AGENTS.md`. Only offered when the project has no `CLAUDE.md`. | yes, when there is no `CLAUDE.md` |
-   | 3 | Should the `jev*` launchers (every install has them) start clients **without permission prompts** (`jev permissions full`)? Starting a client directly is not affected. Always ask this one: it is applied after the install, not by an installer flag, so it is the easiest to forget. | no (`ask`) |
+   | 3 | Should the `jev*` launchers (every install has them) start clients **without permission prompts**? Answered with `--permissions ask` or `--permissions full` (required on a fresh install; `jev permissions` changes it later). Starting a client directly is not affected. | no (`ask`) |
    | 4 | Create empty task files `datarim/tasks.md` and `datarim/backlog.md` now (`--init`)? | yes |
    | 5 | Expose every framework skill to the clients' automatic discovery (`--expose-skills`)? It adds their descriptions to every session. | no |
    | 6 | Install the latest release tag, or `main`? | latest release tag |
@@ -60,9 +61,11 @@ Follow these steps in order. Do not improvise other install methods.
    (`find "$PROJECT" -mindepth 2 -name .git -not -path '*/node_modules/*'`). If it
    does and the user wants Datarim to work inside them, add one
    `--context <relative/path>` per repository.
-4. **Run the installer** as shown in [Step 3](#step-3--install), with the flags
-   the answers give ([Answers and flags](#answers-and-flags)), `--dry-run` first,
-   then for real.
+4. **Rerun the installer** with the flags the answers give
+   ([Answers and flags](#answers-and-flags)) and `--answers` followed by the
+   token the installer printed. The token is valid for an hour, for that
+   project only, and is used up by a successful install; if it expired, run the
+   installer once more to get a new one.
    Never write an API key yourself and never ask the user to paste a key into
    the chat.
 5. **Verify** with [Step 5](#step-5--verify). Every check has an expected result.
@@ -129,12 +132,14 @@ Run the installer with only the project path:
 ./install.sh --project "$PROJECT"   # prints the questions to ask and the flags for each answer
 ```
 
-On a fresh project it installs nothing: it prints the questions to ask the
-user and the flag for each answer, and exits with code `2`. Ask the questions,
-wait for the answers, then run it again with the flags the answers give (add
-`--dry-run` first to see the plan). Never pick the answers yourself. Jev's
-safety floor works without any key; a missing key is not a reason to answer
-"no Jev".
+At a terminal it asks each question in turn; press Enter for the default.
+Without a terminal (an agent, a script) it installs nothing on a fresh project:
+it prints the questions, the flag for each answer and a one-time answers
+token, and exits with code `2`. Ask the user the questions, wait for the
+answers, then run it again with the flags the answers give and `--answers`
+with the printed token (add `--dry-run` first to see the plan). Never pick the
+answers yourself. Jev's safety floor works without any key; a missing key is
+not a reason to answer "no Jev".
 
 ### Answers and flags
 
@@ -148,9 +153,13 @@ safety floor works without any key; a missing key is not a reason to answer
 | Create task files now | `--init` |
 | Every skill in every session | `--expose-skills` |
 | Nested repositories to include | `--context <relative/path>`, once per repository |
-| Permission mode full | after the install: `jev permissions full` |
+| Permission mode | `--permissions ask` or `--permissions full`; required on a fresh install, kept on update |
 | Release tag or `main` | before the install, in the source checkout: `git checkout <tag>` or `git checkout main` |
-| "Defaults" | `--without-jev --client <the clients installed on the machine> --init`, plus `--claude-import` when Claude Code is one of them and the project has an `AGENTS.md` but no `CLAUDE.md` |
+
+Only when the user said "defaults": `--without-jev`, `--client` with the clients
+installed on the machine, `--init` and `--permissions ask`, plus
+`--claude-import` when Claude Code is one of them and the project has an
+`AGENTS.md` but no `CLAUDE.md`.
 
 ### Only if the user chose host Jev: install host Jev first
 
@@ -173,6 +182,15 @@ Then run the project install with `--with-jev --host-jev` and the other flags
 from the answers. `--datarim-project` **replaces** the host's list of Datarim
 projects; when you add a project later, pass every project again. The key file
 is `~/.config/jev/credentials/api-key`.
+
+### Scripted installs (CI)
+
+**Not for an AI agent installing Datarim for a person**: an agent must relay
+the installer's questions and use the token it prints. For unattended
+pipelines that provision a project with fixed, reviewed answers, set the
+environment variable `DATARIM_INSTALL_NONINTERACTIVE=1` and pass every answer
+flag (the Jev answer, `--client` and `--permissions`); the installer then needs
+no answers token. With any answer missing it refuses as usual.
 
 ### Option D — Jev without Datarim
 
@@ -465,7 +483,7 @@ backups).
 | `Unmanaged or locally modified file: <path>` | A file the install would write already exists with other content (or you edited a managed file). Move or reconcile it, then rerun. |
 | `Existing unmanaged .datarim-runtime; refusing overwrite` | A `.datarim-runtime/` without `installation.json`, for example a manual copy. Move it away. |
 | `Another installation transaction owns this project` | Another install or update is running on the project. Wait for it. |
-| `STOP. Nothing was installed.` (exit code `2`) | A fresh install without a Jev answer (`--with-jev` / `--without-jev`) or without `--client`, with or without `--dry-run`. Ask the user the questions it prints, wait for the answers, then rerun with the flags it lists. Updates keep the recorded answers and never ask. |
+| `STOP. Nothing was installed.` (exit code `2`) | A fresh install without a terminal and without every answer (Jev, `--client`, `--permissions`) plus a valid answers token, with or without `--dry-run`. Ask the user the questions it prints, wait for the answers, then rerun with their flags and `--answers` with the token it printed (valid for an hour). Updates keep the recorded answers and never ask. |
 | `--host-jev requires --with-jev` | Pass both. |
 | `Install host Jev before selecting host ownership` | `--host-jev` without host Jev. Run `scripts/jev_host_install.py` first ([host Jev step](#only-if-the-user-chose-host-jev-install-host-jev-first)). |
 | `jev install: Commit and verify the source revision before host installation` | Host Jev needs a clean git checkout. Discard local changes or check out a tag; a release tarball without `.git` cannot install host Jev. |

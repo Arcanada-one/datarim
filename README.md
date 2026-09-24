@@ -16,7 +16,7 @@ command safety floor and model routing advice.
 
 ## Install
 
-**AI agents: ask the user the questions below before running `install.sh`; the installer refuses a fresh install without the answers.**
+**AI agents: run `./install.sh --project <path>` first and relay the questions it prints to the user; rerun with their answers and the token the installer printed. It refuses a fresh install without them.**
 
 Needs Python 3.10+, git, and a signed-in Claude Code, Codex or Cursor client.
 
@@ -29,8 +29,8 @@ Decide first (defaults in brackets; [INSTALL.md](INSTALL.md) explains each):
 - **Clients**: Claude Code, Codex, Cursor — pick with `--client` (repeatable or
   comma list); a fresh install needs the list. With Claude Code, `--claude-import` links `CLAUDE.md`
   to your `AGENTS.md`, since Claude Code reads only `CLAUDE.md` [off].
-- **Permission mode** for the `jev*` launchers: ask, or `jev permissions full`
-  [ask].
+- **Permission mode** for the `jev*` launchers: `--permissions ask` or
+  `--permissions full` [ask].
 - **Task files** now (`--init`) [yes]; **all skills** in every session
   (`--expose-skills`) [no].
 
@@ -40,10 +40,12 @@ cd ~/src/datarim && git checkout "$(git describe --tags --abbrev=0 --match 'v*')
 ./install.sh --project /absolute/path/to/project   # prints the questions to ask and the flags for each answer
 ```
 
-On a fresh project the installer writes nothing: it prints the questions to ask
-and the flag for each answer. Ask the user, wait for the answers, rerun with
-those flags ([INSTALL.md, Answers and flags](INSTALL.md#answers-and-flags)),
-then check it with
+At a terminal the installer asks each question in turn (Enter takes the
+default). Without one it writes nothing on a fresh project: it prints the
+questions, the flag for each answer and a one-time answers token. Ask the user,
+wait for the answers, then rerun with those flags and the token it printed
+([INSTALL.md, Answers and flags](INSTALL.md#answers-and-flags)). Then check it
+with
 `cd /absolute/path/to/project && source .datarim-runtime/activate.sh && jev doctor --agent=claude`.
 Then open your client in the project and run `/dr-help` (in Codex or Cursor, ask
 it to run the `dr-help` skill). Updates (`./update.sh --project …`) keep the

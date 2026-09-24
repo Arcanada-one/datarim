@@ -6,6 +6,26 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Fixed
 
+- **Scripted fresh installs now need `DATARIM_INSTALL_NONINTERACTIVE=1`, or the answers token.** An
+  agent skipped `INSTALL.md` and read the answer → flag table inside `scripts/project_install.py`. It chose
+  the answers itself and passed every flag on its first run, so the refusal that asks the user never fired.
+  A fresh install run without a terminal now also needs `--answers <token>`. Only the refusal prints the
+  token. It is stored in the project's git directory, or in the user's state directory outside git, and
+  never in the working tree. It is valid for 60 minutes, for that project only, and used up by a
+  successful install. Pipelines that install with fixed, reviewed answers set
+  `DATARIM_INSTALL_NONINTERACTIVE=1` and pass every answer flag; that path needs no token. Updates are
+  unaffected.
+- At a terminal, a fresh install with answers missing now asks each question in turn, with Enter taking the
+  default, and needs no token.
+- `--permissions ask|full` is now an installer answer. A fresh install requires it, a terminal install asks
+  for it, and an update keeps the current mode. It sets the same switch as `jev permissions`, for the
+  project or the host scope. Every install and update prints `permission mode: <mode> (change with
+  `jev permissions full|ask`)`. The permission-mode entry above describes the earlier state, when the mode
+  was set only after the install.
+- The refusal and its rerun line are built at run time: no source constant or doc holds a rerun command or a
+  token. The "defaults" row left the flag table; the defaults now follow the questions, "only when the user
+  said 'defaults'". The questions constant in the source opens with a comment telling a reading agent to
+  run the installer and relay its questions.
 - INSTALL.md: the permission-mode question comes third, as in the installer's own list. It is applied after the install rather than by an installer flag, so an agent that asked the questions itself used to skip it. The agent's report now names the permission mode, and the update step is `./update.sh --project <path>` with no flags, because the choices are remembered. The environment table says its variables are set per shell or per launch, never in a shell startup file, where `JEV_PERMISSIONS=full` would turn off permission prompts for every launch.
 - Every question in the installer's refusal now states its default, the same as the `INSTALL.md` table:
   Jev none; clients, the ones installed on the machine (still named explicitly in `--client`); the

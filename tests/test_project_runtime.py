@@ -117,6 +117,19 @@ class ProjectScopeTests(unittest.TestCase):
                 found[name] = hits
         self.assertEqual(found, {})
 
+    def test_no_doc_carries_an_answers_token_or_the_rerun_line(self):
+        """Both exist only in the installer's refusal output."""
+        import re
+        listed = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '*.md'], capture_output=True, text=True)
+        found = []
+        for name in listed.stdout.split():
+            if name.startswith(self.DOC_HISTORY):
+                continue
+            text = (ROOT/name).read_text(errors='replace')
+            if re.search(r'--answers[ =][0-9a-f]{6,}', text) or "Rerun with the user's answers" in text:
+                found.append(name)
+        self.assertEqual(found, [])
+
     def test_the_doc_scan_catches_the_shapes_that_leaked(self):
         leaked = ('./install.sh --project "$PROJECT" --init --without-jev',
                   'python3 scripts/project_install.py --project /p \\\n  --init --with-jev --host-jev',
@@ -154,11 +167,16 @@ class InstallationLifecycleTests(unittest.TestCase):
         (self.source/'VERSION').write_text('test\n')
         (self.project/'AGENTS.md').write_text('# Original project rules\n')
         (self.project/'.gitignore').write_text('/build/\n')
-        self.args = Namespace(project=str(self.project), with_jev=False,
+        self.args = Namespace(project=str(self.project), with_jev=False, permissions='ask',
                               client=project_install.CLIENTS, context=[], dry_run=False, init=True)
         self.source_patch = patch.object(project_install, 'SOURCE', self.source)
         self.source_patch.start()
         self.addCleanup(self.source_patch.stop)
+        # Scripted installs: the CI escape hatch, and no terminal.
+        for patcher in (patch.dict(os.environ, {project_install.NONINTERACTIVE_ENV: '1'}),
+                        patch.object(project_install, 'is_interactive', return_value=False)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def test_install_update_uninstall_leaves_shared_files_alone(self):
         project_install.install(self.args)
@@ -454,12 +472,23 @@ class InstallationLifecycleTests(unittest.TestCase):
 
     def test_the_printed_questions_match_install_md(self):
         text = project_install.CHOICE_QUESTIONS
-        for needle in ('STOP.', 'Ask the user these questions and wait for the answers.',
+        text = project_install.refusal_text(self.project, 'feedc0de')
+        for needle in ('STOP. Nothing was installed. Ask the user these questions and wait for the answers. '
                        'Do not choose for them.', 'works WITHOUT any key', '"no key" is not a reason',
                        '--without-jev', '--with-jev', '--host-jev', '--client', '--claude-import',
-                       'jev permissions full', '--init', '--expose-skills', 'release tag', 'main',
-                       'Rerun: ./install.sh --project <path> <flags from the answers>'):
+                       '--permissions ask', '--permissions full', '--init', '--expose-skills', 'release tag',
+                       'main', f"Rerun with the user's answers: ./install.sh --project {self.project} "
+                               '--answers feedc0de <flags>'):
             self.assertIn(needle, text)
+        self.assertNotIn(project_install.NONINTERACTIVE_ENV, text)
+
+    def test_no_source_constant_carries_the_rerun_line_or_a_token(self):
+        for name in ('CHOICE_QUESTIONS', 'FLAG_TABLE'):
+            value = getattr(project_install, name)
+            self.assertNotIn('--answers', value, name)
+            self.assertNotIn('Rerun', value, name)
+        source = (ROOT/'scripts/project_install.py').read_text()
+        self.assertIn('An agent reading\n# it here has not been given the user\'s answers', source)
 
     def test_every_question_states_its_default_and_install_md_agrees(self):
         import re
@@ -476,13 +505,13 @@ class InstallationLifecycleTests(unittest.TestCase):
             self.assertIn(f'Default: {default}', text, key)
             self.assertIn(default, table[rows[key]], key)
 
-    def test_the_defaults_answer_includes_init(self):
-        line = next(l for l in project_install.CHOICE_QUESTIONS.splitlines() if l.strip().startswith('"defaults"'))
-        for flag in ('--without-jev', '--client', '--init'):
+    def test_defaults_come_after_the_questions_and_only_when_the_user_said_so(self):
+        text = project_install.refusal_text(self.project, 'feedc0de')
+        self.assertNotIn('"defaults"', project_install.FLAG_TABLE)
+        line = next(l for l in text.splitlines() if l.startswith("Only when the user said 'defaults':"))
+        for flag in ('--without-jev', '--client', '--init', '--permissions ask'):
             self.assertIn(flag, line)
-        row = next(l for l in (ROOT/'INSTALL.md').read_text().splitlines() if l.startswith('| "Defaults"'))
-        for flag in ('--without-jev', '--client', '--init'):
-            self.assertIn(flag, row)
+        self.assertGreater(text.index(line), text.index('6. Install from'))
 
     def test_a_jev_answer_without_a_client_list_is_refused_too(self):
         for changes in ({'with_jev': False, 'client': None}, {'with_jev': True, 'client': None},
@@ -514,7 +543,7 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertEqual(run.stdout, '')
         self.assertTrue(run.stderr.startswith('STOP. Nothing was installed.'), run.stderr[:80])
         self.assertNotIn('datarim install:', run.stderr)
-        for text in ('--client claude,codex,cursor', 'jev permissions full', '--expose-skills'):
+        for text in ('--client claude,codex,cursor', '--permissions full', '--expose-skills', '--answers '):
             self.assertIn(text, run.stderr)
         run = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
                               str(self.project), '--without-jev', '--dry-run'],
@@ -766,6 +795,178 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertFalse((self.project/'.datarim-runtime').exists())
 
 
+class AnswersTokenTests(unittest.TestCase):
+    """A non-interactive fresh install needs the token its own refusal printed.
+
+    An agent read the answer-to-flag table in the installer source, chose the
+    answers itself and passed full flags on its first run, so the refusal that
+    asks the user never fired. The token exists only in that refusal's output.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        base = Path(self.tmp.name).resolve()
+        self.source, self.project = base/'source', base/'project'
+        (self.source/'commands').mkdir(parents=True)
+        (self.source/'commands/dr-do.md').write_text('Run the task.\n')
+        (self.source/'AGENTS.md').write_text('# Framework\n')
+        (self.source/'VERSION').write_text('test\n')
+        self.project.mkdir()
+        subprocess.run(['git', 'init', '-q', str(self.project)], check=True)
+        (self.project/'AGENTS.md').write_text('# Rules\n')
+        for patcher in (patch.object(project_install, 'SOURCE', self.source),
+                        patch.object(project_install, 'is_interactive', return_value=False),
+                        patch.dict(os.environ, {'XDG_STATE_HOME': str(base/'state')})):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        os.environ.pop(project_install.NONINTERACTIVE_ENV, None)
+
+    def args(self, **changes):
+        base = dict(project=str(self.project), with_jev=False, client=('codex',), permissions='ask',
+                    context=None, dry_run=False, init=False, answers=None)
+        return Namespace(**{**base, **changes})
+
+    def tree(self):
+        return sorted(str(p.relative_to(self.project)) for p in self.project.rglob('*')
+                      if '.git' not in p.relative_to(self.project).parts)
+
+    def refused_token(self, **changes):
+        import re
+        with self.assertRaises(project_install.ChoiceRequired) as refusal:
+            project_install.install(self.args(**changes))
+        match = re.search(r'--answers ([0-9a-f]{8}) <flags>', str(refusal.exception))
+        self.assertIsNotNone(match, str(refusal.exception))
+        return match.group(1)
+
+    def installed(self):
+        return (self.project/'.datarim-runtime/installation.json').is_file()
+
+    def test_full_answer_flags_without_the_token_are_refused(self):
+        before = self.tree()
+        self.refused_token()
+        self.assertFalse(self.installed())
+        self.assertEqual(self.tree(), before, 'the refusal wrote into the project tree')
+        self.assertTrue((self.project/'.git/datarim-install-answers').is_file())
+
+    def test_the_printed_token_lets_the_install_proceed_once(self):
+        token = self.refused_token()
+        with contextlib_quiet():
+            project_install.install(self.args(answers=token))
+        self.assertTrue(self.installed())
+        self.assertFalse((self.project/'.git/datarim-install-answers').exists(), 'the token is consumed')
+
+    def test_a_wrong_token_is_refused_and_a_new_one_printed(self):
+        token = self.refused_token()
+        again = self.refused_token(answers='00000000' if token != '00000000' else '11111111')
+        self.assertNotEqual(again, token)
+        self.assertFalse(self.installed())
+
+    def test_the_token_expires_after_an_hour(self):
+        token = self.refused_token()
+        path = self.project/'.git/datarim-install-answers'
+        data = json.loads(path.read_text())
+        data['created'] -= project_install.TOKEN_TTL_SECONDS + 1
+        path.write_text(json.dumps(data))
+        self.refused_token(answers=token)
+        self.assertFalse(self.installed())
+
+    def test_the_token_is_bound_to_its_project(self):
+        token = self.refused_token()
+        path = self.project/'.git/datarim-install-answers'
+        data = json.loads(path.read_text())
+        data['project'] = str(self.project.parent/'elsewhere')
+        path.write_text(json.dumps(data))
+        self.assertFalse(project_install.answers_token_valid(self.project, token))
+
+    def test_a_valid_token_still_needs_every_answer(self):
+        token = self.refused_token()
+        self.refused_token(answers=token, permissions=None)
+        self.assertFalse(self.installed())
+
+    def test_a_dry_run_with_the_token_does_not_consume_it(self):
+        token = self.refused_token()
+        with contextlib_quiet():
+            project_install.install(self.args(answers=token, dry_run=True))
+        self.assertTrue(project_install.answers_token_valid(self.project, token))
+
+    def test_outside_git_the_token_lives_in_the_state_directory(self):
+        plain = self.project.parent/'plain'
+        plain.mkdir()
+        path = project_install.answers_token_path(plain)
+        self.assertTrue(str(path).startswith(str(self.project.parent/'state'/'datarim'/'pending')))
+        token = project_install.issue_answers_token(plain)
+        self.assertEqual(sorted(p.name for p in plain.iterdir()), [])
+        self.assertTrue(project_install.answers_token_valid(plain, token))
+
+    def test_the_ci_escape_hatch_needs_every_answer_and_no_token(self):
+        with patch.dict(os.environ, {project_install.NONINTERACTIVE_ENV: '1'}):
+            self.refused_token(permissions=None)
+            with contextlib_quiet():
+                project_install.install(self.args())
+        self.assertTrue(self.installed())
+
+    def test_a_terminal_asks_for_the_missing_answers(self):
+        answers = iter(['project', 'claude,codex', '', 'full', '', ''])
+        asked, said = [], []
+        def ask(prompt):
+            asked.append(prompt)
+            return next(answers)
+        args = self.args(with_jev=None, client=None, permissions=None)
+        # The clients default is the clients installed on the machine; pin it so a runner with none installed
+        # asks the same six questions.
+        with patch.dict(os.environ, {'HOME': self.tmp.name}), \
+                patch.object(project_install, 'installed_clients', return_value=('claude',)):
+            gate = project_install.answers_gate(args, self.project, interactive=True, ask=ask, say=said.append)
+        self.assertEqual(gate, 'interactive')
+        self.assertEqual((args.with_jev, args.client, args.permissions), (True, ('claude', 'codex'), 'full'))
+        self.assertTrue(args.claude_import, 'Enter took the default: link CLAUDE.md')
+        self.assertTrue(args.init, 'Enter took the default: create the task files')
+        self.assertFalse(args.expose_skills)
+        self.assertTrue(any('without any key' in line for line in said))
+        self.assertEqual(len(asked), 6)
+        self.assertTrue(all('default' in prompt for prompt in asked))
+
+    def test_a_terminal_re_asks_an_invalid_answer_and_cancels_on_eof(self):
+        answers = iter(['maybe', 'none', 'no', 'no'])
+        args = self.args(with_jev=None)
+        project_install.answers_gate(args, self.project, interactive=True, ask=lambda p: next(answers),
+                                     say=lambda t: None)
+        self.assertFalse(args.with_jev)
+        def eof(prompt):
+            raise EOFError
+        with self.assertRaises(project_install.ChoiceRequired):
+            project_install.answers_gate(self.args(with_jev=None), self.project, interactive=True, ask=eof,
+                                         say=lambda t: None)
+
+    def test_permissions_are_required_written_reported_and_kept(self):
+        import contextlib, io
+        with patch.dict(os.environ, {project_install.NONINTERACTIVE_ENV: '1'}):
+            self.refused_token(permissions=None)
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+                project_install.install(self.args(permissions='full'))
+            flag = self.project/'.datarim-runtime/state/jev/FULL_PERMISSIONS'
+            self.assertTrue(flag.is_file())
+            self.assertIn('permission mode: full (change with `jev permissions full|ask`)', err.getvalue())
+            (self.source/'VERSION').write_text('next\n')
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+                project_install.install(self.args(permissions=None, with_jev=None, client=None))
+            self.assertTrue(flag.is_file(), 'an update keeps the mode')
+            self.assertIn('permission mode: full', err.getvalue())
+            with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+                project_install.install(self.args(permissions='ask', with_jev=None, client=None))
+            self.assertFalse(flag.exists())
+
+
+@__import__('contextlib').contextmanager
+def contextlib_quiet():
+    import contextlib, io
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        yield
+
+
 class IgnoredSourceTests(unittest.TestCase):
     """The installer ships what the repository holds, not what the disk holds."""
 
@@ -808,8 +1009,9 @@ class IgnoredSourceTests(unittest.TestCase):
         target.mkdir()
         subprocess.run(['git', 'init', '-q', str(target)], check=True)
         result = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
-                                 str(target), '--init', '--without-jev', '--client', 'all', '--dry-run'], capture_output=True,
-                                text=True, timeout=120)
+                                 str(target), '--init', '--without-jev', '--client', 'all', '--permissions', 'ask',
+                                 '--dry-run'], capture_output=True, text=True, timeout=120,
+                                env=dict(os.environ, DATARIM_INSTALL_NONINTERACTIVE='1'))
         self.assertEqual(result.returncode, 0, result.stderr)
         files = json.loads(result.stdout.strip().splitlines()[-1])["files"]
         # Installed skill directories are named after the source path with '/'

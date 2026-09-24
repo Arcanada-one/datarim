@@ -3,6 +3,9 @@ setup_project_fixture() {
     export HOME="$BATS_TEST_TMPDIR/home"
     PROJECT="$BATS_TEST_TMPDIR/project"
     mkdir -p "$HOME" "$PROJECT"
+    # Scripted fresh installs use the CI escape hatch; tests of the answers
+    # token unset it.
+    export DATARIM_INSTALL_NONINTERACTIVE=1
 }
 
 install_project() {

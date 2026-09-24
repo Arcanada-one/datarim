@@ -18,9 +18,11 @@ cd ~/src/datarim
 ./install.sh --project /path/to/project   # prints the questions to ask and the flags for each answer
 ```
 
-On a fresh project the installer writes nothing, not even with `--dry-run`: it
-prints the questions (Jev, clients, permission mode and the rest) and the flag
-for each answer. Answer them, then rerun with those flags
+At a terminal the installer asks its questions (Jev, clients, permission mode
+and the rest) one by one; Enter takes the default. Run by an agent or a script
+it writes nothing on a fresh project, not even with `--dry-run`: it prints the
+questions, the flag for each answer and a one-time answers token. Answer them,
+then rerun with those flags and the token
 ([INSTALL.md, Answers and flags](../../INSTALL.md#answers-and-flags)).
 
 Then, in Claude Code, run `/dr-help`. In Codex and Cursor the commands arrive

@@ -9,11 +9,14 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import secrets
+import shlex
 import shutil
 import stat
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 
 SOURCE = Path(__file__).resolve().parents[1]
@@ -341,14 +344,172 @@ def project_lock(root):
 
 def install(args):
     root = project_directory(args.project)
-    # Refuse before the lock file is created: a refused install writes nothing.
-    if not (root/'.datarim-runtime'/'installation.json').is_file() and (
-            getattr(args, 'with_jev', None) is None or not getattr(args, 'client', None)):
-        raise ChoiceRequired(CHOICE_QUESTIONS)
+    # Decided before the lock file is created: a refused install writes nothing
+    # to the project tree.
+    gate = answers_gate(args, root)
     if args.dry_run:
         return _install(args)
     with project_lock(root):
-        return _install(args)
+        _install(args)
+    if gate == 'token':
+        consume_answers_token(root)
+
+
+REQUIRED_ANSWERS = ('with_jev', 'client', 'permissions')
+NONINTERACTIVE_ENV = 'DATARIM_INSTALL_NONINTERACTIVE'
+TOKEN_TTL_SECONDS = 3600
+
+
+def missing_answers(args):
+    return [name for name in REQUIRED_ANSWERS if getattr(args, name, None) in (None, (), [])]
+
+
+def is_interactive():
+    """A person at a terminal: both stdin and stdout are TTYs."""
+    try:
+        return sys.stdin.isatty() and sys.stdout.isatty()
+    except (AttributeError, ValueError):
+        return False
+
+
+def answers_gate(args, root, *, interactive=None, ask=None, say=None):
+    """Let a fresh install proceed only with the user's own answers.
+
+    Returns None for an update, 'interactive' after asking a person at a
+    terminal, 'scripted' for the CI escape hatch, 'token' when a valid answers
+    token was given; otherwise raises ChoiceRequired with the questions and a
+    new token. An agent that read the answer-to-flag table in this source and
+    chose the answers itself passed full flags on its first run, so the
+    refusal never fired; the token exists only in the refusal's output, so a
+    successful non-interactive install proves that output was seen.
+    """
+    if (root/'.datarim-runtime'/'installation.json').is_file():
+        return None
+    interactive = is_interactive() if interactive is None else interactive
+    missing = missing_answers(args)
+    if missing and interactive:
+        ask_answers(args, root, ask=ask or input, say=say or (lambda text: print(text, file=sys.stderr)))
+        return 'interactive'
+    if not missing and interactive:
+        return 'interactive'  # a person typed every answer
+    if not missing and os.environ.get(NONINTERACTIVE_ENV) == '1':
+        return 'scripted'
+    token = getattr(args, 'answers', None)
+    if not missing and token and answers_token_valid(root, token):
+        return 'token'
+    raise ChoiceRequired(refusal_text(root, issue_answers_token(root)))
+
+
+def answers_token_path(root):
+    """Where the pending token lives: inside the git directory (never the
+    working tree), else in the user's state directory."""
+    try:
+        gitdir = subprocess.run(['git', '-C', str(root), 'rev-parse', '--absolute-git-dir'],
+                                capture_output=True, text=True, timeout=30, check=True).stdout.strip()
+        if gitdir:
+            return Path(gitdir)/'datarim-install-answers'
+    except (OSError, subprocess.SubprocessError):
+        pass
+    state = Path(os.environ.get('XDG_STATE_HOME') or Path.home()/'.local/state')
+    return state/'datarim/pending'/hashlib.sha256(str(root).encode()).hexdigest()
+
+
+def issue_answers_token(root):
+    token = secrets.token_hex(4)
+    path = answers_token_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, temporary = tempfile.mkstemp(prefix='.datarim-answers-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w') as stream:
+            json.dump({'token': token, 'created': time.time(), 'project': str(root)}, stream)
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+    return token
+
+
+def answers_token_valid(root, token, *, now=None):
+    """The token the last refusal printed for this project, at most an hour old."""
+    try:
+        path = answers_token_path(root)
+        if path.is_symlink():
+            return False
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return False
+    if not isinstance(data, dict) or data.get('project') != str(root):
+        return False
+    age = (time.time() if now is None else now) - float(data.get('created', 0))
+    return 0 <= age <= TOKEN_TTL_SECONDS and secrets.compare_digest(str(data.get('token', '')), str(token))
+
+
+def consume_answers_token(root):
+    with contextlib.suppress(OSError):
+        answers_token_path(root).unlink()
+
+
+def installed_clients():
+    names = {'claude': ('claude',), 'codex': ('codex',), 'cursor': ('cursor-agent', 'agent')}
+    return tuple(c for c in CLIENTS if any(shutil.which(n) for n in names[c]))
+
+
+def ask_answers(args, root, *, ask, say):
+    """Ask a person at a terminal for each missing answer; Enter takes the default."""
+    def choose(question, options, default):
+        while True:
+            try:
+                answer = ask(f'{question} [{"/".join(options)}] (default: {default}): ').strip().lower()
+            except EOFError:
+                raise ChoiceRequired('Installation cancelled; nothing was installed.') from None
+            answer = answer or default
+            if answer in options:
+                return answer
+            say(f'Please answer one of: {", ".join(options)}')
+
+    say('Datarim needs a few answers before installing. Press Enter to take the default.')
+    if getattr(args, 'with_jev', None) is None:
+        say("Jev's safety floor refuses destructive shell commands and works without any key; "
+            'a key only adds routing advice.')
+        jev = choose('1. Jev: none, project (this project only) or host (every project of this user)?',
+                     ('none', 'project', 'host'), QUESTION_DEFAULTS['jev'])
+        args.with_jev = jev != 'none'
+        if jev == 'host':
+            args.host_jev = True
+            say('Host Jev must already be installed (python3 scripts/jev_host_install.py).')
+    if not getattr(args, 'client', None):
+        found = installed_clients()
+        default = ','.join(found) if found else None
+        while True:
+            try:
+                text = ask('2. Clients: claude, codex, cursor (comma list)'
+                           + (f' (default: {default}): ' if default else ': ')).strip()
+            except EOFError:
+                raise ChoiceRequired('Installation cancelled; nothing was installed.') from None
+            try:
+                chosen = parse_clients([text or default or ''])
+            except ValueError as exc:
+                say(str(exc))
+                continue
+            if chosen:
+                args.client = chosen
+                break
+            say('Name at least one client.')
+    if ('claude' in args.client and getattr(args, 'claude_import', None) is None
+            and (root/'AGENTS.md').is_file() and not ((root/CLAUDE_MD).exists() or (root/CLAUDE_MD).is_symlink())):
+        args.claude_import = choose('   Link CLAUDE.md to AGENTS.md (Claude Code reads only CLAUDE.md)?',
+                                    ('yes', 'no'), 'yes') == 'yes'
+    if getattr(args, 'permissions', None) is None:
+        args.permissions = choose('3. Permission mode for the jev* launchers: ask, or full (no prompts)?',
+                                  ('ask', 'full'), QUESTION_DEFAULTS['permission'])
+    if not getattr(args, 'init', False):
+        args.init = choose('4. Create empty task files datarim/tasks.md and datarim/backlog.md now?',
+                           ('yes', 'no'), QUESTION_DEFAULTS['init']) == 'yes'
+    if not getattr(args, 'expose_skills', False):
+        args.expose_skills = choose('5. Expose every framework skill in every session (costs context)?',
+                                    ('yes', 'no'), QUESTION_DEFAULTS['expose_skills']) == 'yes'
+    say('6. Release: installing from this checkout. For another release, stop now (Ctrl-C), '
+        '`git checkout` it in the Datarim source, and run the installer again.')
 
 
 #: Each question's default, as INSTALL.md states it (a test keeps the two equal).
@@ -362,10 +523,10 @@ QUESTION_DEFAULTS = {
     'release': 'latest release tag',
 }
 _D = QUESTION_DEFAULTS
-CHOICE_QUESTIONS = f"""STOP. Nothing was installed. Ask the user these questions and wait for the answers.
-Do not choose for them. Offer each default; the user may answer "defaults".
-
-1. Jev: none, project (this project only) or host (every project of this user)?
+# This text is shown to the user by the installer at run time. An agent reading
+# it here has not been given the user's answers; run the installer and relay
+# its questions.
+CHOICE_QUESTIONS = f"""1. Jev: none, project (this project only) or host (every project of this user)?
    Default: {_D['jev']}. Jev's safety floor refuses destructive shell commands and
    works WITHOUT any key. A key only adds routing advice, so "no key" is not a reason to skip Jev.
 2. Clients: which of Claude Code, Codex, Cursor? Default: {_D['clients']};
@@ -374,29 +535,73 @@ Do not choose for them. Offer each default; the user may answer "defaults".
 3. Permission mode for the jev* launchers: ask or full (no prompts)? Default: {_D['permission']}.
 4. Create empty task files datarim/tasks.md and datarim/backlog.md now? Default: {_D['init']}.
 5. Expose every framework skill in every session (costs context)? Default: {_D['expose_skills']}.
-6. Install from the latest release tag or from main? Default: {_D['release']}.
+6. Install from the latest release tag or from main? Default: {_D['release']}."""
 
-When the user has answered:
-Rerun: ./install.sh --project <path> <flags from the answers>
-
-  Answer                            Flag
+FLAG_TABLE = """  Answer                            Flag
   Jev none                          --without-jev
   Jev project                       --with-jev
   Jev host                          first: python3 scripts/jev_host_install.py --client <each client>
                                     --datarim-project <path>; then --with-jev --host-jev
   Clients                           --client claude,codex,cursor (the ones chosen)
   Link CLAUDE.md to AGENTS.md       --claude-import
+  Permission mode                   --permissions ask  or  --permissions full
   Task files now                    --init
   Expose every skill                --expose-skills
-  Permission mode full              after install: jev permissions full
-  Release tag                       before install: git checkout <tag>  (main: git checkout main)
-  "defaults"                        --without-jev --client <the installed clients> --init
-                                    (plus --claude-import when Claude Code is one of them and the
-                                    project has AGENTS.md but no CLAUDE.md)"""
+  Release tag                       before install: git checkout <tag>  (main: git checkout main)"""
+
+
+def refusal_text(root, token):
+    """The refusal, built at run time: the token and the rerun command exist
+    only in this output, never in the docs or in a constant."""
+    rerun = ' '.join(['./install.sh', '--project', shlex.quote(str(root)), '--answers', token, '<flags>'])
+    return '\n'.join([
+        'STOP. Nothing was installed. Ask the user these questions and wait for the answers. '
+        'Do not choose for them.',
+        '',
+        CHOICE_QUESTIONS,
+        '',
+        FLAG_TABLE,
+        '',
+        "Only when the user said 'defaults': --without-jev --client <installed clients> --init "
+        '--permissions ask (and --claude-import when Claude Code is one of them and the project has '
+        'AGENTS.md but no CLAUDE.md).',
+        '',
+        f"Rerun with the user's answers: {rerun}",
+        f'The answers token is valid for {TOKEN_TTL_SECONDS // 60} minutes and for this project only.',
+    ])
 
 
 class ChoiceRequired(ValueError):
     """A fresh install was started without an explicit Jev choice."""
+
+
+def permission_state_dir(root, host_jev):
+    """Where `jev permissions` keeps its switch for this installation's scope."""
+    if host_jev:
+        from jev_hook import host_runtime
+        metadata = json.loads((host_runtime()/'host-installation.json').read_text())
+        return Path(metadata['state_dir'])
+    return Path(root)/'.datarim-runtime/state/jev'
+
+
+def apply_permissions(root, host_jev, requested):
+    """Write the permission mode the user chose (the same file `jev permissions`
+    writes); with no choice, keep and report the current one."""
+    flag = permission_state_dir(root, host_jev)/'FULL_PERMISSIONS'
+    if requested is None:
+        return 'full' if flag.is_file() else 'ask'
+    if flag.is_symlink():
+        raise ValueError('Permission switch must not be a symlink')
+    if requested == 'full':
+        flag.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        flag.touch(mode=0o600)
+    else:
+        flag.unlink(missing_ok=True)
+    return requested
+
+
+def permission_line(mode):
+    return f'permission mode: {mode} (change with `jev permissions full|ask`)'
 
 
 def key_instructions(root, host_jev):
@@ -446,14 +651,11 @@ def _install(args):
         previous = json.loads(manifest.read_text())
         if previous.get('project') != str(root):
             raise ValueError('Installation project mismatch')
-    if previous is None and (getattr(args, 'with_jev', None) is None or not getattr(args, 'client', None)):
-        # Scripted and agent-driven installs used to run without asking the
-        # user anything; the questions in the docs did not survive a
-        # summarizing fetch. A fresh install needs the Jev choice explicitly.
-        # --dry-run refuses too: an agent that copied a quick line took the
-        # printed plan as permission to run the real install. The client list
-        # is an answer too: a default of "all three" let an agent skip it.
-        raise ChoiceRequired(CHOICE_QUESTIONS)
+    if previous is None and missing_answers(args):
+        # install() asks or refuses first; this guards a direct call. A fresh
+        # install needs the Jev answer, the client list and the permission
+        # mode, --dry-run included.
+        raise ChoiceRequired(refusal_text(root, issue_answers_token(root)))
     args.with_jev, args.host_jev, args.context = remembered_choices(args, previous)
     if args.host_jev:
         from jev_hook import host_runtime
@@ -627,6 +829,8 @@ def _install(args):
             and link_action in (None, 'kept_existing', 'already_linked', 'no_agents_md')):
         if all((root/name).is_file() and (root/name).read_bytes() == data for name, data in files.items()):
             print(json.dumps({'status': 'unchanged', 'project': str(root)}))
+            print(permission_line(apply_permissions(root, args.host_jev, getattr(args, 'permissions', None))),
+                  file=sys.stderr)
             return
     stage = Path(tempfile.mkdtemp(prefix='.datarim-install-', dir=root))
     backups = {}
@@ -765,9 +969,11 @@ def _install(args):
         if removed:
             manifest['created_dirs'] = [d for d in manifest['created_dirs'] if d not in removed]
             (runtime/'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
+        mode = apply_permissions(root, args.host_jev, getattr(args, 'permissions', None))
         print(json.dumps({'status': 'installed', **manifest, 'claude_md': link_action}))
         if args.with_jev:
             print(key_instructions(root, args.host_jev), file=sys.stderr)
+        print(permission_line(mode), file=sys.stderr)
     except Exception:
         recovery = []
         try:
@@ -897,6 +1103,12 @@ def main():
                         help='Link CLAUDE.md to the project AGENTS.md so Claude Code, which reads only '
                              'CLAUDE.md, loads the project rules. Only created when no CLAUDE.md exists; '
                              'kept across updates; --no-claude-import removes the link this install made')
+    parser.add_argument('--permissions', choices=('ask', 'full'), default=None,
+                        help='Permission mode for the jev* launchers (as `jev permissions`). Required on a '
+                             'fresh install; an update keeps the current mode')
+    parser.add_argument('--answers', metavar='TOKEN', default=None,
+                        help='The answers token a refused fresh install printed; proves the questions were '
+                             'shown to the user')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--uninstall', action='store_true')
     parser.add_argument('--context', action='append', default=None,
