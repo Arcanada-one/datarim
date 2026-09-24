@@ -57,7 +57,7 @@ Before invoking the capability under test:
 The gate **must** fire (live smoke test is required, not optional) when a change touches any of:
 
 - `$queryRaw`, `$executeRaw`, `raw()`, `sequelize.query()`, `db.exec()`, or any path that bypasses the ORM's type-checker and schema validation.
-- Multi-datasource projects where more than one client / connection / schema exists and a specific call must target a specific one (e.g. reads from `stats` vs `analytics_db`, from `primary` vs `replica`, from tenant A vs tenant B).
+- Multi-datasource projects where more than one client / connection / schema exists and a specific call must target a specific one (e.g. reads from the primary vs the analytics database, from `primary` vs `replica`, from tenant A vs tenant B).
 - Migrations, DDL changes, or any code that runs against a schema the unit tests don't represent.
 - Queue / message / webhook code where the "contract" is what the receiving system accepts, not what the sender thinks it sends.
 
@@ -65,7 +65,7 @@ The gate **must** fire (live smoke test is required, not optional) when a change
 
 A wrong-client `$queryRaw` **compiles clean** and **passes mocked tests** — because the mock doesn't know which datasource the real call would hit. The error only appears at runtime, against real data, in a code path the test suite cannot reach.
 
-Reference incident: a raw query intended to hit `stats` (mysql5) was injected on the `analytics_db` client (mysql8). Unit tests mocked the Prisma client and passed green. Production returned "table not found" on first request. Root cause: `PrismaService` vs `PrismaBiService` were both valid injections for the DI container, and the type-checker could not distinguish them for a `$queryRaw` call.
+Reference incident: a raw query intended for the primary database was issued on the analytics-database client. Unit tests mocked the Prisma client and passed green. Production returned "table not found" on first request. Root cause: the two ORM services were both valid injections for the DI container, and the type-checker could not distinguish them for a `$queryRaw` call.
 
 ### What a passing gate looks like
 

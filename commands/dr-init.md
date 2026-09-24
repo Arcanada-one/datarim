@@ -34,7 +34,7 @@ receipt. A TBD acceptance skeleton does not authorize implementation.
 1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/planner.md` and adopt that persona.
 2.  **RESOLVE PATH**: This is the ONLY command that may create `datarim/`. Resolve the correct location:
     - Find the **top-level git root** (`git rev-parse --show-toplevel`).
-    - If the project uses submodules, use the **outermost** repo root (e.g., `local-stack/`, not `app-v2/`).
+    - If the project uses submodules, use the **outermost** repo root (e.g., `platform/`, not `platform/services/api/`).
     - Create `datarim/` there ONLY if it does not already exist.
     - If creating for the first time:
       a. Create `backlog.md` from the template at `${DATARIM_RUNTIME:?}/templates/backlog-template.md`. (Create ONLY `backlog.md` — the separate completed/cancelled archive index was retired in v1.19.1; completed/cancelled prose now lives in `documentation/archive/{area|cancelled}/archive-{ID}.md`, and `backlog.md` carries only live items.)

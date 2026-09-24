@@ -30,7 +30,6 @@ Any artificial entity that violates these laws **MUST** be detected, restricted,
 ### Law 5: Transparency and Enforcement
 Every artificial entity **MUST** be uniquely identifiable, traceable, and auditable.
 
-**Source of Truth:** https://github.com/Arcanada/Rules-of-Robotics
 
 ---
 
