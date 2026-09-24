@@ -469,8 +469,8 @@ class InstallationLifecycleTests(unittest.TestCase):
             cells = [c.strip() for c in line.strip().strip('|').split('|')]
             if len(cells) == 3 and re.fullmatch(r'\d+a?', cells[0]):
                 table[cells[0]] = cells[2].replace('`', '')
-        rows = {'jev': '1', 'clients': '2', 'claude_import': '2a', 'init': '3', 'expose_skills': '4',
-                'permission': '5', 'release': '6'}
+        rows = {'jev': '1', 'clients': '2', 'claude_import': '2a', 'permission': '3', 'init': '4',
+                'expose_skills': '5', 'release': '6'}
         self.assertEqual(set(rows), set(project_install.QUESTION_DEFAULTS))
         for key, default in project_install.QUESTION_DEFAULTS.items():
             self.assertIn(f'Default: {default}', text, key)

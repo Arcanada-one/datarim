@@ -51,9 +51,9 @@ Follow these steps in order. Do not improvise other install methods.
    | 1 | Install Jev? **none** / **project** (this project only) / **host** (every project of this user on this machine) | none |
    | 2 | Which clients do you use: Claude Code, Codex, Cursor? Pass one `--client` per client (or a comma list); the project install then writes the commands, and with `--with-jev` the hooks, only for those. The same answer gives host Jev its `--client` options and decides which client `jev doctor --agent=` checks. | the ones installed on the machine |
    | 2a | If Claude Code is one of them and the project has an `AGENTS.md`: link `CLAUDE.md` to it (`--claude-import`)? Claude Code reads `CLAUDE.md`, not `AGENTS.md`. Only offered when the project has no `CLAUDE.md`. | yes, when there is no `CLAUDE.md` |
-   | 3 | Create empty task files `datarim/tasks.md` and `datarim/backlog.md` now (`--init`)? | yes |
-   | 4 | Expose every framework skill to the clients' automatic discovery (`--expose-skills`)? It adds their descriptions to every session. | no |
-   | 5 | Should the `jev*` launchers (every install has them) start clients **without permission prompts** (`jev permissions full`)? Starting a client directly is not affected. | no (`ask`) |
+   | 3 | Should the `jev*` launchers (every install has them) start clients **without permission prompts** (`jev permissions full`)? Starting a client directly is not affected. Always ask this one: it is applied after the install, not by an installer flag, so it is the easiest to forget. | no (`ask`) |
+   | 4 | Create empty task files `datarim/tasks.md` and `datarim/backlog.md` now (`--init`)? | yes |
+   | 5 | Expose every framework skill to the clients' automatic discovery (`--expose-skills`)? It adds their descriptions to every session. | no |
    | 6 | Install the latest release tag, or `main`? | latest release tag |
 
    Also check, without asking, whether `PROJECT` contains nested git repositories
@@ -68,14 +68,16 @@ Follow these steps in order. Do not improvise other install methods.
 5. **Verify** with [Step 5](#step-5--verify). Every check has an expected result.
 6. **Report to the user**, in this shape:
    - installed: Datarim version and commit (from `.datarim-runtime/installation.json`
-     → `source_sha`), Jev scope (none / project / host), options used;
+     → `source_sha`), Jev scope (none / project / host), permission mode (`ask` or
+     `full`, as set with `jev permissions`), options used;
    - where things live: `.datarim-runtime/` (framework), `datarim/` (task state),
      Jev config file path (see the [table](#configuration-and-secrets));
    - **where to put the Jev API key** (exact file path; open it in an editor, one
      line, file stays mode `0600`), then run `jev doctor --api`;
    - Codex only: the two approvals Codex will ask for (see
      [Codex hook trust](#codex-runs-hooks-only-after-you-trust-them));
-   - how to update: the exact update command with the same flags you used;
+   - how to update: `cd <SOURCE> && git pull` (or check out the new tag), then
+     `./update.sh --project <PROJECT>`; the install choices are remembered, so no flags are needed;
    - next step: open the client in the project and run `/dr-help` (Claude Code),
      or ask Codex or Cursor to run the `dr-help` skill.
 
@@ -245,6 +247,13 @@ mode. Starting `claude`, `codex` or `cursor-agent` directly is not affected.
 
 Nothing here is committed: the project paths are hidden by `.git/info/exclude`,
 the host paths live in your home directory.
+
+The environment variables below are set **per shell or per launch**, never in
+`.zshrc`, `.bashrc` or another startup file. There they would apply to every
+session on the machine: `JEV_PERMISSIONS=full` in a startup file, for example,
+turns off permission prompts for every `jev*` launch, whatever the stored mode
+says. Persistent choices have their own switches: `jev permissions`, `jev on` /
+`jev off`, and the settings file.
 
 | Setting | Where | Read by | Required | Default |
 |---|---|---|---|---|
