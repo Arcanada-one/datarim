@@ -344,6 +344,10 @@ def project_lock(root):
 
 def install(args):
     root = project_directory(args.project)
+    if getattr(args, 'claude_import', None) and not (root/'AGENTS.md').is_file():
+        # Before the answers gate: an impossible request consumes no token and
+        # issues none.
+        raise ValueError('--claude-import links CLAUDE.md to AGENTS.md; the project has no AGENTS.md')
     # Decided before the lock file is created: a refused install writes nothing
     # to the project tree.
     gate = answers_gate(args, root)
@@ -356,7 +360,6 @@ def install(args):
 
 
 REQUIRED_ANSWERS = ('with_jev', 'client', 'permissions')
-NONINTERACTIVE_ENV = 'DATARIM_INSTALL_NONINTERACTIVE'
 TOKEN_TTL_SECONDS = 3600
 
 
@@ -376,9 +379,10 @@ def answers_gate(args, root, *, interactive=None, ask=None, say=None):
     """Let a fresh install proceed only with the user's own answers.
 
     Returns None for an update, 'interactive' after asking a person at a
-    terminal, 'scripted' for the CI escape hatch, 'token' when a valid answers
-    token was given; otherwise raises ChoiceRequired with the questions and a
-    new token. An agent that read the answer-to-flag table in this source and
+    terminal, 'token' when a valid answers token was given; otherwise raises
+    ChoiceRequired with the questions and a new token. There is no switch
+    that skips the token: an agent reads switches in the source, and one it
+    used would skip the user. Scripts run the installer twice instead. An agent that read the answer-to-flag table in this source and
     chose the answers itself passed full flags on its first run, so the
     refusal never fired; the token exists only in the refusal's output, so a
     successful non-interactive install proves that output was seen.
@@ -392,8 +396,6 @@ def answers_gate(args, root, *, interactive=None, ask=None, say=None):
         return 'interactive'
     if not missing and interactive:
         return 'interactive'  # a person typed every answer
-    if not missing and os.environ.get(NONINTERACTIVE_ENV) == '1':
-        return 'scripted'
     token = getattr(args, 'answers', None)
     if not missing and token and answers_token_valid(root, token):
         return 'token'
@@ -495,10 +497,12 @@ def ask_answers(args, root, *, ask, say):
                 args.client = chosen
                 break
             say('Name at least one client.')
-    if ('claude' in args.client and getattr(args, 'claude_import', None) is None
-            and (root/'AGENTS.md').is_file() and not ((root/CLAUDE_MD).exists() or (root/CLAUDE_MD).is_symlink())):
-        args.claude_import = choose('   Link CLAUDE.md to AGENTS.md (Claude Code reads only CLAUDE.md)?',
-                                    ('yes', 'no'), 'yes') == 'yes'
+    if 'claude' in args.client and getattr(args, 'claude_import', None) is None:
+        if not (root/'AGENTS.md').is_file():
+            say(NO_CLAUDE_LINK)
+        elif not ((root/CLAUDE_MD).exists() or (root/CLAUDE_MD).is_symlink()):
+            args.claude_import = choose('   Link CLAUDE.md to AGENTS.md (Claude Code reads only CLAUDE.md)?',
+                                        ('yes', 'no'), 'yes') == 'yes'
     if getattr(args, 'permissions', None) is None:
         args.permissions = choose('3. Permission mode for the jev* launchers: ask, or full (no prompts)?',
                                   ('ask', 'full'), QUESTION_DEFAULTS['permission'])
@@ -523,6 +527,10 @@ QUESTION_DEFAULTS = {
     'release': 'latest release tag',
 }
 _D = QUESTION_DEFAULTS
+CLAUDE_QUESTION = ('   With Claude Code, also link CLAUDE.md to the project AGENTS.md\n'
+                   f"   (Claude Code reads only CLAUDE.md)? Default: {_D['claude_import']}.")
+CLAUDE_ROW = '  Link CLAUDE.md to AGENTS.md       --claude-import'
+NO_CLAUDE_LINK = '   (CLAUDE.md link: not offered, the project has no AGENTS.md)'
 # This text is shown to the user by the installer at run time. An agent reading
 # it here has not been given the user's answers; run the installer and relay
 # its questions.
@@ -530,8 +538,8 @@ CHOICE_QUESTIONS = f"""1. Jev: none, project (this project only) or host (every 
    Default: {_D['jev']}. Jev's safety floor refuses destructive shell commands and
    works WITHOUT any key. A key only adds routing advice, so "no key" is not a reason to skip Jev.
 2. Clients: which of Claude Code, Codex, Cursor? Default: {_D['clients']};
-   still name them explicitly in --client. With Claude Code, also link CLAUDE.md to the
-   project AGENTS.md (Claude Code reads only CLAUDE.md)? Default: {_D['claude_import']}.
+   still name them explicitly in --client.
+{CLAUDE_QUESTION}
 3. Permission mode for the jev* launchers: ask or full (no prompts)? Default: {_D['permission']}.
 4. Create empty task files datarim/tasks.md and datarim/backlog.md now? Default: {_D['init']}.
 5. Expose every framework skill in every session (costs context)? Default: {_D['expose_skills']}.
@@ -554,20 +562,29 @@ def refusal_text(root, token):
     """The refusal, built at run time: the token and the rerun command exist
     only in this output, never in the docs or in a constant."""
     rerun = ' '.join(['./install.sh', '--project', shlex.quote(str(root)), '--answers', token, '<flags>'])
+    questions, table = CHOICE_QUESTIONS, FLAG_TABLE
+    defaults = ("Only when the user said 'defaults': --without-jev --client <installed clients> --init "
+                '--permissions ask (and --claude-import when Claude Code is one of them and the project has '
+                'no CLAUDE.md).')
+    if not (Path(root)/'AGENTS.md').is_file():
+        # Checked here, at run time: the link needs an AGENTS.md to point at.
+        questions = questions.replace(CLAUDE_QUESTION, NO_CLAUDE_LINK)
+        table = table.replace(CLAUDE_ROW + '\n', '')
+        defaults = ("Only when the user said 'defaults': --without-jev --client <installed clients> --init "
+                    '--permissions ask.')
     return '\n'.join([
         'STOP. Nothing was installed. Ask the user these questions and wait for the answers. '
         'Do not choose for them.',
         '',
-        CHOICE_QUESTIONS,
+        questions,
         '',
-        FLAG_TABLE,
+        table,
         '',
-        "Only when the user said 'defaults': --without-jev --client <installed clients> --init "
-        '--permissions ask (and --claude-import when Claude Code is one of them and the project has '
-        'AGENTS.md but no CLAUDE.md).',
+        defaults,
         '',
         f"Rerun with the user's answers: {rerun}",
-        f'The answers token is valid for {TOKEN_TTL_SECONDS // 60} minutes and for this project only.',
+        f'The answers token is valid for {TOKEN_TTL_SECONDS // 60} minutes and for this project only; '
+        'a new token replaces any earlier one.',
     ])
 
 

@@ -24,7 +24,7 @@ setup() { setup_project_fixture; }
 }
 
 @test "dry run through POSIX sh has no project mutations" {
-    install_project --dry-run --client all --permissions ask --with-jev --init
+    install_answered --dry-run --client all --permissions ask --with-jev --init
     [ "$status" -eq 0 ]
     [ ! -e "$PROJECT/.datarim-install.lock" ]
     [ ! -e "$PROJECT/AGENTS.md" ]
@@ -35,7 +35,7 @@ setup() { setup_project_fixture; }
     # Datarim no longer relies on AGENTS.md being loaded, so the client's own
     # instruction files are none of its business.
     printf 'Operator rules' > "$PROJECT/CLAUDE.md"
-    install_project --client all --permissions ask --without-jev
+    install_answered --client all --permissions ask --without-jev
     [ "$status" -eq 0 ]
     [ ! -e "$PROJECT/AGENTS.md" ]
     run cat "$PROJECT/CLAUDE.md"
