@@ -95,8 +95,6 @@ commit_change() {
     commit_change "scripts/lib/helper.sh" "echo hi"
     run bash "$SCRIPT" --repo "$REPO"
     [ "$status" -eq 0 ]
-    [[ "$output" != *"arcana-dev"* ]]
-    [[ "$output" != *"aether"* ]]
     [[ "$output" != *"install.sh"* ]]
 }
 

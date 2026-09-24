@@ -4,6 +4,13 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Security
+
+- `personal-id-forbidden.regex` no longer lists personal, consumer-project or host names: a public
+  denylist of names publishes them. Names live only in the private overlay (local gitignored file, or the
+  `PERSONAL_ID_OVERLAY` secret in CI); the shipped file keeps shape patterns only, and a test fails if a
+  bare-word entry is added back.
+
 ### Added
 
 - Bind pipeline verdicts to recorded acceptance criteria, test cases, immutable
