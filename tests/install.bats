@@ -174,9 +174,11 @@ CHECK
     run sh -c 'sh "$1" --project "$2" --answers "$3" --client all --permissions ask --with-jev 2>&1 >/dev/null' \
         _ "$PRODUCT_ROOT/install.sh" "$PROJECT" "$token"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Jev key file: $PROJECT/config/credentials/jev/api-key"* || "$output" == *'config/credentials/jev/api-key'* ]]
-    [[ "$output" == *'paste the key on one line'* ]]
-    [[ "$output" == *'Do not echo/printf the key'* ]]
+    [[ "$output" == *'Include these lines in your report to the user:'* ]]
+    [[ "$output" == *'key (optional): '*'config/credentials/jev/api-key; the Jev floor works without it; paste it with an editor, never with echo/printf'* ]]
+    [[ "$output" == *'never put the key or any JEV_* / DATARIM_* variable in .zshrc/.bashrc'* ]]
+    [[ "$output" == *'permission mode: ask (stored in '*'/.datarim-runtime/state/jev/FULL_PERMISSIONS'* ]]
+    [[ "$output" == *'Codex: open `codex` once in this project and accept the hooks, or run `jev trust`'* ]]
 }
 
 @test "a Jev answer without a client list is refused and writes nothing" {
@@ -197,7 +199,8 @@ CHECK
     [ "$(ls -A "$PROJECT")" = ".git" ]
     install_project --answers "$token" --without-jev --client codex --permissions ask
     [ "$status" -eq 0 ]
-    [[ "$output" == *'permission mode: ask (change with `jev permissions full|ask`)'* ]]
+    [[ "$output" == *'permission mode: ask (stored in '*'change with `jev permissions full|ask`)'* ]]
+    [[ "$output" != *'Codex: open'* ]]
     [ -f "$PROJECT/.datarim-runtime/installation.json" ]
     [ ! -e "$PROJECT/.git/datarim-install-answers" ]
 }

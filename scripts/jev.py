@@ -511,7 +511,7 @@ def hook_liveness(ledgers, clients, selected, telemetry_enabled=True):
         elif not telemetry_enabled:
             out[client] = {'state': 'not_measured', 'reason': 'telemetry disabled; no delivery records'}
         else:
-            out[client] = {'state': 'not_measured', 'reason': 'no hook deliveries recorded yet'}
+            out[client] = {'state': 'not_measured', 'reason': 'no deliveries yet'}
     return out
 
 
@@ -535,6 +535,20 @@ def trust_message(written, trust, host_mode):
     where = 'on this host' if host_mode else 'in the project'
     return ('Jev: Codex has not reviewed these ' + ('host' if host_mode else 'project') + ' hooks yet: '
             f'open codex {where} and choose \'Trust all and continue\'')
+
+
+def liveness_clients(agent, selected):
+    """Clients whose hook deliveries doctor reports.
+
+    With --agent, that client -- and every other registered client whenever
+    more than one is registered. A report with hook_clients [claude, codex]
+    and only `claude: live` was read as "hooks live for both".
+    """
+    if not agent:
+        return list(CLIENTS)
+    if len(selected) > 1:
+        return [c for c in CLIENTS if c == agent or c in selected]
+    return [agent]
 
 
 def scope_hooks(host_mode, root, runtime, manifest, home=None):
@@ -653,7 +667,7 @@ def main():
                   'datarim_enabled': datarim_enabled(root),
                   'versions': versions, 'findings': findings,
                   'key_ready': key_ready,
-                  'native_agents_live': hook_liveness(scope['ledgers'], [a.agent] if a.agent else list(CLIENTS),
+                  'native_agents_live': hook_liveness(scope['ledgers'], liveness_clients(a.agent, scope['selected']),
                                                       scope['selected'], scope['telemetry_enabled']),
                   'api': 'not_measured', 'source_sha': manifest['source_sha'],
                   'permissions': 'full' if full_permissions(state) else 'ask'}

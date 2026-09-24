@@ -25,7 +25,7 @@ was taken from the installer code (`scripts/project_install.py`,
 
 Follow these steps in order. Do not improvise other install methods.
 
-1. **Read this whole file** before running anything. Fetch it raw —
+1. **Step 1: run `./install.sh --project <path>` with no answer flags. Ask the user nothing before that run; the installer prints the questions.** Then read this whole file before running anything else. Fetch it raw —
    `curl -fsSL https://raw.githubusercontent.com/Arcanada-one/datarim/main/INSTALL.md`
    — or read `INSTALL.md` in a clone; a summarizing web fetch drops most of it.
    To read the installer source, read it in the `SOURCE` clone; do not
@@ -85,6 +85,8 @@ Follow these steps in order. Do not improvise other install methods.
      [Codex hook trust](#codex-runs-hooks-only-after-you-trust-them));
    - how to update: `cd <SOURCE> && git pull` (or check out the new tag), then
      `./update.sh --project <PROJECT>`; the install choices are remembered, so no flags are needed;
+   - every line the installer printed after "Include these lines in your report
+     to the user:", copied as printed;
    - next step: open the client in the project and run `/dr-help` (Claude Code),
      or ask Codex or Cursor to run the `dr-help` skill.
 
