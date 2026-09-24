@@ -399,7 +399,7 @@ def answers_gate(args, root, *, interactive=None, ask=None, say=None):
     token = getattr(args, 'answers', None)
     if not missing and token and answers_token_valid(root, token):
         return 'token'
-    raise ChoiceRequired(refusal_text(root, issue_answers_token(root)))
+    raise ChoiceRequired(refusal_text(root, issue_answers_token(root), args))
 
 
 def answers_token_path(root):
@@ -558,11 +558,40 @@ FLAG_TABLE = """  Answer                            Flag
   Release tag                       before install: git checkout <tag>  (main: git checkout main)"""
 
 
-def refusal_text(root, token):
+def given_answer_flags(args):
+    """The answer flags a refused run carried, as the command line spelled them."""
+    if args is None:
+        return []
+    flags = []
+    if getattr(args, 'client', None):
+        flags += ['--client', ','.join(args.client)]
+    with_jev = getattr(args, 'with_jev', None)
+    if with_jev is not None:
+        flags.append('--with-jev' if with_jev else '--without-jev')
+    if getattr(args, 'host_jev', None):
+        flags.append('--host-jev')
+    if getattr(args, 'permissions', None):
+        flags += ['--permissions', args.permissions]
+    if getattr(args, 'claude_import', None):
+        flags.append('--claude-import')
+    if getattr(args, 'init', False):
+        flags.append('--init')
+    if getattr(args, 'expose_skills', False):
+        flags.append('--expose-skills')
+    for context in getattr(args, 'context', None) or []:
+        flags += ['--context', context]
+    return flags
+
+
+def refusal_text(root, token, args=None):
     """The refusal, built at run time: the token and the rerun command exist
     only in this output, never in the docs or in a constant."""
     rerun = ' '.join(['./install.sh', '--project', shlex.quote(str(root)), '--answers', token, '<flags>'])
     questions, table = CHOICE_QUESTIONS, FLAG_TABLE
+    given = given_answer_flags(args)
+    # An agent that passed answers on the first run must see that they did not
+    # count: without the token they are not yet the user's answers.
+    ignored = ["Ignored (not yet the user's answers): " + ' '.join(shlex.quote(f) for f in given)] if given else []
     defaults = ("Only when the user said 'defaults': --without-jev --client <installed clients> --init "
                 '--permissions ask (and --claude-import when Claude Code is one of them and the project has '
                 'no CLAUDE.md).')
@@ -578,6 +607,7 @@ def refusal_text(root, token):
         'Relay the questions below word for word, with their defaults, and do not recommend an answer. '
         'If you already asked the user something, still ask every question below that they have not '
         "answered. Reply in the user's language.",
+        *ignored,
         '',
         questions,
         '',
@@ -630,8 +660,8 @@ def report_block(root, host_jev, with_jev, mode, clients):
     shell-startup warning.
     """
     flag = permission_state_dir(root, host_jev)/'FULL_PERMISSIONS'
-    lines = ['Include these lines in your report to the user:',
-             f'permission mode: {mode} (stored in {flag}: present means full, absent means ask; '
+    lines = ['Include these lines in your report to the user, verbatim:',
+             f'permission mode: {mode} — {flag} (present = full, absent = ask; '
              'change with `jev permissions full|ask`)']
     if with_jev:
         key = (Path.home()/'.config/jev/credentials/api-key') if host_jev \
@@ -642,6 +672,13 @@ def report_block(root, host_jev, with_jev, mode, clients):
                  'set them per shell or per launch')
     if with_jev and 'codex' in clients:
         lines.append('Codex: open `codex` once in this project and accept the hooks, or run `jev trust`')
+    packaged = [(d, name) for d, name, client in (('.agents', 'Codex', 'codex'), ('.cursor', 'Cursor', 'cursor'))
+                if client in clients]
+    if packaged:
+        # An agent listed these as framework skills the user never asked for.
+        lines.append(' and '.join(f'{d}/skills/dr-*' for d, _ in packaged)
+                     + ' are the /dr-* commands packaged for ' + '/'.join(n for _, n in packaged)
+                     + ', not extra framework skills')
     return '\n'.join(lines)
 
 
@@ -687,7 +724,7 @@ def _install(args):
         # install() asks or refuses first; this guards a direct call. A fresh
         # install needs the Jev answer, the client list and the permission
         # mode, --dry-run included.
-        raise ChoiceRequired(refusal_text(root, issue_answers_token(root)))
+        raise ChoiceRequired(refusal_text(root, issue_answers_token(root), args))
     args.with_jev, args.host_jev, args.context = remembered_choices(args, previous)
     if args.host_jev:
         from jev_hook import host_runtime

@@ -599,15 +599,18 @@ class InstallationLifecycleTests(unittest.TestCase):
             project_install.install(self.with_args(with_jev=True))
         text = err.getvalue()
         lines = text.splitlines()
-        lead = lines.index('Include these lines in your report to the user:')
+        lead = lines.index('Include these lines in your report to the user, verbatim:')
         block = lines[lead + 1:]
-        self.assertTrue(block[0].startswith('permission mode: ask (stored in '
-                                            f"{self.project/'.datarim-runtime/state/jev/FULL_PERMISSIONS'}"))
+        self.assertEqual(block[0], 'permission mode: ask — '
+                                   f"{self.project/'.datarim-runtime/state/jev/FULL_PERMISSIONS'} "
+                                   '(present = full, absent = ask; change with `jev permissions full|ask`)')
         self.assertIn(f"key (optional): {self.project/'config/credentials/jev/api-key'}; the Jev floor works "
                       'without it; paste it with an editor, never with echo/printf', block)
         self.assertIn('never put the key or any JEV_* / DATARIM_* variable in .zshrc/.bashrc; '
                       'set them per shell or per launch', block)
         self.assertIn('Codex: open `codex` once in this project and accept the hooks, or run `jev trust`', block)
+        self.assertIn('.agents/skills/dr-* and .cursor/skills/dr-* are the /dr-* commands packaged for '
+                      'Codex/Cursor, not extra framework skills', block)
 
     def test_the_report_block_without_jev_or_codex(self):
         import contextlib, io
@@ -615,7 +618,8 @@ class InstallationLifecycleTests(unittest.TestCase):
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
             project_install.install(self.with_args(client=('claude',)))
         text = err.getvalue()
-        self.assertIn('Include these lines in your report to the user:', text)
+        self.assertIn('Include these lines in your report to the user, verbatim:', text)
+        self.assertNotIn('skills/dr-*', text, 'Claude Code only: nothing is packaged as skills')
         self.assertIn('never put the key or any JEV_* / DATARIM_* variable in .zshrc/.bashrc', text)
         self.assertNotIn('key (optional)', text)
         self.assertNotIn('Codex: open', text)
@@ -623,7 +627,25 @@ class InstallationLifecycleTests(unittest.TestCase):
         err = io.StringIO()
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
             project_install.install(self.with_args(client=None, with_jev=None, permissions=None))
-        self.assertIn('\npermission mode: ask (stored in ', err.getvalue())
+        self.assertIn('\npermission mode: ask — ', err.getvalue())
+
+    def test_the_packaged_commands_line_names_only_the_chosen_clients(self):
+        text = project_install.report_block(self.project, False, False, 'ask', ('cursor',))
+        self.assertIn('.cursor/skills/dr-* are the /dr-* commands packaged for Cursor, not extra framework skills',
+                      text)
+        self.assertNotIn('.agents', text)
+        text = project_install.report_block(self.project, False, False, 'ask', ('codex',))
+        self.assertIn('.agents/skills/dr-* are the /dr-* commands packaged for Codex, not extra framework skills',
+                      text)
+
+    def test_a_refusal_lists_the_answer_flags_it_ignored(self):
+        with self.assertRaises(project_install.ChoiceRequired) as refusal:
+            project_install.install(self.fresh(client=('claude',), with_jev=False, permissions=None, init=True))
+        lines = str(refusal.exception).splitlines()
+        self.assertEqual(lines[2], "Ignored (not yet the user's answers): --client claude --without-jev --init")
+        with self.assertRaises(project_install.ChoiceRequired) as refusal:
+            project_install.install(self.fresh(client=None, permissions=None, init=False))
+        self.assertNotIn('Ignored', str(refusal.exception))
 
     # -- leftover client directories -------------------------------------------
 
@@ -1042,7 +1064,7 @@ class AnswersTokenTests(unittest.TestCase):
             project_install.install(self.args(permissions='full', answers=token))
         flag = self.project/'.datarim-runtime/state/jev/FULL_PERMISSIONS'
         self.assertTrue(flag.is_file())
-        self.assertIn('permission mode: full (stored in ', err.getvalue())
+        self.assertIn('permission mode: full — ', err.getvalue())
         self.assertIn('change with `jev permissions full|ask`)', err.getvalue())
         (self.source/'VERSION').write_text('next\n')
         err = io.StringIO()

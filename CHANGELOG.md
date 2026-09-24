@@ -6,6 +6,14 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Fixed
 
+- A refused install that carried answer flags without a valid token now lists them right after its opening
+  lines: "Ignored (not yet the user's answers): …", built from the flags actually given, so an agent sees
+  that its pre-filled answers did not count.
+- The report block now opens with "Include these lines in your report to the user, verbatim:". The
+  permission line is shorter, so its path survives a summary: `permission mode: <mode> — <path to
+  FULL_PERMISSIONS> (present = full, absent = ask; change with jev permissions full|ask)`. When Codex or
+  Cursor is a client, one line adds that `.agents/skills/dr-*` / `.cursor/skills/dr-*` are the `/dr-*`
+  commands packaged for them, not extra framework skills.
 - The installer's own output now carries the rules an agent needs, because it is the one text that reaches
   an agent unsummarized. In a live run the agent asked the user from the README before running the
   installer, dropped two questions and recommended answers. After getting the token it reran without asking

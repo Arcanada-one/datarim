@@ -86,7 +86,7 @@ Follow these steps in order. Do not improvise other install methods.
    - how to update: `cd <SOURCE> && git pull` (or check out the new tag), then
      `./update.sh --project <PROJECT>`; the install choices are remembered, so no flags are needed;
    - every line the installer printed after "Include these lines in your report
-     to the user:", copied as printed;
+     to the user, verbatim:", copied as printed;
    - next step: open the client in the project and run `/dr-help` (Claude Code),
      or ask Codex or Cursor to run the `dr-help` skill.
 
