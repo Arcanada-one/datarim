@@ -18,25 +18,14 @@
 # Do NOT add ecosystem-specific entries here — keep the framework contract
 # neutral. Consumer extensions belong in the consumer's local copy.
 
-# Operator personal handles / names (word-boundary, case-insensitive)
-\bpavel\b
-\bvalentov\b
-\bpaxbeach\b
-\byuval\b
-
-# Ecosystem-specific hostnames / project names.
-# The host family is matched as a prefix: an earlier `\barcana-dev\b` entry
-# could not see `arcana-devs` (no word boundary between "dev" and "s"), nor
-# the -prod / -www / -db / -ai siblings, so every one of them shipped.
-\barcana-[a-z0-9]+
-\bdev-ai\b
-
-# Consumer project names. A consumer's project name has no place in a
-# framework that any project can adopt. This one was already disclosed by the
-# narrower Vault-path entry it replaces (`arcanada/aether`), so listing the bare
-# name adds nothing a reader could not already see. Further consumer names go
-# in the private overlay (see below), never here.
-\baether\b
+# Names are NOT listed here. A personal name, a consumer project name or a
+# host name written into this PUBLIC file publishes exactly what the gate exists
+# to suppress. They belong in the private overlay: a local, gitignored
+# `${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal-id-forbidden.regex`, or
+# `$DATARIM_PERSONAL_ID_OVERLAY` (CI fills it from the PERSONAL_ID_OVERLAY
+# repository secret). This file carries only SHAPES that identify any operator:
+# home paths, tracker ID fields, consumer task IDs, tailnet hosts, addresses.
+# tests/personal-id-gate.bats enforces that no entry here is a bare word.
 
 # Consumer task IDs. `DEV-` is a universal area prefix, and this repository
 # uses it for synthetic fixtures in the 0xxx and 9xxx ranges only. A DEV-1xxx

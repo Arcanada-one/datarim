@@ -6,14 +6,20 @@ setup() {
     GATE="${BATS_TEST_DIRNAME}/../scripts/personal-id-gate.sh"
     REGEX="${BATS_TEST_DIRNAME}/../dev-tools/personal-id-forbidden.regex"
     TMP_DIR="$(mktemp -d)"
+    # Names live only in the private overlay, never in the shipped file, so the
+    # name-based contracts below run against a synthetic overlay. An explicit
+    # overlay also shadows any real one on the developer's machine.
+    NAMES="$TMP_DIR/names.regex"
+    printf '%s\n' '\bjdoe\b' '\bacme-client\b' '\bacmehost-[a-z0-9]+' > "$NAMES"
+    export DATARIM_PERSONAL_ID_OVERLAY="$NAMES"
 }
 
 teardown() {
     rm -rf "$TMP_DIR"
 }
 
-@test "synthetic fixture with forbidden token (paxbeach) → exit 1" {
-    printf 'hello paxbeach world\n' > "$TMP_DIR/test-fixture.txt"
+@test "synthetic fixture with forbidden token (jdoe) → exit 1" {
+    printf 'hello jdoe world\n' > "$TMP_DIR/test-fixture.txt"
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/test-fixture.txt" --check
     [ "$status" -eq 1 ]
 }
@@ -32,7 +38,7 @@ teardown() {
 
 @test "whitelisted path → exit 0 even with forbidden token" {
     mkdir -p "$TMP_DIR/whitelisted"
-    printf 'paxbeach is mentioned here\n' > "$TMP_DIR/whitelisted/doc.txt"
+    printf 'jdoe is mentioned here\n' > "$TMP_DIR/whitelisted/doc.txt"
     printf '%s\n' "$TMP_DIR/whitelisted" > "$TMP_DIR/whitelist.txt"
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/whitelisted/doc.txt" \
         --whitelist "$TMP_DIR/whitelist.txt" --check
@@ -42,7 +48,7 @@ teardown() {
 @test "gate:example-only fenced line with forbidden token → exit 0" {
     # Content inside <!-- gate:example-only --> ... <!-- /gate:example-only -->
     # must be excluded from scanning.
-    printf '<!-- gate:example-only -->\nPavel Valentov paxbeach example\n<!-- /gate:example-only -->\n' \
+    printf '<!-- gate:example-only -->\nJane jdoe example\n<!-- /gate:example-only -->\n' \
         > "$TMP_DIR/fenced.txt"
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/fenced.txt" --check
     [ "$status" -eq 0 ]
@@ -61,7 +67,7 @@ teardown() {
     # would set $in_fence=1 with no matching closing line, silently skipping EOF.
     cat > "$TMP_DIR/prose-mention.txt" << 'FIXTURE'
 This document explains how `<!-- gate:example-only -->` markers work in the framework.
-Pavel Valentov paxbeach is a personal identifier that should be caught.
+Jane jdoe is a personal identifier that should be caught.
 FIXTURE
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/prose-mention.txt" --check
     [ "$status" -eq 1 ]
@@ -72,7 +78,7 @@ FIXTURE
     cat > "$TMP_DIR/proper-fence.txt" << 'FIXTURE'
 Text before fence.
 <!-- gate:example-only -->
-Pavel Valentov paxbeach inside proper whole-line fence
+Jane jdoe inside proper whole-line fence
 <!-- /gate:example-only -->
 Text after fence.
 FIXTURE
@@ -199,15 +205,15 @@ FIXTURE
     [ "$status" -eq 0 ]
 }
 
-@test "consumer project name (aether) → exit 1" {
-    printf 'cd ~/code/aether/local-env\n' > "$TMP_DIR/f.txt"
+@test "consumer project name from the overlay (acme-client) → exit 1" {
+    printf 'cd ~/code/acme-client/local-env\n' > "$TMP_DIR/f.txt"
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
     [ "$status" -eq 1 ]
 }
 
-@test "host family arcana-devs is caught (word-boundary regression) → exit 1" {
-    # The old entry \barcana-dev\b could not match arcana-devs.
-    printf 'measured on arcana-devs\n' > "$TMP_DIR/f.txt"
+@test "host family prefix catches a suffixed host (word-boundary regression) → exit 1" {
+    # A `\bhost-dev\b` style entry cannot match `host-devs`; the prefix form can.
+    printf 'measured on acmehost-devs\n' > "$TMP_DIR/f.txt"
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
     [ "$status" -eq 1 ]
 }
@@ -272,5 +278,19 @@ FIXTURE
     # Green once the identifier is replaced.
     printf 'checkout at $HOME/code/x\n' > "$repo/ROOT-NOTES.md"
     run env -u DATARIM_PERSONAL_ID_OVERLAY HOME="$TMP_DIR" bash "$repo/scripts/personal-id-gate.sh" --report
+    [ "$status" -eq 0 ]
+}
+
+@test "shipped pattern file carries no bare-word entry (names belong in the overlay)" {
+    # A bare word such as \bsomename\b is a literal name, and this file is
+    # public: listing it publishes it. Shapes (paths, IDs, addresses) only.
+    run grep -nE '^\\b[A-Za-z][A-Za-z0-9_-]*(\\b)?$' "$REGEX"
+    [ "$status" -eq 1 ]
+}
+
+@test "without an overlay a bare name is not caught — the shipped file lists none" {
+    printf 'contact jdoe\n' > "$TMP_DIR/f.txt"
+    run env -u DATARIM_PERSONAL_ID_OVERLAY DATARIM_LOCAL="$TMP_DIR/none" \
+        bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/f.txt" --check
     [ "$status" -eq 0 ]
 }
