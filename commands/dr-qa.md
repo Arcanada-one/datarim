@@ -312,7 +312,7 @@ Invoke:
 
 ### 4d. Live Smoke-Test Gate (raw SQL / cross-DB / cross-instance)
 - If the changed code uses `$queryRaw`, `raw()`, `sequelize.query()`, or any path that bypasses the ORM type-checker — a **live smoke test** against the actual target datasource is **mandatory**. Mocked/unit tests do not satisfy this gate (see `${DATARIM_RUNTIME:?}/skills/testing/SKILL.md` § Live Smoke-Test Gate).
-- In multi-datasource projects (e.g. aio-v2: `PrismaService` → `stats` mysql5 vs `PrismaBiService` → `bi_aggregate` mysql8), verify the correct client is injected for the target table. A wrong-client `$queryRaw` compiles clean and fails at runtime.
+- In multi-datasource projects (e.g. one ORM client for the primary database and another for a separate analytics database), verify the correct client is injected for the target table. A wrong-client `$queryRaw` compiles clean and fails at runtime.
 - **Record in QA report:** the exact smoke-test command, the datasource hit, and the result (row count / expected empty / error). No smoke test ⇒ Layer 4 verdict is **FAIL**, not PASS_WITH_NOTES.
 - **Gate:** the pre-archive gate `dev-tools/check-raw-sql-smoke-test.sh` enforces this mechanically — when a diff carries raw-SQL patterns, it checks the QA report for smoke-test result markers and blocks archive on absence. Run it at `/dr-qa` Step 7 (self-check) and at `/dr-archive` Step 0.x (pre-archive gate).
 
