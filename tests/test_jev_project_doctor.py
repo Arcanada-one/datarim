@@ -155,6 +155,23 @@ class ProjectDoctor(unittest.TestCase):
 
     # -- defect: liveness was always not_measured ----------------------------
 
+    def test_doctor_for_one_agent_reports_every_registered_client(self):
+        """hook_clients [claude, codex] beside only `claude: live` was read as
+        "hooks live for both"."""
+        self.install('--client', 'claude,codex')
+        ledger = self.project/'.datarim-runtime/state/jev/ledger.jsonl'
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        ledger.write_text(json.dumps({'event': 'hook_delivery', 'ts': time.time(),
+                                      'data': {'client': 'claude', 'native_event': 'PreToolUse'}}) + '\n')
+        live = self.doctor('claude')[1]['native_agents_live']
+        self.assertEqual(sorted(live), ['claude', 'codex'])
+        self.assertEqual(live['claude']['state'], 'live')
+        self.assertEqual(live['codex'], {'state': 'not_measured', 'reason': 'no deliveries yet'})
+
+    def test_with_one_registered_client_only_that_one_is_reported(self):
+        self.install('--client', 'cursor')
+        self.assertEqual(sorted(self.doctor('cursor')[1]['native_agents_live']), ['cursor'])
+
     def test_a_real_hook_delivery_makes_the_client_live(self):
         self.install('--client', 'cursor')
         self.assertEqual(self.doctor('cursor')[1]['native_agents_live']['cursor']['state'], 'not_measured')
