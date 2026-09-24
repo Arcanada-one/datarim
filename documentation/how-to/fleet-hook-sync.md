@@ -47,7 +47,7 @@ grep -c "coworker-hook-guard" ~/.claude/settings.json
 grep -c "coworker-hook-guard" ~/.codex/hooks.json 2>/dev/null || echo "codex hooks not configured"
 
 # 4. Does the hook file match the canonical source?
-diff ~/.local/bin/coworker-hook-guard "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/coworker-hook-guard.sh"
+diff ~/.local/bin/coworker-hook-guard "${DATARIM_RUNTIME:?}/dev-tools/coworker-hook-guard.sh"
 # Expected: no diff (symlink → same inode, so diff is empty)
 ```
 
@@ -57,7 +57,7 @@ After a hook change is merged to `main` in the Datarim framework repo:
 
 ```bash
 # 1. Pull latest framework
-cd "${DATARIM_RUNTIME:-$HOME/.claude}" || exit 1
+cd "${DATARIM_RUNTIME:?}" || exit 1
 git pull
 
 # 2. Re-run install to update hook symlinks (idempotent)

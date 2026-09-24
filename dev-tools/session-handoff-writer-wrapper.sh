@@ -9,7 +9,7 @@
 #   match the underlying function.
 #
 # Usage (literal — never use sh, always bash):
-#   bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/session-handoff-writer-wrapper.sh" \
+#   bash "${DATARIM_RUNTIME:?}/dev-tools/session-handoff-writer-wrapper.sh" \
 #       --root <repo> --session <SESSION-YYYYMMDD-HHMMSS> \
 #       --captured-by <agent|operator> --recommended-next "/dr-next TASK-ID" \
 #       --next-action "<single-line description>" \
