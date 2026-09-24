@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [3.1.1] — 2026-09-24
+
 ### Fixed
 
 - Documentation now matches the 3.x code in several places where it still described 2.x behaviour:
