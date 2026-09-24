@@ -9,7 +9,7 @@
 # (runner, broker, or outbound-channel terms). Those belong exclusively in
 # the plugin. Checked by: scripts/stack-agnostic-gate.sh + manual grep.
 #
-# Default source: ${DR_AUTONOMY_RULES:-${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/rules/fb-rules.yaml}
+# Default source: ${DR_AUTONOMY_RULES:-${DATARIM_RUNTIME:-<this script's framework tree>}/dev-tools/rules/fb-rules.yaml}
 # Override: set DR_AUTONOMY_RULES to any absolute path before sourcing.
 #
 # Usage (sourced or CLI):
