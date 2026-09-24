@@ -380,19 +380,28 @@ class InstallationLifecycleTests(unittest.TestCase):
         return Namespace(**{**base, **changes})
 
     def test_a_fresh_install_without_a_choice_is_refused_before_any_write(self):
-        with self.assertRaisesRegex(project_install.ChoiceRequired, 'Ask the user|ask the user'):
+        with self.assertRaisesRegex(project_install.ChoiceRequired, 'put these questions to the user'):
             project_install.install(self.fresh())
         self.assertFalse((self.project/'.datarim-runtime').exists())
         self.assertFalse((self.project/'datarim').exists())
 
-    def test_a_dry_run_without_a_choice_prints_the_plan_and_the_questions(self):
+    def test_a_dry_run_without_a_choice_is_refused_and_prints_no_plan(self):
+        """An agent that copied a quick line read the printed plan as leave to
+        install; a dry run must not stand in for the user's answer."""
         import contextlib, io
-        out, err = io.StringIO(), io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            project_install.install(self.fresh(dry_run=True))
-        self.assertIn('"files"', out.getvalue())
-        self.assertIn('--with-jev or --without-jev', err.getvalue())
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            with self.assertRaises(project_install.ChoiceRequired):
+                project_install.install(self.fresh(dry_run=True))
+        self.assertEqual(out.getvalue(), '')
         self.assertFalse((self.project/'.datarim-runtime').exists())
+
+    def test_the_printed_questions_match_install_md(self):
+        text = project_install.CHOICE_QUESTIONS
+        for needle in ('--without-jev', '--with-jev', '--host-jev', '--client', 'jev permissions full',
+                       '--init', '--expose-skills', 'release tag', 'main',
+                       'AI agent: put these questions to the user, then rerun with their answers.'):
+            self.assertIn(needle, text)
 
     def test_an_update_without_a_choice_keeps_the_recorded_one(self):
         project_install.install(self.args)
@@ -406,7 +415,7 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertEqual(run.returncode, 2)
         self.assertEqual(run.stdout, '')
         for text in ('Datarim needs your choices', '--client claude,codex,cursor', 'jev permissions full',
-                     '--dry-run'):
+                     '--expose-skills', 'nothing was written'):
             self.assertIn(text, run.stderr)
 
     def test_a_jev_install_says_where_the_key_goes(self):
@@ -654,7 +663,8 @@ class IgnoredSourceTests(unittest.TestCase):
         target.mkdir()
         subprocess.run(['git', 'init', '-q', str(target)], check=True)
         result = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
-                                 str(target), '--init', '--dry-run'], capture_output=True, text=True, timeout=120)
+                                 str(target), '--init', '--without-jev', '--dry-run'], capture_output=True,
+                                text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stderr)
         files = json.loads(result.stdout.strip().splitlines()[-1])["files"]
         # Installed skill directories are named after the source path with '/'

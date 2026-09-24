@@ -157,11 +157,13 @@ CHECK
     [ ! -e "$PROJECT/datarim" ]
 }
 
-@test "a dry run without a Jev choice still shows the plan and the questions" {
-    run sh -c 'sh "$1" --project "$2" --init --dry-run 2>&1' _ "$PRODUCT_ROOT/install.sh" "$PROJECT"
-    [ "$status" -eq 0 ]
-    [[ "$output" == *'note: Datarim needs your choices'* ]]
-    [[ "$output" == *'"files"'* ]]
+@test "a dry run without a Jev choice is refused too and prints no plan" {
+    run sh -c 'sh "$1" --project "$2" --init --dry-run 2>/dev/null' _ "$PRODUCT_ROOT/install.sh" "$PROJECT"
+    [ "$status" -eq 2 ]
+    [ -z "$output" ]
+    run sh "$PRODUCT_ROOT/install.sh" --project "$PROJECT" --init --dry-run
+    [[ "$output" == *'AI agent: put these questions to the user, then rerun with their answers.'* ]]
+    [[ "$output" == *'--expose-skills'* ]]
     [ ! -e "$PROJECT/.datarim-runtime" ]
 }
 

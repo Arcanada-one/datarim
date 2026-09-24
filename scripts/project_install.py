@@ -316,13 +316,17 @@ def install(args):
         return _install(args)
 
 
-CHOICE_QUESTIONS = """Datarim needs your choices before installing. AI agent: ask the user these questions, then rerun.
-  1) Jev: none (--without-jev) / project (--with-jev) / host (install host Jev first with
-     scripts/jev_host_install.py, then --with-jev --host-jev).
-  2) Clients: --client claude,codex,cursor (default: all three).
-  3) Permission mode for the jev* launchers: ask (default), or run `jev permissions full` after install.
-Then rerun with --with-jev or --without-jev. --dry-run shows the plan without writing anything.
-See INSTALL.md."""
+CHOICE_QUESTIONS = """Datarim needs your choices before installing (the same questions as INSTALL.md):
+  1) Jev: none (--without-jev) / project (--with-jev) / host (run scripts/jev_host_install.py
+     first, then --with-jev --host-jev).
+  2) Clients: --client claude,codex,cursor [all three]; with Claude Code, --claude-import links
+     CLAUDE.md to AGENTS.md.
+  3) Permission mode for the jev* launchers: ask [default], or `jev permissions full` after install.
+  4) Create empty task files now (--init)? [yes]
+  5) Expose every framework skill in every session (--expose-skills)? [no]
+  6) Install from the latest release tag or from main? [latest release tag]
+AI agent: put these questions to the user, then rerun with their answers.
+Rerun with --with-jev or --without-jev; nothing was written."""
 
 
 class ChoiceRequired(ValueError):
@@ -380,9 +384,9 @@ def _install(args):
         # Scripted and agent-driven installs used to run without asking the
         # user anything; the questions in the docs did not survive a
         # summarizing fetch. A fresh install needs the Jev choice explicitly.
-        if not args.dry_run:
-            raise ChoiceRequired(CHOICE_QUESTIONS)
-        print('note: ' + CHOICE_QUESTIONS, file=sys.stderr)
+        # --dry-run refuses too: an agent that copied a quick line took the
+        # printed plan as permission to run the real install.
+        raise ChoiceRequired(CHOICE_QUESTIONS)
     args.with_jev, args.host_jev, args.context = remembered_choices(args, previous)
     if args.host_jev:
         from jev_hook import host_runtime
