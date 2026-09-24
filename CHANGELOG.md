@@ -4,6 +4,30 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A fresh install now also requires `--client`.** This tightens the 4.0.0 rule. A fresh project
+  install needs both a Jev answer (`--with-jev` or `--without-jev`) and an explicit `--client` list.
+  Without either, it exits `2` before writing anything (not even its lock file), and `--dry-run` refuses
+  the same way. Updates keep the recorded answers and are unaffected. **If you script fresh installs,**
+  add `--client claude,codex,cursor` (or the clients you use) next to `--with-jev` / `--without-jev`.
+- The refusal is written as a script for an AI agent, because the installer's output is the one text that
+  reaches an agent unsummarized. It says to stop, ask the user and wait, and not to choose for them. It
+  lists the six questions and states that Jev's safety floor works without any key (an agent had
+  reasoned "no key, so --without-jev"). It ends with `Rerun: ./install.sh --project <path> <flags from
+  the answers>` and a table mapping each answer to its flag.
+- The docs no longer show a complete fresh-install command that already contains the answers. A
+  summarizing fetch kept such a line (`INSTALL.md` Option A, as "Non-Interactive Installation") and
+  dropped every "ask first" sentence. Everywhere, the install step is now `./install.sh --project
+  "$PROJECT"`, which prints the questions and the flags. `INSTALL.md` Options A–C are now an "Answers and
+  flags" table. The host Jev installer command sits under a heading saying it applies only to the "host"
+  answer. A test fails on any fresh-install command in the docs that carries `--with-jev`,
+  `--without-jev` or `--client`.
+- In a project install, `jev trust` used to print "Codex already trusts every Jev hook (or has none
+  installed)" even when Codex had never reviewed the project hooks and `jev doctor` said `not_measured`.
+  It now says "Codex has not reviewed these project hooks yet: open codex in the project and choose
+  'Trust all and continue'" and exits `1`.
+
 ## [4.0.1] — 2026-09-24
 
 ### Fixed
