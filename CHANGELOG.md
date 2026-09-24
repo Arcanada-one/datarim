@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.0.2] — 2026-09-24
+
 ### Fixed
 
 - **A fresh install now also requires `--client`.** This tightens the 4.0.0 rule. A fresh project
