@@ -76,6 +76,27 @@ class ProjectScopeTests(unittest.TestCase):
         self.assertFalse((ROOT/'AGENTS.md').is_symlink())
         self.assertFalse((ROOT/'CLAUDE.md').exists())
 
+    def test_no_quick_install_line_pre_answers_the_jev_choice(self):
+        """An agent copied the README quick line, which carried --without-jev,
+        so the installer's refusal never fired and nobody was asked."""
+        import re
+        for path, heading in ((ROOT/'README.md', '## Install'),
+                              (ROOT/'documentation/tutorials/getting-started.md', '## Install into a project'),
+                              (ROOT/'INSTALL.md', '## Step 3')):
+            text = path.read_text()
+            section = text[text.index(heading):]
+            first_block = re.search(r'```(?:sh|bash)\n(.*?)```', section, re.S).group(1)
+            install_lines = [line for line in first_block.splitlines() if 'install.sh' in line]
+            if path.name == 'INSTALL.md':  # Step 3 opens with PROJECT=; the next block is the quick line
+                blocks = re.findall(r'```(?:sh|bash)\n(.*?)```', section, re.S)
+                install_lines = [line for line in blocks[1].splitlines() if 'install.sh' in line]
+            self.assertTrue(install_lines, path)
+            for line in install_lines:
+                command, _, comment = line.partition('#')
+                self.assertNotIn('--with-jev', command, path)
+                self.assertNotIn('--without-jev', command, path)
+                self.assertIn('stops and asks', comment, path)
+
     def test_installer_rejects_global_flags(self):
         run = subprocess.run([str(ROOT/'install.sh'), '--with-claude'], capture_output=True, text=True)
         self.assertEqual(run.returncode, 2)
@@ -380,19 +401,28 @@ class InstallationLifecycleTests(unittest.TestCase):
         return Namespace(**{**base, **changes})
 
     def test_a_fresh_install_without_a_choice_is_refused_before_any_write(self):
-        with self.assertRaisesRegex(project_install.ChoiceRequired, 'Ask the user|ask the user'):
+        with self.assertRaisesRegex(project_install.ChoiceRequired, 'put these questions to the user'):
             project_install.install(self.fresh())
         self.assertFalse((self.project/'.datarim-runtime').exists())
         self.assertFalse((self.project/'datarim').exists())
 
-    def test_a_dry_run_without_a_choice_prints_the_plan_and_the_questions(self):
+    def test_a_dry_run_without_a_choice_is_refused_and_prints_no_plan(self):
+        """An agent that copied a quick line read the printed plan as leave to
+        install; a dry run must not stand in for the user's answer."""
         import contextlib, io
-        out, err = io.StringIO(), io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            project_install.install(self.fresh(dry_run=True))
-        self.assertIn('"files"', out.getvalue())
-        self.assertIn('--with-jev or --without-jev', err.getvalue())
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            with self.assertRaises(project_install.ChoiceRequired):
+                project_install.install(self.fresh(dry_run=True))
+        self.assertEqual(out.getvalue(), '')
         self.assertFalse((self.project/'.datarim-runtime').exists())
+
+    def test_the_printed_questions_match_install_md(self):
+        text = project_install.CHOICE_QUESTIONS
+        for needle in ('--without-jev', '--with-jev', '--host-jev', '--client', 'jev permissions full',
+                       '--init', '--expose-skills', 'release tag', 'main',
+                       'AI agent: put these questions to the user, then rerun with their answers.'):
+            self.assertIn(needle, text)
 
     def test_an_update_without_a_choice_keeps_the_recorded_one(self):
         project_install.install(self.args)
@@ -406,7 +436,7 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertEqual(run.returncode, 2)
         self.assertEqual(run.stdout, '')
         for text in ('Datarim needs your choices', '--client claude,codex,cursor', 'jev permissions full',
-                     '--dry-run'):
+                     '--expose-skills', 'nothing was written'):
             self.assertIn(text, run.stderr)
 
     def test_a_jev_install_says_where_the_key_goes(self):
@@ -416,6 +446,48 @@ class InstallationLifecycleTests(unittest.TestCase):
             project_install.install(self.with_args(with_jev=True))
         self.assertIn(str(self.project/'config/credentials/jev/api-key'), err.getvalue())
         self.assertIn('paste the key on one line', err.getvalue())
+
+    # -- leftover client directories -------------------------------------------
+
+    def test_dropping_a_client_removes_its_directory_when_the_install_created_it(self):
+        project_install.install(self.args)
+        self.assertEqual(self.manifest()['created_dirs'], ['.agents', '.claude', '.cursor'])
+        project_install.install(self.with_args(client=('codex',)))
+        self.assertFalse((self.project/'.cursor').exists())
+        self.assertFalse((self.project/'.claude').exists())
+        self.assertTrue((self.project/'.agents').is_dir())
+        self.assertEqual(self.manifest()['created_dirs'], ['.agents'])
+
+    def test_a_directory_that_existed_before_the_install_is_kept_even_when_empty(self):
+        (self.project/'.cursor').mkdir()
+        project_install.install(self.args)
+        self.assertNotIn('.cursor', self.manifest()['created_dirs'])
+        project_install.install(self.with_args(client=('codex',)))
+        self.assertTrue((self.project/'.cursor').is_dir())
+
+    def test_a_created_directory_holding_other_files_is_kept(self):
+        project_install.install(self.args)
+        (self.project/'.cursor/rules.mdc').write_text('mine\n')
+        project_install.install(self.with_args(client=('codex',)))
+        self.assertEqual((self.project/'.cursor/rules.mdc').read_text(), 'mine\n')
+        self.assertFalse((self.project/'.cursor/skills').exists())
+
+    def test_uninstall_removes_the_empty_directories_it_created(self):
+        (self.project/'.claude').mkdir()
+        project_install.install(self.args)
+        project_install.uninstall(self.args)
+        for name in ('.agents', '.cursor'):
+            self.assertFalse((self.project/name).exists(), name)
+        self.assertTrue((self.project/'.claude').is_dir(), 'existed before the install')
+
+    def test_an_install_recorded_without_created_dirs_removes_nothing(self):
+        project_install.install(self.args)
+        path = self.project/'.datarim-runtime/installation.json'
+        data = json.loads(path.read_text())
+        del data['created_dirs']
+        path.write_text(json.dumps(data))
+        project_install.install(self.with_args(client=('codex',)))
+        self.assertTrue((self.project/'.cursor').is_dir())
 
     def test_client_option_parsing(self):
         self.assertEqual(project_install.parse_clients(['codex,claude', 'codex']), ('claude', 'codex'))
@@ -654,7 +726,8 @@ class IgnoredSourceTests(unittest.TestCase):
         target.mkdir()
         subprocess.run(['git', 'init', '-q', str(target)], check=True)
         result = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
-                                 str(target), '--init', '--dry-run'], capture_output=True, text=True, timeout=120)
+                                 str(target), '--init', '--without-jev', '--dry-run'], capture_output=True,
+                                text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stderr)
         files = json.loads(result.stdout.strip().splitlines()[-1])["files"]
         # Installed skill directories are named after the source path with '/'

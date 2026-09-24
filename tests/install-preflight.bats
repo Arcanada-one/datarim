@@ -18,7 +18,7 @@ setup() { setup_project_fixture; }
 
 @test "home and system directories are rejected before mutation" {
     for target in "$HOME" / /etc /usr; do
-        run sh "$PRODUCT_ROOT/install.sh" --project "$target" --dry-run
+        run sh "$PRODUCT_ROOT/install.sh" --project "$target" --without-jev --dry-run
         [ "$status" -eq 2 ]
     done
 }

@@ -28,10 +28,11 @@ Follow these steps in order. Do not improvise other install methods.
 1. **Read this whole file** before running anything. Fetch it raw —
    `curl -fsSL https://raw.githubusercontent.com/Arcanada-one/datarim/main/INSTALL.md`
    — or read `INSTALL.md` in a clone; a summarizing web fetch drops most of it.
-   Do not install anything until the user has answered question 1 below or told
-   you to use the defaults. The installer enforces this: a fresh install without
-   `--with-jev` or `--without-jev` exits with code 2 and prints the questions;
-   `--dry-run` shows the plan and the same questions.
+   Do not install anything until the user has answered the questions below or
+   told you to use the defaults. The installer enforces the Jev question: a fresh
+   install without `--with-jev` or `--without-jev` exits with code 2, prints the
+   questions and writes nothing — `--dry-run` included. Never add either flag
+   yourself before the user has answered.
 2. **Establish the two paths.**
    - `PROJECT` — the absolute path of the project the user wants Datarim in
      (usually the current working directory). It must be an existing directory
@@ -118,20 +119,27 @@ Set the project path once (absolute):
 PROJECT=/absolute/path/to/project
 ```
 
-Run each command with `--dry-run` first: it prints the files it would write and
-changes nothing.
+Without the user's answers, run only this; it stops and prints the questions:
 
-### Option A — Datarim only (default)
+```sh
+./install.sh --project "$PROJECT" --init   # stops and asks: choose --with-jev or --without-jev
+```
+
+Once the user has answered, run the option that matches the answer, each with
+`--dry-run` first: it prints the files it would write and changes nothing.
+
+### Option A — Datarim only (the user chose no Jev)
 
 ```sh
 ./install.sh --project "$PROJECT" --init --without-jev --dry-run
 ./install.sh --project "$PROJECT" --init --without-jev
 ```
 
-`--without-jev` is required on a fresh install: without it, or `--with-jev`,
-the installer refuses and prints the questions above.
+`--without-jev` is the recorded answer "no Jev". Do not pass it on the user's
+behalf: without it, or `--with-jev`, the installer refuses and prints the
+questions.
 
-### Option B — Datarim with project-level Jev
+### Option B — Datarim with project-level Jev (the user chose project Jev)
 
 Jev hooks are registered **in this project only**, for the clients you select
 (`.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json`; all
@@ -146,7 +154,7 @@ three when you pass no `--client`), and an empty key file is created at
 Do not use this option on a machine that already has host Jev: both sets of
 hooks would run. Use option C instead.
 
-### Option C — host-wide Jev, and Datarim in this project
+### Option C — host-wide Jev, and Datarim in this project (the user chose host Jev)
 
 Host Jev is installed once per user and applies to every directory that user
 opens. It writes `~/.config/jev/`, `~/.local/share/jev/`, `~/.local/state/jev/`,
@@ -186,7 +194,7 @@ install.
 | `--expose-skills` | Also writes every framework skill into `.agents/skills/`, `.claude/skills/`, `.cursor/skills/`. Their descriptions load into every session. Kept across updates once set. |
 | `--context <relative/path>` | Lets an existing nested git repository use this installation. Repeat per repository. Without it, a nested repository is refused. Kept across updates; given again, it replaces the list; `--no-context` clears it. |
 | `--without-jev`, `--no-host-jev` | `--without-jev` is the "no Jev" answer a fresh install requires (it or `--with-jev`). On update they turn off a recorded `--with-jev` or `--host-jev`; `--without-jev` then withdraws the project's Jev hooks and `jev-config.json`; the key file stays. |
-| `--dry-run` | Prints the plan as JSON; writes nothing. |
+| `--dry-run` | Prints the plan as JSON; writes nothing. On a fresh install it needs the Jev choice too. |
 | `--uninstall` | See [Uninstall](#uninstall). |
 
 ### What the project install writes
@@ -454,7 +462,7 @@ backups).
 | `Unmanaged or locally modified file: <path>` | A file the install would write already exists with other content (or you edited a managed file). Move or reconcile it, then rerun. |
 | `Existing unmanaged .datarim-runtime; refusing overwrite` | A `.datarim-runtime/` without `installation.json`, for example a manual copy. Move it away. |
 | `Another installation transaction owns this project` | Another install or update is running on the project. Wait for it. |
-| `Datarim needs your choices before installing` (exit code `2`) | A fresh install without `--with-jev` or `--without-jev`. Ask the user the questions it prints, then rerun with one of the two. Updates keep the recorded choice and never ask. |
+| `Datarim needs your choices before installing` (exit code `2`) | A fresh install without `--with-jev` or `--without-jev` (with or without `--dry-run`). Ask the user the questions it prints, then rerun with their answers. Updates keep the recorded choice and never ask. |
 | `--host-jev requires --with-jev` | Pass both. |
 | `Install host Jev before selecting host ownership` | `--host-jev` without host Jev. Run `scripts/jev_host_install.py` first (option C). |
 | `jev install: Commit and verify the source revision before host installation` | Host Jev needs a clean git checkout. Discard local changes or check out a tag; a release tarball without `.git` cannot install host Jev. |

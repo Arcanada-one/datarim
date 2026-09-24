@@ -36,10 +36,13 @@ Decide first (defaults in brackets; [INSTALL.md](INSTALL.md) explains each):
 ```sh
 git clone https://github.com/Arcanada-one/datarim.git ~/src/datarim   # keep it: updates run from here
 cd ~/src/datarim && git checkout "$(git describe --tags --abbrev=0 --match 'v*')"
-./install.sh --project /absolute/path/to/project --init --without-jev   # or --with-jev; --client to pick clients
-cd /absolute/path/to/project && source .datarim-runtime/activate.sh && jev doctor --agent=claude
+./install.sh --project /absolute/path/to/project --init   # stops and asks: choose --with-jev or --without-jev
 ```
 
+The installer stops there and prints the questions above; nothing is written.
+Rerun it with the user's answers — the command for each choice is in
+[INSTALL.md, Step 3](INSTALL.md#step-3--install) — then check it with
+`cd /absolute/path/to/project && source .datarim-runtime/activate.sh && jev doctor --agent=claude`.
 Then open your client in the project and run `/dr-help` (in Codex or Cursor, ask
 it to run the `dr-help` skill). Updates (`./update.sh --project …`) keep the
 choices you installed with.
