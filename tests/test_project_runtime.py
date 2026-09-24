@@ -76,6 +76,27 @@ class ProjectScopeTests(unittest.TestCase):
         self.assertFalse((ROOT/'AGENTS.md').is_symlink())
         self.assertFalse((ROOT/'CLAUDE.md').exists())
 
+    def test_no_quick_install_line_pre_answers_the_jev_choice(self):
+        """An agent copied the README quick line, which carried --without-jev,
+        so the installer's refusal never fired and nobody was asked."""
+        import re
+        for path, heading in ((ROOT/'README.md', '## Install'),
+                              (ROOT/'documentation/tutorials/getting-started.md', '## Install into a project'),
+                              (ROOT/'INSTALL.md', '## Step 3')):
+            text = path.read_text()
+            section = text[text.index(heading):]
+            first_block = re.search(r'```(?:sh|bash)\n(.*?)```', section, re.S).group(1)
+            install_lines = [line for line in first_block.splitlines() if 'install.sh' in line]
+            if path.name == 'INSTALL.md':  # Step 3 opens with PROJECT=; the next block is the quick line
+                blocks = re.findall(r'```(?:sh|bash)\n(.*?)```', section, re.S)
+                install_lines = [line for line in blocks[1].splitlines() if 'install.sh' in line]
+            self.assertTrue(install_lines, path)
+            for line in install_lines:
+                command, _, comment = line.partition('#')
+                self.assertNotIn('--with-jev', command, path)
+                self.assertNotIn('--without-jev', command, path)
+                self.assertIn('stops and asks', comment, path)
+
     def test_installer_rejects_global_flags(self):
         run = subprocess.run([str(ROOT/'install.sh'), '--with-claude'], capture_output=True, text=True)
         self.assertEqual(run.returncode, 2)

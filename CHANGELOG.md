@@ -4,6 +4,25 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The Jev question is asked again. A fresh agent still installed without asking: it copied the README
+  quick line, which already carried `--without-jev`, so the refusal never fired. No quick command in the
+  README, `INSTALL.md` or the getting-started tutorial carries `--with-jev` or `--without-jev` any more.
+  Each one runs `install.sh --project … --init`, which stops and asks. The flags appear only in the
+  per-choice sections of `INSTALL.md` Step 3, after the questions. A test keeps the quick lines free of
+  both flags.
+- `--dry-run` on a fresh install without a Jev choice now refuses as well (exit `2`, no plan printed). An
+  agent had taken the printed plan as permission to install.
+- The questions the installer prints match `INSTALL.md`: Jev, clients, permission mode, `--init`,
+  `--expose-skills`, release tag or `main`. They end with "AI agent: put these questions to the user,
+  then rerun with their answers."
+- An update that drops a client no longer leaves its empty top-level directory (`.cursor/`, `.claude/`,
+  `.codex/`, `.agents/`) behind. `installation.json` records the directories the install created
+  (`created_dirs`). After an update, and on uninstall, each of those that is now empty is removed. A
+  directory that existed before the install, or that holds anything else, stays. Installations recorded
+  before this change remove nothing.
+
 ## [4.0.0] — 2026-09-24
 
 > Major version because a fresh project install now refuses to run without an explicit Jev choice
