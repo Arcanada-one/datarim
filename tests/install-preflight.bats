@@ -35,7 +35,7 @@ setup() { setup_project_fixture; }
     # Datarim no longer relies on AGENTS.md being loaded, so the client's own
     # instruction files are none of its business.
     printf 'Operator rules' > "$PROJECT/CLAUDE.md"
-    install_project
+    install_project --without-jev
     [ "$status" -eq 0 ]
     [ ! -e "$PROJECT/AGENTS.md" ]
     run cat "$PROJECT/CLAUDE.md"

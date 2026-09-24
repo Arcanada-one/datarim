@@ -16,6 +16,62 @@ All notable changes to the Datarim framework are documented here. Format follows
   and which doctor answers what (`jev doctor` for Jev, `datarim-doctor.sh` for task-file structure).
 - README: an Install block near the top, with the quick path and a pointer for users who hand the
   repository to an AI agent. `AGENTS.md` points an installing agent to `INSTALL.md`.
+- Project install: `--client claude|codex|cursor|all` (repeatable or a comma list) writes command files
+  and, with `--with-jev`, hooks only for the chosen clients. The default is the recorded selection, else
+  all three. An update with a shorter list removes the managed files and Jev hook entries of the clients
+  left out; a hook file the install created goes too when nothing else is in it.
+- Project install: `--claude-import` (opt-in) creates `CLAUDE.md` as a symlink to the project's
+  `AGENTS.md`, because Claude Code reads `CLAUDE.md` and not `AGENTS.md`. It is created only when no
+  `CLAUDE.md` exists. An existing file or link is never changed, and `--no-claude-import` or uninstall
+  removes only a link the install made. A symlink is used rather than an `@AGENTS.md` import line, because
+  the import was seen to be ignored in sessions started in a subdirectory.
+- Project install: `--without-jev`, `--no-host-jev` and `--no-context` turn a recorded choice off.
+- `jev doctor`: `hook_clients` lists the clients whose Jev hooks the install registered.
+
+### Changed (behaviour change for scripted installs)
+
+- **A fresh project install now requires an explicit Jev choice.** Without `--with-jev` or
+  `--without-jev`, `install.sh` / `project_install.py` on a project with no installation exits with code
+  `2` and prints, on stderr, the questions to ask the user: Jev (none, project or host), clients
+  (`--client`), and the permission mode for the `jev*` launchers. Scripts that ran
+  `install.sh --project P --init` must add `--without-jev` (the previous behaviour) or `--with-jev`.
+  `--dry-run` still works without a choice and prints the same questions as a note. Updates of an
+  existing installation keep the recorded choice and are unaffected. The reason: agents that installed
+  from a summarized copy of the docs never asked the user anything.
+- A `--with-jev` install prints the key file path on stderr and says to paste the key in an editor, not
+  to `echo`/`printf` it (shell history).
+- `jev doctor` reports `config_path`, the settings file Jev actually reads
+  (`.datarim-runtime/jev-config.json`, or the host `config.json`). The plugin's `jev-control.json` carries
+  a `_comment` marking it as the template; the installers drop that key from the copies they write.
+- `INSTALL.md` and the README Install block open with a one-line instruction for AI agents.
+
+### Fixed
+
+- Updates remember `--with-jev`, `--host-jev`, `--context` and the client list, like `--expose-skills`
+  already was. Before this, `update.sh --project <path>` without `--with-jev` quietly removed the project's
+  Jev hooks and its `jev-config.json`, and an update without `--context` dropped the approved nested
+  repositories. This replaces the "repeat the flags you installed with" advice in the Changed section
+  below.
+- `jev doctor` measures Codex hook trust for project installs. It used to read only
+  `~/.codex/hooks.json` and match only host-install commands, so every project install got
+  `not_measured` ("no Codex hook configuration"). It now reads `<project>/.codex/hooks.json` and checks it
+  against the `trusted_hash` grants in `~/.codex/config.toml`, the same way as for host hooks. Run inside
+  the project, `jev trust` grants trust to the project's own hooks. Only the host `jevcodex` launch still
+  re-grants trust automatically.
+- `jev doctor` reports a finding when a selected client's Jev hook file or one of its registered events is
+  missing, and when managed command files are missing. After `.cursor/hooks.json` was deleted by hand it
+  used to report `findings: []`.
+- `jev doctor`: `native_agents_live` now reports, per client, whether the ledger holds `hook_delivery`
+  records: `live`, with a count and the last delivery time. It was always `not_measured`.
+- Hook commands and host launchers no longer contain a version-specific interpreter path such as
+  `/opt/homebrew/opt/python@3.14/bin/python3.14`, which stopped every hook from running after a minor Python
+  upgrade. They now use an unversioned name on `PATH` that points to the same interpreter, such as
+  `/opt/homebrew/bin/python3`. The command string changes once, so Codex shows the hooks as changed;
+  `jev trust` or the Codex prompt approves them again.
+- The host `jev-hook` entry point is executable (mode `0755`) and its shebang names that same interpreter,
+  so the documented check can run it directly.
+- `jev stats` hints point to `jevclaude` / `jevcodex` / `jevcursor` instead of the retired `dr-claude-jev`
+  and `dr-jev route`.
 
 ### Changed
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`dr-jev last` and `dr-jev stats` renderers."""
+"""`jev stats` (and the last-decision) renderers."""
 from __future__ import annotations
 
 import json
@@ -25,7 +25,8 @@ def _bar(label, value, width=20):
 def render_last(cfg, as_json=False):
     rec = last_decision(cfg)
     if not rec:
-        return "No Jev decisions recorded yet. Run `dr-jev route \"...\"` or `dr-claude-jev --live \"...\"` first."
+        return ("No Jev decisions recorded yet. Run a task through `jevclaude`, `jevcodex` or `jevcursor` "
+                "(or `jev --agent=<client>`) first.")
     if as_json:
         return json.dumps(rec, ensure_ascii=False, indent=2)
 
@@ -133,7 +134,8 @@ def render_stats(cfg, as_json=False):
             lines.append(f"  sessions with no tool use        {dv['sessions_with_no_tool_use']}")
     else:
         lines.append("")
-        lines.append("No live sessions recorded yet — run `dr-claude-jev --live` to collect predicted-vs-actual data.")
+        lines.append("No live sessions recorded yet — run `jevclaude --live \"<task>\"` (or `jevcodex` / `jevcursor`) "
+                     "to collect predicted-vs-actual data.")
     return "\n".join(lines)
 
 

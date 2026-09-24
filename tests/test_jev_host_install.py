@@ -120,6 +120,22 @@ class HostInstallTests(unittest.TestCase):
         # The safety floor answers, which only the release's jev_hook.py can do.
         self.assertIn('"deny"', result.stdout)
 
+    def test_the_host_config_does_not_carry_the_template_marker(self):
+        self.install()
+        self.assertNotIn('_comment', json.loads((self.home/'.config/jev/config.json').read_text()))
+
+    def test_the_entry_point_is_executable_and_runs_directly(self):
+        self.install()
+        entry = self.home/'.local/share/jev/bin/jev-hook'
+        self.assertEqual(entry.stat().st_mode & 0o777, 0o755)
+        env = dict(os.environ, HOME=str(self.home))
+        payload = json.dumps({'hook_event_name': 'PreToolUse', 'tool_name': 'Bash',
+                              'tool_input': {'command': 'rm -rf /'}, 'cwd': str(self.project)})
+        result = subprocess.run([str(entry), 'claude', 'PreToolUse'], input=payload, env=env,
+                                cwd=self.project, capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('"deny"', result.stdout)
+
     def test_the_entry_point_fails_open_on_a_broken_pointer(self):
         self.install()
         (self.home/'.config/jev/installation.json').write_text('{not json')
@@ -170,6 +186,45 @@ class HostInstallTests(unittest.TestCase):
             self.install()
         self.assertEqual(outside.read_text(), 'unchanged')
         self.assertFalse((self.home/'.claude/settings.json').exists())
+
+
+class StableInterpreter(unittest.TestCase):
+    """Hook commands must survive an interpreter upgrade: a versioned path
+    (`.../python@3.14/bin/python3.14`) breaks every hook at the next one."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        base = Path(self.temp.name).resolve()
+        self.pinned = base/'opt/python@3.99/bin/python3.99'
+        self.pinned.parent.mkdir(parents=True)
+        self.pinned.write_text('#!/bin/sh\n')
+        self.pinned.chmod(0o755)
+        self.bin = base/'bin'
+        self.bin.mkdir()
+
+    def test_an_unversioned_name_for_the_same_interpreter_is_preferred(self):
+        (self.bin/'python3').symlink_to(self.pinned)
+        self.assertEqual(installer.hook_interpreter(str(self.pinned), str(self.bin)), str(self.bin/'python3'))
+
+    def test_a_different_interpreter_on_path_is_not_substituted(self):
+        other = self.bin/'python3'
+        other.write_text('#!/bin/sh\n')
+        other.chmod(0o755)
+        self.assertEqual(installer.hook_interpreter(str(self.pinned), str(self.bin)), str(self.pinned))
+
+    def test_an_unversioned_executable_is_kept(self):
+        self.assertEqual(installer.hook_interpreter('/usr/bin/python3', str(self.bin)), '/usr/bin/python3')
+
+    def test_registered_commands_use_it(self):
+        (self.bin/'python3').symlink_to(self.pinned)
+        with patch.object(installer.sys, 'executable', str(self.pinned)), \
+                patch.dict(os.environ, {'PATH': str(self.bin)}):
+            merged = installer.merge_hooks({}, 'codex', Path('/r'), [Path('/r')])
+        commands = [h['command'] for groups in merged['hooks'].values() for g in groups for h in g['hooks']]
+        self.assertTrue(commands)
+        self.assertTrue(all(c.startswith(str(self.bin/'python3') + ' ') for c in commands), commands)
+        self.assertFalse(any('3.99' in c for c in commands))
 
 
 if __name__ == '__main__':

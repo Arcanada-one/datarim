@@ -1,4 +1,5 @@
 {
+  "_comment": "Template. Installers copy it: a project install to .datarim-runtime/jev-config.json, host Jev to ~/.config/jev/config.json. Edit the copy; `jev doctor` names the live one as config_path. Installers drop this key from the copy.",
   "api": {
     "base_url": "https://api.typesafe.ai/v1/systemone",
     "model": "jev-latest",

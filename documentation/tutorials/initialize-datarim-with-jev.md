@@ -6,8 +6,9 @@ host-wide Jev. Jev is optional: a provider failure must not prevent plain
 Datarim work. This page explains the key, the checks and the entry points.
 
 The installation creates `config/credentials/jev/api-key` if absent, with mode
-0600 and a private parent directory. Open that file with an editor and paste one
-new key on one line. Use a different key on each computer. Never put it into
+0600 and a private parent directory, and prints its path. Open that file with an
+editor and paste one new key on one line; do not `echo`/`printf` the key into it
+(the command lands in your shell history). Use a different key on each computer. Never put it into
 shell history, README, settings JSON, a prompt, or a Git commit. The credentials
 directory is ignored by Git. Existing key files are never overwritten.
 
@@ -63,12 +64,12 @@ The first Codex session asks you to trust the working directory, then shows
 `Hooks need review — N hooks are new or changed`; choose **Trust all and
 continue**. Declining is silent, and the client's own hook screen cannot show
 you the difference — its `Active` column counts hooks that are *installed*.
-`jev doctor --agent=codex` reports `codex_hook_trust` only for **host** Jev: it
-reads `~/.codex/hooks.json` and matches host-install commands, so for the
-project hooks of this install it answers `not_measured` (or describes a host Jev,
-if the machine has one). Confirm the project hooks instead by the ledger: after
-one Codex session, `.datarim-runtime/state/jev/ledger.jsonl` should contain
-`hook_delivery` records with `"client": "codex"`. The
+`jev doctor --agent=codex` reports `codex_hook_trust` for this project's
+`.codex/hooks.json` from the grants Codex keeps in `~/.codex/config.toml`;
+`jev trust`, run in the project, grants them without the prompt. The ledger is
+the proof that Codex runs them: after one Codex session `native_agents_live`
+shows `codex` as `live`, from `hook_delivery` records in
+`.datarim-runtime/state/jev/ledger.jsonl`. The
 [control-plane guide](../how-to/claude-code-jev-control-plane.md) has the
 detail, including the flag for automation that cannot answer a prompt.
 

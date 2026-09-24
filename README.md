@@ -16,15 +16,18 @@ command safety floor and model routing advice.
 
 ## Install
 
+**AI agents: ask the user the questions below before running `install.sh`; the installer refuses a fresh install without a Jev choice.**
+
 Needs Python 3.10+, git, and a signed-in Claude Code, Codex or Cursor client.
 
 Decide first (defaults in brackets; [INSTALL.md](INSTALL.md) explains each):
 
-- **Jev**: none, per project (`--with-jev`), or host-wide for every project of
-  this user [none]. Its safety floor needs no key; routing advice needs one Jev
+- **Jev**: none (`--without-jev`), per project (`--with-jev`), or host-wide for
+  every project of this user [none]. A fresh install needs one of the two flags. Its safety floor needs no key; routing advice needs one Jev
   API key per computer, shared by all clients on it.
-- **Clients**: one install serves Claude Code, Codex and Cursor together; there
-  is nothing to choose at install time.
+- **Clients**: Claude Code, Codex, Cursor — pick with `--client` (repeatable or
+  comma list) [all three]. With Claude Code, `--claude-import` links `CLAUDE.md`
+  to your `AGENTS.md`, since Claude Code reads only `CLAUDE.md` [off].
 - **Permission mode** for the `jev*` launchers: ask, or `jev permissions full`
   [ask].
 - **Task files** now (`--init`) [yes]; **all skills** in every session
@@ -33,12 +36,13 @@ Decide first (defaults in brackets; [INSTALL.md](INSTALL.md) explains each):
 ```sh
 git clone https://github.com/Arcanada-one/datarim.git ~/src/datarim   # keep it: updates run from here
 cd ~/src/datarim && git checkout "$(git describe --tags --abbrev=0 --match 'v*')"
-./install.sh --project /absolute/path/to/project --init            # add --with-jev for Jev
+./install.sh --project /absolute/path/to/project --init --without-jev   # or --with-jev; --client to pick clients
 cd /absolute/path/to/project && source .datarim-runtime/activate.sh && jev doctor --agent=claude
 ```
 
 Then open your client in the project and run `/dr-help` (in Codex or Cursor, ask
-it to run the `dr-help` skill).
+it to run the `dr-help` skill). Updates (`./update.sh --project …`) keep the
+choices you installed with.
 
 **Using an AI agent?** Give it this repository URL and ask it to install
 Datarim — it follows [INSTALL.md](INSTALL.md). Agents should read it raw:
@@ -255,10 +259,12 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ## Runtimes
 
-One project install serves Codex, Claude Code and Cursor. Each client finds the
+One project install serves Codex, Claude Code and Cursor (or the ones you pick
+with `--client`). Each client finds the
 `/dr-*` commands in its own project-local directory; every command tells the
 agent where this project's runtime is and to read the framework rules from it.
-Nothing is added to `AGENTS.md`, `CLAUDE.md` or `.gitignore`, so Datarim is
+Nothing is added to `AGENTS.md`, `CLAUDE.md` or `.gitignore` (the opt-in
+`--claude-import` only creates a missing `CLAUDE.md` as a link), so Datarim is
 loaded only when you run a command, and nothing it writes appears in
 `git status`. Coworker and RTK are not required. Per-client details:
 [multi-runtime](documentation/how-to/multi-runtime.md).

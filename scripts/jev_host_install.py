@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import shutil
 import subprocess
@@ -67,13 +68,60 @@ EVENTS = {
 }
 
 
-def merge_hooks(original, client, runtime, owned_roots, *, register=True, entry_point=None):
+_VERSIONED = re.compile(r'\d+\.\d+')
+
+
+def _version_pinned(path):
+    """True when any component of the unresolved path names a Python version
+    (`python@3.14`, `python3.14`, `Versions/3.14`, `3.14.4`)."""
+    return any(_VERSIONED.search(part) for part in Path(path).parts)
+
+
+def hook_interpreter(executable=None, search_path=None):
+    """The interpreter path to write into hook commands and launchers.
+
+    `sys.executable` is usually the fully versioned path of the running
+    interpreter -- with Homebrew, `/opt/homebrew/opt/python@3.14/bin/python3.14`
+    even when the installer was started as `python3`. Written into every hook,
+    that path breaks all of them at the next minor upgrade, and for Codex it is
+    part of the command string its `trusted_hash` covers. This returns an
+    unversioned name on PATH (`python3`) that resolves to the very interpreter
+    running now, so the hook keeps working after an upgrade and the command
+    string, and with it the trust, stays the same. `/usr/bin/env python3` is
+    deliberately not used: a client started from a desktop launcher has a
+    minimal PATH, where `python3` can be an older system interpreter than the
+    one the runtime requires. When no stable name exists the running
+    interpreter's own path is kept, as before.
+    """
+    executable = executable or sys.executable
+    try:
+        target = os.path.realpath(executable)
+    except OSError:
+        return executable
+    if not _version_pinned(executable):
+        return executable
+    seen = set()
+    for directory in (search_path if search_path is not None else os.environ.get('PATH', '')).split(os.pathsep):
+        if not directory or not os.path.isabs(directory) or directory in seen:
+            continue
+        seen.add(directory)
+        for name in ('python3', 'python'):
+            candidate = os.path.join(directory, name)
+            if (os.path.isfile(candidate) and os.access(candidate, os.X_OK)
+                    and not _version_pinned(candidate) and os.path.realpath(candidate) == target):
+                return candidate
+    return executable
+
+
+def merge_hooks(original, client, runtime, owned_roots, *, register=True, entry_point=None, interpreter=None):
     """Replace only Jev commands; preserve foreign commands in mixed entries.
 
     `entry_point`, when given, is the script the registered command runs instead of
     `runtime/scripts/jev_hook.py` -- the host installer passes its stable
     entry point so the command string does not change between releases.
+    `interpreter` defaults to `hook_interpreter()`, an unversioned path.
     """
+    interpreter = interpreter or hook_interpreter()
     out = json.loads(json.dumps(original))
     if not isinstance(out, dict) or not isinstance(out.get('hooks', {}), dict):
         raise ValueError('Hook config and hooks must be objects')
@@ -114,7 +162,7 @@ def merge_hooks(original, client, runtime, owned_roots, *, register=True, entry_
                     kept.append(dict(entry, hooks=remaining))
         hooks[event] = kept
     for event, matcher in (EVENTS[client] if register else []):
-        command = shlex.join([sys.executable, str(entry_point or runtime/'scripts/jev_hook.py'), client, event])
+        command = shlex.join([interpreter, str(entry_point or runtime/'scripts/jev_hook.py'), client, event])
         item = {'command': command, 'timeout': 9}
         if client == 'cursor':
             if event == 'beforeShellExecution':
@@ -166,6 +214,7 @@ def install(args):
         (source/'plugins/dr-jev-control/config/jev-control.json').read_text())
     if not isinstance(existing, dict):
         raise ValueError('Host config must be an object')
+    existing.pop('_comment', None)  # marks the shipped template only
     if args.datarim_project is not None:
         existing['datarim_projects'] = sorted({str(Path(p).resolve(strict=True)) for p in args.datarim_project})
     else:
@@ -178,7 +227,11 @@ def install(args):
     files[pointer] = (json.dumps({'schema': 1, 'runtime': str(runtime)}, indent=2)+'\n').encode()
     if entry.exists() and (entry.is_symlink() or not entry.is_file()):
         raise ValueError('Hook entry point must be a regular file: '+str(entry))
-    files[entry] = ENTRY_SOURCE.encode()
+    interpreter = hook_interpreter()
+    # Run directly, the entry point uses the interpreter the hooks name, not
+    # whatever `python3` comes first on the caller's PATH.
+    shebang = '#!' + interpreter if not re.search(r'\s', interpreter) else '#!/usr/bin/env python3'
+    files[entry] = ENTRY_SOURCE.replace('#!/usr/bin/env python3', shebang, 1).encode()
     paths = {'claude': '.claude/settings.json', 'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json'}
     for client in args.client:
         target = safe_path(home, paths[client])
@@ -191,7 +244,7 @@ def install(args):
             if '# Jev managed host launcher' not in old:
                 raise ValueError('Unmanaged launcher exists: '+str(target))
         files[target] = ('#!/bin/sh\n# Jev managed host launcher\nexec '+shlex.join(
-            [sys.executable, str(runtime/'scripts/jev.py')])+(' --agent='+name[3:] if name != 'jev' else '')+' "$@"\n').encode()
+            [hook_interpreter(), str(runtime/'scripts/jev.py')])+(' --agent='+name[3:] if name != 'jev' else '')+' "$@"\n').encode()
     if key.exists() and (not key.is_file() or key.stat().st_mode & 0o077):
         raise ValueError('Existing key must be a private regular file')
     if args.dry_run:
@@ -239,6 +292,10 @@ def install(args):
             atomic_write(path, data)
             if path.parent == home/'.local/bin':
                 path.chmod(0o700)
+            elif path == entry:
+                # Executable, so the documented `jev-hook ...` check runs it
+                # directly; clients still call it through the interpreter.
+                path.chmod(0o755)
     except Exception:
         for path, data in original.items():
             # Restore only files still equal to our proposed content.

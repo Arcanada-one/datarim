@@ -225,7 +225,7 @@ def _codex_state_block(text, key):
     return match.group(1) if match else None
 
 
-def codex_hook_trust(sha, home=None):
+def codex_hook_trust(sha, home=None, *, hooks=None, entry=None):
     """Whether Codex will execute the Jev hooks it has installed.
 
     Codex runs a user hook only when its state block is not `enabled = false`
@@ -244,18 +244,27 @@ def codex_hook_trust(sha, home=None):
     States per hook: `trusted`, `modified` (trusted once, command changed),
     `untrusted` (never trusted), `disabled` (`enabled = false`). The overall
     `state` is `trusted` only when every Jev hook is.
+
+    A project install registers its hooks in `<project>/.codex/hooks.json`
+    with the project runtime's `jev_hook.py`; pass that file as `hooks` and
+    that script as `entry`. Trust is still stored in the user's
+    `~/.codex/config.toml`, keyed by the hooks file's own path, so the same
+    reading applies. Without them the host files are read.
     """
     home = Path(home or Path.home())
     config = home/'.codex/config.toml'
-    hooks = home/'.codex/hooks.json'
-    if not config.is_file() or not hooks.is_file():
-        return {'state': 'not_measured', 'reason': 'no Codex hook configuration'}
+    host = hooks is None
+    hooks = Path(hooks) if hooks is not None else home/'.codex/hooks.json'
+    if not hooks.is_file():
+        return {'state': 'not_measured', 'reason': 'no Codex hook configuration', 'hooks_file': str(hooks)}
+    if not config.is_file():
+        return {'state': 'not_measured', 'reason': 'no Codex config.toml', 'hooks_file': str(hooks)}
     try:
         installed = json.loads(hooks.read_text())
         text = config.read_text()
     except (OSError, ValueError) as exc:
         return {'state': 'not_measured', 'reason': type(exc).__name__}
-    entry = str(home/'.local/share/jev/bin/jev-hook')
+    entry = str(entry or home/'.local/share/jev/bin/jev-hook')
     ours, per_hook = [], {}
     for event, groups in (installed.get('hooks') or {}).items():
         if not isinstance(groups, list) or event not in CODEX_EVENT_KEYS:
@@ -265,7 +274,7 @@ def codex_hook_trust(sha, home=None):
                 continue
             for j, hook in enumerate(group.get('hooks') or []):
                 command = str(hook.get('command', '')) if isinstance(hook, dict) else ''
-                if entry not in command and f'releases/{sha}' not in command:
+                if entry not in command and not (host and f'releases/{sha}' in command):
                     continue
                 ours.append(event)
                 body = _codex_state_block(text, f'{hooks}:{CODEX_EVENT_KEYS[event]}:{i}:{j}')
@@ -280,7 +289,7 @@ def codex_hook_trust(sha, home=None):
                     status = 'modified'
                 per_hook.setdefault(status, []).append(event)
     if not ours:
-        return {'state': 'not_measured', 'reason': 'no Jev hooks for this release'}
+        return {'state': 'not_measured', 'reason': 'no Jev hooks for this release', 'hooks_file': str(hooks)}
     pending = sorted({e for s, events in per_hook.items() if s != 'trusted' for e in events})
     out = {'state': 'untrusted' if pending else 'trusted',
            'installed': sorted(set(ours)), 'pending': pending}
@@ -305,7 +314,7 @@ def _is_jev_codex_command(command, entry, event):
             and words[1:] == [entry, 'codex', event])
 
 
-def codex_trust_own_hooks(home=None):
+def codex_trust_own_hooks(home=None, *, hooks=None, entry=None):
     """Re-grant Codex trust to Jev's own hooks; returns the keys it wrote.
 
     Codex keys trust by position (`<file>:<event>:<i>:<j>`), so another tool
@@ -316,15 +325,18 @@ def codex_trust_own_hooks(home=None):
     what "Trust all" would, for Jev's exact command only. A hook the operator
     set to `enabled = false` stays refused. config.toml is replaced atomically
     and the previous one kept as config.toml.pre-jev-trust.
+
+    `hooks` and `entry` select a project install's hooks file and hook script,
+    as in `codex_hook_trust`; only an explicit `jev trust` passes them.
     """
     home = Path(home or Path.home())
     config = home/'.codex/config.toml'
-    hooks = home/'.codex/hooks.json'
+    hooks = Path(hooks) if hooks is not None else home/'.codex/hooks.json'
     if not config.is_file() or not hooks.is_file():
         return []
     installed = json.loads(hooks.read_text())
     text = config.read_text()
-    entry = str(home/'.local/share/jev/bin/jev-hook')
+    entry = str(entry or home/'.local/share/jev/bin/jev-hook')
     written = []
     for event, groups in (installed.get('hooks') or {}).items():
         if not isinstance(groups, list) or event not in CODEX_EVENT_KEYS:
@@ -359,6 +371,156 @@ def codex_trust_own_hooks(home=None):
         os.chmod(tmp, config.stat().st_mode & 0o777)
         tmp.replace(config)
     return written
+
+
+#: What the installers register per client (jev_host_install.EVENTS; a test
+#: keeps the two equal -- the host runtime does not ship the installer).
+REGISTERED_EVENTS = {
+    'claude': ('UserPromptSubmit', 'PreToolUse', 'PostToolUse'),
+    'codex': ('UserPromptSubmit', 'PreToolUse', 'PostToolUse'),
+    'cursor': ('beforeSubmitPrompt', 'beforeShellExecution', 'postToolUse'),
+}
+CLIENTS = ('claude', 'codex', 'cursor')
+PROJECT_HOOK_FILES = {'claude': '.claude/settings.local.json', 'codex': '.codex/hooks.json',
+                      'cursor': '.cursor/hooks.json'}
+HOST_HOOK_FILES = {'claude': '.claude/settings.json', 'codex': '.codex/hooks.json',
+                   'cursor': '.cursor/hooks.json'}
+
+
+def _names_our_hook(command, entries, client, event):
+    """`<interpreter> <one of entries> <client> <event>`, the form the installers write."""
+    import shlex
+    try:
+        words = shlex.split(str(command))
+    except ValueError:
+        return False
+    return (len(words) == 4 and Path(words[0]).name.startswith('python') and words[1] in entries
+            and words[2:] == [client, event])
+
+
+def registration_findings(clients, hook_files, entries):
+    """Findings for every selected client whose Jev hook file or entry is gone.
+
+    The installer is the only writer of these entries, so a missing one means
+    somebody removed it -- and the floor then silently does not run in that
+    client. `findings: []` after a hand-deleted `.cursor/hooks.json` read as
+    healthy.
+    """
+    findings = []
+    for client in clients:
+        path = Path(hook_files[client])
+        if not path.is_file():
+            findings.append(f'{client}: Jev hook file missing ({path}); rerun the installer to register it')
+            continue
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            findings.append(f'{client}: Jev hook file unreadable ({path})')
+            continue
+        hooks = data.get('hooks') if isinstance(data, dict) else None
+        hooks = hooks if isinstance(hooks, dict) else {}
+        missing = []
+        for event in REGISTERED_EVENTS[client]:
+            commands = []
+            for entry in hooks.get(event) or []:
+                if not isinstance(entry, dict):
+                    continue
+                if client == 'cursor':
+                    commands.append(entry.get('command', ''))
+                else:
+                    commands += [h.get('command', '') for h in entry.get('hooks') or [] if isinstance(h, dict)]
+            if not any(_names_our_hook(c, entries, client, event) for c in commands):
+                missing.append(event)
+        if missing:
+            findings.append(f'{client}: Jev hook not registered for {", ".join(missing)} in {path}; '
+                            'rerun the installer to register it')
+    return findings
+
+
+def hook_liveness(ledgers, clients, selected, telemetry_enabled=True):
+    """Per client: whether the ledger holds hook deliveries from it.
+
+    A `hook_delivery` record is written by the hook itself after the client
+    ran it, so it is the one signal that the client executes the hooks -- not
+    that they are installed or that the client lists them as active. Absence
+    is `not_measured`, never a failure: a client that was not used since the
+    install has delivered nothing either.
+    """
+    seen = {}
+    for path in ledgers:
+        path = Path(path)
+        if path.is_symlink() or not path.is_file():
+            continue
+        try:
+            with path.open(errors='replace') as stream:
+                for line in stream:
+                    try:
+                        record = json.loads(line)
+                    except ValueError:
+                        continue
+                    if not isinstance(record, dict) or record.get('event') != 'hook_delivery':
+                        continue
+                    data = record.get('data') if isinstance(record.get('data'), dict) else {}
+                    context = record.get('hook_context') if isinstance(record.get('hook_context'), dict) else {}
+                    client = data.get('client') or context.get('client')
+                    if client not in CLIENTS:
+                        continue
+                    item = seen.setdefault(client, {'deliveries': 0, 'last': 0.0, 'events': set()})
+                    item['deliveries'] += 1
+                    if isinstance(record.get('ts'), (int, float)):
+                        item['last'] = max(item['last'], float(record['ts']))
+                    event = data.get('native_event') or context.get('native_event')
+                    if isinstance(event, str):
+                        item['events'].add(event)
+        except OSError:
+            continue
+    out = {}
+    for client in clients:
+        if client in seen:
+            import datetime
+            item = seen[client]
+            out[client] = {'state': 'live', 'deliveries': item['deliveries'],
+                           'events': sorted(item['events']),
+                           'last_delivery': datetime.datetime.fromtimestamp(
+                               item['last'], datetime.timezone.utc).isoformat(timespec='seconds')}
+        elif client not in selected:
+            out[client] = {'state': 'not_measured', 'reason': 'no Jev hooks installed for this client'}
+        elif not telemetry_enabled:
+            out[client] = {'state': 'not_measured', 'reason': 'telemetry disabled; no delivery records'}
+        else:
+            out[client] = {'state': 'not_measured', 'reason': 'no hook deliveries recorded yet'}
+    return out
+
+
+def scope_hooks(host_mode, root, runtime, manifest, home=None):
+    """Where this scope's Jev hooks are registered and where they report.
+
+    Returns the selected clients, their hook files, the hook scripts a
+    registered command may name, and the ledgers and telemetry switch that
+    decide whether a delivery could have been recorded.
+    """
+    home = Path(home or Path.home())
+    if host_mode:
+        selected = [c for c in manifest.get('clients') or CLIENTS if c in CLIENTS]
+        files = {c: home/rel for c, rel in HOST_HOOK_FILES.items()}
+        entries = (str(home/'.local/share/jev/bin/jev-hook'), str(Path(runtime)/'scripts/jev_hook.py'))
+        state = Path(manifest.get('state_dir') or home/'.local/state/jev')
+        ledgers = sorted(state.glob('projects/*/sessions/*/ledger.jsonl'))
+        config = Path(manifest['config']) if manifest.get('config') else None
+    else:
+        registered = manifest.get('with_jev') and not manifest.get('host_jev')
+        selected = [c for c in manifest.get('clients') or CLIENTS if c in CLIENTS] if registered else []
+        files = {c: Path(root)/rel for c, rel in PROJECT_HOOK_FILES.items()}
+        entries = (str(Path(runtime)/'scripts/jev_hook.py'),)
+        ledgers = [Path(runtime)/'state/jev/ledger.jsonl']
+        config = Path(runtime)/'jev-config.json'
+    try:
+        telemetry = json.loads(config.read_text()).get('telemetry') or {} if config else {}
+        enabled = bool(telemetry.get('enabled', True))
+    except (OSError, ValueError, AttributeError):
+        enabled = True
+    return {'selected': selected, 'files': files, 'entries': entries, 'ledgers': ledgers,
+            'telemetry_enabled': enabled, 'config': config}
 
 
 def main():
@@ -413,11 +575,14 @@ def main():
         print(f'Jev launches on {where}: '+('full permissions (clients do not ask)' if full_permissions(state)
                                           else 'clients ask for permission as usual'))
         return 0
+    scope = scope_hooks(host_mode, root, runtime, manifest)
+    # A project install's Codex hooks live in the project; the host's in ~/.codex.
+    codex_target = {} if host_mode else {'hooks': scope['files']['codex'], 'entry': scope['entries'][0]}
     if a.task == 'trust':
-        written = codex_trust_own_hooks()
+        written = codex_trust_own_hooks(**codex_target)
         print(f'Jev: Codex trust re-granted to {len(written)} Jev hook(s)' if written
               else 'Jev: Codex already trusts every Jev hook (or has none installed)')
-        print('codex_hook_trust:', codex_hook_trust(manifest['source_sha'])['state'])
+        print('codex_hook_trust:', codex_hook_trust(manifest['source_sha'], **codex_target)['state'])
         return 0
     if a.task == 'doctor':
         import subprocess
@@ -441,11 +606,29 @@ def main():
         report = {'project': str(root), 'scope': 'host' if host_mode else 'project',
                   'datarim_enabled': datarim_enabled(root),
                   'versions': versions, 'findings': findings,
-                  'key_ready': key_ready, 'native_agents_live': 'not_measured',
+                  'key_ready': key_ready,
+                  'native_agents_live': hook_liveness(scope['ledgers'], [a.agent] if a.agent else list(CLIENTS),
+                                                      scope['selected'], scope['telemetry_enabled']),
                   'api': 'not_measured', 'source_sha': manifest['source_sha'],
                   'permissions': 'full' if full_permissions(state) else 'ask'}
-        if not a.agent or a.agent == 'codex':
-            trust = codex_hook_trust(manifest['source_sha'])
+        doctored = [c for c in scope['selected'] if not a.agent or c == a.agent]
+        report['hook_clients'] = scope['selected']
+        # The settings file Jev reads now. The plugin's jev-control.json is only
+        # the template installers copy; editing it changes nothing installed.
+        live = scope['config']
+        report['config_path'] = str(live) if live is not None and Path(live).is_file() else None
+        findings += registration_findings(doctored, scope['files'], scope['entries'])
+        if not host_mode:
+            gone = sorted(name for name in manifest.get('files', {})
+                          if name not in PROJECT_HOOK_FILES.values() and not (root/name).exists())
+            if gone:
+                findings.append(f'{len(gone)} managed file(s) missing (first: {gone[0]}); '
+                                'rerun the installer to restore them')
+        if (not a.agent or a.agent == 'codex') and not host_mode and 'codex' not in scope['selected']:
+            report['codex_hook_trust'] = {'state': 'not_measured',
+                                          'reason': 'no Jev hooks installed for Codex in this project'}
+        elif not a.agent or a.agent == 'codex':
+            trust = codex_hook_trust(manifest['source_sha'], **codex_target)
             report['codex_hook_trust'] = trust
             if trust['state'] == 'untrusted':
                 why = ('changed since you trusted them' if trust.get('modified') else

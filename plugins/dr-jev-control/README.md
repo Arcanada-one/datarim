@@ -35,7 +35,8 @@ a missing mapping is reported instead of being recorded as an applied switch.
 
 ## Project hooks and state
 
-`--with-jev` registers native hooks for all three clients in the project:
+`--with-jev` registers native hooks in the project for the clients selected with
+`--client` (all three by default):
 `.claude/settings.local.json`, `.codex/hooks.json` and `.cursor/hooks.json`. They
 provide prompt routing, pre-tool risk advice, post-tool validation and the
 deterministic safety floor, which refuses destructive shell commands without a
@@ -49,6 +50,11 @@ turns another project on or off.
 The ledger is under `.datarim-runtime/state/jev/`; use `jev stats` to inspect
 predicted versus observed decisions. Key material lives outside that directory
 in `config/credentials/jev/api-key`. The installer preserves both across updates.
+
+`config/jev-control.json` in this plugin is the **template**, not a live settings
+file: a project install copies it to `.datarim-runtime/jev-config.json`, host
+Jev to `~/.config/jev/config.json`. Edit the copy. `jev doctor` names the file
+it reads as `config_path`.
 
 ## Switching policy
 

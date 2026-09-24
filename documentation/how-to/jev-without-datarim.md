@@ -12,7 +12,7 @@ Every command here was executed on a real host before being written down.
 | | Datarim | Jev | Install with |
 |---|---|---|---|
 | Framework + routing | yes | yes | `./install.sh --project P --init --with-jev` |
-| Framework only | yes | no | `./install.sh --project P --init` |
+| Framework only | yes | no | `./install.sh --project P --init --without-jev` |
 | **Routing only** | no | yes | `jev_host_install.py --client …` ← this page |
 | Neither | no | no | nothing to install |
 
@@ -266,7 +266,10 @@ jev doctor
 - `key_ready` — whether a key is present, not whether it is valid; use `--api`.
 - `datarim_enabled: false` — expected here; it means no project catalogue.
 - `codex_hook_trust` — see below.
-- `api` / `native_agents_live`: `not_measured` offline.
+- `api`: `not_measured` offline.
+- `native_agents_live`: per client, `live` once the host ledgers under
+  `~/.local/state/jev/projects/` hold a `hook_delivery` record from it;
+  `not_measured` before that.
 
 ## Codex needs two approvals in its own UI
 

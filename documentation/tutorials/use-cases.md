@@ -257,7 +257,7 @@ Datarim is runtime-agnostic. One project install (`install.sh --project <path>`)
 | Codex CLI   | `.agents/skills/dr-*/SKILL.md`   | ask it to run the `dr-help` skill   |
 | Cursor      | `.cursor/skills/dr-*/SKILL.md`   | ask it to run the `dr-help` skill   |
 
-There is no per-client install flag: the same install writes all three entry points. `--expose-skills` additionally places every framework skill in each client's automatic discovery, and `--with-jev` registers Jev's hooks for all three clients in the project. Coworker and RTK are retired and not required.
+By default the same install writes all three entry points; `--client` limits it to the clients you name. `--expose-skills` additionally places every framework skill in each client's automatic discovery, and `--with-jev` registers Jev's hooks for the selected clients in the project. Coworker and RTK are retired and not required.
 
 **Picking a runtime.** Use whichever client you already work in; the workflow, commands and project state are the same in all three.
 
