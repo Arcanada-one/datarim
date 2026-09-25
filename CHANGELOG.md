@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.0.5] — 2026-09-25
+
 ### Fixed
 
 - `dr-orchestrate` on macOS: the open-file identity check compared the file with `stat -L /dev/fd/N`, which on BSD
