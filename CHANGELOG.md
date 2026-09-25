@@ -4,6 +4,17 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `dr-orchestrate` on macOS: the open-file identity check compared the file with `stat -L /dev/fd/N`, which on BSD
+  reports the devfs device instead of the file's own, so every context-window setup and every audit append failed
+  closed ("requires both explicit trust flags", "append path changed during open"). The descriptor is now read with
+  fstat. The audit ledger no longer requires util-linux `flock`, which macOS does not ship; without it the same
+  flock(2) lock is taken through perl. A context-window test that failed before closing its tmux session no longer
+  leaves the session running, and its profile-tamper step no longer uses GNU-only `sed -i`. On macOS this turns 49 of
+  the plugin's 92 failing tests green; the remaining 43 depend on GNU `realpath -m` and on `flock` in the resolver
+  and learned-rules store, and are unchanged. Linux behaviour is unchanged.
+
 ## [4.0.4] — 2026-09-25
 
 ### Fixed

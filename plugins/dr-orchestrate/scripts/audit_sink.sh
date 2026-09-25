@@ -19,6 +19,22 @@ AUDIT_SINK_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)"
 # shellcheck source=lib/portable-stat.sh
 source "$AUDIT_SINK_LIB_DIR/portable-stat.sh"
 
+# _audit_flock <fd> lock|unlock — flock(2) on an open descriptor, waiting up to 5 s for the lock. util-linux flock is
+# absent on macOS; perl locks the same open file description, so the lock outlives the perl process exactly as it
+# outlives flock(1).
+_audit_flock() {
+  local fd="$1" op="$2"
+  if command -v flock >/dev/null 2>&1; then
+    if [[ "$op" == unlock ]]; then flock -u "$fd"; else flock -w 5 "$fd"; fi
+    return
+  fi
+  perl -MFcntl=:flock -e '
+    open(my $fh, ">&=", $ARGV[0]) or exit 1;
+    if ($ARGV[1] eq "unlock") { flock($fh, LOCK_UN) or exit 1; exit 0 }
+    for (1 .. 50) { exit 0 if flock($fh, LOCK_EX | LOCK_NB); select(undef, undef, undef, 0.1) }
+    exit 1' "$fd" "$op"
+}
+
 now_iso() { date -u +%FT%TZ; }
 
 hash_sha256() { printf '%s' "${1:-}" | shasum -a 256 | awk '{print $1}'; }
@@ -100,12 +116,12 @@ emit() {
   local lock="${file}.lock"
   _safe_append_open "$lock" || return 1
   local audit_lock_fd="$SAFE_APPEND_FD"
-  flock -w 5 "$audit_lock_fd" || { exec {audit_lock_fd}>&-; return 1; }
-  _safe_append_open "$file" 1 || { flock -u "$audit_lock_fd"; exec {audit_lock_fd}>&-; return 1; }
+  _audit_flock "$audit_lock_fd" lock || { exec {audit_lock_fd}>&-; return 1; }
+  _safe_append_open "$file" 1 || { _audit_flock "$audit_lock_fd" unlock; exec {audit_lock_fd}>&-; return 1; }
   local audit_data_fd="$SAFE_APPEND_FD"
   printf '%s\n' "$payload" >&"$audit_data_fd"
   exec {audit_data_fd}>&-
-  flock -u "$audit_lock_fd"
+  _audit_flock "$audit_lock_fd" unlock
   exec {audit_lock_fd}>&-
 }
 
@@ -130,22 +146,22 @@ recover_cycle_checkpoint() {
   local cycle recovered content recovery_lock="${file}.recovery.lock"
   _safe_append_open "$recovery_lock" || return 2
   local recovery_fd="$SAFE_APPEND_FD"
-  flock -w 5 "$recovery_fd" || { exec {recovery_fd}>&-; return 2; }
+  _audit_flock "$recovery_fd" lock || { exec {recovery_fd}>&-; return 2; }
   content="$(_safe_read_file "$file")" \
-    || { flock -u "$recovery_fd"; exec {recovery_fd}>&-; return 2; }
+    || { _audit_flock "$recovery_fd" unlock; exec {recovery_fd}>&-; return 2; }
   cycle="$(jq -rs --arg session "$session" --arg pane "$pane" '
     [ .[] | select(.event=="cycle_checkpoint" and .session==$session and .pane_id==$pane) ]
     | if length==0 then "" else .[-1] as $last
       | if $last.phase=="prepare" then $last.cycle_id else "" end end' <<<"$content" 2>/dev/null)" \
-    || { flock -u "$recovery_fd"; exec {recovery_fd}>&-; return 2; }
+    || { _audit_flock "$recovery_fd" unlock; exec {recovery_fd}>&-; return 2; }
   cycle="${cycle#\"}"; cycle="${cycle%\"}"
-  if [[ -z "$cycle" ]]; then flock -u "$recovery_fd"; exec {recovery_fd}>&-; return 0; fi
+  if [[ -z "$cycle" ]]; then _audit_flock "$recovery_fd" unlock; exec {recovery_fd}>&-; return 0; fi
   recovered="$(jq -rs --arg cycle "$cycle" \
     '[.[] | select(.event=="cycle_checkpoint" and .cycle_id==$cycle and .phase=="recovery")] | length' \
     <<<"$content")"
-  if [[ "$recovered" != "0" ]]; then flock -u "$recovery_fd"; exec {recovery_fd}>&-; return 0; fi
+  if [[ "$recovered" != "0" ]]; then _audit_flock "$recovery_fd" unlock; exec {recovery_fd}>&-; return 0; fi
   emit "$file" "$(make_cycle_checkpoint recovery "$cycle" "$session" "$pane" "" interrupted recovered_interrupted)"
-  flock -u "$recovery_fd"
+  _audit_flock "$recovery_fd" unlock
   exec {recovery_fd}>&-
 }
 
@@ -157,12 +173,12 @@ recover_latest_cycle_checkpoint() {
   mkdir -p "$audit_dir"
   _safe_append_open "$recovery_lock" || return 2
   local recovery_fd="$SAFE_APPEND_FD"
-  flock -w 5 "$recovery_fd" || { exec {recovery_fd}>&-; return 2; }
+  _audit_flock "$recovery_fd" lock || { exec {recovery_fd}>&-; return 2; }
   combined="$(mktemp "$audit_dir/.checkpoint-recovery.XXXXXX")" \
-    || { flock -u "$recovery_fd"; exec {recovery_fd}>&-; return 2; }
+    || { _audit_flock "$recovery_fd" unlock; exec {recovery_fd}>&-; return 2; }
   while IFS= read -r file; do _safe_read_file "$file" >>"$combined" || {
       rm -f "$combined"
-      flock -u "$recovery_fd"
+      _audit_flock "$recovery_fd" unlock
       exec {recovery_fd}>&-
       return 2
     }; done \
@@ -171,7 +187,7 @@ recover_latest_cycle_checkpoint() {
     [ .[] | select(.event=="cycle_checkpoint" and .session==$session and .pane_id==$pane) ]
     | if length==0 then "" else .[-1] as $last
       | if $last.phase=="prepare" then $last.cycle_id else "" end end' "$combined" 2>/dev/null)" \
-    || { rm -f "$combined"; flock -u "$recovery_fd"; exec {recovery_fd}>&-; return 2; }
+    || { rm -f "$combined"; _audit_flock "$recovery_fd" unlock; exec {recovery_fd}>&-; return 2; }
   cycle="${cycle#\"}"; cycle="${cycle%\"}"
   if [[ -n "$cycle" ]]; then
     recovered="$(jq -rs --arg cycle "$cycle" \
@@ -183,7 +199,7 @@ recover_latest_cycle_checkpoint() {
     fi
   fi
   rm -f "$combined"
-  flock -u "$recovery_fd"
+  _audit_flock "$recovery_fd" unlock
   exec {recovery_fd}>&-
 }
 

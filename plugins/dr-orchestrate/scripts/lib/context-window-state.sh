@@ -28,8 +28,13 @@ ctx_nlink() {
   if stat -c '%h' "$1" >/dev/null 2>&1; then stat -c '%h' "$1"; else stat -f '%l' "$1"; fi
 }
 
+# BSD stat on /dev/fd/N reports the devfs device, never the file's own, so the fd identity is read with fstat on
+# the descriptor itself (stat with no operand reads stdin).
 ctx_identity() {
-  case "$1" in /proc/self/fd/*|/dev/fd/*) stat -Lc '%d:%i' "$1" 2>/dev/null || stat -Lf '%d:%i' "$1" ;; *)
+  local fd
+  case "$1" in /proc/self/fd/*) stat -Lc '%d:%i' "$1" ;; /dev/fd/*)
+    fd="${1#/dev/fd/}"; case "$fd" in ''|*[!0-9]*) return 1 ;; esac
+    stat -Lc '%d:%i' "$1" 2>/dev/null || stat -f '%d:%i' <&"$fd" ;; *)
     if stat -c '%d:%i' "$1" >/dev/null 2>&1; then stat -c '%d:%i' "$1"; else stat -f '%d:%i' "$1"; fi ;;
   esac
 }

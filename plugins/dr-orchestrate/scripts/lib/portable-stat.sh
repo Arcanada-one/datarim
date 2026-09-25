@@ -53,10 +53,18 @@ portable_size() {
   return 1
 }
 
+# BSD stat on /dev/fd/N reports the devfs device, never the file's own, so an fd path is read with fstat on the
+# descriptor itself (stat with no operand reads stdin).
 portable_identity() {
-  local path="$1" value
+  local path="$1" value fd
   if value="$(stat -Lc '%d:%i' -- "$path" 2>/dev/null)" \
     && [[ "$value" =~ ^[0-9]+:[0-9]+$ ]]; then
+    printf '%s\n' "$value"
+    return 0
+  fi
+  if [[ "$path" =~ ^/dev/fd/([0-9]+)$ ]]; then
+    fd="${BASH_REMATCH[1]}"
+    value="$(stat -f '%d:%i' <&"$fd" 2>/dev/null)" && [[ "$value" =~ ^[0-9]+:[0-9]+$ ]] || return 1
     printf '%s\n' "$value"
     return 0
   fi
