@@ -106,12 +106,16 @@ def evaluate(state, questions, cfg, *, budget=None):
     transport=api.get("transport","auto")
     use_curl=(transport=="curl" or (transport=="auto" and shutil.which("curl")))
     last=None
+    started=time.perf_counter()
     for i in range(retries+1):
         if _kill_switch_reason() is not None:
             raise JevError('DISABLED', 'Jev disabled before request/retry')
         try:
             out=_curl(url,key,payload,timeout,connect) if use_curl else _urllib(url,key,payload,timeout)
             if not isinstance(out,dict) or not isinstance(out.get("answers"),dict): raise JevError("INVALID_RESPONSE","response has no answers object")
+            # Client-side facts the response cannot carry itself. Wall time
+            # includes retries and backoff: that is the latency the caller paid.
+            out["_client"]={"latency_ms":round((time.perf_counter()-started)*1000),"attempts":i+1}
             return out
         except JevError as e:
             last=e
@@ -119,6 +123,18 @@ def evaluate(state, questions, cfg, *, budget=None):
             if not retry or i>=retries: break
             time.sleep(min(4.0,0.35*(2**i)+random.random()*0.15))
     raise last or JevError("UNKNOWN","TypeSafe request failed")
+
+def provenance(res):
+    """Which model answered, and how long it took -- for the ledger.
+
+    The request goes to the alias `jev-latest`; only the response's `model`
+    field names the version that actually decided. Without it a recorded
+    decision cannot be tied to a model, and a corpus spanning a version change
+    is silently mixed.
+    """
+    res=res if isinstance(res,dict) else {}
+    client=res.get("_client") if isinstance(res.get("_client"),dict) else {}
+    return {"model":res.get("model"),"latency_ms":client.get("latency_ms"),"attempts":client.get("attempts")}
 
 def diagnose(cfg):
     api=cfg.get("api",{}); url=api.get("base_url","https://api.typesafe.ai/v1/systemone"); host=urlparse(url).hostname

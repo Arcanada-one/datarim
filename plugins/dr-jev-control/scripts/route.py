@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse,json,os,sys
 from pathlib import Path
-from jev_client import evaluate,JevError
+from jev_client import evaluate,JevError,provenance
 from catalog import inventory,shortlist
 from project_state import state_dir
 import components
@@ -118,7 +118,7 @@ def route(task,cfg=None,mode=None,*,budget=None):
             answer = None
         sel[kind]=components.single_choice(answer,cfg)
     out={"ok":True,"mode":mode,"profile":profile,"model":model,"answers":a,"selection":sel,
-         "usage":res.get('usage',{}),"candidates":{k:[x['name'] for x in v] for k,v in picks.items()}}
+         "usage":res.get('usage',{}),"provenance":provenance(res),"candidates":{k:[x['name'] for x in v] for k,v in picks.items()}}
     log(cfg,"route",task,out); return out
 
 def log(cfg,event,text,data):
