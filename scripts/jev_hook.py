@@ -87,6 +87,12 @@ def environment(payload, *, runtime=RUNTIME):
                                                'JEV_EVENT_CONTEXT'):
             if key != 'DATARIM_JEV_DISABLE':
                 env.pop(key, None)
+    # The operator's routing mode survives the scrub, but only as one of the
+    # three known values: it selects a policy profile, it cannot name a file,
+    # key or endpoint. Anything else is dropped and the configured default
+    # applies.
+    if os.environ.get('DATARIM_JEV_MODE') in ('economy', 'balanced', 'quality'):
+        env['DATARIM_JEV_MODE'] = os.environ['DATARIM_JEV_MODE']
     host = runtime / 'host-installation.json'
     cwd = workdir(payload)
     if host.is_file() and not host.is_symlink():
