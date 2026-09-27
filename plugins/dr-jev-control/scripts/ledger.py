@@ -120,6 +120,31 @@ def _scrub(obj, _depth=0):
     return redact(repr(obj))
 
 
+_RELEASE = []
+
+
+def release_sha():
+    """source_sha of the installed release this code runs from, or None.
+
+    A host install lays code out as releases/<sha>/plugins/dr-jev-control/
+    scripts/ with host-installation.json at the release root. Recorded on every
+    event because question wording lives in code: when it changes, an older
+    record can only be replayed against the release that produced it. Anything
+    else (a source checkout, a project install) records None rather than a
+    guess. Read once per process; never raises.
+    """
+    if not _RELEASE:
+        sha = None
+        try:
+            meta = json.loads((Path(__file__).resolve().parents[3] / 'host-installation.json').read_text())
+            v = meta.get('source_sha') if isinstance(meta, dict) else None
+            sha = v if isinstance(v, str) and re.fullmatch(r'[0-9a-f]{40}', v) else None
+        except Exception:
+            pass
+        _RELEASE.append(sha)
+    return _RELEASE[0]
+
+
 def ledger_path(cfg, *, strict=False):
     """Resolve the ledger file for a *config* mapping.
 
@@ -153,6 +178,7 @@ def log_event(cfg, event, text, data):
             "event": event,
             "sha256": hashlib.sha256((text or "").encode()).hexdigest(),
             "data": _scrub(data),
+            "release": release_sha(),
         }
         if os.environ.get('JEV_EVENT_CONTEXT'):
             context = json.loads(os.environ['JEV_EVENT_CONTEXT'])

@@ -733,7 +733,7 @@ def run(task, *, mode, cfg, extra_args, quiet, explain, max_turns,
 
 def _reroute(rt, gate, obs, cfg, turn, quiet):
     """Ask Jev about the trajectory and apply whatever the gate admits."""
-    from jev_client import evaluate
+    from jev_client import evaluate, provenance
     from route import kill_switch_reason
 
     # Belt and braces: the gate already refuses to reroute when live routing is
@@ -802,7 +802,8 @@ def _reroute(rt, gate, obs, cfg, turn, quiet):
             print(f"\n[jev] holding {gate.tier} ({verdict['blocked_by']})\n", flush=True)
 
     log_event(cfg, "live_reroute", obs.digest(), {"turn": turn, "verdict": verdict,
-                                                  "phase": obs.phase(), "usage": res.get("usage", {})})
+                                                  "phase": obs.phase(), "usage": res.get("usage", {}),
+                                                  "provenance": provenance(res)})
     return verdict
 
 

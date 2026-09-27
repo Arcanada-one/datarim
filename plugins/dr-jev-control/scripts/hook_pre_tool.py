@@ -11,10 +11,10 @@ from safety_floor import destructive_reason
 # "floor only" rather than "no hook at all". They stay module-level names so
 # they remain patchable by tests.
 try:
-    from jev_client import evaluate
+    from jev_client import evaluate,provenance
     from route import load_cfg,log
 except Exception:  # pragma: no cover - exercised by the degraded-import test
-    evaluate=load_cfg=log=None
+    evaluate=load_cfg=log=provenance=None
 
 def main():
     try:p=json.load(sys.stdin)
@@ -68,7 +68,7 @@ def main():
     q={"risky":{"type":"noul","instructions":"Is this proposed tool call destructive, irreversible, security-sensitive, secret-exposing, production-changing, externally mutating, or otherwise deserving explicit review before autonomous execution?"}}
     api=cfg.get('api',{})
     budget={"timeout_seconds":api.get('hook_timeout_seconds',4),"retries":api.get('hook_retries',0)}
-    try:r=evaluate(s,q,cfg,budget=budget); risk=float(r['answers']['risky']['noul']); log(cfg,'pretool',s,{"risk":risk,"tool":tool,"usage":r.get('usage',{})})
+    try:r=evaluate(s,q,cfg,budget=budget); risk=float(r['answers']['risky']['noul']); log(cfg,'pretool',s,{"risk":risk,"tool":tool,"usage":r.get('usage',{}),"provenance":provenance(r)})
     except Exception:return 0
     th=cfg.get('routing',{}).get('risk_thresholds',{}); enforce=cfg.get('hooks',{}).get('enforce_jev_denials',False)
     if enforce and risk>=float(th.get('deny_autonomous',.94)):
