@@ -55,6 +55,9 @@ def bare_word_error(task):
             'to send it as a task, quote a sentence or use --')
 
 
+MODES = ('economy', 'balanced', 'quality')
+
+
 def parse(argv=None):
     alias = {'jevcodex': 'codex', 'jevclaude': 'claude', 'jevcursor': 'cursor'}.get(Path(sys.argv[0]).name)
     p = argparse.ArgumentParser(
@@ -64,7 +67,7 @@ def parse(argv=None):
                'as --flag=value, or put client arguments after --. '
                '`jev permissions full|ask` makes every launch skip (or keep) permission prompts.')
     p.add_argument('--agent', choices=['codex', 'claude', 'cursor'], default=alias)
-    p.add_argument('--mode', choices=['economy', 'balanced', 'quality'], default='balanced')
+    p.add_argument('--mode', choices=MODES, default=None)
     p.add_argument('--model')
     p.add_argument('--effort', choices=['low', 'medium', 'high'])
     p.add_argument('--resume')
@@ -108,6 +111,10 @@ def parse(argv=None):
         i += 1
     a, unknown = p.parse_known_args(rest)
     extra = ahead + unknown + extra
+    # Only an explicit --mode is handed to the session's prompt hook; without
+    # one the hook keeps the configured default_mode, as before.
+    a.mode_explicit = a.mode is not None
+    a.mode = a.mode or 'balanced'
     if a.setting is not None and a.task != 'permissions':
         p.error(f'unexpected argument: {a.setting}')
     refusal = bare_word_error(a.task)
@@ -745,6 +752,12 @@ def main():
         a.no_route = True
     if a.no_route:
         os.environ['DATARIM_JEV_DISABLE'] = '1'
+    if a.mode_explicit:
+        # The native prompt hook routes every later prompt of the session.
+        # Without this it never saw the operator's mode: measured 2026-09-27,
+        # 272 prompts launched with --mode quality were re-routed by the hook
+        # as balanced, and the advised tier differed on 233 of them.
+        os.environ['DATARIM_JEV_MODE'] = a.mode
     if a.live:
         if not a.task:
             print('jev: --live requires a task', file=sys.stderr)

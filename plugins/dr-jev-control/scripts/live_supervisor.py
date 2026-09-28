@@ -552,6 +552,15 @@ def run(task, *, mode, cfg, extra_args, quiet, explain, max_turns,
                     "mode": mode, "answers": {}, "selection": {}}
 
     tier = clamp_to_mode(decision.get("model", "sonnet"), mode, cfg)
+    if decision.get("ok"):
+        # Hand this decision to the client's prompt hook for the first prompt,
+        # as the direct launch path does. Without it the hook routed the same
+        # task a second time -- one extra API call per supervised session.
+        try:
+            from prompt_cache import save
+            os.environ["JEV_PROMPT_CACHE"] = str(save(task, decision))
+        except Exception:
+            pass
     rt = runtimes.build(runtime, tier, extra_args=extra_args, cwd=os.getcwd())
 
     if not quiet:
