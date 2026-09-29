@@ -4,6 +4,7 @@ import io
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -92,6 +93,69 @@ class IndependentCatalogTests(unittest.TestCase):
             return original(name, flags, *args, **kwargs)
         with patch.object(catalog_sources.os, 'open', side_effect=swap), self.assertRaises(OSError):
             catalog.inventory(self.roots)
+
+    def _inventory_in_child(self, prelude=''):
+        """Run inventory in a child with a hard timeout: a blocking FIFO must fail the test, not hang it."""
+        code = (f"import sys; sys.path.insert(0, {str(ROOT/'plugins/dr-jev-control/scripts')!r})\n"
+                "import os, stat, catalog_sources\n" + prelude +
+                f"\ntry:\n    catalog_sources.inventory({self.roots!r})\nexcept ValueError as e:\n"
+                "    print('REFUSED', e); sys.exit(0)\nprint('ACCEPTED'); sys.exit(1)\n")
+        try:
+            done = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, timeout=10)
+        except subprocess.TimeoutExpired:
+            self.fail('catalog read blocked on a FIFO (hook would hang)')
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn('REFUSED', done.stdout)
+
+    def test_fifo_catalog_entry_is_refused_without_blocking(self):
+        os.mkfifo(self.root/'agents/pipe.md', 0o600)
+        self._inventory_in_child()
+
+    def test_non_regular_catalog_entry_is_refused_before_it_is_opened(self):
+        os.mkfifo(self.root/'agents/pipe.md', 0o600)
+        opened, original = [], os.open
+        def record(name, flags, *args, **kwargs):
+            opened.append(name)
+            return original(name, flags, *args, **kwargs)
+        with patch.object(catalog_sources.os, 'open', side_effect=record), self.assertRaises(ValueError):
+            catalog.inventory(self.roots)
+        self.assertNotIn('pipe.md', opened)
+
+    def test_fifo_swapped_in_after_lstat_is_refused_without_blocking(self):
+        # The lstat reports a regular file; the object actually opened is a FIFO
+        # with no writer. Only O_NONBLOCK + fstat-before-read keeps this bounded.
+        os.mkfifo(self.root/'agents/pipe.md', 0o600)
+        prelude = ("real = os.stat\n"
+                   "def fake(name, *a, **k):\n"
+                   "    info = real(name, *a, **k)\n"
+                   "    if name == 'pipe.md':\n"
+                   "        info = os.stat_result((stat.S_IFREG | 0o600,) + tuple(info)[1:])\n"
+                   "    return info\n"
+                   "catalog_sources.os.stat = fake\n")
+        self._inventory_in_child(prelude)
+
+    def _foreign_owner(self, target):
+        """Report uid 4242 (neither us nor root) for one inode, via the real stat calls."""
+        inode = os.stat(target).st_ino
+        foreign = 4242 if os.geteuid() != 4242 else 4243
+        real_stat, real_fstat = os.stat, os.fstat
+        def relabel(info):
+            if info.st_ino != inode:
+                return info
+            fields = list(info)
+            fields[4] = foreign  # st_uid
+            return os.stat_result(fields)
+        return (patch.object(catalog_sources.os, 'stat', lambda *a, **k: relabel(real_stat(*a, **k))),
+                patch.object(catalog_sources.os, 'fstat', lambda fd: relabel(real_fstat(fd))))
+
+    def test_foreign_owned_root_kind_skill_dir_or_file_is_refused(self):
+        targets = [self.root, self.root/'agents', self.root/'skills/review', self.root/'commands/review.md']
+        for target in targets:
+            with self.subTest(target=str(target.relative_to(self.root.parent))):
+                a, b = self._foreign_owner(target)
+                with a, b, self.assertRaises(ValueError):
+                    catalog.inventory(self.roots)
+        self.assertTrue(all(len(xs) == 1 for xs in catalog.inventory(self.roots).values()))
 
     def test_ignored_directories_count_towards_traversal_limit(self):
         for i in range(5): (self.root/'agents'/str(i)).mkdir()

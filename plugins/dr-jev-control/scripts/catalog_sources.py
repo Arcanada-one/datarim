@@ -14,6 +14,11 @@ MAX_BYTES = 65536
 NAME = re.compile(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}\Z')
 
 
+def _unsafe(info):
+    """Group/world-writable, or owned by someone other than this user or root."""
+    return bool(info.st_mode & 0o022) or info.st_uid not in (os.geteuid(), 0)
+
+
 def validate_roots(roots):
     """Validate trusted configuration, not an event/cwd supplied search path."""
     if not isinstance(roots, list) or len(roots) > MAX_ROOTS:
@@ -31,8 +36,9 @@ def validate_roots(roots):
         root = Path(value)
         if not root.is_absolute() or root.is_symlink() or not root.is_dir():
             raise ValueError('catalog provider must be an absolute regular directory')
-        if root.resolve() != root or root.stat().st_mode & 0o022:
-            raise ValueError('catalog provider must be canonical and not externally writable')
+        if root.resolve() != root or _unsafe(os.stat(root)):
+            raise ValueError('catalog provider must be canonical, owned by this user or root, '
+                             'and not externally writable')
         ids.add(ident)
         result.append({'id': ident, 'path': str(root)})
     return result
@@ -46,7 +52,7 @@ def _open_root(root):
             child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
             os.close(fd)
             fd = child
-        if os.fstat(fd).st_mode & 0o022:
+        if _unsafe(os.fstat(fd)):
             raise ValueError('unsafe catalog root')
         return fd
     except BaseException:
@@ -72,16 +78,21 @@ def _read_files(fd, kind, remaining, prefix=()):
                 raise ValueError('catalog depth limit exceeded')
             child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
             try:
-                if os.fstat(child).st_mode & 0o022:
+                if _unsafe(os.fstat(child)):
                     raise ValueError('unsafe catalog directory')
                 yield from _read_files(child, kind, remaining, prefix + (name,))
             finally:
                 os.close(child)
         elif (kind == 'skills' and name == 'SKILL.md') or (kind != 'skills' and name.endswith('.md')):
+            # Refuse FIFOs/devices/sockets before open (no side effects); O_NONBLOCK
+            # keeps a FIFO swapped in after this lstat from blocking the hook, and
+            # the fstat below re-checks the object actually opened before any read.
+            if not stat.S_ISREG(info.st_mode):
+                raise ValueError('non-regular catalog file refused')
             file_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
             with os.fdopen(file_fd, 'rb') as stream:
                 current = os.fstat(stream.fileno())
-                if not stat.S_ISREG(current.st_mode) or current.st_mode & 0o022:
+                if not stat.S_ISREG(current.st_mode) or _unsafe(current):
                     raise ValueError('unsafe catalog file')
                 raw = stream.read(MAX_BYTES + 1)
             if len(raw) > MAX_BYTES:
@@ -102,7 +113,7 @@ def inventory(roots):
                 except FileNotFoundError:
                     continue
                 try:
-                    if os.fstat(base_fd).st_mode & 0o022:
+                    if _unsafe(os.fstat(base_fd)):
                         raise ValueError('unsafe catalog kind directory')
                     for relative, raw in _read_files(base_fd, kind, [MAX_ENTRIES]):
                         if len(out[kind]) >= MAX_FILES:

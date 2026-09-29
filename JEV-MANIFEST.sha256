@@ -5,7 +5,7 @@
 458360a76fb7b452540275e193fe149b9d0701614dcca3522028cd5141a542d6  plugins/dr-jev-control/config/jev-control.json
 5daefdd15347a0fa419911ec1909c9d5439e6d99fa068be0ff6b067a1049e4df  plugins/dr-jev-control/plugin.yaml
 2582a76f424f26e9943d77d0ac3fe07273fd98ae3a627a45609dfabc70062488  plugins/dr-jev-control/scripts/catalog.py
-7038c0d1393f352238f7366a49348d197bc00d6a2c0933044e793d9e4a80d7ef  plugins/dr-jev-control/scripts/catalog_sources.py
+13f596b600d32b9943b819905dfda63939fb9b2fee8be0b5ec844ff2d373082c  plugins/dr-jev-control/scripts/catalog_sources.py
 83d677d5542590808ba19000530698300d31b60c3564a2ce57b9d0d6e57137df  plugins/dr-jev-control/scripts/cli_report.py
 7dd9d6aa3209eaf2d48fd7f38e5b1419171afbff71a62a1abb044dc83ec6eb06  plugins/dr-jev-control/scripts/components.py
 db87f25ee02988ccbc057c4655297194d7b143f5756c6099b3fe3a7433efef8e  plugins/dr-jev-control/scripts/doctor_api.py
