@@ -16,7 +16,6 @@ PLAN_ID = sys.argv[3]
 SUFFIX = sys.argv[4]
 OUT.mkdir(parents=True, exist_ok=True)
 HARNESS = Path(__file__).resolve().parent/'harness.py'
-KEY_SOURCE = '/home/dev/.config/jev/credentials/api-key'
 PY = '/usr/bin/python3.12'
 
 
@@ -32,7 +31,7 @@ assert not git('status', '--porcelain'), 'subject must be clean'
 commit, tree = git('rev-parse', 'HEAD'), git('rev-parse', 'HEAD^{tree}')
 now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 evidence = {'schema': 'MeasuredGitSource/v1', 'commit': commit, 'tree': tree, 'dirty': False,
-            'producer': {'tool': 'control-jev-467/canary/make_plan.py', 'version': '1.0.0'},
+            'producer': {'tool': 'control-jev/canary/make_plan.py', 'version': '1.0.0'},
             'captured_at_utc': now}
 ev_raw = json.dumps(evidence, indent=1, sort_keys=True).encode() + b'\n'
 (OUT/'source-evidence.json').write_bytes(ev_raw)
@@ -47,21 +46,21 @@ ENTITIES = ['code_unit:plugins/dr-jev-control/scripts/catalog.py',
 
 
 def probe(pid, mode, stdout):
-    return {'kind': 'process', 'id': pid, 'argv': [PY, str(HARNESS), mode, KEY_SOURCE], 'cwd': '.',
-            'env_keys': ['PATH', 'TMPDIR'], 'timeout_seconds': 120, 'capture_limit_bytes': 262144,
+    return {'kind': 'process', 'id': pid, 'argv': [PY, str(HARNESS), mode], 'cwd': '.',
+            'env_keys': ['PATH', 'TMPDIR', 'JEV_CANARY_KEY_FILE'], 'timeout_seconds': 120, 'capture_limit_bytes': 262144,
             'executable_sha256': sha(PY), 'execution_files': manifest,
             'expect': {'exit_codes': [0], 'stdout_contains': stdout},
             'entities': ENTITIES, 'mutating': True}
 
 
 probes = [
-    probe('throwaway-home-install-route-hook-revoke', 'positive', [
+    probe('isolated-tmphome-install-route-hook-revoke', 'positive', [
         'CANARY ok install authorized catalog_roots=[team] datarim_projects=[]',
         'CANARY ok installed release byte-identical to subject for catalog, catalog_sources, route, hook',
         'catalog reference(s), every sha256 matches file bytes',
         'CANARY ok revoke --clear-catalog-roots removes catalog advice (hook rc=0, no team-- entries)',
         'CANARY ok cleanup throwaway HOME and copied key removed']),
-    probe('throwaway-home-planted-unsafe-entries-refused', 'negative', [
+    probe('isolated-tmphome-planted-unsafe-entries-refused', 'negative', [
         'CANARY ok installer refused world-writable catalog root',
         'CANARY ok control: clean catalog accepted by installed runtime (4 candidates)',
         'CANARY ok installed runtime refused planted world-writable entry: REFUSED unsafe catalog file',
@@ -72,7 +71,7 @@ probes = [
 ]
 plan = {'schema': 'CanaryPlan/v2', 'id': PLAN_ID,
         'owner': 'Control network hand for JEV-audit remediation (Arcanada, claude-opus-5-5) on arcana-devs',
-        'environment': 'arcana-devs-throwaway-home', 'read_only': False,
+        'environment': 'arcana-devs-isolated-tmphome', 'read_only': False,
         'subject': {'schema': 'GitCanarySubject/v1', 'commit': commit, 'tree': tree,
                     'evidence': {'path': 'source-evidence.json', 'sha256': hashlib.sha256(ev_raw).hexdigest(),
                                  'source_field': 'commit'}},

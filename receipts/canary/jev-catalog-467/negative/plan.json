@@ -2,7 +2,7 @@
  "schema": "CanaryPlan/v2",
  "id": "datarim-467-jev-catalog-process-negative",
  "owner": "Control network hand for JEV-audit remediation (Arcanada, claude-opus-5-5) on arcana-devs",
- "environment": "arcana-devs-throwaway-home",
+ "environment": "arcana-devs-isolated-tmphome",
  "read_only": false,
  "subject": {
   "schema": "GitCanarySubject/v1",
@@ -10,7 +10,7 @@
   "tree": "fae1a1cf0cc988bbde41a4008a41c30d88892bf3",
   "evidence": {
    "path": "source-evidence.json",
-   "sha256": "7e83c488627cbef1cacd82aeb3454377f560a36194067ee1e5e381d652c812a7",
+   "sha256": "06b828d638a56bd0ac50cebfc3d25ab8d8bb1e59555265a449c2c4f027912c79",
    "source_field": "commit"
   }
  },
@@ -18,104 +18,104 @@
  "probes": [
   {
    "kind": "process",
-   "id": "throwaway-home-install-route-hook-revoke",
+   "id": "isolated-tmphome-install-route-hook-revoke",
    "argv": [
     "/usr/bin/python3.12",
-    "/home/dev/aup/control-jev-467/canary/harness.py",
-    "positive",
-    "/home/dev/.config/jev/credentials/api-key"
+    "/var/tmp/control-jev/canary/harness.py",
+    "positive"
    ],
    "cwd": ".",
    "env_keys": [
     "PATH",
-    "TMPDIR"
+    "TMPDIR",
+    "JEV_CANARY_KEY_FILE"
    ],
    "timeout_seconds": 120,
    "capture_limit_bytes": 262144,
    "executable_sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f",
    "execution_files": [
     {
-     "path": "/home/dev/aup/control-jev-467/canary/harness.py",
-     "sha256": "9b60b714e96cce5c47dab378926ca08f176fe5cb415a28ffb3b0f1ef6539e155"
+     "path": "/var/tmp/control-jev/canary/harness.py",
+     "sha256": "411412eb8733cd777199b54127b257b793f8c6e0c0eeb12c45b426f98b32aeae"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/scripts/jev_host_install.py",
+     "path": "/var/tmp/control-jev/subject-base/scripts/jev_host_install.py",
      "sha256": "457784e712ff8828fe64eceb749791317628bc49aca31cb9cb63130bba78fdd7"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/scripts/jev_hook.py",
+     "path": "/var/tmp/control-jev/subject-base/scripts/jev_hook.py",
      "sha256": "9c24fe47faa69a3324d5415d53ebc01c29e38ff990a15cfe1c8e9c5b53f6b73f"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/catalog.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/catalog.py",
      "sha256": "8fc5d7dd3cacfdd0dbe5e28aa6eba1f73f211fbb744301679f05d9a7c7871bae"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/cli_report.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/cli_report.py",
      "sha256": "83d677d5542590808ba19000530698300d31b60c3564a2ce57b9d0d6e57137df"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/components.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/components.py",
      "sha256": "8bddc9fc0c436429546e0d36f3de195b4385c35485fac790f1e31e729dae5230"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/doctor_api.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/doctor_api.py",
      "sha256": "db87f25ee02988ccbc057c4655297194d7b143f5756c6099b3fe3a7433efef8e"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/hook_post_tool.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_post_tool.py",
      "sha256": "e6f5db630b8905a017bc6ce206831e1cda94cd10104b562282db8d23b11829f4"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/hook_pre_tool.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_pre_tool.py",
      "sha256": "63357504693c2ca37338bb87e819541191ddce62250637115e4bab214418a799"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/hook_stop.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_stop.py",
      "sha256": "e951e8c30bc331248a3feae7f17cdb33ef5947d479b4ed7432827622dc4fbd34"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/hook_user_prompt.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_user_prompt.py",
      "sha256": "3ee4411f1739786895113a373e8d6058b81e9fc7615cb193bb8eeb2417c89c84"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/install.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/install.py",
      "sha256": "0f185524c3707edc96a9a39b0dc794dba2c2321687a554a45dbe6759ad4af50a"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/jev_client.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/jev_client.py",
      "sha256": "360266565fc97da93ad933302b8e80483d626712eb6495c8235034bce2e14f2f"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/ledger.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/ledger.py",
      "sha256": "649b2eb72b77e3ea28fd7d91896c3df53f78a6c12118b832e9cdac5b9d24eb07"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/live_policy.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/live_policy.py",
      "sha256": "7aee1416d40d06ab6ec16a0a83b4550c8b3326c0ba2315512fb93a8496d643dc"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/live_supervisor.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/live_supervisor.py",
      "sha256": "99d49782c88f803c2144b0c99c4b7d81e34446caa5f9a654b0e430cc39106dd0"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/project_state.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/project_state.py",
      "sha256": "bbd607e5cbe9802e4c566589b184fa3dbfe3620758719b88c977e52ded5688d8"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/prompt_cache.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/prompt_cache.py",
      "sha256": "070399bbff82cc248cb24b0d8cba0f2975844e5d0e347f882da95abc01e1cdbf"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/route.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/route.py",
      "sha256": "91b804e236ae23c71a7ce95ccda65d226ff787ade2f9136f3eaa31820e45f9f2"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/runtimes.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/runtimes.py",
      "sha256": "9d3cbaa41004069dcf82a8eb4bf6dfaecd1409d2c87f66e05277fc7f6ef6e669"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/safety_floor.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/safety_floor.py",
      "sha256": "86aa7f3c0a4c77c10be7053c1edd6d4c90dc82705c0212eff960e8e100a7ccbd"
     }
    ],
@@ -141,104 +141,104 @@
   },
   {
    "kind": "process",
-   "id": "throwaway-home-planted-unsafe-entries-refused",
+   "id": "isolated-tmphome-planted-unsafe-entries-refused",
    "argv": [
     "/usr/bin/python3.12",
-    "/home/dev/aup/control-jev-467/canary/harness.py",
-    "negative",
-    "/home/dev/.config/jev/credentials/api-key"
+    "/var/tmp/control-jev/canary/harness.py",
+    "negative"
    ],
    "cwd": ".",
    "env_keys": [
     "PATH",
-    "TMPDIR"
+    "TMPDIR",
+    "JEV_CANARY_KEY_FILE"
    ],
    "timeout_seconds": 120,
    "capture_limit_bytes": 262144,
    "executable_sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f",
    "execution_files": [
     {
-     "path": "/home/dev/aup/control-jev-467/canary/harness.py",
-     "sha256": "9b60b714e96cce5c47dab378926ca08f176fe5cb415a28ffb3b0f1ef6539e155"
+     "path": "/var/tmp/control-jev/canary/harness.py",
+     "sha256": "411412eb8733cd777199b54127b257b793f8c6e0c0eeb12c45b426f98b32aeae"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/scripts/jev_host_install.py",
+     "path": "/var/tmp/control-jev/subject-base/scripts/jev_host_install.py",
      "sha256": "457784e712ff8828fe64eceb749791317628bc49aca31cb9cb63130bba78fdd7"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/scripts/jev_hook.py",
+     "path": "/var/tmp/control-jev/subject-base/scripts/jev_hook.py",
      "sha256": "9c24fe47faa69a3324d5415d53ebc01c29e38ff990a15cfe1c8e9c5b53f6b73f"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/catalog.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/catalog.py",
      "sha256": "8fc5d7dd3cacfdd0dbe5e28aa6eba1f73f211fbb744301679f05d9a7c7871bae"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/cli_report.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/cli_report.py",
      "sha256": "83d677d5542590808ba19000530698300d31b60c3564a2ce57b9d0d6e57137df"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/components.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/components.py",
      "sha256": "8bddc9fc0c436429546e0d36f3de195b4385c35485fac790f1e31e729dae5230"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/doctor_api.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/doctor_api.py",
      "sha256": "db87f25ee02988ccbc057c4655297194d7b143f5756c6099b3fe3a7433efef8e"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/hook_post_tool.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_post_tool.py",
      "sha256": "e6f5db630b8905a017bc6ce206831e1cda94cd10104b562282db8d23b11829f4"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/hook_pre_tool.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_pre_tool.py",
      "sha256": "63357504693c2ca37338bb87e819541191ddce62250637115e4bab214418a799"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/hook_stop.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_stop.py",
      "sha256": "e951e8c30bc331248a3feae7f17cdb33ef5947d479b4ed7432827622dc4fbd34"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/hook_user_prompt.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_user_prompt.py",
      "sha256": "3ee4411f1739786895113a373e8d6058b81e9fc7615cb193bb8eeb2417c89c84"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/install.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/install.py",
      "sha256": "0f185524c3707edc96a9a39b0dc794dba2c2321687a554a45dbe6759ad4af50a"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/jev_client.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/jev_client.py",
      "sha256": "360266565fc97da93ad933302b8e80483d626712eb6495c8235034bce2e14f2f"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/ledger.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/ledger.py",
      "sha256": "649b2eb72b77e3ea28fd7d91896c3df53f78a6c12118b832e9cdac5b9d24eb07"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/live_policy.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/live_policy.py",
      "sha256": "7aee1416d40d06ab6ec16a0a83b4550c8b3326c0ba2315512fb93a8496d643dc"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/live_supervisor.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/live_supervisor.py",
      "sha256": "99d49782c88f803c2144b0c99c4b7d81e34446caa5f9a654b0e430cc39106dd0"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/project_state.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/project_state.py",
      "sha256": "bbd607e5cbe9802e4c566589b184fa3dbfe3620758719b88c977e52ded5688d8"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/prompt_cache.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/prompt_cache.py",
      "sha256": "070399bbff82cc248cb24b0d8cba0f2975844e5d0e347f882da95abc01e1cdbf"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/route.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/route.py",
      "sha256": "91b804e236ae23c71a7ce95ccda65d226ff787ade2f9136f3eaa31820e45f9f2"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/runtimes.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/runtimes.py",
      "sha256": "9d3cbaa41004069dcf82a8eb4bf6dfaecd1409d2c87f66e05277fc7f6ef6e669"
     },
     {
-     "path": "/home/dev/aup/control-jev-467/subject-base/plugins/dr-jev-control/scripts/safety_floor.py",
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/safety_floor.py",
      "sha256": "86aa7f3c0a4c77c10be7053c1edd6d4c90dc82705c0212eff960e8e100a7ccbd"
     }
    ],

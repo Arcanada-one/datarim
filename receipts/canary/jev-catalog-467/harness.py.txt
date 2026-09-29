@@ -6,10 +6,10 @@ $TMPDIR: jev_host_install.py -> installed release -> jev-hook UserPromptSubmit
 -> route -> catalog. The operator's real ~/.local/share/jev, ~/.config/jev,
 ~/.claude and ~/.codex are never written; the throwaway tree is removed at exit.
 
-argv: MODE KEY_SOURCE
-  MODE        positive | negative
-  KEY_SOURCE  path of a provider key file; its bytes are copied into the
-              throwaway HOME's 0600 key file and never printed.
+argv: MODE (positive | negative)
+env:  JEV_CANARY_KEY_FILE  path of a provider key file; its bytes are copied into
+      the throwaway HOME's 0600 key file and never printed (only the variable
+      NAME is recorded by the canary producer, never its value).
 Exit 0 only when every assertion holds; each holding assertion prints one
 `CANARY ok ...` line on stdout, a broken one prints `CANARY FAIL ...` and exits 1.
 """
@@ -41,9 +41,9 @@ def sha(path):
 
 
 def main():
-    if len(sys.argv) != 3 or sys.argv[1] not in ('positive', 'negative'):
-        fail('usage: harness.py positive|negative KEY_SOURCE')
-    mode, key_src = sys.argv[1], Path(sys.argv[2])
+    if len(sys.argv) != 2 or sys.argv[1] not in ('positive', 'negative') or not os.environ.get('JEV_CANARY_KEY_FILE'):
+        fail('usage: JEV_CANARY_KEY_FILE=... harness.py positive|negative')
+    mode, key_src = sys.argv[1], Path(os.environ['JEV_CANARY_KEY_FILE'])
     repo = Path.cwd().resolve()
     real_home = Path(pwd.getpwuid(os.getuid()).pw_dir).resolve()
     base = Path(tempfile.mkdtemp(prefix='jev467-')).resolve()
