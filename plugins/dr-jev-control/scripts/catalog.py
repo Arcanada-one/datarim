@@ -16,7 +16,13 @@ def _summary(p):
         if len(s)>20 and not s.startswith(('---','name:','id:')): return s[:280]
     return ""
 
-def inventory():
+def inventory(catalog_roots=None):
+    if catalog_roots is not None:
+        from catalog_sources import validate_roots
+        validate_roots(catalog_roots)
+    if catalog_roots:
+        from catalog_sources import inventory as independent_inventory
+        return independent_inventory(catalog_roots)
     r=root(); out={"skills":[],"agents":[],"commands":[],"templates":[]}
     if r is None:
         return out
