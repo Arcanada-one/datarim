@@ -1,0 +1,11 @@
+{
+ "captured_at_utc": "2026-09-29T23:23:12Z",
+ "commit": "1b36781c8d265205044caefe1d0a9535bc788c3a",
+ "dirty": false,
+ "producer": {
+  "tool": "control-jev-467/canary/make_plan.py",
+  "version": "1.0.0"
+ },
+ "schema": "MeasuredGitSource/v1",
+ "tree": "fae1a1cf0cc988bbde41a4008a41c30d88892bf3"
+}
