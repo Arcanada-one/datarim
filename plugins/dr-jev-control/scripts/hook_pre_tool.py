@@ -35,7 +35,6 @@ _RISK_COMMAND = re.compile(
 _OUTPUT_REDIRECT = re.compile(
     r"'[^']*'|\"(?:\\.|[^\"\\])*\"|\\.|(?<!\S)<[A-Za-z_][\w.-]*>(?=\s*$)|(?P<write>>{1,2}\|?)")
 _DISCARD_TARGET = re.compile(r'''\s*(?:/dev/null|'/dev/null'|"/dev/null"|&(?:[0-9]+|-))(?=$|[\s;&|<>])''')
-_SHELL_CODE = re.compile(r'\b(?:bash|sh|dash|zsh|ksh)\s+(?:--?[\w=-]+\s+)*-[a-z]*c\b', re.I)
 _INLINE_CODE = re.compile(r'''(?<!\w)-(?:[a-z]*c|e(?=[\s'"]|$))|--(?:command|eval)\b|<<|\$\(|`''')
 _SCRIPT_SUFFIX = re.compile(r'\.(?:sh|bash|zsh|py|js|mjs|cjs|ts|rb|pl)(?:$|[<>])', re.I)
 _PRODUCTION_SIGNAL = re.compile(r'\b(?:DATABASE_URL|PGHOST|NODE_ENV\s*=\s*production)\b')

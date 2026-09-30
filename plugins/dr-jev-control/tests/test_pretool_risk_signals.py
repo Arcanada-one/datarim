@@ -263,7 +263,8 @@ sys.modules['route'] = types.SimpleNamespace(
     log=lambda *a, **k: None)
 runpy.run_path(sys.argv[1], run_name='__main__')
 '''
-        cases = [('bash deploy/broker/bootstrap-host.sh', 'ask'),
+        cases = [('bash '+('-- -'*2000)+"-c 'true'", 'ask'),
+                 ('bash deploy/broker/bootstrap-host.sh', 'ask'),
                  ('tee /etc/sudoers.d/service', 'ask'),
                  ('touch /etc/systemd/system/service.service', 'ask'),
                  ('node dist/../scripts/support-sync.js', 'ask'),
