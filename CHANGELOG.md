@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.1.0] — 2026-09-30
+
 ### Changed
 
 - The project installer never creates `CLAUDE.md`: Claude Code reads `AGENTS.md` natively (measured on Claude Code
