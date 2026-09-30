@@ -73,11 +73,26 @@ are excluded only from the redirection signal; neighboring writes and independen
 risk signals still evaluate. Quoted comparisons such as `print(1 >= 0)` stay cheap.
 A following target, such as `<data> out`, is a real output redirection.
 Risk names are checked in executed argv after quote/ANSI-C normalization and
-wrapper removal; an unresolved command variable requires advice. Read-only
+wrapper removal, with additive legacy command-word coverage: normalization must
+not erase an installed guard signal. Privilege wrappers remain signals themselves.
+This retains some questions about quoted command words, literal arrows and
+control-flow redirects; it is conservative coverage, not a claimed cost saving.
+Opaque flock/xargs/busybox calls, package installations and interpreter stdin
+execution are evaluated; pipeline bodies are omitted from model descriptors.
+An unresolved command variable requires advice. Read-only
 argument substitutions and standard Python test-runner operands stay cheap.
 Advice remains optional and fail-open on an API error. A high score requests
 native permission only with `enforce_jev_denials`; this guard does not itself
 authorize commands or establish that an arbitrary script is safe.
+
+The operational no-regression test replays the hash-pinned 783-command review
+corpus through the real hook for both clients and asserts that every installed
+question remains evaluated or locally denied. The private inputs are not shipped
+in this public repository. Delivery validation must set
+`JEV_GUARD_REPLAY_CORPUS` to the approved file and
+`JEV_GUARD_REPLAY_REQUIRED=1`; missing or altered input fails this gate. Without
+the input, public CI explicitly skips that test and cannot establish operational
+baseline coverage. The replay mocks evaluation and never executes command strings.
 
 The ledger is under `.datarim-runtime/state/jev/`; use `jev stats` to inspect
 predicted versus observed decisions. Key material lives outside that directory

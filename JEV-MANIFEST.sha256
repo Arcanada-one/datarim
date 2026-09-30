@@ -1,5 +1,5 @@
 # Jev source integrity; verify with shasum -a 256 -c JEV-MANIFEST.sha256
-74062ef8126333d66909b99f175cbe0d4ad7fe06e6946ca8ce40405a8cb95616  plugins/dr-jev-control/README.md
+c9dd98735d7eacf782e9dd8102d91669026d0cd405b2c01d0124a61c9c6a941b  plugins/dr-jev-control/README.md
 4779e76875fb7f3f88c99b894c8d107802a2f8444a3e967875c5b0f0c99dd5e9  plugins/dr-jev-control/bin/dr-claude-jev
 15bd8cf7bb4c0bab11d7fb63096b61c71e880de5e3d5008109dcd5141150454e  plugins/dr-jev-control/bin/dr-jev
 458360a76fb7b452540275e193fe149b9d0701614dcca3522028cd5141a542d6  plugins/dr-jev-control/config/jev-control.json
@@ -11,7 +11,7 @@
 d1da58a7111f2523cf2a0b0d1e93b5b801a14ac423546834b43614101def26eb  plugins/dr-jev-control/scripts/decision_evidence.py
 db87f25ee02988ccbc057c4655297194d7b143f5756c6099b3fe3a7433efef8e  plugins/dr-jev-control/scripts/doctor_api.py
 e6f5db630b8905a017bc6ce206831e1cda94cd10104b562282db8d23b11829f4  plugins/dr-jev-control/scripts/hook_post_tool.py
-198bb5e0624ffaea2512e73ae427ef566a91bf7a539c3c1061765da7da474005  plugins/dr-jev-control/scripts/hook_pre_tool.py
+bfe9b88e1e75d79eb8a339359198d3f668d87e632895b9ad7f6f9895508bbab9  plugins/dr-jev-control/scripts/hook_pre_tool.py
 e951e8c30bc331248a3feae7f17cdb33ef5947d479b4ed7432827622dc4fbd34  plugins/dr-jev-control/scripts/hook_stop.py
 70007e148b10da7ffb67ea5b78fea5f8454b193ac930568beb8a09794532038a  plugins/dr-jev-control/scripts/hook_user_prompt.py
 0f185524c3707edc96a9a39b0dc794dba2c2321687a554a45dbe6759ad4af50a  plugins/dr-jev-control/scripts/install.py
@@ -36,7 +36,7 @@ da7435597813655378f5b025b69081d12904875c5c36c8552eb14264960916d6  plugins/dr-jev
 6ab4735daa034bcb48f1401fa1cd4bbac8add3d75a40808d7204b904411ef1ca  plugins/dr-jev-control/tests/test_live.py
 58670f6c90bbcc82c3328e531a81f8895f3f6d63cf90b8b9e83107c49b24e404  plugins/dr-jev-control/tests/test_local.py
 856fa7d2bdfdd2c95bbc9ee80bbc3f281dee8c0db166b317be57c27d69c853af  plugins/dr-jev-control/tests/test_manifest_coverage.py
-6ae1daf7bf6e4f38128632c9dd5ed973cff834872ce9a3f2ff19a3f4e1be037d  plugins/dr-jev-control/tests/test_pretool_risk_signals.py
+7f772ef7eeaf4a4ff94bba8f7b51beffa1759a490a4b525dd52ed8b152a8966b  plugins/dr-jev-control/tests/test_pretool_risk_signals.py
 8275b11c3cdd5a8af3c982c236e1ec9eb7ae004ea023e9f08c00209f5376ac48  plugins/dr-jev-control/tests/test_project_directory_refusals.py
 5971c63f55cfc29fb331886ae1f811490c4980442136ed8b20d23d5d7e674ad5  plugins/dr-jev-control/tests/test_runtimes.py
 9081fe959e23457174e79f09edd8d8c5769c1c7e208eae7eee9a9fec511c156d  plugins/dr-jev-control/tests/test_supervisor_e2e.py

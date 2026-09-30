@@ -22,12 +22,21 @@ except Exception:  # pragma: no cover - exercised by the degraded-import test
 _PRIVILEGED_PATH = re.compile(
     r"\bsudoers(?:\.d)?\b|(?:^|/)systemd(?:/|[\s;\"']|$)|/(?:etc|usr/local|var/lib)(?:/|[\s;\"']|$)", re.I)
 _INSTALL_SIGNAL = re.compile(
-    r'''(?:^|[/\s"'])(?:bootstrap|install|setup|provision|deploy)(?=[/_.\s"'-]|$)''', re.I)
+    r'''(?:^|[/_\s"'-])(?:bootstrap|install|setup|provision|deploy)(?=[/_.\s"'-]|$)''', re.I)
 _RISK_COMMAND = re.compile(
-    r'\b(rm|mv|chmod|chown|sudo|doas|ssh|scp|rsync|curl|wget|kubectl|helm|terraform|'
+    r'\b(rm|mv|chmod|chown|sudo|doas|su|pkexec|flock|xargs|busybox|ssh|scp|rsync|curl|wget|kubectl|helm|terraform|'
     r'ansible|docker|podman|systemctl|useradd|usermod|userdel|groupadd|visudo|crontab|'
     r'iptables|ip6tables|nft|npm\s+publish|git\s+(push|reset|clean|checkout|'
     r'switch|rebase|merge)|gh\s+|aws\s+|gcloud\s+|az\s+|psql|mysql|redis-cli)\b|sed\s+-i', re.I)
+# Preserve the installed guard's command-word coverage as an additive signal.
+# This intentionally retains some quoted-word questions. Redirection false
+# positives have separate narrow exclusions; normalization never removes this
+# signal. These regexes route advice and do not authorize command execution.
+_LEGACY_RISK_COMMAND = re.compile(
+    r'\b(rm|mv|chmod|chown|sudo|ssh|scp|rsync|curl|wget|kubectl|helm|terraform|'
+    r'ansible|docker|podman|npm\s+publish|git\s+(push|reset|clean|checkout|'
+    r'switch|rebase|merge)|gh\s+|aws\s+|gcloud\s+|az\s+|psql|mysql|redis-cli)\b|sed\s+-i', re.I)
+_CONTROL_IO = re.compile(r'^\s*(?:if|elif|while|until|for|case)\b', re.M)
 # Skip quoted/escaped literal bytes and standalone descriptor placeholders.
 # An attached suffix (<input>output) is real shell syntax, not a placeholder.
 # Targets are inspected separately: fd duplication and exact /dev/null are not
@@ -35,7 +44,7 @@ _RISK_COMMAND = re.compile(
 _OUTPUT_REDIRECT = re.compile(
     r"'[^']*'|\"(?:\\.|[^\"\\])*\"|\\.|(?<!\S)<[A-Za-z_][\w.-]*>(?=\s*$)|(?P<write>>{1,2}\|?)")
 _DISCARD_TARGET = re.compile(r'''\s*(?:/dev/null|'/dev/null'|"/dev/null"|&(?:[0-9]+|-))(?=$|[\s;&|<>])''')
-_INLINE_CODE = re.compile(r'''(?<!\w)-(?:[a-z]*c|e(?=[\s'"]|$))|--(?:command|eval|split-string)\b|(?<!\w)-S|\beval\b|<<|\$\(|`''')
+_INLINE_CODE = re.compile(r'''(?<!\w)-(?:[a-z]*c|e(?=[\s'"]|$))|--(?:command|eval|split-string)\b|(?<!\w)-S|\beval\b|<<|\$\(|`|\|''')
 _SCRIPT_SUFFIX = re.compile(r'\.(?:sh|bash|zsh|py|js|mjs|cjs|ts|rb|pl)(?:$|[<>])', re.I)
 _PRODUCTION_SIGNAL = re.compile(r'\b(?:DATABASE_URL|PGHOST|NODE_ENV\s*=\s*production)\b')
 _CREDENTIAL_OPTION = re.compile(
@@ -97,7 +106,7 @@ def _risk_argv(segment):
         name = argv[0].rsplit('/', 1)[-1]
         if name == 'eval' or (name == 'env' and any(x == '-S' or x.startswith(('--split-string', '-S')) for x in argv[1:])):
             return ['$__JEV_UNKNOWN_WRAPPER__']
-        if name in ('sudo', 'doas'):
+        if name in ('sudo', 'doas', 'su', 'pkexec'):
             return argv  # Privilege escalation itself needs advice.
         if name in ('command', 'nice', 'nohup', 'time', 'eval', 'exec', 'env'):
             argv = argv[1:]
@@ -123,6 +132,8 @@ def _risk_argv(segment):
                 argv = argv[2:] if flag in value_flags else argv[1:]
             if name == 'timeout' and argv:
                 argv = argv[1:]  # duration
+        elif name in ('pnpm', 'npm', 'yarn', 'bun') and len(argv) > 1 and argv[1] == 'tsx':
+            argv = argv[1:]
         elif name in ('pnpm', 'npm', 'yarn', 'bun', 'uv', 'poetry') and len(argv) > 1 and argv[1] in ('exec', 'run'):
             if re.fullmatch(r'(?:deploy|release|sync|migrate)(?:[-:\w]*)', argv[2] if len(argv) > 2 else ''):
                 break
@@ -151,10 +162,23 @@ def repository_execution_signal(command):
             return True
         if name in interpreters:
             args = argv[1:]
+            if not args:
+                return True  # Interpreter reading code from stdin is opaque.
             if name in ('python', 'python3') and len(args) >= 2 and args[:2] in (['-m', 'pytest'], ['-m', 'unittest']):
                 continue  # Other segments and path/redirect signals still checked.
             if any(re.fullmatch(r'-[a-z]*c.*' if name in ('bash', 'sh', 'dash', 'zsh', 'ksh') else r'-[a-z]*c.*|-[a-z]*e.*', arg) for arg in args):
                 continue  # Inline text is inspected separately, not a script path.
+            if '-' in args or (name in ('bash', 'sh', 'dash', 'zsh', 'ksh') and
+                               any(re.fullmatch(r'-[a-z]*s[a-z]*', arg) for arg in args)):
+                return True  # Explicit stdin script mode, including pipelines.
+            if all(arg.startswith('-') for arg in args):
+                harmless = {'--help', '--version'} if name not in ('.', 'source') else set()
+                if name in ('python', 'python3'):
+                    harmless |= {'-h', '-V', '-VV'}
+                elif name in ('node', 'nodejs'):
+                    harmless |= {'-h', '-v'}
+                if not all(arg in harmless for arg in args):
+                    return True  # Options-only argv can still consume stdin code.
             if any(not arg.startswith('-') for arg in args):
                 return True  # Includes extensionless shell scripts and modules.
         if name in ('make', 'pnpm', 'npm', 'yarn', 'bun') and any(
@@ -208,6 +232,9 @@ def shell_risk_signal(command):
     """Check executed argv plus independent paths, environment and redirects."""
     if len(command) > 16384:
         return True
+    if (_LEGACY_RISK_COMMAND.search(command) or '<<<' in command or '->' in command
+            or (_CONTROL_IO.search(command) and '>' in command)):
+        return True
     reduced = _readonly_substitutions(command)
     normalized = ' '.join(_split(_ansi_quotes(command)))
     if '__JEV_UNKNOWN_' in normalized:
@@ -222,8 +249,15 @@ def shell_risk_signal(command):
         name = argv[0].rsplit('/', 1)[-1]
         # Risk words in printf/echo/git-log arguments are not executable names.
         executable = ' '.join([name, *argv[1:]])
-        if _RISK_COMMAND.match(executable) or _INSTALL_SIGNAL.match(name):
+        if _RISK_COMMAND.match(executable) or _INSTALL_SIGNAL.search(name):
             return True
+        if name in ('cargo', 'pnpm', 'npm', 'yarn', 'bun', 'pip', 'pip3', 'uv',
+                    'playwright', 'apt', 'apt-get', 'dnf', 'yum') and any(
+                arg in ('install', 'i', 'ci', 'add', 'update', 'upgrade', 'remove', 'uninstall', 'publish')
+                for arg in argv[1:]):
+            return True
+        if name == 'yarn' and all(arg.startswith('-') for arg in argv[1:]):
+            return True  # Bare yarn and flags-only forms default to install.
         if name in ('bash', 'sh', 'dash', 'zsh', 'ksh') and any(re.match(r'-[a-z]*c', x) for x in argv[1:]):
             return True
         if name in ('python', 'python3', 'node', 'ruby', 'perl') and any(re.match(r'-[a-z]*[ce]', x) for x in argv[1:]) and _RISK_COMMAND.search(executable):

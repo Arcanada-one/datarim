@@ -1,5 +1,6 @@
 """Exercise the real hook with synthetic advice; command strings never execute."""
 import io
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,31 @@ import hook_pre_tool as hook
 
 
 class PretoolRiskSignals(unittest.TestCase):
+    def test_installed_questions_are_preserved_on_frozen_review_corpus(self):
+        # Private operational inputs are not shipped in the public repository.
+        # Delivery must run with this hash-bound corpus and REQUIRED=1; a public
+        # CI run without it cannot establish operational baseline coverage.
+        path = os.environ.get('JEV_GUARD_REPLAY_CORPUS')
+        if not path:
+            if os.environ.get('JEV_GUARD_REPLAY_REQUIRED') == '1':
+                self.fail('Required frozen operational corpus is unavailable')
+            self.skipTest('Private frozen operational corpus not supplied')
+        raw = Path(path).read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(),
+                         '58d78297fc2f3292ae30ea846faefe29b8cbe08030b3a6d53baa2964c65c0f20')
+        rows = json.loads(raw)
+        self.assertEqual(len(rows), 783)
+        self.assertEqual(sum(row['old'] for row in rows), 114)
+        self.assertEqual(sum(row['new'] for row in rows), 372)
+        for index, row in enumerate(rows):
+            for tool, field in [('Bash', 'command'), ('exec_command', 'cmd')]:
+                with self.subTest(case=index, tool=tool):
+                    evaluate, output = self.invoke(tool, {field: row['cmd']})
+                    covered = bool(evaluate.call_count) or output.get(
+                        'hookSpecificOutput', {}).get('permissionDecision') == 'deny'
+                    self.assertTrue(not row['old'] or covered,
+                                    'Installed question lost (private command omitted)')
+
     def invoke(self, tool, inputs, *, enabled=True, enforce=True, error=False):
         cfg = {'hooks': {'pretool_risk': enabled, 'enforce_jev_denials': enforce}}
         answer = {'answers': {'risky': {'noul': .99}}, 'usage': {}}
@@ -135,9 +161,43 @@ class PretoolRiskSignals(unittest.TestCase):
                 with self.subTest(command=command, tool=tool):
                     self.assert_question(tool, {field: command})
 
+    def test_reviewer_privilege_grammar_and_remaining_wrappers(self):
+        commands = [
+            'sudo reboot', 'sudo shutdown -h now', 'sudo kill -9 1234',
+            'sudo mount /dev/sdb1 /mnt', 'sudo apt-get update',
+            'sudo apt-get install -y bats', 'sudo npm i -g x',
+            'sudo tee /opt/app/config.yml', 'sudo talomnia-deploy purge-edge prod',
+            '( git push origin main )', '{ git push origin main; }',
+            '! git push origin main',
+            'if git push --quiet origin HEAD:main 2>/dev/null; then echo ok; fi',
+            'if true; then git push origin main; fi',
+            'for h in a b; do ssh $h reboot; done',
+            'while true; do curl -X POST http://x; done',
+            'talomnia-deploy deploy',
+            'su -c reboot', 'pkexec reboot',
+            'flock lock bash scripts/ops.sh',
+            'flock -w 5 lock bash scripts/ops.sh',
+            'xargs -I{} bash scripts/ops.sh', 'busybox sh scripts/ops.sh',
+            'pnpm tsx scripts/ops.ts', 'cat scripts/ops.sh | bash',
+            'cargo install tool --locked', 'pnpm install --frozen-lockfile',
+            'npm ci', 'npm i', 'pnpm i', 'yarn', 'yarn --immutable',
+            'cat scripts/ops.sh | bash -s',
+            'cat scripts/ops.py | python3 -', 'cat scripts/ops.js | node -',
+            'cat scripts/ops.sh | bash --noprofile -s',
+            'cat scripts/ops.sh | bash -eu', 'cat scripts/ops.sh | bash -h',
+            'cat scripts/ops.py | python3 -u',
+            'cat scripts/ops.js | node --input-type=module',
+            'pnpm exec playwright install chromium',
+            'GIT_SSH_COMMAND="ssh -i key" git clone example.invalid/repo',
+        ]
+        for command in commands:
+            for tool, field in [('Bash', 'command'), ('exec_command', 'cmd')]:
+                with self.subTest(command=command, tool=tool):
+                    self.assert_question(tool, {field: command})
+
     def test_review_shell_grammar_does_not_turn_argument_words_into_commands(self):
-        commands = ['echo "sudo reboot"', 'echo "( git push origin main )"',
-                    'printf "%s" "if true; then ssh host; fi"',
+        commands = ['echo "( git status )"',
+                    'printf "%s" "if true; then printf ok; fi"',
                     'if test -f file; then echo yes; else echo no; fi',
                     'for item in a b; do echo "$item"; done',
                     '( git status )', '{ git status; }']
@@ -147,8 +207,18 @@ class PretoolRiskSignals(unittest.TestCase):
                 evaluate.assert_not_called()
                 self.assertEqual(output, {})
 
+    def test_legacy_question_signals_are_additive(self):
+        for command in ['echo "sudo reboot"', 'echo "( git push origin main )"',
+                        'printf "%s" "if true; then ssh host; fi"',
+                        'echo "before -> after"',
+                        'if command -v sha256sum >/dev/null 2>&1; then',
+                        "' <<<\"$checks\" >/dev/null"]:
+            with self.subTest(command=command):
+                self.assert_question('Bash', {'command': command})
+
     def test_review_cost_is_based_on_executed_argv(self):
         commands = ['echo systemctl daemon-reload',
+                    'python3 --version', 'bash --help', 'node --version',
                     'printf "%s" install', 'git log --grep=deploy',
                     'python3 -m pytest tests/test_worker.py',
                     'python3 -m unittest tests/test_worker.py',
@@ -400,6 +470,18 @@ runpy.run_path(sys.argv[1], run_name='__main__')
                     descriptor = self.assert_question(tool, {field: command})
                     self.assertNotIn('SYNTHETIC_PRIVATE_VALUE', json.dumps(descriptor))
                     self.assertIn('credential_argument_omitted', descriptor['risk_signals'])
+
+
+    def test_stdin_pipeline_bodies_do_not_enter_model_descriptor(self):
+        for command in ["printf 'PRIVATE_BODY' | bash -s",
+                        "printf 'PRIVATE_BODY' | /bin/bash -s",
+                        "printf 'PRIVATE_BODY' | busybox sh",
+                        "printf 'PRIVATE_BODY' | python3 -"]:
+            for tool, field in [('Bash', 'command'), ('exec_command', 'cmd')]:
+                with self.subTest(tool=tool, command=command):
+                    descriptor = self.assert_question(tool, {field: command})
+                    self.assertNotIn('PRIVATE_BODY', json.dumps(descriptor))
+                    self.assertIn('inline_code_omitted', descriptor['risk_signals'])
 
 
 if __name__ == '__main__':
