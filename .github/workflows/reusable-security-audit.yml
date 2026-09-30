@@ -40,7 +40,10 @@ on:
         description: 'JSON array string of runner labels to pin the job (workflow_call inputs cannot be arrays; consumed via fromJSON in runs-on)'
         type: string
         required: false
-        default: '["self-hosted","linux"]'
+        # A bare [self-hosted, linux] default matches every Linux runner the caller may use, including a
+        # restricted-group runner the caller is allowlisted for (e.g. a deploy or database host). The default
+        # names the general CI lane instead, the same lane as network-exposure-lint's default.
+        default: '["self-hosted","linux","ci-general"]'
 
 permissions:
   contents: read
