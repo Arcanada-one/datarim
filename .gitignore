@@ -27,7 +27,7 @@ __pycache__/
 
 # documentation/ is TRACKED — the docs migration deliberately moved the public
 # Diátaxis tree (tutorials/how-to/reference/explanation) plus framework task
-# archives into this repo, and CLAUDE.md § S4/S10 reference documentation/
+# archives into this repo, and AGENTS.md § S4/S10 reference documentation/
 # paths as shipped surfaces. An earlier rule ignored the whole directory as a
 # "consumer-side artefact", which contradicted the tracked tree and forced
 # `git add -f` on every new doc. The tree is canon; do not re-add an ignore
@@ -93,7 +93,7 @@ datarim/wizard/
 # the gap between that contract and the repo's actual tracked set.
 datarim/tasks/*-init-task.md
 
-# Insight artefacts — CLAUDE.md § Critical Rules asserts these are "gitignored,
+# Insight artefacts — AGENTS.md § Critical Rules asserts these are "gitignored,
 # ephemeral runtime artefacts" and forbids shipped files from citing them by
 # filename. Nothing under insights/ was tracked, but without this rule the
 # assertion was unenforced and the next /dr-prd run could commit one.

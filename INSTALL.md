@@ -12,8 +12,8 @@ was taken from the installer code (`scripts/project_install.py`,
   snapshot of the framework into `<project>/.datarim-runtime/`, writes the `/dr-*`
   commands where Claude Code, Codex and Cursor find them, and hides everything it
   writes from `git status`. It does not touch your home directory, your shell
-  startup files, `AGENTS.md` or `.gitignore`, and creates `CLAUDE.md` only when
-  you ask for it (`--claude-import`, see [Other install options](#other-install-options)).
+  startup files, `AGENTS.md` or `.gitignore`, and never creates `CLAUDE.md`
+  (Claude Code reads `AGENTS.md` natively).
 - **Jev** is optional. It adds a deterministic safety floor (a hook that refuses
   destructive shell commands, no key or network needed) and, with an API key,
   model-tier routing advice. It can be installed per project or once for the
@@ -53,7 +53,6 @@ Follow these steps in order. Do not improvise other install methods.
    |---|---|---|
    | 1 | Install Jev? **none** / **project** (this project only) / **host** (every project of this user on this machine) | none |
    | 2 | Which clients do you use: Claude Code, Codex, Cursor? Pass one `--client` per client (or a comma list); the project install then writes the commands, and with `--with-jev` the hooks, only for those. The same answer gives host Jev its `--client` options and decides which client `jev doctor --agent=` checks. | the ones installed on the machine |
-   | 2a | If Claude Code is one of them and the project has an `AGENTS.md`: link `CLAUDE.md` to it (`--claude-import`)? Claude Code reads `CLAUDE.md`, not `AGENTS.md`. Only offered when the project has no `CLAUDE.md`. | yes, when there is no `CLAUDE.md` |
    | 3 | Should the `jev*` launchers (every install has them) start clients **without permission prompts**? Answered with `--permissions ask` or `--permissions full` (required on a fresh install; `jev permissions` changes it later). Starting a client directly is not affected. | no (`ask`) |
    | 4 | Create empty task files `datarim/tasks.md` and `datarim/backlog.md` now (`--init`)? | yes |
    | 5 | Expose every framework skill to the clients' automatic discovery (`--expose-skills`)? It adds their descriptions to every session. | no |
@@ -157,7 +156,6 @@ not a reason to answer "no Jev".
 | Jev: project | `--with-jev`. Hooks go into this project only, for the chosen clients (`.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json`), and an empty key file is created at `config/credentials/jev/api-key` (mode `0600`). Not on a machine that already has host Jev: both sets of hooks would run. |
 | Jev: host | `--with-jev --host-jev`, after the host step below |
 | Clients | `--client` with the chosen ones, e.g. `--client claude,codex`; required on a fresh install |
-| Link `CLAUDE.md` to `AGENTS.md` (Claude Code) | `--claude-import` |
 | Create task files now | `--init` |
 | Every skill in every session | `--expose-skills` |
 | Nested repositories to include | `--context <relative/path>`, once per repository |
@@ -165,9 +163,7 @@ not a reason to answer "no Jev".
 | Release tag or `main` | before the install, in the source checkout: `git checkout <tag>` or `git checkout main` |
 
 Only when the user said "defaults": `--without-jev`, `--client` with the clients
-installed on the machine, `--init` and `--permissions ask`, plus
-`--claude-import` when Claude Code is one of them and the project has an
-`AGENTS.md` but no `CLAUDE.md`.
+installed on the machine, `--init` and `--permissions ask`.
 
 ### Only if the user chose host Jev: install host Jev first
 
@@ -221,7 +217,7 @@ install.
 | Option | Effect |
 |---|---|
 | `--client <name>` | `claude`, `codex`, `cursor` or `all`; repeat it or give a comma list. Only these clients get command files and (with `--with-jev`) hooks. Required on a fresh install. Kept across updates; a client you leave out on an update loses its command files and Jev hooks. |
-| `--claude-import` | Creates `CLAUDE.md` as a symlink to the project's `AGENTS.md`, so Claude Code (which reads `CLAUDE.md`, not `AGENTS.md`) loads your project rules. Only when no `CLAUDE.md` exists: an existing file or link is never changed. Kept across updates; `--no-claude-import` or uninstall removes only a link the install made. A symlink rather than an `@AGENTS.md` import line, because the import was observed to be ignored in sessions started in a subdirectory. |
+| `--claude-import`, `--no-claude-import` | Deprecated and ignored: they print a notice and change nothing, so existing command lines keep working. Claude Code reads `AGENTS.md` natively and the installer never creates `CLAUDE.md`. An update or uninstall still removes a `CLAUDE.md` symlink that an older release recorded as its own; any other `CLAUDE.md` is never touched. |
 | `--init` | Creates `datarim/tasks.md` and `datarim/backlog.md` if missing. Existing files are kept. |
 | `--expose-skills` | Also writes every framework skill into `.agents/skills/`, `.claude/skills/`, `.cursor/skills/`. Their descriptions load into every session. Kept across updates once set. |
 | `--context <relative/path>` | Lets an existing nested git repository use this installation. Repeat per repository. Without it, a nested repository is refused. Kept across updates; given again, it replaces the list; `--no-context` clears it. |
@@ -236,7 +232,6 @@ install.
 | `.datarim-runtime/` | the framework snapshot, `installation.json`, `activate.sh`, `bin/jev*` | no |
 | `.claude/commands/dr-*.md` | the commands for Claude Code (with `--client claude`, or no `--client`) | no |
 | `.agents/skills/dr-*/`, `.cursor/skills/dr-*/` | the same commands as skills for Codex and Cursor (each only when selected) | no |
-| `CLAUDE.md` → `AGENTS.md` (with `--claude-import`, when no `CLAUDE.md` exists) | a symlink | no |
 | `datarim/` (with `--init`) | this project's task state | no |
 | `config/credentials/jev/api-key` (with `--with-jev`) | empty key file, mode `0600` | no |
 | `.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json` (with `--with-jev`, not `--host-jev`) | Jev hook entries, merged into any existing file | no, if the install created the file |
@@ -437,13 +432,12 @@ git checkout "$(git describe --tags --abbrev=0 --match 'v*' origin/main)"   # or
 first, refuses to overwrite anything you edited, and rolls back on failure.
 
 **Your install choices are remembered.** `--with-jev`, `--host-jev`,
-`--context`, `--client`, `--expose-skills` and `--claude-import` are recorded
+`--context`, `--client` and `--expose-skills` are recorded
 in `.datarim-runtime/installation.json`, so a plain `update.sh --project`
 keeps them. Pass an option only to change it: `--without-jev` withdraws the
 project's Jev hooks and `jev-config.json` (the key file stays),
 `--no-host-jev` returns to project hooks, `--no-context` withdraws nested
-repositories, `--client` sets a new client list, `--no-claude-import` removes
-the `CLAUDE.md` link. Installs made before this release have no recorded
+repositories, `--client` sets a new client list. Installs made before this release have no recorded
 client list and keep all three. The previous runtime is kept in
 `.datarim-runtime-previous/`, older ones in `.datarim-runtime-backups/`.
 
