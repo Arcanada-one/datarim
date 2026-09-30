@@ -13,7 +13,7 @@ commands for each client (`.claude/commands/`, `.agents/skills/dr-*`,
 `datarim/backlog.md`. Existing task files are preserved. No Jev key is needed
 for plain Datarim.
 
-It does **not** edit `AGENTS.md`, `CLAUDE.md` or `.gitignore`. Everything it
+It does **not** edit `AGENTS.md` or `.gitignore`, and never creates `CLAUDE.md`. Everything it
 generates is hidden from git through the clone-local `.git/info/exclude`, so
 `git status` stays clean — which matters in a repository shared with people who
 do not use Datarim.
@@ -30,9 +30,8 @@ every framework skill.
 
 `--expose-skills` restores that exposure if you want the framework's skills in
 your clients' automatic discovery; it is kept across updates once set.
-`--client` limits the install to the clients you use, and `--claude-import`
-links a missing `CLAUDE.md` to your `AGENTS.md` for Claude Code, which reads only
-`CLAUDE.md`; both are kept across updates, like every other install choice
+`--client` limits the install to the clients you use; it is kept across updates,
+like every other install choice
 ([INSTALL.md](../../INSTALL.md#other-install-options)).
 
 Native client invocation remains available without Jev:

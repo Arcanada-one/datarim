@@ -30,8 +30,7 @@ relays the installer's own wording, all six questions, without recommending an a
   key" is not a reason to skip Jev; routing advice needs one Jev API key per
   computer, shared by all clients on it.
 - **Clients**: Claude Code, Codex, Cursor — pick with `--client` (repeatable or
-  comma list); a fresh install needs the list. With Claude Code, `--claude-import` links `CLAUDE.md`
-  to your `AGENTS.md`, since Claude Code reads only `CLAUDE.md` [off].
+  comma list); a fresh install needs the list.
 - **Permission mode** for the `jev*` launchers: `--permissions ask` or
   `--permissions full` [ask].
 - **Task files** now (`--init`) [yes]; **all skills** in every session
@@ -273,8 +272,8 @@ One project install serves Codex, Claude Code and Cursor (or the ones you pick
 with `--client`). Each client finds the
 `/dr-*` commands in its own project-local directory; every command tells the
 agent where this project's runtime is and to read the framework rules from it.
-Nothing is added to `AGENTS.md`, `CLAUDE.md` or `.gitignore` (the opt-in
-`--claude-import` only creates a missing `CLAUDE.md` as a link), so Datarim is
+Nothing is added to `AGENTS.md` or `.gitignore`, and no `CLAUDE.md` is ever
+created (Claude Code reads `AGENTS.md` natively), so Datarim is
 loaded only when you run a command, and nothing it writes appears in
 `git status`. Coworker and RTK are not required. Per-client details:
 [multi-runtime](documentation/how-to/multi-runtime.md).
