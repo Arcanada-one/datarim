@@ -100,6 +100,8 @@ def evaluate(state, questions, cfg, *, budget=None):
         raise JevError('ENDPOINT_POLICY', 'Host Jev credential is restricted to the configured provider endpoint')
     budget=budget or {}
     payload=_payload(state,questions,api)
+    from decision_evidence import request_facts
+    facts = request_facts(payload)
     timeout=float(budget.get("timeout_seconds",api.get("timeout_seconds",15)))
     connect=float(budget.get("connect_timeout_seconds",api.get("connect_timeout_seconds",5)))
     retries=int(budget.get("retries",api.get("retries",2)))
@@ -115,7 +117,7 @@ def evaluate(state, questions, cfg, *, budget=None):
             if not isinstance(out,dict) or not isinstance(out.get("answers"),dict): raise JevError("INVALID_RESPONSE","response has no answers object")
             # Client-side facts the response cannot carry itself. Wall time
             # includes retries and backoff: that is the latency the caller paid.
-            out["_client"]={"latency_ms":round((time.perf_counter()-started)*1000),"attempts":i+1}
+            out["_client"]=dict(facts, latency_ms=round((time.perf_counter()-started)*1000), attempts=i+1)
             return out
         except JevError as e:
             last=e
@@ -134,7 +136,14 @@ def provenance(res):
     """
     res=res if isinstance(res,dict) else {}
     client=res.get("_client") if isinstance(res.get("_client"),dict) else {}
-    return {"model":res.get("model"),"latency_ms":client.get("latency_ms"),"attempts":client.get("attempts")}
+    from decision_evidence import model_label
+    import re
+    model = model_label(res.get("model"))
+    result = {"model": model, "latency_ms": client.get("latency_ms"), "attempts": client.get("attempts"),
+              "resolved_model_status": "observed" if model and re.fullmatch(r"jev-[0-9]+(?:\.[0-9]+){1,3}", model) else "not_measured"}
+    for key in ("decision_id", "request_sha256", "questions_sha256", "requested_model"):
+        result[key] = client.get(key)
+    return result
 
 def diagnose(cfg):
     api=cfg.get("api",{}); url=api.get("base_url","https://api.typesafe.ai/v1/systemone"); host=urlparse(url).hostname

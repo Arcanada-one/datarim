@@ -299,7 +299,7 @@ class TestConfidenceAccounting(unittest.TestCase):
         self.assertEqual(slot["refused"], 4)
         self.assertAlmostEqual(slot["mean_confidence"], 0.33, places=2)
 
-    def test_applied_rate_reflects_only_named_components(self):
+    def test_selected_rate_reflects_only_named_components(self):
         sels = [
             {"agents": {"choice": "none", "confidence": 0.9, "applied": False}},
             {"agents": {"choice": "tester", "confidence": 0.95, "applied": True}},
@@ -307,7 +307,7 @@ class TestConfidenceAccounting(unittest.TestCase):
         ]
         slot = self._stats_over(sels)["confidence"]["agents"]
         self.assertEqual((slot["n"], slot["refused"]), (2, 1))
-        self.assertAlmostEqual(slot["applied_rate"], 0.5, places=3)
+        self.assertAlmostEqual(slot["selected_rate"], 0.5, places=3)
 
     def test_axis_with_no_probe_answers_is_not_scored_as_zero(self):
         # An empty `ranked` means no probe answered: absence of data, not a

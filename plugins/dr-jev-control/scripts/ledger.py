@@ -259,11 +259,9 @@ def last_decision(cfg):
 def stats(cfg):
     """Aggregate calibration and divergence signals.
 
-    Calibration here is deliberately modest: for `choice` answers we can only
-    compare stated confidence against how often that pick was actually applied
-    downstream, which is a proxy, not ground truth. The honest reading is
-    "how decisive is Jev on this axis", and the divergence section is where the
-    real signal about the next architecture lives.
+    Component confidence measures threshold selection, not downstream loading
+    or model accuracy. Live application counts only runtime control ACKs;
+    deferred launches, timeouts and legacy unconfirmed records stay separate.
     """
     routes = read_events(cfg, events={"route"})
     lives = read_events(cfg, events={"live_session"})
@@ -275,7 +273,8 @@ def stats(cfg):
         "reroutes": len(rer),
         "model_mix": {},
         "confidence": {},
-        "switches": {"applied": 0, "blocked": {}},
+        "switches": {"applied": 0, "deferred": 0, "dispatched": 0, "uncertain": 0,
+                     "refused": 0, "not_measured": 0, "blocked": {}},
         "divergence": {"sessions_with_no_tool_use": 0, "work_broader_than_prediction": 0, "samples": 0},
         "phases": {},
         "stop_reasons": {},
@@ -291,7 +290,7 @@ def stats(cfg):
             if conf is None:
                 continue
             slot = out["confidence"].setdefault(
-                kind, {"n": 0, "sum": 0.0, "applied": 0, "refused": 0})
+                kind, {"n": 0, "sum": 0.0, "selected": 0, "refused": 0})
             # A confident `none` is a confident *refusal*, not a weak
             # recommendation, so it must not land in the same denominator. Mixing
             # them inverts the reading of this whole axis: measured on the real
@@ -303,11 +302,11 @@ def stats(cfg):
                 continue
             slot["n"] += 1
             slot["sum"] += float(conf)
-            slot["applied"] += 1 if s.get("applied") else 0
+            slot["selected"] += 1 if s.get("applied") else 0
         sk = (sel.get("skills") or {})
         if sk:
             slot = out["confidence"].setdefault(
-                "skills", {"n": 0, "sum": 0.0, "applied": 0, "refused": 0})
+                "skills", {"n": 0, "sum": 0.0, "selected": 0, "refused": 0})
             ranked = sk.get("ranked") or []
             if not ranked:
                 # No probe answered: absence of data, not a low score. Counting it
@@ -317,17 +316,30 @@ def stats(cfg):
                 top = ranked[0].get("score")
                 slot["n"] += 1
                 slot["sum"] += float(top or 0.0)
-                slot["applied"] += 1 if sk.get("apply") else 0
+                slot["selected"] += 1 if sk.get("apply") else 0
 
     for kind, slot in out["confidence"].items():
         slot["mean_confidence"] = round(slot["sum"] / slot["n"], 3) if slot["n"] else 0.0
-        slot["applied_rate"] = round(slot["applied"] / slot["n"], 3) if slot["n"] else 0.0
+        slot["selected_rate"] = round(slot["selected"] / slot["n"], 3) if slot["n"] else 0.0
         slot.pop("sum", None)
 
+    from decision_evidence import switch_outcome
+    # A later dispatch supersedes only its linked deferred observation. Legacy
+    # records without request identity stay unconfirmed; never rewrite history.
+    dispatched = {}
+    for row in read_events(cfg, events={'live_switch_dispatch'}):
+        v = (row.get('data') or {}).get('verdict') or {}
+        decision_id = (v.get('evidence') or {}).get('decision_id')
+        if decision_id and switch_outcome(v) == 'dispatched':
+            dispatched[decision_id] = v
     for r in rer:
         v = (r.get("data", {}) or {}).get("verdict", {}) or {}
-        if v.get("switch") and v.get("applied"):
-            out["switches"]["applied"] += 1
+        if v.get("switch"):
+            decision_id = (v.get('evidence') or {}).get('decision_id')
+            if (switch_outcome(v) == 'deferred' and decision_id in dispatched
+                    and v.get('evidence') == dispatched[decision_id].get('evidence')):
+                v = dispatched[decision_id]
+            out['switches'][switch_outcome(v)] += 1
         elif v.get("blocked_by"):
             b = v["blocked_by"]
             out["switches"]["blocked"][b] = out["switches"]["blocked"].get(b, 0) + 1

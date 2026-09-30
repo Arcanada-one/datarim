@@ -673,7 +673,11 @@ def run(task, *, mode, cfg, extra_args, quiet, explain, max_turns,
             # is now genuinely in force.
             for sw in actual["switches"]:
                 if sw.get("deferred") and not sw.get("took_effect"):
-                    sw["took_effect"] = True
+                    sw["took_effect"] = True  # configuration reached a process invocation
+                    sw['outcome'] = 'dispatched'
+                    sw['confirmation'] = 'process_started'
+                    sw['applied'] = False  # no runtime model acknowledgement
+                    log_event(cfg, 'live_switch_dispatch', '', {'verdict': sw.copy()})
     except _SupervisorStop:
         pass  # reason already recorded in stop_reason
     except KeyboardInterrupt:
@@ -701,7 +705,9 @@ def run(task, *, mode, cfg, extra_args, quiet, explain, max_turns,
             if sw.get("deferred") and not sw.get("took_effect"):
                 sw["applied"] = False
                 sw["never_took_effect"] = True
-            if sw.get("applied"):
+            if sw.get('tier_uncertain'):
+                final_tier = None
+            elif sw.get("applied") or sw.get('took_effect'):
                 final_tier = sw.get("to", final_tier)
         if final_tier != gate.tier:
             # Not an error: the gate legitimately tracks an admitted switch that
@@ -726,6 +732,7 @@ def run(task, *, mode, cfg, extra_args, quiet, explain, max_turns,
             },
             "actual": actual,
             "final_tier": final_tier,
+            "final_tier_basis": "configured_invocation_or_control_ack" if final_tier else "not_measured",
             "duration_s": round(time.time() - t0, 1),
         })
     return 0
@@ -752,30 +759,28 @@ def _reroute(rt, gate, obs, cfg, turn, quiet):
     verdict, effort = decide(answers, gate, obs, turn=turn, now=time.time(), cfg=cfg,
                              token_hysteresis=rt.reports_usage)
 
+    from decision_evidence import bind
+    verdict['evidence'] = bind(provenance(res),
+        policy={'mode': gate.mode, 'live': cfg.get('live', {}), 'routing': cfg.get('routing', {})},
+        candidates=list(rt.tiers), recommendation={'verdict': verdict.copy(), 'effort': effort})
+    verdict.update(applied=False, outcome='advisory', confirmation='not_measured')
     if verdict.get("switch"):
         ok, resp = rt.apply_tier(verdict["to"])
-        verdict["applied"] = bool(ok)
-        verdict["deferred"] = not rt.in_process_switch
+        verdict["deferred"] = bool(ok and not rt.in_process_switch)
         if ok:
             gate.commit(verdict, now=time.time(), tokens_seen=obs.tokens)
+            verdict['outcome'] = 'deferred' if verdict['deferred'] else 'applied'
+            verdict['applied'] = not verdict['deferred']
+            verdict['confirmation'] = 'queued_configuration' if verdict['deferred'] else 'runtime_control_ack'
         else:
+            verdict['outcome'] = 'refused'
             verdict["transport_error"] = resp.get("subtype") or resp.get("reason")
             if resp.get("subtype") == "timeout":
-                # UNKNOWN outcome, not "unchanged": the runtime may still apply
-                # the switch after our deadline. Treating it as a no-op would
-                # leave the gate tracking a tier the session is not on, which
-                # poisons every later escalate/de-escalate comparison.
-                # Committing is the safe side -- a redundant re-apply of the
-                # intended tier is idempotent, a desynchronised gate is not.
+                # Preserve conservative gate accounting without claiming that
+                # the unacknowledged runtime change actually happened.
                 gate.commit(verdict, now=time.time(), tokens_seen=obs.tokens)
                 verdict["tier_uncertain"] = True
-                # The gate has moved and a session switch has been spent, so the
-                # switch IS in force as far as all later policy is concerned.
-                # Leaving applied=False here contradicted that: it routed the
-                # operator message to the "refused by transport" arm while the
-                # session was on the new tier, and made the timeout wording
-                # below unreachable.
-                verdict["applied"] = True
+                verdict['outcome'] = 'uncertain'
 
     if effort:
         ok_effort, _ = rt.apply_effort(effort)
@@ -785,14 +790,11 @@ def _reroute(rt, gate, obs, cfg, turn, quiet):
     # settled, so the operator is never told "holding" on a turn that also
     # changed the reasoning budget (project AGENTS.md, Defensive Invariants).
     if not quiet:
-        if verdict.get("applied"):
-            # Wording must match what actually happened. A deferred switch (Codex)
-            # has changed no running process yet, so it is never announced in the
-            # past tense -- project AGENTS.md, Defensive Invariants.
-            arrow = "→" if not verdict.get("deferred") else "⇢"
-            when = "" if not verdict.get("deferred") else " — takes effect next turn"
-            suffix = " (confirmation timed out; assuming applied)" if verdict.get("tier_uncertain") else ""
-            note = f" · effort {verdict['effort']}" if verdict.get("effort") else ""
+        if verdict.get('outcome') in ('applied', 'deferred', 'uncertain'):
+            arrow = '→' if verdict['applied'] else '⇢'
+            when = ' — queued for next turn' if verdict.get('deferred') else ''
+            suffix = ' (unconfirmed: control response timed out)' if verdict.get('tier_uncertain') else ''
+            note = f" · effort {verdict['effort']}" if verdict.get('effort') else ''
             print(f"\n[jev] {verdict['from']} {arrow} {verdict['to']} ({verdict['reason']}){when}{suffix}{note}\n", flush=True)
         elif verdict.get("switch"):
             print(f"\n[jev] switch to {verdict['to']} refused by transport ({verdict.get('transport_error')})\n", flush=True)

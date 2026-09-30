@@ -1,0 +1,11 @@
+{
+ "captured_at_utc": "2026-09-30T03:23:53Z",
+ "commit": "31e88b95b3b98a1b2e060d2f9f6d595428a632ac",
+ "dirty": false,
+ "producer": {
+  "tool": "control-jev/prcanary/make_plan.py",
+  "version": "1.0.0"
+ },
+ "schema": "MeasuredGitSource/v1",
+ "tree": "b8741413ea949d6122ba2ae7dd338182e63355da"
+}

@@ -124,7 +124,9 @@ def environment(payload, *, runtime=RUNTIME):
                    DATARIM_RUNTIME=str(runtime), DATARIM_JEV_CONFIG=str(runtime/'jev-config.json'),
                    TYPESAFE_API_KEY_FILE=str(root/'config/credentials/jev/api-key'),
                    JEV_STATE_DIR=str(runtime/'state/jev'))
+    import uuid
     env['JEV_EVENT_CONTEXT'] = json.dumps({
+        'delivery_id': uuid.uuid4().hex,
         'client': payload.get('jev_client'), 'native_event': payload.get('jev_native_event'),
         'canonical_event': payload.get('hook_event_name'),
         'session_id': payload.get('session_id'), 'turn_id': payload.get('turn_id'),
