@@ -135,7 +135,9 @@ CLIENT_HOOK_CONFIG = dict(zip(CLIENTS, HOOK_CONFIGS))
 #: The top-level directory through which each client discovers commands and
 #: skills. Codex reads `.agents/skills/`.
 CLIENT_DIRECTORY = {'.claude': 'claude', '.agents': 'codex', '.cursor': 'cursor'}
-CLAUDE_MD = 'CLAUDE.md'
+CLAUDE_MD = 'CLAUDE.md'  # only to retire a symlink an older release recorded
+CLAUDE_IMPORT_DEPRECATED = ('Deprecated: --claude-import and --no-claude-import are ignored. Claude Code reads '
+                            'AGENTS.md natively; the installer never creates CLAUDE.md.')
 
 
 #: Top-level directories the install may create for the clients.
@@ -344,10 +346,8 @@ def project_lock(root):
 
 def install(args):
     root = project_directory(args.project)
-    if getattr(args, 'claude_import', None) and not (root/'AGENTS.md').is_file():
-        # Before the answers gate: an impossible request consumes no token and
-        # issues none.
-        raise ValueError('--claude-import links CLAUDE.md to AGENTS.md; the project has no AGENTS.md')
+    if getattr(args, 'claude_import', None) is not None:
+        print(CLAUDE_IMPORT_DEPRECATED, file=sys.stderr)
     # Decided before the lock file is created: a refused install writes nothing
     # to the project tree.
     gate = answers_gate(args, root)
@@ -497,12 +497,6 @@ def ask_answers(args, root, *, ask, say):
                 args.client = chosen
                 break
             say('Name at least one client.')
-    if 'claude' in args.client and getattr(args, 'claude_import', None) is None:
-        if not (root/'AGENTS.md').is_file():
-            say(NO_CLAUDE_LINK)
-        elif not ((root/CLAUDE_MD).exists() or (root/CLAUDE_MD).is_symlink()):
-            args.claude_import = choose('   Link CLAUDE.md to AGENTS.md (Claude Code reads only CLAUDE.md)?',
-                                        ('yes', 'no'), 'yes') == 'yes'
     if getattr(args, 'permissions', None) is None:
         args.permissions = choose('3. Permission mode for the jev* launchers: ask, or full (no prompts)?',
                                   ('ask', 'full'), QUESTION_DEFAULTS['permission'])
@@ -520,17 +514,12 @@ def ask_answers(args, root, *, ask, say):
 QUESTION_DEFAULTS = {
     'jev': 'none',
     'clients': 'the ones installed on the machine',
-    'claude_import': 'yes, when there is no CLAUDE.md',
     'permission': 'ask',
     'init': 'yes',
     'expose_skills': 'no',
     'release': 'latest release tag',
 }
 _D = QUESTION_DEFAULTS
-CLAUDE_QUESTION = ('   With Claude Code, also link CLAUDE.md to the project AGENTS.md\n'
-                   f"   (Claude Code reads only CLAUDE.md)? Default: {_D['claude_import']}.")
-CLAUDE_ROW = '  Link CLAUDE.md to AGENTS.md       --claude-import'
-NO_CLAUDE_LINK = '   (CLAUDE.md link: not offered, the project has no AGENTS.md)'
 # This text is shown to the user by the installer at run time. An agent reading
 # it here has not been given the user's answers; run the installer and relay
 # its questions.
@@ -539,7 +528,6 @@ CHOICE_QUESTIONS = f"""1. Jev: none, project (this project only) or host (every 
    works WITHOUT any key. A key only adds routing advice, so "no key" is not a reason to skip Jev.
 2. Clients: which of Claude Code, Codex, Cursor? Default: {_D['clients']};
    still name them explicitly in --client.
-{CLAUDE_QUESTION}
 3. Permission mode for the jev* launchers: ask or full (no prompts)? Default: {_D['permission']}.
 4. Create empty task files datarim/tasks.md and datarim/backlog.md now? Default: {_D['init']}.
 5. Expose every framework skill in every session (costs context)? Default: {_D['expose_skills']}.
@@ -551,7 +539,6 @@ FLAG_TABLE = """  Answer                            Flag
   Jev host                          first: python3 scripts/jev_host_install.py --client <each client>
                                     --datarim-project <path>; then --with-jev --host-jev
   Clients                           --client claude,codex,cursor (the ones chosen)
-  Link CLAUDE.md to AGENTS.md       --claude-import
   Permission mode                   --permissions ask  or  --permissions full
   Task files now                    --init
   Expose every skill                --expose-skills
@@ -572,8 +559,6 @@ def given_answer_flags(args):
         flags.append('--host-jev')
     if getattr(args, 'permissions', None):
         flags += ['--permissions', args.permissions]
-    if getattr(args, 'claude_import', None):
-        flags.append('--claude-import')
     if getattr(args, 'init', False):
         flags.append('--init')
     if getattr(args, 'expose_skills', False):
@@ -593,14 +578,7 @@ def refusal_text(root, token, args=None):
     # count: without the token they are not yet the user's answers.
     ignored = ["Ignored (not yet the user's answers): " + ' '.join(shlex.quote(f) for f in given)] if given else []
     defaults = ("Only when the user said 'defaults': --without-jev --client <installed clients> --init "
-                '--permissions ask (and --claude-import when Claude Code is one of them and the project has '
-                'no CLAUDE.md).')
-    if not (Path(root)/'AGENTS.md').is_file():
-        # Checked here, at run time: the link needs an AGENTS.md to point at.
-        questions = questions.replace(CLAUDE_QUESTION, NO_CLAUDE_LINK)
-        table = table.replace(CLAUDE_ROW + '\n', '')
-        defaults = ("Only when the user said 'defaults': --without-jev --client <installed clients> --init "
-                    '--permissions ask.')
+                '--permissions ask.')
     return '\n'.join([
         'STOP. Nothing was installed. Ask the user these questions and wait for the answers. '
         'Do not choose for them.',
@@ -670,9 +648,7 @@ def report_block(root, host_jev, with_jev, mode, clients):
     # Variables first: a paraphrase that kept only "the key" lost them.
     lines.append('never in .zshrc/.bashrc: JEV_* or DATARIM_* variables (e.g. JEV_PERMISSIONS) or the key; '
                  'set them per shell or per launch')
-    if is_our_claude_link(root):
-        lines.append('AGENTS.md is not modified; CLAUDE.md links to it')
-    elif (Path(root)/'AGENTS.md').is_file():
+    if (Path(root)/'AGENTS.md').is_file():
         lines.append('AGENTS.md is not modified by the installer')
     if with_jev and 'codex' in clients:
         lines.append('Codex: open `codex` once in this project and accept the hooks, or run `jev trust`')
@@ -847,29 +823,11 @@ def _install(args):
                 files[name.replace('.agents/', vendor+'/', 1)] = data
     for name in [n for n in files if n not in HOOK_CONFIGS and owning_client(n) not in (None, *clients)]:
         del files[name]
-    # Claude Code reads CLAUDE.md, not AGENTS.md. Opt-in, sticky, and only ever
-    # a symlink this install created: an existing CLAUDE.md is never touched.
-    claude_import = getattr(args, 'claude_import', None)
-    if claude_import and 'claude' not in clients:
-        raise ValueError('--claude-import needs the claude client')
-    if claude_import is None:
-        claude_import = bool((previous or {}).get('claude_import')) and 'claude' in clients
+    # Claude Code reads AGENTS.md natively; the installer never creates CLAUDE.md.
+    # Only a symlink an older release recorded as its own is retired, on update.
     link = root/CLAUDE_MD
     owned_link = bool((previous or {}).get('claude_md_link')) and is_our_claude_link(root)
-    link_action = None
-    if claude_import and not owned_link:
-        if is_our_claude_link(root):
-            link_action = 'already_linked'
-        elif link.exists() or link.is_symlink():
-            link_action = 'kept_existing'
-        elif not (root/'AGENTS.md').is_file():
-            if getattr(args, 'claude_import', None):
-                raise ValueError('--claude-import links CLAUDE.md to AGENTS.md; the project has no AGENTS.md')
-            link_action = 'no_agents_md'
-        else:
-            link_action = 'create'
-    elif not claude_import and owned_link:
-        link_action = 'remove'
+    link_action = 'remove' if owned_link else None
 
     # All files are checked before the first mutation.
     for name, data in files.items():
@@ -895,14 +853,13 @@ def _install(args):
     if args.dry_run:
         print(json.dumps({'project': str(root), 'files': sorted(files), 'runtime': str(runtime),
                           'with_jev': args.with_jev, 'host_jev': args.host_jev, 'contexts': args.context,
-                          'clients': list(clients), 'claude_md': link_action}))
+                          'clients': list(clients)}))
         return
     if (previous and previous.get('source_digest') == source_hash.hexdigest() and previous.get('with_jev') == args.with_jev
             and previous.get('host_jev', False) == args.host_jev
             and previous.get('contexts', []) == args.context
             and tuple(previous.get('clients') or CLIENTS) == clients
-            and bool(previous.get('claude_import')) == claude_import
-            and link_action in (None, 'kept_existing', 'already_linked', 'no_agents_md')):
+            and link_action is None):
         if all((root/name).is_file() and (root/name).read_bytes() == data for name, data in files.items()):
             print(json.dumps({'status': 'unchanged', 'project': str(root)}))
             mode = apply_permissions(root, args.host_jev, getattr(args, 'permissions', None))
@@ -959,7 +916,6 @@ def _install(args):
         manifest = {'schema': 1, 'project': str(root), 'source_sha': sha, 'source_digest': source_hash.hexdigest(),
                     'with_jev': args.with_jev, 'host_jev': args.host_jev, 'contexts': args.context,
                     'expose_skills': expose, 'clients': list(clients),
-                    'claude_import': claude_import, 'claude_md_link': (owned_link and link_action != 'remove') or link_action == 'create',
                     'created_dirs': created_client_directories(root, files, previous),
                     'files': {n: digest(v) for n, v in files.items() if n not in released}}
         (stage / 'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
@@ -1014,12 +970,7 @@ def _install(args):
             target.unlink(missing_ok=True)
             prune_empty_parents(root, target)
             published[name] = None
-        if link_action == 'create':
-            if link.exists() or link.is_symlink():
-                raise ValueError(f'Concurrent modification: {CLAUDE_MD}')
-            link.symlink_to('AGENTS.md')
-            link_changed = 'created'
-        elif link_action == 'remove' and is_our_claude_link(root):
+        if link_action == 'remove' and is_our_claude_link(root):
             link.unlink()
             link_changed = 'removed'
         if args.with_jev:
@@ -1030,8 +981,6 @@ def _install(args):
                 os.close(fd)
         rules = exclude_rules((n for n in files if n not in released),
                               created={n for n, v in originals.items() if v is None})
-        if manifest['claude_md_link']:
-            rules.append('/' + CLAUDE_MD)
         write_git_exclude(root, rules)
         if args.init:
             state = safe_path(root, 'datarim')
@@ -1046,14 +995,12 @@ def _install(args):
             manifest['created_dirs'] = [d for d in manifest['created_dirs'] if d not in removed]
             (runtime/'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
         mode = apply_permissions(root, args.host_jev, getattr(args, 'permissions', None))
-        print(json.dumps({'status': 'installed', **manifest, 'claude_md': link_action}))
+        print(json.dumps({'status': 'installed', **manifest}))
         print(report_block(root, args.host_jev, args.with_jev, mode, clients), file=sys.stderr)
     except Exception:
         recovery = []
         try:
-            if link_changed == 'created' and is_our_claude_link(root):
-                link.unlink()
-            elif link_changed == 'removed' and not (link.exists() or link.is_symlink()):
+            if link_changed == 'removed' and not (link.exists() or link.is_symlink()):
                 link.symlink_to('AGENTS.md')
         except OSError:
             recovery.append({'path': CLAUDE_MD, 'status': 'restore_failed'})
@@ -1174,9 +1121,8 @@ def main():
                              'or give a comma list. Required on a fresh install; an update keeps the recorded '
                              'list. A client left out on update loses its managed files and hooks.')
     parser.add_argument('--claude-import', action=argparse.BooleanOptionalAction, default=None,
-                        help='Link CLAUDE.md to the project AGENTS.md so Claude Code, which reads only '
-                             'CLAUDE.md, loads the project rules. Only created when no CLAUDE.md exists; '
-                             'kept across updates; --no-claude-import removes the link this install made')
+                        help='DEPRECATED, accepted and ignored: Claude Code reads AGENTS.md natively and the '
+                             'installer never creates CLAUDE.md')
     parser.add_argument('--permissions', choices=('ask', 'full'), default=None,
                         help='Permission mode for the jev* launchers (as `jev permissions`). Required on a '
                              'fresh install; an update keeps the current mode')

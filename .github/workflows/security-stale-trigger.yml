@@ -2,7 +2,7 @@
 # ecosystem. Cron Monday 09:00 UTC; POSTs to Ops Bot /events when an entry's
 # re_review date has passed.
 #
-# Canonical contract: consumer ecosystem CLAUDE.md
+# Canonical contract: consumer ecosystem AGENTS.md
 # § Arcanada Ecosystem Security Policy Mandate.
 #
 # Severity ladder:

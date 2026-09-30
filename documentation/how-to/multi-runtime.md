@@ -27,12 +27,12 @@ the agent to read the framework rules from there. Nothing is added to
 that never runs a command never loads the framework. All generated paths are
 hidden from git through `.git/info/exclude`.
 
-Claude Code reads `CLAUDE.md`, not `AGENTS.md`. `--claude-import` makes your
-project rules visible to it by creating `CLAUDE.md` as a symlink to
-`AGENTS.md`, only when no `CLAUDE.md` exists; it never changes an existing
-file, is kept across updates, and `--no-claude-import` or uninstall removes only
-the link it made. The `/dr-*` commands do not need it: each names the runtime
-itself.
+Claude Code reads your project's `AGENTS.md` natively, so the installer never
+creates `CLAUDE.md`. `--claude-import` and `--no-claude-import` are deprecated:
+they are still accepted, print a notice and do nothing, so existing command
+lines keep working. An update or uninstall removes only a `CLAUDE.md` symlink
+that an older release recorded as its own; any other `CLAUDE.md` is never
+touched. The `/dr-*` commands need none of this: each names the runtime itself.
 
 `--expose-skills` additionally places every framework skill in each client's
 automatic discovery. Their descriptions are then part of every session's

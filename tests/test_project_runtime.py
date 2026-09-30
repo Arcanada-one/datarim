@@ -501,7 +501,7 @@ class InstallationLifecycleTests(unittest.TestCase):
         text = project_install.refusal_text(self.project, 'feedc0de')
         for needle in ('STOP. Nothing was installed. Ask the user these questions and wait for the answers. '
                        'Do not choose for them.', 'works WITHOUT any key', '"no key" is not a reason',
-                       '--without-jev', '--with-jev', '--host-jev', '--client', '--claude-import',
+                       '--without-jev', '--with-jev', '--host-jev', '--client',
                        '--permissions ask', '--permissions full', '--init', '--expose-skills', 'release tag',
                        'main', f"Rerun with the user's answers: ./install.sh --project {self.project} "
                                '--answers feedc0de <flags>'):
@@ -517,12 +517,13 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertNotIn('NONINTERACTIVE', text)
         self.assertNotIn('NONINTERACTIVE', (ROOT/'scripts/project_install.py').read_text())
 
-    def test_without_agents_md_the_refusal_does_not_offer_the_claude_link(self):
-        (self.project/'AGENTS.md').unlink()
-        text = project_install.refusal_text(self.project, 'feedc0de')
-        self.assertIn('(CLAUDE.md link: not offered, the project has no AGENTS.md)', text)
-        self.assertNotIn('--claude-import', text)
-        self.assertNotIn('also link CLAUDE.md', text)
+    def test_the_refusal_never_mentions_claude_md_or_the_retired_flag(self):
+        for has_agents in (True, False):
+            if not has_agents:
+                (self.project/'AGENTS.md').unlink()
+            text = project_install.refusal_text(self.project, 'feedc0de', self.with_args(claude_import=True))
+            self.assertNotIn('CLAUDE.md', text)
+            self.assertNotIn('claude-import', text)
 
     def test_no_source_constant_carries_the_rerun_line_or_a_token(self):
         for name in ('CHOICE_QUESTIONS', 'FLAG_TABLE'):
@@ -540,7 +541,7 @@ class InstallationLifecycleTests(unittest.TestCase):
             cells = [c.strip() for c in line.strip().strip('|').split('|')]
             if len(cells) == 3 and re.fullmatch(r'\d+a?', cells[0]):
                 table[cells[0]] = cells[2].replace('`', '')
-        rows = {'jev': '1', 'clients': '2', 'claude_import': '2a', 'permission': '3', 'init': '4',
+        rows = {'jev': '1', 'clients': '2', 'permission': '3', 'init': '4',
                 'expose_skills': '5', 'release': '6'}
         self.assertEqual(set(rows), set(project_install.QUESTION_DEFAULTS))
         for key, default in project_install.QUESTION_DEFAULTS.items():
@@ -634,20 +635,17 @@ class InstallationLifecycleTests(unittest.TestCase):
     def test_the_agents_md_line_follows_the_project(self):
         block = project_install.report_block(self.project, False, False, 'ask', ('claude',))
         self.assertIn('\nAGENTS.md is not modified by the installer\n', block)
-        (self.project/'CLAUDE.md').symlink_to('AGENTS.md')
-        block = project_install.report_block(self.project, False, False, 'ask', ('claude',))
-        self.assertIn('\nAGENTS.md is not modified; CLAUDE.md links to it\n', block)
-        self.assertNotIn('not modified by the installer', block)
-        (self.project/'CLAUDE.md').unlink()
         (self.project/'AGENTS.md').unlink()
         self.assertNotIn('AGENTS.md', project_install.report_block(self.project, False, False, 'ask', ('claude',)))
 
-    def test_claude_import_install_reports_the_link(self):
+    def test_claude_import_is_a_deprecated_no_op_with_a_notice(self):
         import contextlib, io
         err = io.StringIO()
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
             project_install.install(self.with_args(client=('claude',), claude_import=True))
-        self.assertIn('AGENTS.md is not modified; CLAUDE.md links to it', err.getvalue())
+        self.assertIn('Deprecated: --claude-import', err.getvalue())
+        self.assertNotIn('CLAUDE.md links to it', err.getvalue())
+        self.assertNoClaudeMd()
 
     def test_the_packaged_commands_line_names_only_the_chosen_clients(self):
         text = project_install.report_block(self.project, False, False, 'ask', ('cursor',))
@@ -721,67 +719,85 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertIn('Unknown client', run.stderr)
 
     # -- Claude Code and AGENTS.md --------------------------------------------
-    # Claude Code loads CLAUDE.md, not AGENTS.md. --claude-import links the
-    # one to the other; a symlink rather than an `@AGENTS.md` import line,
-    # because the import was observed to be ignored in sessions started in a
-    # subdirectory, while the symlink was read there as well.
+    # Claude Code reads AGENTS.md natively, so the installer never creates
+    # CLAUDE.md. --claude-import / --no-claude-import stay accepted (deprecated
+    # no-ops) so existing scripts and pinned command lines keep working.
 
-    def test_claude_import_links_keeps_and_removes_the_link(self):
-        project_install.install(self.with_args(claude_import=True))
-        link = self.project/'CLAUDE.md'
-        self.assertTrue(link.is_symlink())
-        self.assertEqual(os.readlink(link), 'AGENTS.md')
-        self.assertEqual(link.read_text(), '# Original project rules\n')
-        # Sticky: an update without the flag keeps it.
-        (self.source/'VERSION').write_text('next\n')
-        project_install.install(self.args)
-        self.assertTrue(link.is_symlink())
+    def assertNoClaudeMd(self):
+        self.assertFalse((self.project/'CLAUDE.md').exists() or (self.project/'CLAUDE.md').is_symlink())
+
+    def test_claude_import_never_creates_claude_md(self):
+        for value in (True, False, None):
+            with self.subTest(claude_import=value):
+                project_install.install(self.with_args(claude_import=value))
+                self.assertNoClaudeMd()
+                (self.source/'VERSION').write_text(f'next-{value}\n')
         project_install.uninstall(self.args)
-        self.assertFalse(link.exists() or link.is_symlink())
+        self.assertNoClaudeMd()
         self.assertEqual((self.project/'AGENTS.md').read_text(), '# Original project rules\n')
 
-    def test_no_claude_import_removes_only_the_link_this_install_made(self):
-        project_install.install(self.with_args(claude_import=True))
-        project_install.install(self.with_args(claude_import=False))
-        self.assertFalse((self.project/'CLAUDE.md').is_symlink())
-        manifest = json.loads((self.project/'.datarim-runtime/installation.json').read_text())
-        self.assertFalse(manifest['claude_import'])
+    def test_claude_import_needs_neither_agents_md_nor_the_claude_client(self):
+        (self.project/'AGENTS.md').unlink()
+        project_install.install(self.with_args(claude_import=True, client=('codex',)))
+        self.assertNoClaudeMd()
 
-    def test_claude_import_never_touches_an_existing_claude_md(self):
+    def test_a_dry_run_with_the_retired_flag_creates_nothing(self):
+        project_install.install(self.with_args(claude_import=True, dry_run=True))
+        self.assertNoClaudeMd()
+
+    def test_cli_accepts_the_retired_flags_with_a_notice(self):
+        for flag in ('--claude-import', '--no-claude-import'):
+            with self.subTest(flag=flag):
+                run = subprocess.run([sys.executable, str(ROOT/'scripts/project_install.py'), '--project',
+                                      str(self.project), '--client', 'claude', '--without-jev', '--permissions',
+                                      'ask', flag, '--dry-run'], capture_output=True, text=True)
+                self.assertNotEqual(run.returncode, 2 if 'unrecognized' in run.stderr else -1)
+                self.assertNotIn('unrecognized', run.stderr)
+                self.assertIn('Deprecated: --claude-import', run.stderr)
+                self.assertNoClaudeMd()
+
+    def test_an_existing_claude_md_is_never_touched(self):
         (self.project/'CLAUDE.md').write_text('Always answer in French.\n')
         project_install.install(self.with_args(claude_import=True))
-        self.assertEqual((self.project/'CLAUDE.md').read_text(), 'Always answer in French.\n')
+        (self.source/'VERSION').write_text('next\n')
+        project_install.install(self.args)
         project_install.uninstall(self.args)
         self.assertEqual((self.project/'CLAUDE.md').read_text(), 'Always answer in French.\n')
 
-    def test_a_link_the_operator_made_is_not_removed_on_uninstall(self):
+    def legacy_link_install(self, link_owned=True):
+        project_install.install(self.args)
+        path = self.project/'.datarim-runtime/installation.json'
+        manifest = json.loads(path.read_text())
+        manifest.update({'claude_import': True, 'claude_md_link': link_owned})
+        path.write_text(json.dumps(manifest))
         (self.project/'CLAUDE.md').symlink_to('AGENTS.md')
-        project_install.install(self.with_args(claude_import=True))
+
+    def test_an_update_retires_the_symlink_an_older_release_recorded(self):
+        self.legacy_link_install()
+        (self.source/'VERSION').write_text('next\n')
+        project_install.install(self.args)
+        self.assertNoClaudeMd()
+        self.assertNotIn('claude_md_link', self.manifest())
+        self.assertNotIn('claude_import', self.manifest())
+        self.assertEqual((self.project/'AGENTS.md').read_text(), '# Original project rules\n')
+
+    def test_uninstall_removes_a_recorded_legacy_symlink(self):
+        self.legacy_link_install()
+        project_install.uninstall(self.args)
+        self.assertNoClaudeMd()
+
+    def test_a_symlink_the_operator_made_survives_update_and_uninstall(self):
+        self.legacy_link_install(link_owned=False)
+        (self.source/'VERSION').write_text('next\n')
+        project_install.install(self.args)
         project_install.uninstall(self.args)
         self.assertTrue((self.project/'CLAUDE.md').is_symlink())
 
-    def test_claude_import_needs_an_agents_md_and_the_claude_client(self):
-        (self.project/'AGENTS.md').unlink()
-        with self.assertRaisesRegex(ValueError, 'no AGENTS.md'):
-            project_install.install(self.with_args(claude_import=True))
-        (self.project/'AGENTS.md').write_text('# Rules\n')
-        with self.assertRaisesRegex(ValueError, 'claude client'):
-            project_install.install(self.with_args(claude_import=True, client=('codex',)))
-        self.assertFalse((self.project/'.datarim-runtime').exists())
-
-    def test_without_the_flag_no_claude_md_is_created(self):
-        project_install.install(self.args)
-        self.assertFalse((self.project/'CLAUDE.md').exists() or (self.project/'CLAUDE.md').is_symlink())
-
-    def test_the_link_is_hidden_from_git_status(self):
-        subprocess.run(['git', 'init', '-q', str(self.project)], check=True)
-        subprocess.run(['git', '-C', str(self.project), 'add', '-A'], check=True)
-        subprocess.run(['git', '-C', str(self.project), '-c', 'user.email=t@t', '-c', 'user.name=t',
-                        'commit', '-qm', 'init'], check=True)
-        project_install.install(self.with_args(claude_import=True))
-        status = subprocess.run(['git', '-C', str(self.project), 'status', '--porcelain'],
-                                capture_output=True, text=True, check=True).stdout
-        self.assertEqual(status, '')
+    def test_the_product_source_never_writes_claude_md(self):
+        text = (ROOT/'scripts/project_install.py').read_text()
+        # The one remaining symlink_to restores a legacy link when its own removal is rolled back.
+        self.assertEqual(text.count("symlink_to('AGENTS.md')"), 1)
+        self.assertNotIn("link_action = 'create'", text)
 
     def test_concurrent_change_during_copy_is_preserved(self):
         target = self.project/'.claude/commands/dr-do.md'
@@ -1019,48 +1035,25 @@ class AnswersTokenTests(unittest.TestCase):
         self.assertFalse(project_install.answers_token_valid(self.project, first))
         self.assertTrue(project_install.answers_token_valid(self.project, second))
 
-    def test_claude_import_without_agents_md_fails_before_touching_the_token(self):
-        (self.project/'AGENTS.md').unlink()
-        token = self.refused_token()
-        before = (self.project/'.git/datarim-install-answers').read_bytes()
-        with self.assertRaisesRegex(ValueError, 'no AGENTS.md'):
-            project_install.install(self.args(answers=token, claude_import=True))
-        self.assertEqual((self.project/'.git/datarim-install-answers').read_bytes(), before)
-        self.assertTrue(project_install.answers_token_valid(self.project, token))
-        self.assertEqual(self.tree(), [])
-        with self.assertRaisesRegex(ValueError, 'no AGENTS.md'):
-            project_install.install(self.args(claude_import=True))  # no token: still no new one issued
-        self.assertEqual((self.project/'.git/datarim-install-answers').read_bytes(), before)
-
-    def test_a_terminal_says_the_claude_link_is_not_offered_without_agents_md(self):
-        (self.project/'AGENTS.md').unlink()
-        said = []
-        args = self.args(client=None, init=True)
-        answers = iter(['claude', 'no'])
-        project_install.answers_gate(args, self.project, interactive=True, ask=lambda p: next(answers),
-                                     say=said.append)
-        self.assertIn(project_install.NO_CLAUDE_LINK, said)
-        self.assertIsNone(getattr(args, 'claude_import', None))
-
     def test_a_terminal_asks_for_the_missing_answers(self):
-        answers = iter(['project', 'claude,codex', '', 'full', '', ''])
+        answers = iter(['project', 'claude,codex', 'full', '', ''])
         asked, said = [], []
         def ask(prompt):
             asked.append(prompt)
             return next(answers)
         args = self.args(with_jev=None, client=None, permissions=None)
         # The clients default is the clients installed on the machine; pin it so a runner with none installed
-        # asks the same six questions.
+        # asks the same five questions.
         with patch.dict(os.environ, {'HOME': self.tmp.name}), \
                 patch.object(project_install, 'installed_clients', return_value=('claude',)):
             gate = project_install.answers_gate(args, self.project, interactive=True, ask=ask, say=said.append)
         self.assertEqual(gate, 'interactive')
         self.assertEqual((args.with_jev, args.client, args.permissions), (True, ('claude', 'codex'), 'full'))
-        self.assertTrue(args.claude_import, 'Enter took the default: link CLAUDE.md')
+        self.assertIsNone(getattr(args, 'claude_import', None))
         self.assertTrue(args.init, 'Enter took the default: create the task files')
         self.assertFalse(args.expose_skills)
         self.assertTrue(any('without any key' in line for line in said))
-        self.assertEqual(len(asked), 6)
+        self.assertEqual(len(asked), 5)
         self.assertTrue(all('default' in prompt for prompt in asked))
 
     def test_a_terminal_re_asks_an_invalid_answer_and_cancels_on_eof(self):

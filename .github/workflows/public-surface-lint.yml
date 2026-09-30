@@ -1,5 +1,5 @@
 # Reusable workflow — Public Surface Hygiene Mandate gate.
-# See $HOME/.claude/CLAUDE.md (consumer ecosystem) § Public Surface Hygiene
+# See the consumer ecosystem AGENTS.md § Public Surface Hygiene
 # Mandate for the canonical text; framework contract surface lives in
 # dev-tools/public-surface-lint.sh + dev-tools/public-surface-forbidden.regex.
 #

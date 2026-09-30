@@ -8,7 +8,7 @@ name: framework-gates
 # version-consistency) exit 1 on the tree as of wiring; that is the point. A
 # gate is only worth having if it is allowed to be red.
 #
-# No `paths:` filter: these gates guard README/CLAUDE.md/VERSION/CHANGELOG
+# No `paths:` filter: these gates guard README/AGENTS.md/VERSION/CHANGELOG
 # consistency, which is exactly what a release PR touches. Filtering by path is
 # how a release-time gate ends up never running at release time.
 #
@@ -77,7 +77,7 @@ jobs:
           persist-credentials: false
 
       # `all` covers every scope token the script knows, not just the
-      # commands,skills,agents default. CLAUDE.md § English-Only Shipped
+      # commands,skills,agents default. AGENTS.md § English-Only Shipped
       # Instruction Surface describes this as fail-hard at the end of the
       # rewrite; wiring it blocking here is that flip.
       - name: Check shipped instruction surface is English-only

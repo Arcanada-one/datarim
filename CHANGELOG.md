@@ -4,6 +4,21 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The project installer never creates `CLAUDE.md`: Claude Code reads `AGENTS.md` natively (measured on Claude Code
+  2.1.285, from the repository root and from subdirectories), so the symlink adapter is obsolete. `--claude-import`
+  and `--no-claude-import` are deprecated: they are still accepted, print a notice on stderr and do nothing, so
+  existing command lines and pinned scripts keep working. The install questions drop the `CLAUDE.md` link question
+  (five questions are asked interactively; the printed list keeps six numbered items with the release choice), and
+  the refusal text, the flag table, `INSTALL.md` and the report block no longer mention the link. An update or
+  uninstall removes only a `CLAUDE.md` symlink that an older release recorded as its own; any other `CLAUDE.md` is
+  never touched.
+- `dev-tools/check-skill-frontmatter.sh` now fails on a `CLAUDE.md` in any form: file, symlink, dangling link, any
+  letter case, any depth (only `.git` is skipped). Live references in workflow comments, the `dev-tools-lint.yml`
+  path filter, the doc-coverage fixture (renamed to `test-command-doc-coverage-agents.yml`) and the release-process
+  playbook now name `AGENTS.md`.
+
 ## [4.0.5] — 2026-09-25
 
 ### Fixed

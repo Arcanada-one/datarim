@@ -1,7 +1,7 @@
 # Personal-identifier hygiene gate.
 # Scans the shipped framework surface for personal names, handles, hostnames,
 # numeric GIDs, and Vault paths that must not appear in public artefacts.
-# See Security Mandate § S3 (personal data) in CLAUDE.md for the canonical
+# See Security Mandate § S3 (personal data) in AGENTS.md for the canonical
 # policy text; the machine-readable contract surface lives in
 # dev-tools/personal-id-forbidden.regex + scripts/personal-id-gate.sh.
 

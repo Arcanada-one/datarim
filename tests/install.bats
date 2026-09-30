@@ -207,12 +207,22 @@ CHECK
     [ ! -e "$PROJECT/.git/datarim-install-answers" ]
 }
 
-@test "without an AGENTS.md the refusal does not offer the CLAUDE.md link" {
+@test "the refusal never offers a CLAUDE.md link, with or without an AGENTS.md" {
     install_project --without-jev --client claude --permissions ask
     [ "$status" -eq 2 ]
-    [[ "$output" == *'(CLAUDE.md link: not offered, the project has no AGENTS.md)'* ]]
-    [[ "$output" != *'--claude-import'* ]]
+    [[ "$output" != *'CLAUDE.md'* ]]
+    [[ "$output" != *'claude-import'* ]]
     printf '# Rules\n' > "$PROJECT/AGENTS.md"
     install_project --without-jev --client claude --permissions ask
-    [[ "$output" == *'--claude-import'* ]]
+    [[ "$output" != *'CLAUDE.md'* ]]
+    [[ "$output" != *'claude-import'* ]]
+}
+
+@test "the retired --claude-import flag is accepted with a notice and never creates CLAUDE.md" {
+    printf '# Rules\n' > "$PROJECT/AGENTS.md"
+    install_answered --client claude --permissions ask --without-jev --claude-import
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'Deprecated: --claude-import'* ]]
+    [ ! -e "$PROJECT/CLAUDE.md" ]
+    [ ! -L "$PROJECT/CLAUDE.md" ]
 }

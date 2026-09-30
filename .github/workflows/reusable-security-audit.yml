@@ -1,5 +1,5 @@
 # Reusable workflow — Arcanada Ecosystem security-audit gate.
-# Canonical contract: consumer ecosystem CLAUDE.md
+# Canonical contract: consumer ecosystem AGENTS.md
 # § Arcanada Ecosystem Security Policy Mandate.
 #
 # Drop into consumer .github/workflows/ci.yml:
