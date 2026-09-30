@@ -5,7 +5,7 @@ sys.path.insert(0,str(Path(__file__).parent))
 # The safety floor is imported FIRST and on its own: it has no dependency
 # beyond the standard library, so an import failure anywhere in the advisory
 # stack (jev_client, route) must not be able to take the guard down with it.
-from safety_floor import destructive_reason
+from safety_floor import destructive_reason, _segments, _split, _strip_wrappers
 
 # The advisory-layer imports are wrapped so a broken control plane degrades to
 # "floor only" rather than "no hook at all". They stay module-level names so
@@ -19,20 +19,57 @@ except Exception:  # pragma: no cover - exercised by the degraded-import test
 # These are cost signals, not an authorization parser. In particular, the
 # executor may already be root: neither a missing `sudo` nor the hook's uid
 # proves that an installation script is an ordinary local test.
-_PRIVILEGED_PATH = re.compile(r'\bsudoers(?:\.d)?\b|(?:^|/)systemd(?:/|$)', re.I)
+_PRIVILEGED_PATH = re.compile(
+    r'\bsudoers(?:\.d)?\b|(?:^|/)systemd(?:/|$)|/(?:etc|usr/local|var/lib)(?:/|$)', re.I)
 _INSTALL_SIGNAL = re.compile(
     r'''(?:^|[/\s"'])(?:bootstrap|install|setup|provision|deploy)(?=[/_.\s"'-]|$)''', re.I)
 _RISK_COMMAND = re.compile(
     r'\b(rm|mv|chmod|chown|sudo|ssh|scp|rsync|curl|wget|kubectl|helm|terraform|'
-    r'ansible|docker|podman|systemctl|npm\s+publish|git\s+(push|reset|clean|checkout|'
+    r'ansible|docker|podman|systemctl|useradd|usermod|userdel|groupadd|visudo|crontab|'
+    r'iptables|ip6tables|nft|npm\s+publish|git\s+(push|reset|clean|checkout|'
     r'switch|rebase|merge)|gh\s+|aws\s+|gcloud\s+|az\s+|psql|mysql|redis-cli)\b|sed\s+-i', re.I)
 # Skip quoted/escaped literal bytes and standalone descriptor placeholders.
 # An attached suffix (<input>output) is real shell syntax, not a placeholder.
-# Duplication (2>&1) is not an output-file write; &>file and >>file still are.
+# Targets are inspected separately: fd duplication and exact /dev/null are not
+# output-file writes; neighboring redirects still need their own inspection.
 _OUTPUT_REDIRECT = re.compile(
-    r"'[^']*'|\"(?:\\.|[^\"\\])*\"|\\.|(?<!\S)<[A-Za-z_][\w.-]*>(?=\s|$)|(?P<write>>)(?!&)")
+    r"'[^']*'|\"(?:\\.|[^\"\\])*\"|\\.|(?<!\S)<[A-Za-z_][\w.-]*>(?=\s|$)|(?P<write>>{1,2}\|?)")
+_DISCARD_TARGET = re.compile(r'''\s*(?:/dev/null|'/dev/null'|"/dev/null"|&(?:[0-9]+|-))(?=$|[\s;&|<>])''')
 _SHELL_CODE = re.compile(r'\b(?:bash|sh|dash|zsh|ksh)\s+(?:--?[\w=-]+\s+)*-[a-z]*c\b', re.I)
 _INLINE_CODE = re.compile(r'''(?<!\w)-(?:[a-z]*c|e(?=[\s'"]|$))|--(?:command|eval)\b|<<|\$\(|`''')
+_SCRIPT_SUFFIX = re.compile(r'\.(?:sh|bash|zsh|py|js|mjs|cjs|ts|rb|pl)(?:$|[<>])', re.I)
+_PRODUCTION_SIGNAL = re.compile(r'\b(?:DATABASE_URL|PGHOST|NODE_ENV\s*=\s*production)\b')
+_CREDENTIAL_OPTION = re.compile(
+    r'''(?<!\w)--?(?:api[-_]?key|password|passwd|token|secret|client[-_]?secret|access[-_]?key|credential|authorization)(?=[=\s'"]|$)''', re.I)
+
+
+def repository_execution_signal(command):
+    """Unknown script bodies and operational targets require advice, not reads.
+
+    Reuse the floor's pure argv/wrapper splitting without changing its policy.
+    No file opening, expansion, execution, or assumption about the executor uid.
+    """
+    if len(command) > 16384:
+        return True  # Bound argv parsing work; oversized commands are unknown.
+    interpreters = {'bash', 'sh', 'dash', 'zsh', 'ksh', '.', 'source',
+                    'python', 'python3', 'node', 'nodejs', 'ruby', 'perl', 'tsx'}
+    for segment in _segments(command):
+        argv = _strip_wrappers(_split(segment))
+        while argv and re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', argv[0]):
+            argv = _strip_wrappers(argv[1:])
+        if not argv:
+            continue
+        name = argv[0].rsplit('/', 1)[-1]
+        if argv[0].startswith(('./', '../')) or _SCRIPT_SUFFIX.search(argv[0]):
+            return True
+        if name in interpreters and any(_SCRIPT_SUFFIX.search(arg) for arg in argv[1:]):
+            return True
+        if name in ('make', 'pnpm', 'npm', 'yarn', 'bun') and any(
+                re.fullmatch(r'(?:deploy|release|sync|migrate)(?:[-:\w]*)', arg) for arg in argv[1:]):
+            return True
+        if name == 'arcana' and len(argv) > 1 and argv[1] in ('login', 'run'):
+            return True
+    return False
 
 
 def shell_risk_signal(command):
@@ -44,15 +81,26 @@ def shell_risk_signal(command):
     """
     if (_RISK_COMMAND.search(command) or _PRIVILEGED_PATH.search(command)
             or _INSTALL_SIGNAL.search(command) or _SHELL_CODE.search(command)
+            or _PRODUCTION_SIGNAL.search(command) or repository_execution_signal(command)
             or '$(' in command or '`' in command):
         return True
-    return any(match.lastgroup == 'write' for match in _OUTPUT_REDIRECT.finditer(command))
+    return any(match.lastgroup == 'write' and not _DISCARD_TARGET.match(command, match.end())
+               for match in _OUTPUT_REDIRECT.finditer(command))
 
 
 def descriptor_state(descriptor):
-    """Scrub before bounding fields; preserve valid JSON and both command ends."""
+    """Omit oversized fields whole, then scrub before bounding the JSON.
+
+    Do not truncate raw secret-bearing text into fragments. Whole-field omission
+    also bounds work for the ledger's regex scrubber on huge unbroken strings.
+    """
     from ledger import _scrub
-    clean = _scrub(descriptor)
+    bounded = dict(descriptor)
+    for key, value in descriptor.items():
+        if isinstance(value, str) and len(value) > 4096:
+            bounded[key] = '[oversized field omitted]'
+            bounded['descriptor_truncated'] = True
+    clean = _scrub(bounded)
     state = json.dumps(clean, ensure_ascii=False)
     while len(state) > 12000:
         clean['descriptor_truncated'] = True
@@ -95,7 +143,8 @@ def main():
     cfg=load_cfg()
     if not cfg.get('hooks',{}).get('pretool_risk',True):return 0
     # Cost guard: only ask Jev about calls with a plausible mutation/external-risk signal.
-    # Ordinary reads, tests, grep, git diff/status/log, and normal source edits do not pay an API round-trip.
+    # Ordinary reads, known test-runner invocations and normal source edits stay
+    # cheap; an arbitrary repository script can hide privileged/external writes.
     workdir = str(inp.get('workdir', inp.get('cwd', p.get('cwd', '')))) if isinstance(inp, dict) else ''
     privileged_workdir = bool(_PRIVILEGED_PATH.search(workdir))
     low=(tool.lower() in ('read','grep','glob','view')
@@ -128,16 +177,31 @@ def main():
         signals.append('privileged_path_or_workdir')
     if shell_tool and _INSTALL_SIGNAL.search(cmd):
         signals.append('installation_or_deploy')
+    if shell_tool and repository_execution_signal(cmd):
+        signals.append('repository_script_or_opaque_execution')
+    if shell_tool and _PRODUCTION_SIGNAL.search(cmd):
+        signals.append('production_environment_or_database')
     if shell_tool:
         descriptor['command'] = cmd
-        if _INLINE_CODE.search(cmd):
+        credential_option = bool(_CREDENTIAL_OPTION.search(cmd))
+        if _INLINE_CODE.search(cmd) or credential_option or len(cmd) > 4096:
             # Inline programs / here-docs can contain literal file bodies.
             # Send the cost signals and path tokens, not that source text.
-            descriptor['command'] = '[inline code omitted]'
-            targets = re.findall(r'/[A-Za-z0-9_./@+-]+', cmd)
-            descriptor['path'] = '\n'.join(target for target in targets
-                                           if _PRIVILEGED_PATH.search(target))[:4000]
-            signals.append('inline_code_omitted')
+            oversized = len(cmd) > 4096
+            omission = ('oversized_command_omitted' if oversized else
+                        'credential_argument_omitted' if credential_option else 'inline_code_omitted')
+            descriptor['command'] = '[' + omission.replace('_', ' ') + ']'
+            # Never copy substrings from omitted source: a credential or file
+            # body may itself look like a privileged path. Emit fixed categories
+            # only, and no command-derived paths at all for credential options.
+            if not credential_option:
+                roots = ('/etc/sudoers.d', '/etc/sudoers', '/etc/systemd',
+                         '/usr/lib/systemd', '/lib/systemd', '/run/systemd',
+                         '/etc', '/usr/local', '/var/lib')
+                descriptor['path'] = '\n'.join(root for root in roots if root in cmd)
+            signals.append(omission)
+            if oversized:
+                descriptor['descriptor_truncated'] = True
     descriptor['risk_signals'] = signals
     s=descriptor_state(descriptor)
     q={"risky":{"type":"noul","instructions":"Is this proposed tool call destructive, irreversible, security-sensitive, secret-exposing, production-changing, externally mutating, or otherwise deserving explicit review before autonomous execution?"}}

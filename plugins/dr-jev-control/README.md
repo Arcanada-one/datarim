@@ -52,13 +52,25 @@ The pre-tool cost guard sends sudoers/systemd paths and installation, bootstrap,
 setup, provision or deploy signals to the native `risky` question even without
 `sudo`: the executor may already be privileged. Explicit working directories,
 Write/Edit paths and patch headers (including rename destinations) are inspected.
+Protected path signals include `/etc`, `/usr/local` and `/var/lib`. Unknown
+repository script invocations (including scripts named as tests), operational
+deploy/release/sync/migrate targets, credential login and dynamic agent runs are
+evaluated because their bodies may hide DB, API or privileged writes. Script
+contents and the hook process uid are not used to infer safety. Oversized commands
+are treated as unknown to bound argv parsing work.
 Files are never opened by this guard; edit bodies and inline program/here-doc
-bodies are omitted. Shell descriptors still include ordinary command arguments,
-with the ledger's credential scrubbing applied before bounding the JSON fields.
+bodies are omitted. Commands with recognized credential options (for example
+`--api-key VALUE`) and oversized fields are omitted whole. Shell descriptors
+still include ordinary command arguments, with credential scrubbing applied
+before bounding the JSON. Fixed privileged-path categories and risk signals remain
+when command source is omitted; credential options suppress command-derived paths
+entirely. No raw substrings are recovered from omitted source text.
 These are conservative signals, not proof of a write or a complete shell parser.
 Opaque shell `-c` code and substitutions are evaluated conservatively. Quoted
 or escaped `>` and standalone `<placeholder>` descriptors do not by themselves
-count as output-file redirections; actual redirections alongside them still do.
+count as output-file redirections. Exact `/dev/null` targets and fd duplication
+are excluded only from the redirection signal; neighboring writes and independent
+risk signals still evaluate. Quoted comparisons such as `print(1 >= 0)` stay cheap.
 Advice remains optional and fail-open on an API error. A high score requests
 native permission only with `enforce_jev_denials`; this guard does not itself
 authorize commands or establish that an arbitrary script is safe.

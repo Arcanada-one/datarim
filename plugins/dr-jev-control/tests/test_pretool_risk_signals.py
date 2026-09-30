@@ -99,7 +99,6 @@ class PretoolRiskSignals(unittest.TestCase):
 
     def test_ordinary_reads_tests_and_edits_stay_cheap(self):
         for tool, inputs in [('Read', {'file_path': '/etc/sudoers'}),
-                             ('Bash', {'command': 'bash tests/check.sh'}),
                              ('Bash', {'command': 'python3 -m unittest discover'}),
                              ('Write', {'file_path': 'src/app.py', 'content': 'test'}),
                              ('apply_patch', {'patch': '*** Update File: src/app.py\n+test'})]:
@@ -107,6 +106,67 @@ class PretoolRiskSignals(unittest.TestCase):
                 evaluate, output = self.invoke(tool, inputs)
                 evaluate.assert_not_called()
                 self.assertEqual(output, {})
+
+    def test_census_f1_source_wrappers_reach_question(self):
+        commands = [
+            'bash deploy/broker/bootstrap-host.sh ./reviewed-checkout',
+            'node dist/../scripts/support-sync.js',
+            'bash deploy/monitoring/talomnia-monitor.sh',
+            # Unknown repository scripts can hide production DB/API writes.
+            './worker.sh', 'bash tests/check.sh', 'python3 scripts/worker.py',
+            'env NODE_ENV=production node scripts/worker.js',
+            'cd checkout && node scripts/worker.js',
+            'arcana login', 'arcana run task',
+        ]
+        for command in commands:
+            for tool, field in [('Bash', 'command'), ('exec_command', 'cmd')]:
+                with self.subTest(command=command, tool=tool):
+                    self.assert_question(tool, {field: command})
+
+    def test_census_f1_privilege_and_production_reach_question(self):
+        commands = [
+            'install -m 0440 f /etc/sudoers.d/x', 'systemctl daemon-reload',
+            'bash -c "useradd x"', './deploy.sh prod', 'make deploy', 'pnpm deploy',
+            'make release', 'pnpm run sync', 'npm run migrate',
+            'useradd service', 'visudo -c', 'crontab jobs', 'iptables -A INPUT -j DROP',
+            'cp config /etc/service.conf', 'touch /usr/local/sbin/service',
+            'tee /var/lib/service/ledger.json',
+            # Direct DB/POST already matched the old list; retain that protection.
+            'psql "$DATABASE_URL" -c "UPDATE records SET active=false"',
+            'node -e "connect(process.env.DATABASE_URL)"',
+            'curl -X POST https://example.invalid/events -d @event.json',
+        ]
+        for command in commands:
+            for tool, field in [('Bash', 'command'), ('exec_command', 'cmd')]:
+                with self.subTest(command=command, tool=tool):
+                    self.assert_question(tool, {field: command})
+
+    def test_census_f2_literals_comparisons_and_null_redirects_stay_cheap(self):
+        commands = ['arcana kb-read "<q>"', 'git log --format="<%an>"',
+                    'python3 -c "print(1 >= 0)"', 'echo ">="',
+                    'ls 2>/dev/null', 'ls 2>>/dev/null', 'ls 2>"/dev/null"',
+                    "ls 2>'/dev/null'", 'ls >/dev/null 2>&1', 'ls &>/dev/null',
+                    'cat scripts/worker.js', 'node --version']
+        for command in commands:
+            for tool, field in [('Bash', 'command'), ('exec_command', 'cmd')]:
+                with self.subTest(command=command, tool=tool):
+                    evaluate, output = self.invoke(tool, {field: command})
+                    evaluate.assert_not_called()
+                    self.assertEqual(output, {})
+
+    def test_census_f2_exclusions_cannot_mask_real_risks(self):
+        commands = ['ls 2>/dev/null >result', 'ls 2>/dev/null; tee /etc/sudoers.d/x',
+                    'node scripts/worker.js 2>/dev/null',
+                    'node scripts/worker.js>/dev/null', 'bash scripts/worker.sh>/dev/null',
+                    'node scripts/worker.js>>"/dev/null"',
+                    'curl -X POST https://example.invalid/events 2>/dev/null',
+                    'echo "<q>" >/dev/null; ./deploy.sh prod',
+                    'ls 2>/dev/null.backup', 'ls 2>"/dev/null".backup',
+                    'ls >&output', 'echo >=output', 'printf ok >']
+        for command in commands:
+            for tool, field in [('Bash', 'command'), ('exec_command', 'cmd')]:
+                with self.subTest(command=command, tool=tool):
+                    self.assert_question(tool, {field: command})
 
     def test_advisory_disabled_and_outage_contracts_preserved(self):
         inputs = {'command': 'bash deploy/broker/bootstrap-host.sh'}
@@ -152,6 +212,10 @@ runpy.run_path(sys.argv[1], run_name='__main__')
         cases = [('bash deploy/broker/bootstrap-host.sh', 'ask'),
                  ('tee /etc/sudoers.d/service', 'ask'),
                  ('touch /etc/systemd/system/service.service', 'ask'),
+                 ('node dist/../scripts/support-sync.js', 'ask'),
+                 ('node scripts/worker.js>/dev/null', 'ask'),
+                 ('ls 2>/dev/null', None), ('arcana kb-read "<q>"', None),
+                 ('python3 -c "print(1 >= 0)"', None),
                  ("echo '<placeholder>'", None), ('echo <placeholder>', None),
                  ("echo '<placeholder>' > result", 'ask'), ('rm -rf /', 'deny')]
         for command, decision in cases:
@@ -173,26 +237,45 @@ runpy.run_path(sys.argv[1], run_name='__main__')
             self.assertEqual(descriptor['workdir'], '/etc/systemd/system')
         self.assert_question('Write', {'file_path': 'service', 'workdir': '/etc/sudoers.d'})
 
-    def test_long_descriptor_preserves_json_risk_signals_and_command_tail(self):
+    def test_long_descriptor_preserves_json_and_privileged_evidence(self):
         command = 'printf '+('x'*12500)+'; tee /etc/sudoers.d/service'
         descriptor = self.assert_question('Bash', {'command': command})
         self.assertTrue(descriptor['descriptor_truncated'])
-        self.assertIn('/etc/sudoers.d/service', descriptor['command'])
+        self.assertEqual(descriptor['command'], '[oversized command omitted]')
+        self.assertIn('/etc/sudoers.d', descriptor['path'])
         self.assertIn('privileged_path_or_workdir', descriptor['risk_signals'])
         self.assertLessEqual(len(json.dumps(descriptor)), 12000)
+
+    def test_oversized_unknown_command_is_evaluated_without_argv_parse(self):
+        with patch.object(hook, '_split', side_effect=AssertionError('unbounded argv parse')):
+            descriptor = self.assert_question('Bash', {'command': 'echo '+('x'*20000)})
+        self.assertTrue(descriptor['descriptor_truncated'])
+        self.assertIn('repository_script_or_opaque_execution', descriptor['risk_signals'])
 
     def test_inline_file_bodies_do_not_enter_model_descriptor(self):
         for command in ["python3 -c \"open('/etc/sudoers.d/service','w').write('PRIVATE_BODY')\"",
                         "python3 -c\"open('/etc/sudoers.d/service','w').write('PRIVATE_BODY')\"",
                         "python3 '-c' \"open('/etc/sudoers.d/service','w').write('PRIVATE_BODY')\"",
                         "ruby -e\"File.write('/etc/sudoers.d/service', 'PRIVATE_BODY')\"",
+                        "python3 -c \"open('/etc/sudoers.d/service','w').write('/etc/PRIVATE_BODY')\"",
                         "bash -c \"printf PRIVATE_BODY > /etc/sudoers.d/service\"",
                         "cat <<'EOF' > /etc/sudoers.d/service\nPRIVATE_BODY\nEOF"]:
             with self.subTest(command=command):
                 descriptor = self.assert_question('Bash', {'command': command})
                 self.assertNotIn('PRIVATE_BODY', json.dumps(descriptor))
-                self.assertIn('/etc/sudoers.d/service', descriptor['path'])
+                self.assertIn('/etc/sudoers.d', descriptor['path'])
                 self.assertIn('inline_code_omitted', descriptor['risk_signals'])
+
+    def test_repository_cli_credentials_are_omitted(self):
+        for command in ['node scripts/worker.js --api-key SYNTHETIC_PRIVATE_VALUE',
+                        'node scripts/worker.js --token=SYNTHETIC_PRIVATE_VALUE',
+                        'node scripts/worker.js --password "head/etc/SYNTHETIC_PRIVATE_VALUE"',
+                        "node scripts/worker.js '--password' 'SYNTHETIC_PRIVATE_VALUE'"]:
+            for tool, field in [('Bash', 'command'), ('exec_command', 'cmd')]:
+                with self.subTest(command=command, tool=tool):
+                    descriptor = self.assert_question(tool, {field: command})
+                    self.assertNotIn('SYNTHETIC_PRIVATE_VALUE', json.dumps(descriptor))
+                    self.assertIn('credential_argument_omitted', descriptor['risk_signals'])
 
 
 if __name__ == '__main__':
