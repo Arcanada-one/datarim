@@ -77,10 +77,47 @@ class PretoolRiskSignals(unittest.TestCase):
                     self.assertNotIn('PRIVATE_CONTENT', json.dumps(descriptor))
 
     def test_placeholder_and_quoted_greater_than_are_not_output_redirections(self):
-        for command in ['echo <placeholder>', 'echo <placeholder> tail',
+        for command in ['echo <placeholder>',
                         "printf '%s' '<placeholder>'", 'echo "<placeholder>"',
                         "echo 'a > b'", 'echo "a > b"', r'echo \> tail',
                         'printf ok 2>&1', 'cat <input.txt', 'git status']:
+            with self.subTest(command=command):
+                evaluate, output = self.invoke('Bash', {'command': command})
+                evaluate.assert_not_called()
+                self.assertEqual(output, {})
+
+    def test_review_shell_normalization_and_wrappers(self):
+        commands = ['sys"t"emctl daemon-reload', 'u""seradd service',
+                    r"$'\x73ystemctl' daemon-reload", '"$CMD" daemon-reload',
+                    'cp config /etc ', 'cd /etc; tee hosts', 'git -C /etc commit -am x',
+                    'timeout 60 bash scripts/ops.sh', 'npx tsx scripts/ops.ts',
+                    'nice -n 5 env -i timeout 60 ./worker.sh',
+                    'sort <data> out', 'cp config /e\"\"tc',
+                    r"$'\u0073ystemctl' daemon-reload",
+                    'echo \"$(git branch -D review-branch)\"',
+                    'echo \"$(git diff --output=review-output)\"',
+                    '$(pwd)/ops-runner', 'X=1 $(pwd)/ops-runner',
+                    'stdbuf --output L node scripts/ops.js', 'cat <q> out', 'bash ops-runner',
+                    'setsid bash scripts/ops.sh', 'pnpm exec tsx scripts/ops.ts',
+                    'uv run python scripts/ops.py',
+                    'stdbuf -o L node scripts/ops.js',
+                    "npx -c 'node scripts/ops.js'",
+                    'npm exec -- node scripts/ops.js',
+                    'echo \"$(date -s2026-01-01)\"', r"echo $'\x'"]
+        for command in commands:
+            for tool, field in [('Bash', 'command'), ('exec_command', 'cmd')]:
+                with self.subTest(command=command, tool=tool):
+                    self.assert_question(tool, {field: command})
+
+    def test_review_cost_is_based_on_executed_argv(self):
+        commands = ['echo systemctl daemon-reload',
+                    'printf "%s" install', 'git log --grep=deploy',
+                    'python3 -m pytest tests/test_worker.py',
+                    'python3 -m unittest tests/test_worker.py',
+                    "python3 -c \"print('worker.py')\"",
+                    'echo "$(git rev-parse HEAD)"',
+                    'echo "$(date -u)"', "echo '<data> out'"]
+        for command in commands:
             with self.subTest(command=command):
                 evaluate, output = self.invoke('Bash', {'command': command})
                 evaluate.assert_not_called()
@@ -270,7 +307,8 @@ runpy.run_path(sys.argv[1], run_name='__main__')
         self.assertIn('repository_script_or_opaque_execution', descriptor['risk_signals'])
 
     def test_inline_file_bodies_do_not_enter_model_descriptor(self):
-        for command in ["python3 -c \"open('/etc/sudoers.d/service','w').write('PRIVATE_BODY')\"",
+        for command in ["python3 -\"\"c \"open('/etc/sudoers.d/service','w').write('PRIVATE_BODY')\"",
+                        "python3 -c \"open('/etc/sudoers.d/service','w').write('PRIVATE_BODY')\"",
                         "python3 -c\"open('/etc/sudoers.d/service','w').write('PRIVATE_BODY')\"",
                         "python3 '-c' \"open('/etc/sudoers.d/service','w').write('PRIVATE_BODY')\"",
                         "ruby -e\"File.write('/etc/sudoers.d/service', 'PRIVATE_BODY')\"",
@@ -285,6 +323,7 @@ runpy.run_path(sys.argv[1], run_name='__main__')
 
     def test_repository_cli_credentials_are_omitted(self):
         for command in ['node scripts/worker.js --api-key SYNTHETIC_PRIVATE_VALUE',
+                        'node scripts/worker.js --pass\"\"word SYNTHETIC_PRIVATE_VALUE',
                         'node scripts/worker.js --token=SYNTHETIC_PRIVATE_VALUE',
                         'node scripts/worker.js --password "head/etc/SYNTHETIC_PRIVATE_VALUE"',
                         "node scripts/worker.js '--password' 'SYNTHETIC_PRIVATE_VALUE'"]:

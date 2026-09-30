@@ -20,7 +20,7 @@ except Exception:  # pragma: no cover - exercised by the degraded-import test
 # executor may already be root: neither a missing `sudo` nor the hook's uid
 # proves that an installation script is an ordinary local test.
 _PRIVILEGED_PATH = re.compile(
-    r'\bsudoers(?:\.d)?\b|(?:^|/)systemd(?:/|$)|/(?:etc|usr/local|var/lib)(?:/|$)', re.I)
+    r"\bsudoers(?:\.d)?\b|(?:^|/)systemd(?:/|[\s;\"']|$)|/(?:etc|usr/local|var/lib)(?:/|[\s;\"']|$)", re.I)
 _INSTALL_SIGNAL = re.compile(
     r'''(?:^|[/\s"'])(?:bootstrap|install|setup|provision|deploy)(?=[/_.\s"'-]|$)''', re.I)
 _RISK_COMMAND = re.compile(
@@ -33,44 +33,90 @@ _RISK_COMMAND = re.compile(
 # Targets are inspected separately: fd duplication and exact /dev/null are not
 # output-file writes; neighboring redirects still need their own inspection.
 _OUTPUT_REDIRECT = re.compile(
-    r"'[^']*'|\"(?:\\.|[^\"\\])*\"|\\.|(?<!\S)<[A-Za-z_][\w.-]*>(?=\s|$)|(?P<write>>{1,2}\|?)")
+    r"'[^']*'|\"(?:\\.|[^\"\\])*\"|\\.|(?<!\S)<[A-Za-z_][\w.-]*>(?=\s*$)|(?P<write>>{1,2}\|?)")
 _DISCARD_TARGET = re.compile(r'''\s*(?:/dev/null|'/dev/null'|"/dev/null"|&(?:[0-9]+|-))(?=$|[\s;&|<>])''')
 _SHELL_CODE = re.compile(r'\b(?:bash|sh|dash|zsh|ksh)\s+(?:--?[\w=-]+\s+)*-[a-z]*c\b', re.I)
 _INLINE_CODE = re.compile(r'''(?<!\w)-(?:[a-z]*c|e(?=[\s'"]|$))|--(?:command|eval)\b|<<|\$\(|`''')
 _SCRIPT_SUFFIX = re.compile(r'\.(?:sh|bash|zsh|py|js|mjs|cjs|ts|rb|pl)(?:$|[<>])', re.I)
-_TEST_RUNNER_MODULES = frozenset(('pytest', 'unittest'))
 _PRODUCTION_SIGNAL = re.compile(r'\b(?:DATABASE_URL|PGHOST|NODE_ENV\s*=\s*production)\b')
 _CREDENTIAL_OPTION = re.compile(
     r'''(?<!\w)--?(?:api[-_]?key|password|passwd|token|secret|client[-_]?secret|access[-_]?key|credential|authorization)(?=[=\s'"]|$)''', re.I)
 
 
-def repository_execution_signal(command):
-    """Unknown script bodies and operational targets require advice, not reads.
+def _ansi_quotes(command):
+    """Decode ANSI-C quoted words as data, never shell execution/expansion."""
+    def decode(match):
+        body = match.group(1)
+        def escape(m):
+            value = m.group(1)
+            if value.startswith(('x', 'u', 'U')):
+                return chr(int(value[1:], 16))
+            if value[0] in '01234567':
+                return chr(int(value, 8))
+            return {'n': '\n', 'r': '\r', 't': '\t'}.get(value, value)
+        try:
+            body = re.sub(r'\\(x[0-9a-fA-F]{1,2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|[0-7]{1,3}|.)', escape, body)
+        except (ValueError, OverflowError):
+            return '$__JEV_UNKNOWN_ANSI__'
+        # Re-quote decoded bytes for shlex, preserving them as a single word.
+        return "'" + body.replace("'", "'\\''") + "'"
+    return re.sub(r"\$'((?:\\.|[^'\\])*)'", decode, command)
 
-    Reuse the floor's pure argv/wrapper splitting without changing its policy.
-    No file opening, expansion, execution, or assumption about the executor uid.
-    """
+
+def _risk_argv(segment):
+    argv = _split(_ansi_quotes(segment))
+    while argv:
+        previous = argv
+        argv = _strip_wrappers(argv)
+        while argv and re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', argv[0]):
+            argv = argv[1:]
+        if not argv:
+            break
+        name = argv[0].rsplit('/', 1)[-1]
+        if name in ('timeout', 'setsid', 'stdbuf', 'npx'):
+            if name == 'npx' and any(x in ('-c', '--call') or x.startswith('--call=') for x in argv[1:]):
+                return ['$__JEV_UNKNOWN_WRAPPER__']
+            argv = argv[1:]
+            value_flags = {'-k', '--kill-after', '-s', '--signal'} if name == 'timeout' else {'-p', '--package', '-c'} if name == 'npx' else {'-i', '-o', '-e', '--input', '--output', '--error'} if name == 'stdbuf' else set()
+            while argv and argv[0].startswith('-'):
+                flag = argv[0]
+                argv = argv[2:] if flag in value_flags else argv[1:]
+            if name == 'timeout' and argv:
+                argv = argv[1:]  # duration
+        elif name in ('pnpm', 'npm', 'yarn', 'bun', 'uv', 'poetry') and len(argv) > 1 and argv[1] in ('exec', 'run'):
+            if re.fullmatch(r'(?:deploy|release|sync|migrate)(?:[-:\w]*)', argv[2] if len(argv) > 2 else ''):
+                break
+            argv = argv[2:]
+            if argv and argv[0] == '--':
+                argv = argv[1:]
+        if argv == previous:
+            break
+    return argv
+
+
+def repository_execution_signal(command):
+    """Inspect execution operands; filenames inside print/code/test args are data."""
     if len(command) > 16384:
-        return True  # Bound argv parsing work; oversized commands are unknown.
+        return True
     interpreters = {'bash', 'sh', 'dash', 'zsh', 'ksh', '.', 'source',
                     'python', 'python3', 'node', 'nodejs', 'ruby', 'perl', 'tsx'}
     for segment in _segments(command):
-        argv = _strip_wrappers(_split(segment))
-        while argv and re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', argv[0]):
-            argv = _strip_wrappers(argv[1:])
+        argv = _risk_argv(segment)
         if not argv:
             continue
         name = argv[0].rsplit('/', 1)[-1]
+        if '$' in argv[0] or '`' in argv[0]:
+            return True  # Unknown executable, never resolve host environment.
         if argv[0].startswith(('./', '../')) or _SCRIPT_SUFFIX.search(argv[0]):
             return True
-        # `python -m pytest|unittest ...`: the test files are arguments of a known
-        # test runner, not scripts executed by the interpreter. Any other module
-        # keeps the conservative reading below.
-        runner = (re.fullmatch(r'python(?:3(?:\.\d+)?)?', name) and len(argv) > 2
-                  and argv[1] == '-m' and argv[2] in _TEST_RUNNER_MODULES)
-        if (name in interpreters and not runner
-                and any(_SCRIPT_SUFFIX.search(arg) for arg in argv[1:])):
-            return True
+        if name in interpreters:
+            args = argv[1:]
+            if name in ('python', 'python3') and len(args) >= 2 and args[:2] in (['-m', 'pytest'], ['-m', 'unittest']):
+                continue  # Other segments and path/redirect signals still checked.
+            if any(re.fullmatch(r'-[a-z]*c.*' if name in ('bash', 'sh', 'dash', 'zsh', 'ksh') else r'-[a-z]*c.*|-[a-z]*e.*', arg) for arg in args):
+                continue  # Inline text is inspected separately, not a script path.
+            if any(not arg.startswith('-') for arg in args):
+                return True  # Includes extensionless shell scripts and modules.
         if name in ('make', 'pnpm', 'npm', 'yarn', 'bun') and any(
                 re.fullmatch(r'(?:deploy|release|sync|migrate)(?:[-:\w]*)', arg) for arg in argv[1:]):
             return True
@@ -79,18 +125,53 @@ def repository_execution_signal(command):
     return False
 
 
-def shell_risk_signal(command):
-    """Route plausible privileged writes and opaque shell code to native risky.
+def _readonly_substitutions(command):
+    """Remove only bounded, simple substitutions of known read-only commands.
 
-    Shell expansions can execute inside double quotes. Conservatively evaluate
-    those and shell -c payloads instead of interpreting them or opening scripts.
-    Only the redirection signal skips placeholders; it cannot mask other risks.
+    Nested/ambiguous expansions, options that execute helpers and unknown tools
+    remain opaque and require advice. This is a cost exemption, not authority.
     """
-    if (_RISK_COMMAND.search(command) or _PRIVILEGED_PATH.search(command)
-            or _INSTALL_SIGNAL.search(command) or _SHELL_CODE.search(command)
-            or _PRODUCTION_SIGNAL.search(command) or repository_execution_signal(command)
-            or '$(' in command or '`' in command):
+    def substitute(match):
+        argv = _risk_argv(match.group(1))
+        if not argv:
+            return match.group(0)
+        name = argv[0].rsplit('/', 1)[-1]
+        safe = (name == 'git' and len(argv) > 1 and argv[1] in
+                ('rev-parse', 'status') and
+                not any(x.startswith(('--ext-diff', '--textconv', '--exec')) for x in argv))
+        safe = safe or (name in ('date', 'pwd', 'basename', 'dirname') and
+                        not any(x.startswith(('-s', '--set', '-f', '--file')) for x in argv[1:]))
+        prefix = re.split(r'[;&|\n]', command[:match.start()])[-1].lstrip()
+        data_position = bool(re.match(r'^(?:echo|printf)\s', prefix) or
+                             re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*=[^\s]*', prefix))
+        return '' if safe and data_position else match.group(0)
+    return re.sub(r'\$\(([^()$`;&|\n]*)\)', substitute, command)
+
+
+def shell_risk_signal(command):
+    """Check executed argv plus independent paths, environment and redirects."""
+    if len(command) > 16384:
         return True
+    reduced = _readonly_substitutions(command)
+    normalized = ' '.join(_split(_ansi_quotes(command)))
+    if '__JEV_UNKNOWN_' in normalized:
+        return True
+    if (_PRIVILEGED_PATH.search(normalized) or _PRODUCTION_SIGNAL.search(normalized)
+            or repository_execution_signal(reduced) or '$(' in reduced or '`' in reduced):
+        return True
+    for segment in _segments(reduced):
+        argv = _risk_argv(segment)
+        if not argv:
+            continue
+        name = argv[0].rsplit('/', 1)[-1]
+        # Risk words in printf/echo/git-log arguments are not executable names.
+        executable = ' '.join([name, *argv[1:]])
+        if _RISK_COMMAND.match(executable) or _INSTALL_SIGNAL.match(name):
+            return True
+        if name in ('bash', 'sh', 'dash', 'zsh', 'ksh') and any(re.match(r'-[a-z]*c', x) for x in argv[1:]):
+            return True
+        if name in ('python', 'python3', 'node', 'ruby', 'perl') and any(re.match(r'-[a-z]*[ce]', x) for x in argv[1:]) and _RISK_COMMAND.search(executable):
+            return True
     return any(match.lastgroup == 'write' and not _DISCARD_TARGET.match(command, match.end())
                for match in _OUTPUT_REDIRECT.finditer(command))
 
@@ -190,8 +271,9 @@ def main():
         signals.append('production_environment_or_database')
     if shell_tool:
         descriptor['command'] = cmd
-        credential_option = bool(_CREDENTIAL_OPTION.search(cmd))
-        if _INLINE_CODE.search(cmd) or credential_option or len(cmd) > 4096:
+        normalized = ' '.join(_split(_ansi_quotes(cmd))) if len(cmd) <= 16384 else ''
+        credential_option = bool(_CREDENTIAL_OPTION.search(cmd) or _CREDENTIAL_OPTION.search(normalized))
+        if _INLINE_CODE.search(cmd) or _INLINE_CODE.search(normalized) or credential_option or len(cmd) > 4096:
             # Inline programs / here-docs can contain literal file bodies.
             # Send the cost signals and path tokens, not that source text.
             oversized = len(cmd) > 4096

@@ -67,10 +67,14 @@ when command source is omitted; credential options suppress command-derived path
 entirely. No raw substrings are recovered from omitted source text.
 These are conservative signals, not proof of a write or a complete shell parser.
 Opaque shell `-c` code and substitutions are evaluated conservatively. Quoted
-or escaped `>` and standalone `<placeholder>` descriptors do not by themselves
+or escaped `>` and terminal `<placeholder>` descriptors do not by themselves
 count as output-file redirections. Exact `/dev/null` targets and fd duplication
 are excluded only from the redirection signal; neighboring writes and independent
 risk signals still evaluate. Quoted comparisons such as `print(1 >= 0)` stay cheap.
+A following target, such as `<data> out`, is a real output redirection.
+Risk names are checked in executed argv after quote/ANSI-C normalization and
+wrapper removal; an unresolved command variable requires advice. Read-only
+argument substitutions and standard Python test-runner operands stay cheap.
 Advice remains optional and fail-open on an API error. A high score requests
 native permission only with `enforce_jev_denials`; this guard does not itself
 authorize commands or establish that an arbitrary script is safe.
