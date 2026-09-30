@@ -312,7 +312,10 @@ jobs:
           sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
           actionlint --version
       - name: Run actionlint
-        run: actionlint -color
+        # `ci-general` is the org's self-hosted CI lane label (bats.yml). It is declared here rather than in
+        # .github/actionlint.yaml because that file is a retired surface (tests/security/scorecard-contract.bats).
+        # The pattern names this one label, so any other unknown label is still an error.
+        run: actionlint -color -ignore 'label "ci-general" is unknown'
 
   # 10. zizmor — GitHub Actions security audit
   zizmor:
