@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import shlex
 import shutil
@@ -136,6 +137,11 @@ CLIENT_HOOK_CONFIG = dict(zip(CLIENTS, HOOK_CONFIGS))
 #: skills. Codex reads `.agents/skills/`.
 CLIENT_DIRECTORY = {'.claude': 'claude', '.agents': 'codex', '.cursor': 'cursor'}
 CLAUDE_MD = 'CLAUDE.md'  # only to retire a symlink an older release recorded
+# Claude Code reads AGENTS.md natively from this release on (measured 2026-09-29 on 2.1.285: a probe rule was read from
+# the repository root and from a subdirectory with AGENTS.md alone; 2.1.280 did not read it). A recorded CLAUDE.md link
+# is retired only when the host's Claude Code is at least this version, so an update never takes a project's rules
+# away from a host that still needs the link.
+AGENTS_MD_NATIVE_FROM = (2, 1, 285)
 CLAUDE_IMPORT_DEPRECATED = ('Deprecated: --claude-import and --no-claude-import are ignored. Claude Code reads '
                             'AGENTS.md natively; the installer never creates CLAUDE.md.')
 
@@ -197,6 +203,33 @@ def _hooks_empty(config):
     """True when a hook config holds nothing but an empty skeleton."""
     hooks = config.get('hooks') or {}
     return set(config) <= {'hooks', 'version'} and not any(hooks.values())
+
+
+def claude_version_reads_agents_md(version_text):
+    """(ok, why) for the text `claude --version` printed. Unreadable text is NOT ok: keep the link rather than guess."""
+    m = re.search(r'(\d+)\.(\d+)\.(\d+)', version_text or '')
+    if not m:
+        return False, 'the Claude Code version could not be read'
+    version = tuple(int(x) for x in m.groups())
+    label = 'Claude Code ' + '.'.join(map(str, version))
+    return version >= AGENTS_MD_NATIVE_FROM, label
+
+
+def claude_code_reads_agents_md():
+    """(ok, why): may a recorded CLAUDE.md link be retired on this host? No `claude` at all means nothing to protect."""
+    exe = shutil.which('claude')
+    if exe is None:
+        return True, 'Claude Code is not installed on this host'
+    try:
+        out = subprocess.run([exe, '--version'], capture_output=True, text=True, timeout=20).stdout
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, f'claude --version failed ({exc.__class__.__name__})'
+    return claude_version_reads_agents_md(out)
+
+
+def keep_link_notice(why):
+    return (f'Keeping CLAUDE.md -> AGENTS.md: {why} predates native AGENTS.md reading '
+            f'({".".join(map(str, AGENTS_MD_NATIVE_FROM))}). It is retired on the first update after Claude Code is upgraded.')
 
 
 def is_our_claude_link(root):
@@ -827,7 +860,13 @@ def _install(args):
     # Only a symlink an older release recorded as its own is retired, on update.
     link = root/CLAUDE_MD
     owned_link = bool((previous or {}).get('claude_md_link')) and is_our_claude_link(root)
-    link_action = 'remove' if owned_link else None
+    keep_link = False
+    if owned_link:
+        link_safe, link_why = claude_code_reads_agents_md()
+        if not link_safe:
+            keep_link = True
+            print(keep_link_notice(link_why), file=sys.stderr)
+    link_action = 'remove' if owned_link and not keep_link else None
 
     # All files are checked before the first mutation.
     for name, data in files.items():
@@ -917,7 +956,8 @@ def _install(args):
                     'with_jev': args.with_jev, 'host_jev': args.host_jev, 'contexts': args.context,
                     'expose_skills': expose, 'clients': list(clients),
                     'created_dirs': created_client_directories(root, files, previous),
-                    'files': {n: digest(v) for n, v in files.items() if n not in released}}
+                    'files': {n: digest(v) for n, v in files.items() if n not in released},
+                    **({'claude_md_link': True} if keep_link else {})}
         (stage / 'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
         for name in set(files) | obsolete:
             target = root / name
@@ -1085,7 +1125,12 @@ def _uninstall(args):
     # Keep a protected recovery bundle. Never remove task state or keys.
     runtime.rename(backup)
     if manifest.get('claude_md_link') and is_our_claude_link(root):
-        (root/CLAUDE_MD).unlink()
+        link_safe, link_why = claude_code_reads_agents_md()
+        if link_safe:
+            (root/CLAUDE_MD).unlink()
+        else:
+            print(keep_link_notice(link_why).replace('It is retired on the first update after Claude Code is upgraded.',
+                                                     'Remove it by hand after upgrading Claude Code.'), file=sys.stderr)
     for name, original in originals.items():
         target = root/name
         if name == '.gitignore':

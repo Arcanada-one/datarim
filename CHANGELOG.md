@@ -4,6 +4,13 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- An update or uninstall no longer retires a recorded `CLAUDE.md` → `AGENTS.md` symlink on a host whose Claude Code
+  predates native `AGENTS.md` reading (below 2.1.285, or a version that cannot be read). The link is kept, stays
+  recorded, and is retired on the first update after Claude Code is upgraded; a host without Claude Code is unaffected.
+  Before this, the 4.1.0 update would have taken a project's rules away from any such host silently.
+
 ## [4.1.0] — 2026-09-30
 
 ### Changed

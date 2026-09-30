@@ -775,7 +775,8 @@ class InstallationLifecycleTests(unittest.TestCase):
     def test_an_update_retires_the_symlink_an_older_release_recorded(self):
         self.legacy_link_install()
         (self.source/'VERSION').write_text('next\n')
-        project_install.install(self.args)
+        with patch.object(project_install, 'claude_code_reads_agents_md', return_value=(True, 'Claude Code 2.1.285')):
+            project_install.install(self.args)
         self.assertNoClaudeMd()
         self.assertNotIn('claude_md_link', self.manifest())
         self.assertNotIn('claude_import', self.manifest())
@@ -783,8 +784,43 @@ class InstallationLifecycleTests(unittest.TestCase):
 
     def test_uninstall_removes_a_recorded_legacy_symlink(self):
         self.legacy_link_install()
-        project_install.uninstall(self.args)
+        with patch.object(project_install, 'claude_code_reads_agents_md', return_value=(True, 'Claude Code 2.1.285')):
+            project_install.uninstall(self.args)
         self.assertNoClaudeMd()
+
+    def test_an_update_keeps_the_recorded_link_while_claude_code_predates_native_agents_md(self):
+        # The next JEV/Datarim update must not take a project's rules away from a host whose Claude Code still
+        # reads only CLAUDE.md (<= 2.1.280). The link stays AND stays recorded, so a later update retires it.
+        self.legacy_link_install()
+        (self.source/'VERSION').write_text('next\n')
+        with patch.object(project_install, 'claude_code_reads_agents_md', return_value=(False, 'Claude Code 2.1.280')):
+            project_install.install(self.args)
+        self.assertTrue((self.project/'CLAUDE.md').is_symlink())
+        self.assertTrue(self.manifest().get('claude_md_link'))
+        (self.source/'VERSION').write_text('after-upgrade\n')
+        with patch.object(project_install, 'claude_code_reads_agents_md', return_value=(True, 'Claude Code 2.1.285')):
+            project_install.install(self.args)
+        self.assertNoClaudeMd()
+        self.assertNotIn('claude_md_link', self.manifest())
+
+    def test_uninstall_keeps_the_recorded_link_while_claude_code_predates_native_agents_md(self):
+        self.legacy_link_install()
+        with patch.object(project_install, 'claude_code_reads_agents_md', return_value=(False, 'Claude Code 2.1.280')):
+            project_install.uninstall(self.args)
+        self.assertTrue((self.project/'CLAUDE.md').is_symlink())
+
+    def test_the_version_rule(self):
+        ok = project_install.claude_version_reads_agents_md
+        self.assertEqual(ok('2.1.285 (Claude Code)')[0], True)
+        self.assertEqual(ok('2.2.0 (Claude Code)')[0], True)
+        self.assertEqual(ok('2.1.280 (Claude Code)')[0], False)
+        self.assertEqual(ok('1.9.999')[0], False)
+        self.assertEqual(ok('')[0], False)            # unreadable: keep the link, never guess
+        self.assertEqual(ok('Claude Code')[0], False)
+
+    def test_no_claude_code_on_the_host_means_nothing_to_protect(self):
+        with patch.object(project_install.shutil, 'which', return_value=None):
+            self.assertEqual(project_install.claude_code_reads_agents_md()[0], True)
 
     def test_a_symlink_the_operator_made_survives_update_and_uninstall(self):
         self.legacy_link_install(link_owned=False)
