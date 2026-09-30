@@ -989,14 +989,9 @@ PY
     done
 }
 
-@test "repository root gitdir identity and descriptor mutants are independently killed" {
+run_repository_binding_mutants() {
     local pair kind filter framework mutant expected_lines
-    local -a pairs=(
-        'root_identity|authoritative root replacement after document snapshots cannot redirect source history'
-        'gitdir_identity|authoritative gitdir replacement after document snapshots cannot redirect source history'
-        'gitdir_descriptor|git child uses the bound gitdir when the path is transiently replaced'
-        'git_control_identity|transient Git graft and alternates controls invalidate the bound repository'
-    )
+    local -a pairs=("$@")
     for pair in "${pairs[@]}"; do
         kind="${pair%%|*}"
         filter="${pair#*|}"
@@ -1052,6 +1047,11 @@ PY
         assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
             "$status" "$output" || return 1
     done
+}
+
+@test "repository root identity mutant is independently killed" {
+    run_repository_binding_mutants \
+        'root_identity|authoritative root replacement after document snapshots cannot redirect source history'
 }
 
 run_review_inventory_mutants() {
@@ -2764,4 +2764,19 @@ PY
 
 @test "post-Popen readiness and stale marker mutants are independently killed" {
     run_mutation_kill_attribution_group post-popen-readiness
+}
+
+@test "repository gitdir identity mutant is independently killed" {
+    run_repository_binding_mutants \
+        'gitdir_identity|authoritative gitdir replacement after document snapshots cannot redirect source history'
+}
+
+@test "repository gitdir descriptor mutant is independently killed" {
+    run_repository_binding_mutants \
+        'gitdir_descriptor|git child uses the bound gitdir when the path is transiently replaced'
+}
+
+@test "repository control identity mutant is independently killed" {
+    run_repository_binding_mutants \
+        'git_control_identity|transient Git graft and alternates controls invalidate the bound repository'
 }
