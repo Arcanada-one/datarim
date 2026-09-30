@@ -38,6 +38,7 @@ _DISCARD_TARGET = re.compile(r'''\s*(?:/dev/null|'/dev/null'|"/dev/null"|&(?:[0-
 _SHELL_CODE = re.compile(r'\b(?:bash|sh|dash|zsh|ksh)\s+(?:--?[\w=-]+\s+)*-[a-z]*c\b', re.I)
 _INLINE_CODE = re.compile(r'''(?<!\w)-(?:[a-z]*c|e(?=[\s'"]|$))|--(?:command|eval)\b|<<|\$\(|`''')
 _SCRIPT_SUFFIX = re.compile(r'\.(?:sh|bash|zsh|py|js|mjs|cjs|ts|rb|pl)(?:$|[<>])', re.I)
+_TEST_RUNNER_MODULES = frozenset(('pytest', 'unittest'))
 _PRODUCTION_SIGNAL = re.compile(r'\b(?:DATABASE_URL|PGHOST|NODE_ENV\s*=\s*production)\b')
 _CREDENTIAL_OPTION = re.compile(
     r'''(?<!\w)--?(?:api[-_]?key|password|passwd|token|secret|client[-_]?secret|access[-_]?key|credential|authorization)(?=[=\s'"]|$)''', re.I)
@@ -62,7 +63,13 @@ def repository_execution_signal(command):
         name = argv[0].rsplit('/', 1)[-1]
         if argv[0].startswith(('./', '../')) or _SCRIPT_SUFFIX.search(argv[0]):
             return True
-        if name in interpreters and any(_SCRIPT_SUFFIX.search(arg) for arg in argv[1:]):
+        # `python -m pytest|unittest ...`: the test files are arguments of a known
+        # test runner, not scripts executed by the interpreter. Any other module
+        # keeps the conservative reading below.
+        runner = (re.fullmatch(r'python(?:3(?:\.\d+)?)?', name) and len(argv) > 2
+                  and argv[1] == '-m' and argv[2] in _TEST_RUNNER_MODULES)
+        if (name in interpreters and not runner
+                and any(_SCRIPT_SUFFIX.search(arg) for arg in argv[1:])):
             return True
         if name in ('make', 'pnpm', 'npm', 'yarn', 'bun') and any(
                 re.fullmatch(r'(?:deploy|release|sync|migrate)(?:[-:\w]*)', arg) for arg in argv[1:]):

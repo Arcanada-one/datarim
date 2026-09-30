@@ -107,6 +107,23 @@ class PretoolRiskSignals(unittest.TestCase):
                 evaluate.assert_not_called()
                 self.assertEqual(output, {})
 
+    def test_python_test_runner_modules_with_file_arguments_stay_cheap(self):
+        # Measured on real agent commands: test files passed to `python -m
+        # pytest|unittest` were read as repository scripts and asked for review.
+        for command in ("python3 -m unittest discover -s tests -p 'test_jev_*.py'",
+                        'python3 -m pytest -q tests/test_retrieval_shadow.py',
+                        'python3.12 -m unittest tests/test_x.py'):
+            with self.subTest(command=command):
+                evaluate, output = self.invoke('Bash', {'command': command})
+                evaluate.assert_not_called()
+                self.assertEqual(output, {})
+
+    def test_other_python_modules_and_direct_scripts_still_reach_question(self):
+        for command in ('python3 -m deploy_tool scripts/push.py', 'python3 scripts/bootstrap.py',
+                        'python3 -m pytest -q tests/test_x.py && bash scripts/sync.sh'):
+            with self.subTest(command=command):
+                self.assert_question('Bash', {'command': command})
+
     def test_census_f1_source_wrappers_reach_question(self):
         commands = [
             'bash deploy/broker/bootstrap-host.sh ./reviewed-checkout',
