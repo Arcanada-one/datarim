@@ -96,7 +96,10 @@ class PretoolRiskSignals(unittest.TestCase):
                     r"$'\u0073ystemctl' daemon-reload",
                     'echo \"$(git branch -D review-branch)\"',
                     'echo \"$(git diff --output=review-output)\"',
-                    '$(pwd)/ops-runner', 'X=1 $(pwd)/ops-runner',
+                    '$(pwd)/ops-runner', 'echo \"$(sudo pwd)\"',
+                    'echo \"$(grep pattern file | tee result)\"',
+                    'echo \"$(grep pattern file; sudo reboot)\"',
+                    'echo \"$($CMD argument)\"', 'X=1 $(pwd)/ops-runner',
                     'stdbuf --output L node scripts/ops.js', 'cat <q> out', 'bash ops-runner',
                     'setsid bash scripts/ops.sh', 'pnpm exec tsx scripts/ops.ts',
                     'uv run python scripts/ops.py',
@@ -108,6 +111,41 @@ class PretoolRiskSignals(unittest.TestCase):
             for tool, field in [('Bash', 'command'), ('exec_command', 'cmd')]:
                 with self.subTest(command=command, tool=tool):
                     self.assert_question(tool, {field: command})
+
+    def test_review_privilege_wrappers_and_shell_grammar_reach_question(self):
+        commands = [
+            'sudo reboot', 'sudo kill 1234', 'sudo mount /dev/example /mnt/example',
+            'sudo apt-get install example', 'sudo talomnia-deploy purge-edge prod',
+            'env -i sudo reboot', 'nice -n 5 sudo reboot',
+            'timeout 30 sudo reboot', 'doas reboot',
+            "env --split-string='sudo reboot'",
+            '/usr/bin/time -o timings sudo reboot',
+            "eval 'if true; then sudo reboot; fi'",
+            'su'+chr(92)+'\n'+'do reboot',
+            '( git push origin main )', '(git push origin main)',
+            'if true; then git push origin main; fi',
+            'if git push origin main; then echo done; fi',
+            'for host in example.invalid; do ssh "$host" uptime; done',
+            'while true; do curl -X POST https://example.invalid/event; done',
+            '{ git push origin main; }',
+            'worker() { ssh example.invalid uptime; }',
+        ]
+        for command in commands:
+            for tool, field in [('Bash', 'command'), ('exec_command', 'cmd')]:
+                with self.subTest(command=command, tool=tool):
+                    self.assert_question(tool, {field: command})
+
+    def test_review_shell_grammar_does_not_turn_argument_words_into_commands(self):
+        commands = ['echo "sudo reboot"', 'echo "( git push origin main )"',
+                    'printf "%s" "if true; then ssh host; fi"',
+                    'if test -f file; then echo yes; else echo no; fi',
+                    'for item in a b; do echo "$item"; done',
+                    '( git status )', '{ git status; }']
+        for command in commands:
+            with self.subTest(command=command):
+                evaluate, output = self.invoke('Bash', {'command': command})
+                evaluate.assert_not_called()
+                self.assertEqual(output, {})
 
     def test_review_cost_is_based_on_executed_argv(self):
         commands = ['echo systemctl daemon-reload',
@@ -122,6 +160,28 @@ class PretoolRiskSignals(unittest.TestCase):
                 evaluate, output = self.invoke('Bash', {'command': command})
                 evaluate.assert_not_called()
                 self.assertEqual(output, {})
+
+    def test_readonly_substitution_pipelines_stay_cheap(self):
+        for command in ['VERSION=$(grep version Cargo.toml | cut -d = -f 2)',
+                        'SIZE=$(stat -f %z "$file")',
+                        "PIN=$(tr -d '\\r\\n' < deploy/knowledge-pin)"]:
+            with self.subTest(command=command):
+                evaluate, output = self.invoke('Bash', {'command': command})
+                evaluate.assert_not_called()
+                self.assertEqual(output, {})
+        for command in ['echo "$(grep pattern file >result)"',
+                        'echo "$(grep pattern file | tee result)"',
+                        'echo "$(stat -f %z ${file@P})"',
+                        'echo "$(./grep pattern file)"',
+                        'echo "$($TOOL/grep pattern file)"',
+                        'echo "$(time -o timings grep pattern file)"',
+                        'echo "$(date $FLAGS)"',
+                        'echo "$(grep pattern < $FILE)"',
+                        'echo "$(grep pattern < /dev/tcp/example.invalid/80)"',
+                        'echo "$(grep pattern < /dev/t\"\"cp/example.invalid/80)"',
+                        'echo "$(grep pattern < /dev/t\\cp/example.invalid/80)"']:
+            with self.subTest(command=command):
+                self.assert_question('Bash', {'command': command})
 
     def test_real_output_redirections_still_reach_question(self):
         for command in ['printf ok > result', 'printf ok >>result',
@@ -263,7 +323,11 @@ sys.modules['route'] = types.SimpleNamespace(
     log=lambda *a, **k: None)
 runpy.run_path(sys.argv[1], run_name='__main__')
 '''
-        cases = [('bash '+('-- -'*2000)+"-c 'true'", 'ask'),
+        cases = [('sudo reboot', 'ask'),
+                 ('( git push origin main )', 'ask'),
+                 ('if true; then git push origin main; fi', 'ask'),
+                 ('while true; do curl -X POST https://example.invalid/event; done', 'ask'),
+                 ('bash '+('-- -'*2000)+"-c 'true'", 'ask'),
                  ('bash deploy/broker/bootstrap-host.sh', 'ask'),
                  ('tee /etc/sudoers.d/service', 'ask'),
                  ('touch /etc/systemd/system/service.service', 'ask'),
@@ -308,7 +372,10 @@ runpy.run_path(sys.argv[1], run_name='__main__')
         self.assertIn('repository_script_or_opaque_execution', descriptor['risk_signals'])
 
     def test_inline_file_bodies_do_not_enter_model_descriptor(self):
-        for command in ["python3 -\"\"c \"open('/etc/sudoers.d/service','w').write('PRIVATE_BODY')\"",
+        for command in ["eval 'printf PRIVATE_BODY > /etc/sudoers.d/service'",
+                        "env -S 'printf PRIVATE_BODY > /etc/sudoers.d/service'",
+                        r"env -Sprintf\ PRIVATE_BODY\ /etc/sudoers.d/service",
+                        "python3 -\"\"c \"open('/etc/sudoers.d/service','w').write('PRIVATE_BODY')\"",
                         "python3 -c \"open('/etc/sudoers.d/service','w').write('PRIVATE_BODY')\"",
                         "python3 -c\"open('/etc/sudoers.d/service','w').write('PRIVATE_BODY')\"",
                         "python3 '-c' \"open('/etc/sudoers.d/service','w').write('PRIVATE_BODY')\"",

@@ -5,7 +5,7 @@ sys.path.insert(0,str(Path(__file__).parent))
 # The safety floor is imported FIRST and on its own: it has no dependency
 # beyond the standard library, so an import failure anywhere in the advisory
 # stack (jev_client, route) must not be able to take the guard down with it.
-from safety_floor import destructive_reason, _segments, _split, _strip_wrappers
+from safety_floor import destructive_reason, _split
 
 # The advisory-layer imports are wrapped so a broken control plane degrades to
 # "floor only" rather than "no hook at all". They stay module-level names so
@@ -24,7 +24,7 @@ _PRIVILEGED_PATH = re.compile(
 _INSTALL_SIGNAL = re.compile(
     r'''(?:^|[/\s"'])(?:bootstrap|install|setup|provision|deploy)(?=[/_.\s"'-]|$)''', re.I)
 _RISK_COMMAND = re.compile(
-    r'\b(rm|mv|chmod|chown|sudo|ssh|scp|rsync|curl|wget|kubectl|helm|terraform|'
+    r'\b(rm|mv|chmod|chown|sudo|doas|ssh|scp|rsync|curl|wget|kubectl|helm|terraform|'
     r'ansible|docker|podman|systemctl|useradd|usermod|userdel|groupadd|visudo|crontab|'
     r'iptables|ip6tables|nft|npm\s+publish|git\s+(push|reset|clean|checkout|'
     r'switch|rebase|merge)|gh\s+|aws\s+|gcloud\s+|az\s+|psql|mysql|redis-cli)\b|sed\s+-i', re.I)
@@ -35,7 +35,7 @@ _RISK_COMMAND = re.compile(
 _OUTPUT_REDIRECT = re.compile(
     r"'[^']*'|\"(?:\\.|[^\"\\])*\"|\\.|(?<!\S)<[A-Za-z_][\w.-]*>(?=\s*$)|(?P<write>>{1,2}\|?)")
 _DISCARD_TARGET = re.compile(r'''\s*(?:/dev/null|'/dev/null'|"/dev/null"|&(?:[0-9]+|-))(?=$|[\s;&|<>])''')
-_INLINE_CODE = re.compile(r'''(?<!\w)-(?:[a-z]*c|e(?=[\s'"]|$))|--(?:command|eval)\b|<<|\$\(|`''')
+_INLINE_CODE = re.compile(r'''(?<!\w)-(?:[a-z]*c|e(?=[\s'"]|$))|--(?:command|eval|split-string)\b|(?<!\w)-S|\beval\b|<<|\$\(|`''')
 _SCRIPT_SUFFIX = re.compile(r'\.(?:sh|bash|zsh|py|js|mjs|cjs|ts|rb|pl)(?:$|[<>])', re.I)
 _PRODUCTION_SIGNAL = re.compile(r'\b(?:DATABASE_URL|PGHOST|NODE_ENV\s*=\s*production)\b')
 _CREDENTIAL_OPTION = re.compile(
@@ -44,6 +44,7 @@ _CREDENTIAL_OPTION = re.compile(
 
 def _ansi_quotes(command):
     """Decode ANSI-C quoted words as data, never shell execution/expansion."""
+    command = command.replace('\\\n', '')
     def decode(match):
         body = match.group(1)
         def escape(m):
@@ -62,17 +63,57 @@ def _ansi_quotes(command):
     return re.sub(r"\$'((?:\\.|[^'\\])*)'", decode, command)
 
 
+def _execution_segments(command):
+    """Split shell control punctuation outside quotes; never execute or expand."""
+    command = command.replace('\\\n', '')
+    start, quote, escaped = 0, None, False
+    for index, char in enumerate(command):
+        if escaped:
+            escaped = False
+            continue
+        if char == '\\' and quote != "'":
+            escaped = True
+        elif quote:
+            if char == quote:
+                quote = None
+        elif char in ('"', "'"):
+            quote = char
+        elif char in ';|&\n()':
+            yield command[start:index]
+            start = index + 1
+    yield command[start:]
+
+
 def _risk_argv(segment):
     argv = _split(_ansi_quotes(segment))
     while argv:
         previous = argv
-        argv = _strip_wrappers(argv)
+        while argv and argv[0] in ('if', 'then', 'elif', 'else', 'do', 'while', 'until', '!', '{', '}'):
+            argv = argv[1:]
         while argv and re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', argv[0]):
             argv = argv[1:]
         if not argv:
             break
         name = argv[0].rsplit('/', 1)[-1]
-        if name in ('timeout', 'setsid', 'stdbuf', 'npx'):
+        if name == 'eval' or (name == 'env' and any(x == '-S' or x.startswith(('--split-string', '-S')) for x in argv[1:])):
+            return ['$__JEV_UNKNOWN_WRAPPER__']
+        if name in ('sudo', 'doas'):
+            return argv  # Privilege escalation itself needs advice.
+        if name in ('command', 'nice', 'nohup', 'time', 'eval', 'exec', 'env'):
+            argv = argv[1:]
+            value_flags = {'-n'} if name == 'nice' else {'-u', '--unset', '-C', '--chdir'} if name == 'env' else {'-o', '--output', '-f', '--format'} if name == 'time' else set()
+            while argv:
+                flag = argv[0]
+                if flag == '--':
+                    argv = argv[1:]
+                    break
+                if flag.startswith('-'):
+                    argv = argv[2:] if flag in value_flags else argv[1:]
+                elif name == 'env' and re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', flag):
+                    argv = argv[1:]
+                else:
+                    break
+        elif name in ('timeout', 'setsid', 'stdbuf', 'npx'):
             if name == 'npx' and any(x in ('-c', '--call') or x.startswith('--call=') for x in argv[1:]):
                 return ['$__JEV_UNKNOWN_WRAPPER__']
             argv = argv[1:]
@@ -99,7 +140,7 @@ def repository_execution_signal(command):
         return True
     interpreters = {'bash', 'sh', 'dash', 'zsh', 'ksh', '.', 'source',
                     'python', 'python3', 'node', 'nodejs', 'ruby', 'perl', 'tsx'}
-    for segment in _segments(command):
+    for segment in _execution_segments(command):
         argv = _risk_argv(segment)
         if not argv:
             continue
@@ -131,20 +172,36 @@ def _readonly_substitutions(command):
     remain opaque and require advice. This is a cost exemption, not authority.
     """
     def substitute(match):
-        argv = _risk_argv(match.group(1))
-        if not argv:
+        content = match.group(1)
+        # Only ordinary parameter reads are data; exotic/indirect expansions
+        # remain unknown. Redirection inside outer quotes must still be seen.
+        ordinary = re.sub(r'\$[A-Za-z_][A-Za-z0-9_]*|\$\{[A-Za-z_][A-Za-z0-9_]*\}', '', content)
+        normalized_content = ' '.join(_split(_ansi_quotes(content)))
+        if '$' in ordinary or (('<' in content) and ('$' in content or '/dev/tcp/' in normalized_content or '/dev/udp/' in normalized_content)) or any(m.lastgroup == 'write' and not _DISCARD_TARGET.match(content, m.end())
+                                  for m in _OUTPUT_REDIRECT.finditer(content)):
             return match.group(0)
-        name = argv[0].rsplit('/', 1)[-1]
-        safe = (name == 'git' and len(argv) > 1 and argv[1] in
-                ('rev-parse', 'status') and
-                not any(x.startswith(('--ext-diff', '--textconv', '--exec')) for x in argv))
-        safe = safe or (name in ('date', 'pwd', 'basename', 'dirname') and
-                        not any(x.startswith(('-s', '--set', '-f', '--file')) for x in argv[1:]))
+        stages = list(_execution_segments(content))
+        safe = bool(stages)
+        for stage in stages:
+            argv = _split(_ansi_quotes(stage))
+            if not argv:
+                safe = False
+                break
+            name = argv[0].rsplit('/', 1)[-1]
+            if argv[0] not in (name, '/bin/'+name, '/usr/bin/'+name):
+                return match.group(0)  # Unknown executable identity or repository path.
+            readonly = (name == 'git' and len(argv) > 1 and argv[1] in
+                        ('rev-parse', 'status') and
+                        not any(x.startswith(('--ext-diff', '--textconv', '--exec')) for x in argv))
+            readonly = readonly or (name in ('date', 'pwd', 'basename', 'dirname') and
+                                    not any(x.startswith(('-s', '--set', '-f', '--file')) or (name == 'date' and '$' in x) for x in argv[1:]))
+            readonly = readonly or name in ('grep', 'cut', 'tr', 'stat', 'head', 'tail', 'wc')
+            safe = safe and readonly
         prefix = re.split(r'[;&|\n]', command[:match.start()])[-1].lstrip()
         data_position = bool(re.match(r'^(?:echo|printf)\s', prefix) or
-                             re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*=[^\s]*', prefix))
+                             re.search(r'(?:^|\s)[A-Za-z_][A-Za-z0-9_]*=[^\s]*$', prefix))
         return '' if safe and data_position else match.group(0)
-    return re.sub(r'\$\(([^()$`;&|\n]*)\)', substitute, command)
+    return re.sub(r'\$\(([^()`;&\n]*)\)', substitute, command)
 
 
 def shell_risk_signal(command):
@@ -158,7 +215,7 @@ def shell_risk_signal(command):
     if (_PRIVILEGED_PATH.search(normalized) or _PRODUCTION_SIGNAL.search(normalized)
             or repository_execution_signal(reduced) or '$(' in reduced or '`' in reduced):
         return True
-    for segment in _segments(reduced):
+    for segment in _execution_segments(reduced):
         argv = _risk_argv(segment)
         if not argv:
             continue
