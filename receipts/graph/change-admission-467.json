@@ -5,7 +5,7 @@
   "superseded_self_rule": "DEC-AUP-0035: the entity a receipt can never verify is the PREVIOUS VERSION OF ITSELF. When a receipt is re-issued at the same path for the same work item — the ordinary case after a rebase or a second commit on a card — the copy of it standing in the tree is superseded by construction: this run is the measurement that replaces it, so the only verdict it could carry is I14 `not_measured` about a document that no longer exists at that path once the run finishes. It is excluded with the work item and the output path that identify it, both re-derived from Git by impact_pair.receipt_problems, never asserted.",
   "verdict": "admitted_with_exemptions"
  },
- "captured_at_utc": "2026-09-29T23:48:02Z",
+ "captured_at_utc": "2026-09-30T00:31:27Z",
  "change_set": {
   "base": "1b36781c8d265205044caefe1d0a9535bc788c3a",
   "files": [
@@ -118,6 +118,15 @@
     "status": "A"
    },
    {
+    "kind": "receipt",
+    "node_id": "receipt:receipts/graph/change-admission-467.json",
+    "node_ids": [
+     "receipt:receipts/graph/change-admission-467.json"
+    ],
+    "path": "receipts/graph/change-admission-467.json",
+    "status": "A"
+   },
+   {
     "kind": "other",
     "node_id": "code_unit:scripts/jev_host_install.py",
     "node_ids": [
@@ -136,7 +145,7 @@
     "status": "A"
    }
   ],
-  "head": "f5b2221fa8040bd505610f26d4cf50994816fdba",
+  "head": "092d2d3c122024ed2f3730aa69b268e477aeda9c",
   "mode": "diff"
  },
  "decision_ref": "DEC-AUP-0008",
@@ -182,24 +191,26 @@
   "builder_version": "1.0.1",
   "built_at_utc": "2026-09-05T00:00:00Z",
   "graph_digest": "sha256:e7dbc650608a08286bc0eae24649659f2d0190803ef5452c5b9635d555aed2eb",
-  "path": "/var/tmp/control-jev/verify-d/work/verifier-out/graph-1b36781c8d26.json",
+  "path": "/var/tmp/control-jev/verify-e/work/verifier-out/graph-1b36781c8d26.json",
   "source_commit": "1b36781c8d265205044caefe1d0a9535bc788c3a"
  },
  "head_graph": {
   "builder_version": "1.0.1",
   "built_at_utc": "2026-09-05T00:00:00Z",
-  "graph_digest": "sha256:a0e032f12370677d2c6c396e700fc315e85662cacd6cb9a1ac714663ca5d7c9f",
-  "path": "/var/tmp/control-jev/verify-d/work/verifier-out/graph-head-f5b2221fa804.json",
-  "source_commit": "f5b2221fa8040bd505610f26d4cf50994816fdba",
+  "graph_digest": "sha256:e599bec0cfb00d034f5d1c3f56359ac749fe29e9ae393817bed16e7cb8612c79",
+  "path": "/var/tmp/control-jev/verify-e/work/verifier-out/graph-head-092d2d3c1220.json",
+  "source_commit": "092d2d3c122024ed2f3730aa69b268e477aeda9c",
   "staleness": {
-   "checked_at_utc": "2026-09-29T23:48:03Z",
-   "checked_nodes": 477,
+   "checked_at_utc": "2026-09-30T00:31:29Z",
+   "checked_nodes": 478,
    "method": "manifest.dirty must be false; manifest.source_commit == change_set.head; working tree must be clean (a receipt in diff mode describes committed history only); content_hash of every whole-file node (code_unit, document, receipt; deployable_unit via its package.json) must equal the sha256 of the file bytes at head (git objects); contract/route/data_model hashes are extractor-owned (declaration text) and not recomputed",
    "mismatched_nodes": [],
    "verdict": "fresh"
   }
  },
- "host": "arcana-devs",
+ "host": "public-ci-host",
+ "host_redacted": true,
+ "host_sha256": "6831d4feaae8e50eeb8413cf4e8d9b8393c08df067cea831063f418d829effd6",
  "impact_set": {
   "deterministic_core": [
    {
@@ -2180,7 +2191,7 @@
   "tool": "tools/graph/verify.py",
   "version": "1.2.0"
  },
- "receipt_id": "car-verify-20260929T234802Z-f5b2221f",
+ "receipt_id": "car-verify-20260930T003127Z-092d2d3c",
  "receipt_path": "receipts/graph/change-admission-467.json",
  "repo": {
   "name": "Arcanada-one/datarim",
@@ -2253,21 +2264,38 @@
    "document:documentation/tutorials/working-with-jev-orchestrator.md",
    "document:plugins/dr-jev-control/README.md",
    "document:skills/project-init/SKILL.md",
-   "document:skills/security-baseline/SKILL.md"
+   "document:skills/security-baseline/SKILL.md",
+   "receipt:receipts/graph/change-admission-467.json"
   ],
   "schema": "RevisionImpactSelection/v1",
   "unmeasured_head_files": []
  },
  "schema": "ChangeAdmissionReceipt/v1",
  "staleness": {
-  "checked_at_utc": "2026-09-29T23:48:03Z",
+  "checked_at_utc": "2026-09-30T00:31:28Z",
   "method": "manifest.dirty must be false; manifest.source_commit == change_set.base; working tree must be clean (a receipt in diff mode describes committed history only); content_hash of every whole-file node (code_unit, document, receipt; deployable_unit via its package.json) must equal the sha256 of the file bytes at base (git objects); contract/route/data_model hashes are extractor-owned (declaration text) and not recomputed",
   "mismatched_nodes": [],
   "verdict": "fresh"
  },
- "structural_exclusions": [],
+ "structural_exclusions": [
+  {
+   "content_hash": {
+    "base": null,
+    "head": "sha256:caec13183d2120aeb398e4ee619dfc26a39b21925c51239354faebab44882f8d"
+   },
+   "entity": "receipt:receipts/graph/change-admission-467.json",
+   "node_type": "receipt",
+   "path": "receipts/graph/change-admission-467.json",
+   "reason": "historical receipt: asserted, never re-verified (I14); a new receipt supersedes it; superseded by construction — this run re-issues the receipt at receipts/graph/change-admission-467.json for work item 3b450be9-62fb-4bed-8279-89421e0912a5",
+   "rule": "DEC-AUP-0035",
+   "superseded": {
+    "receipt_path": "receipts/graph/change-admission-467.json",
+    "work_item": "3b450be9-62fb-4bed-8279-89421e0912a5"
+   }
+  }
+ ],
  "tree": {
-  "commit": "f5b2221fa8040bd505610f26d4cf50994816fdba",
+  "commit": "092d2d3c122024ed2f3730aa69b268e477aeda9c",
   "dirty": false
  },
  "verdicts": [
@@ -2569,8 +2597,8 @@
    "exit_code": 0,
    "id": "v-config-schema",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/control-jev/verify-d/work/verifier-out/v-config-schema.json",
-   "started_at_utc": "2026-09-29T23:48:05Z",
+   "output_ref": "/var/tmp/control-jev/verify-e/work/verifier-out/v-config-schema.json",
+   "started_at_utc": "2026-09-30T00:31:30Z",
    "summary": "0 source(s), 0 new / 0 frozen undeclared reads, 0 failed"
   },
   {
@@ -2597,13 +2625,13 @@
    "exit_code": 0,
    "id": "v-fitness",
    "kind": "fitness_rules",
-   "output_ref": "/var/tmp/control-jev/verify-d/work/verifier-out/v-fitness.json",
-   "started_at_utc": "2026-09-29T23:48:05Z",
+   "output_ref": "/var/tmp/control-jev/verify-e/work/verifier-out/v-fitness.json",
+   "started_at_utc": "2026-09-30T00:31:30Z",
    "summary": "0 finding(s): 0 new / 0 frozen; 0 entity(ies) failed"
   },
   {
    "command": "verify.py doc_reference: path / route / model references of affected documents resolve at head",
-   "duration_s": 0.04,
+   "duration_s": 0.05,
    "entities": [
     "document:AGENTS.md",
     "document:CHANGELOG.md",
@@ -2663,13 +2691,13 @@
    "exit_code": 0,
    "id": "v-doc-reference",
    "kind": "doc_reference",
-   "output_ref": "/var/tmp/control-jev/verify-d/work/verifier-out/v-doc-reference.txt",
-   "started_at_utc": "2026-09-29T23:48:05Z",
+   "output_ref": "/var/tmp/control-jev/verify-e/work/verifier-out/v-doc-reference.txt",
+   "started_at_utc": "2026-09-30T00:31:30Z",
    "summary": "26 document(s), 0 failed"
   },
   {
    "command": "tools/graph/deploy_gate.py canary --plan <plan> --phase pre|post (results supplied with --canary)",
-   "duration_s": 0.06,
+   "duration_s": 0.07,
    "entities": [
     "code_unit:plugins/dr-jev-control/scripts/catalog.py",
     "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py",
@@ -2686,23 +2714,35 @@
    "id": "v-canary-1",
    "kind": "canary",
    "output_ref": "receipts/canary/jev-catalog-467/result.json",
-   "started_at_utc": "2026-09-29T23:48:05Z",
+   "started_at_utc": "2026-09-30T00:31:30Z",
    "summary": "receipts/canary/jev-catalog-467/result.json: 4 verified / 0 failed / 0 not_measured"
   },
   {
    "command": "tools/graph/deploy_gate.py canary --plan <plan> --phase pre|post (results supplied with --canary)",
-   "duration_s": 0.06,
+   "duration_s": 0.07,
    "entities": [],
    "exit_code": 0,
    "id": "v-canary",
    "kind": "canary",
-   "output_ref": "/var/tmp/control-jev/verify-d/work/verifier-out/v-canary.json",
-   "started_at_utc": "2026-09-29T23:48:05Z",
+   "output_ref": "/var/tmp/control-jev/verify-e/work/verifier-out/v-canary.json",
+   "started_at_utc": "2026-09-30T00:31:30Z",
    "summary": "1 canary result(s), 1 committed at head; 4 verified / 0 failed / 0 not_measured of 4 entities"
   }
  ],
  "verify": {
-  "events": [],
+  "events": [
+   {
+    "code": "SUPERSEDED_SELF_EXCLUSION",
+    "entity": "receipt:receipts/graph/change-admission-467.json",
+    "rule": "DEC-AUP-0035",
+    "text": "the receipt at receipts/graph/change-admission-467.json is the previous version of the one this run is writing, for the same work item 3b450be9-62fb-4bed-8279-89421e0912a5 — superseded by construction, so it owes this change no verdict"
+   },
+   {
+    "code": "STRUCTURAL_EXCLUSION",
+    "rule": "DEC-AUP-0034",
+    "text": "1 affected entity(ies) owe no verdict (receipt: 1): unchanged at both revisions and given no verifier by the matrix"
+   }
+  ],
   "required_by_entity": {
    "code_unit:plugins/dr-jev-control/scripts/catalog.py": [
     "canary",
@@ -2810,12 +2850,13 @@
    ],
    "document:skills/security-baseline/SKILL.md": [
     "doc_reference"
-   ]
+   ],
+   "receipt:receipts/graph/change-admission-467.json": []
   },
   "seconds": {
-   "prepare": 1.2,
-   "total": 3.01,
-   "verifiers": 0.16
+   "prepare": 1.43,
+   "total": 3.72,
+   "verifiers": 0.19
   }
  },
  "work_item": "3b450be9-62fb-4bed-8279-89421e0912a5"
