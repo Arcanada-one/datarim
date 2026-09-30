@@ -38,7 +38,7 @@ PLATFORM_SHARD_POLICY = {
         **{shard: ("linux",) for shard in range(1, 14)},
         **{shard: ("linux", "macos") for shard in range(14, 16)},
         **{shard: ("macos",) for shard in range(16, 23)},
-        **{shard: ("linux", "macos") for shard in range(23, 50)},
+        **{shard: ("linux", "macos") for shard in range(23, 53)},
     },
 }
 MACOS_RUNTIME_ISOLATED_TESTS = {
@@ -63,6 +63,11 @@ MACOS_RUNTIME_ISOLATED_TESTS = {
         "global validation alarm reaps late source history child process group",
     ),
     "mutation": (
+        # Independent repository-binding arms previously shared one 105s budget.
+        "repository root identity mutant is independently killed",
+        "repository gitdir identity mutant is independently killed",
+        "repository gitdir descriptor mutant is independently killed",
+        "repository control identity mutant is independently killed",
         "Darwin executable pth authority mutant is independently killed",
         "Darwin dependency-site symlink mutant is independently killed",
         "Darwin dist-info type mutant is independently killed",
