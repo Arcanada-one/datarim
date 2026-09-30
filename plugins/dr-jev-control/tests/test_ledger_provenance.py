@@ -38,11 +38,11 @@ class EvaluateRecordsClientFacts(unittest.TestCase):
             out = jev_client.evaluate('s', {}, {'api': {'transport': 'curl', 'retries': 0}})
         self.assertIsInstance(out['_client']['latency_ms'], int)
         self.assertEqual(out['_client']['attempts'], 1)
-        self.assertEqual(jev_client.provenance(out), {'model': 'jev-9.9.9', 'latency_ms': out['_client']['latency_ms'],
+        self.assertEqual({k: jev_client.provenance(out)[k] for k in ('model', 'latency_ms', 'attempts')}, {'model': 'jev-9.9.9', 'latency_ms': out['_client']['latency_ms'],
                                                       'attempts': 1})
 
     def test_provenance_of_malformed_response_is_empty_not_error(self):
-        self.assertEqual(jev_client.provenance(None), {'model': None, 'latency_ms': None, 'attempts': None})
+        self.assertEqual({k: jev_client.provenance(None)[k] for k in ('model', 'latency_ms', 'attempts')}, {'model': None, 'latency_ms': None, 'attempts': None})
         self.assertEqual(jev_client.provenance({'_client': 'x'})['latency_ms'], None)
 
 
@@ -63,7 +63,7 @@ class LedgerRecordsProvenance(unittest.TestCase):
             route_mod.route('task', _cfg(self.path), mode='balanced')
         rec = self.records()[-1]
         self.assertEqual(rec['event'], 'route')
-        self.assertEqual(rec['data']['provenance'], {'model': 'jev-9.9.9', 'latency_ms': 42, 'attempts': 1})
+        self.assertEqual({k: rec['data']['provenance'][k] for k in ('model', 'latency_ms', 'attempts')}, {'model': 'jev-9.9.9', 'latency_ms': 42, 'attempts': 1})
         self.assertIn('release', rec)
 
     def test_pretool_record_names_model_and_latency(self):

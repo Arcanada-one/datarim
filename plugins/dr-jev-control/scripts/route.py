@@ -124,6 +124,11 @@ def route(task,cfg=None,mode=None,*,budget=None):
     out['component_references'] = selected_references(picks, sel)
     if cfg.get('catalog_roots'):
         out['catalog_snapshot'] = fingerprint(cfg['catalog_roots'], inv, cfg['routing'])
+    from decision_evidence import bind
+    out['evidence'] = bind(out['provenance'],
+        policy={'mode': mode, 'routing': cfg.get('routing', {})}, candidates=picks,
+        recommendation={'model': model, 'selection': sel})
+    out['outcome'] = 'advisory'
     log(cfg,"route",task,out); return out
 
 def log(cfg,event,text,data):

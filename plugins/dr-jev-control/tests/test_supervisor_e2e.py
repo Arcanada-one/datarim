@@ -260,7 +260,11 @@ class TestDeferredSwitchHonesty(CodexE2EBase):
         first = switches[0]
         self.assertTrue(first["deferred"])
         self.assertTrue(first.get("took_effect"), "a switch followed by a turn did take effect")
-        self.assertTrue(first["applied"])
+        self.assertFalse(first["applied"], "process spawn is not runtime model confirmation")
+        self.assertEqual(first['outcome'], 'dispatched')
+        self.assertEqual(first['confirmation'], 'process_started')
+        dispatch = self.ledger_records('live_switch_dispatch')[0]['verdict']
+        self.assertEqual(dispatch['evidence'], first['evidence'])
 
     def test_deferred_switch_with_no_following_turn_is_downgraded(self):
         def reroute(*a, **k):

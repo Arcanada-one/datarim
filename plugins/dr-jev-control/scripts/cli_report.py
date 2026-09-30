@@ -93,7 +93,7 @@ def render_stats(cfg, as_json=False):
         lines.append("  model mix         " + ", ".join(f"{k} ×{v}" for k, v in sorted(s["model_mix"].items())))
     if s["confidence"]:
         lines.append("")
-        lines.append("Decisiveness by axis (mean top confidence → how often it was applied)")
+        lines.append("Decisiveness by axis (mean top confidence → how often it cleared selection thresholds)")
         lines.append("  counted only where Jev named a component; refusals shown separately")
         for kind, slot in sorted(s["confidence"].items()):
             n = slot["n"]
@@ -105,12 +105,13 @@ def render_stats(cfg, as_json=False):
                 lines.append(f"  {kind:<12} no component ever named{tail}")
                 continue
             lines.append(
-                f"  {kind:<12} conf {slot['mean_confidence']:.2f} → applied "
-                f"{slot['applied_rate'] * 100:.0f}%{tail}")
-    if s["switches"]["applied"] or s["switches"]["blocked"]:
+                f"  {kind:<12} conf {slot['mean_confidence']:.2f} → selected "
+                f"{slot['selected_rate'] * 100:.0f}%{tail}")
+    if any(v for k, v in s["switches"].items() if k != "blocked") or s["switches"]["blocked"]:
         lines.append("")
         lines.append("Live switching")
-        lines.append(f"  applied           {s['switches']['applied']}")
+        for state in ('applied', 'deferred', 'dispatched', 'uncertain', 'refused', 'not_measured'):
+            lines.append(f"  {state:<17} {s['switches'][state]}")
         for k, v in sorted(s["switches"]["blocked"].items(), key=lambda kv: -kv[1]):
             lines.append(f"  blocked: {k:<18} {v}")
     if s["phases"]:
