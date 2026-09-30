@@ -113,3 +113,47 @@ Sources: [Claude hooks](https://code.claude.com/docs/en/hooks),
 [Codex hooks](https://learn.chatgpt.com/docs/hooks),
 [Codex App Server](https://learn.chatgpt.com/docs/app-server),
 [Cursor hooks](https://cursor.com/docs/hooks).
+
+
+## Independent catalogs without a framework project
+
+The standalone host runtime can use explicitly authorized catalogs without
+setting `DATARIM_ROOT`, installing Datarim into a project, or recreating global
+framework symlinks. Nothing is discovered from the event working directory or
+an ambient catalog environment variable. Empty `catalog_roots` remains the default.
+
+Prepare a separate directory containing `skills/<name>/SKILL.md`, `agents/*.md`,
+`commands/*.md`, and optionally `templates/*.md`. Each file should have a one-line
+`description:` metadata field. Only that description (up to 280 characters),
+component identity and digest are used for selection; component bodies are not
+sent as candidate descriptions. Authorizing a directory permits this metadata to
+be sent to the configured decision provider, so do not include private content.
+
+Run the normal verified host installer with the additional repeatable argument
+`--catalog-root team=/absolute/path/to/catalog`. The argument replaces the entire
+independent provider list; it does not append silently. Use `--dry-run` to review
+the proposed installer changes first. The installer writes the list only into the
+protected host config. It leaves `datarim_projects` unchanged. To revoke all
+independent catalogs, rerun it with `--clear-catalog-roots`. The same installer
+release/trust and rollback procedure still applies; do not install an unmerged
+source revision on a real host.
+
+Providers have unique IDs; candidates are namespaced as `team--review`. Paths
+must be canonical absolute directories, without symlinks or external write bits.
+Traversal never follows directory symlinks and file symlinks are refused. Each
+provider/kind is limited to 512 traversal entries, each kind to 128 candidates
+across providers, and each file to 64 KiB; at most eight providers are allowed.
+Invalid, ambiguous or over-limit catalogs refuse routing through the existing
+advisory fail-open handler; the deterministic tool safety floor stays independent.
+An explicitly configured independent catalog takes precedence over legacy project
+catalogs, so the two authority sources are not silently mixed.
+
+The existing skill probability gates and single-choice confidence gate select
+components. The native prompt hook includes selected paths and SHA256 values as
+quoted JSON metadata. It does not execute commands, spawn agents, import skills,
+or turn recommendations into authorization. Verify the source digest and project
+policy before loading a component. Cached wrapper advice is invalidated if the
+catalog configuration or contents changed, including revocation. Actual agent
+loading remains a separate observation, not an implication of hook delivery.
+
+Offline verification: `python3 -m unittest discover -s tests -p 'test_jev_independent_catalog.py'`.

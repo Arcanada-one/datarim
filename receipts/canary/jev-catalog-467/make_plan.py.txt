@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Build CanaryPlan/v2 + MeasuredGitSource/v1 for datarim#467 (independent JEV host catalogs).
+
+argv: SUBJECT_REPO OUT_DIR PLAN_ID PURPOSE_SUFFIX
+"""
+import hashlib
+import json
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+REPO = Path(sys.argv[1]).resolve()
+OUT = Path(sys.argv[2]).resolve()
+PLAN_ID = sys.argv[3]
+SUFFIX = sys.argv[4]
+OUT.mkdir(parents=True, exist_ok=True)
+HARNESS = Path(__file__).resolve().parent/'harness.py'
+PY = '/usr/bin/python3.12'
+
+
+def sha(p):
+    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+
+def git(*a):
+    return subprocess.check_output(['git', '-C', str(REPO), *a], text=True).strip()
+
+
+assert not git('status', '--porcelain'), 'subject must be clean'
+commit, tree = git('rev-parse', 'HEAD'), git('rev-parse', 'HEAD^{tree}')
+now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+evidence = {'schema': 'MeasuredGitSource/v1', 'commit': commit, 'tree': tree, 'dirty': False,
+            'producer': {'tool': 'control-jev/canary/make_plan.py', 'version': '1.0.0'},
+            'captured_at_utc': now}
+ev_raw = json.dumps(evidence, indent=1, sort_keys=True).encode() + b'\n'
+(OUT/'source-evidence.json').write_bytes(ev_raw)
+
+files = [HARNESS, REPO/'scripts/jev_host_install.py', REPO/'scripts/jev_hook.py']
+files += sorted((REPO/'plugins/dr-jev-control/scripts').glob('*.py'))
+manifest = [{'path': str(p), 'sha256': sha(p)} for p in files if p.is_file()]
+ENTITIES = ['code_unit:plugins/dr-jev-control/scripts/catalog.py',
+            'code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py',
+            'code_unit:plugins/dr-jev-control/scripts/route.py',
+            'code_unit:scripts/jev_host_install.py']
+
+
+def probe(pid, mode, stdout):
+    return {'kind': 'process', 'id': pid, 'argv': [PY, str(HARNESS), mode], 'cwd': '.',
+            'env_keys': ['PATH', 'TMPDIR', 'JEV_CANARY_KEY_FILE'], 'timeout_seconds': 120, 'capture_limit_bytes': 262144,
+            'executable_sha256': sha(PY), 'execution_files': manifest,
+            'expect': {'exit_codes': [0], 'stdout_contains': stdout},
+            'entities': ENTITIES, 'mutating': True}
+
+
+probes = [
+    probe('isolated-tmphome-install-route-hook-revoke', 'positive', [
+        'CANARY ok install authorized catalog_roots=[team] datarim_projects=[]',
+        'CANARY ok installed release byte-identical to subject for catalog, catalog_sources, route, hook',
+        'catalog reference(s), every sha256 matches file bytes',
+        'CANARY ok revoke --clear-catalog-roots removes catalog advice (hook rc=0, no team-- entries)',
+        'CANARY ok cleanup throwaway HOME and copied key removed']),
+    probe('isolated-tmphome-planted-unsafe-entries-refused', 'negative', [
+        'CANARY ok installer refused world-writable catalog root',
+        'CANARY ok control: clean catalog accepted by installed runtime (4 candidates)',
+        'CANARY ok installed runtime refused planted world-writable entry: REFUSED unsafe catalog file',
+        'CANARY ok hook gave no catalog advice with world-writable entry',
+        'CANARY ok installed runtime refused planted FIFO without blocking',
+        'CANARY ok hook returned without blocking and without catalog advice with FIFO',
+        'CANARY ok cleanup throwaway HOME and copied key removed']),
+]
+plan = {'schema': 'CanaryPlan/v2', 'id': PLAN_ID,
+        'owner': 'Control network hand for JEV-audit remediation (Arcanada, claude-opus-5-5)',
+        'environment': 'control-host-isolated-tmphome', 'read_only': False,
+        'subject': {'schema': 'GitCanarySubject/v1', 'commit': commit, 'tree': tree,
+                    'evidence': {'path': 'source-evidence.json', 'sha256': hashlib.sha256(ev_raw).hexdigest(),
+                                 'source_field': 'commit'}},
+        'purpose': ('AUP-GRAPH-008 canary for the four code units of datarim#467 on an inferred boundary. The '
+                    'host JEV runtime is a CLI/hook, not a service, so the live contour is the PROCESS: the '
+                    'subject installer installs into a throwaway HOME under TMPDIR with an authorized catalog '
+                    'root, the installed jev-hook answers a UserPromptSubmit through the live provider, and the '
+                    'selected catalog references must carry sha256 equal to the file bytes; --clear-catalog-roots '
+                    'must remove catalog advice. Negative probe: world-writable root refused by the installer, '
+                    'planted world-writable and FIFO entries refused by the installed runtime without blocking. '
+                    'The real ~/.local/share/jev, ~/.config/jev, ~/.claude and ~/.codex are never written; the '
+                    'provider key bytes are copied into the throwaway 0600 key file and removed with it. '
+                    + SUFFIX),
+        'probes': probes}
+(OUT/'plan.json').write_text(json.dumps(plan, indent=1) + '\n')
+print('commit', commit)

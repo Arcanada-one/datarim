@@ -219,6 +219,22 @@ def install(args):
         existing['datarim_projects'] = sorted({str(Path(p).resolve(strict=True)) for p in args.datarim_project})
     else:
         existing.setdefault('datarim_projects', [])
+    # Independent catalogs do not enable a project or install framework files.
+    sys.path.insert(0, str(source/'plugins/dr-jev-control/scripts'))
+    from catalog_sources import validate_roots
+    roots = getattr(args, 'catalog_root', None)
+    if roots is not None:
+        parsed = []
+        for value in roots:
+            ident, separator, path = value.partition('=')
+            if not separator:
+                raise ValueError('catalog root must be ID=ABSOLUTE_PATH')
+            parsed.append({'id': ident, 'path': path})
+        existing['catalog_roots'] = validate_roots(parsed)
+    elif getattr(args, 'clear_catalog_roots', False):
+        existing['catalog_roots'] = []
+    else:
+        existing['catalog_roots'] = validate_roots(existing.get('catalog_roots', []))
     existing.setdefault('telemetry', {}).update(path=None, store_prompt_text=False)
     if existing.get('api', {}).get('base_url') != 'https://api.typesafe.ai/v1/systemone':
         raise ValueError('Host Jev requires the pinned provider endpoint')
@@ -333,6 +349,9 @@ def main():
     parser.add_argument('--home', default=str(Path.home()))
     parser.add_argument('--client', action='append', choices=list(EVENTS), required=True)
     parser.add_argument('--datarim-project', action='append', default=None)
+    catalogs = parser.add_mutually_exclusive_group()
+    catalogs.add_argument('--catalog-root', action='append', help='Authorize independent catalog ID=ABSOLUTE_PATH (repeatable)')
+    catalogs.add_argument('--clear-catalog-roots', action='store_true', help='Disable independent catalogs without changing framework policy')
     parser.add_argument('--replace-legacy-root', action='append', default=[])
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
