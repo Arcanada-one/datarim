@@ -1,8 +1,8 @@
 {
  "schema": "CanaryPlan/v2",
  "id": "datarim-467-jev-catalog-process",
- "owner": "Control network hand for JEV-audit remediation (Arcanada, claude-opus-5-5) on arcana-devs",
- "environment": "arcana-devs-isolated-tmphome",
+ "owner": "Control network hand for JEV-audit remediation (Arcanada, claude-opus-5-5)",
+ "environment": "control-host-isolated-tmphome",
  "read_only": false,
  "subject": {
   "schema": "GitCanarySubject/v1",
@@ -10,7 +10,7 @@
   "tree": "ef5cbcb4f7d81619e28b34de888709f09fcb6921",
   "evidence": {
    "path": "source-evidence.json",
-   "sha256": "5425d4389b5b23e8d796c33f0561e40971c229a1e87359cdef99242f85c1a22f",
+   "sha256": "fcef9aee0d5185561edfe2db8dc1c09cb57fc4a234a1cefa276a2f80ec841e29",
    "source_field": "commit"
   }
  },

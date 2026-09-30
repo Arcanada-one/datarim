@@ -70,8 +70,8 @@ probes = [
         'CANARY ok cleanup throwaway HOME and copied key removed']),
 ]
 plan = {'schema': 'CanaryPlan/v2', 'id': PLAN_ID,
-        'owner': 'Control network hand for JEV-audit remediation (Arcanada, claude-opus-5-5) on arcana-devs',
-        'environment': 'arcana-devs-isolated-tmphome', 'read_only': False,
+        'owner': 'Control network hand for JEV-audit remediation (Arcanada, claude-opus-5-5)',
+        'environment': 'control-host-isolated-tmphome', 'read_only': False,
         'subject': {'schema': 'GitCanarySubject/v1', 'commit': commit, 'tree': tree,
                     'evidence': {'path': 'source-evidence.json', 'sha256': hashlib.sha256(ev_raw).hexdigest(),
                                  'source_field': 'commit'}},
