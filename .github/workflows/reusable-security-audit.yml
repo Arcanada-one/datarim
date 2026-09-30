@@ -40,9 +40,9 @@ on:
         description: 'JSON array string of runner labels to pin the job (workflow_call inputs cannot be arrays; consumed via fromJSON in runs-on)'
         type: string
         required: false
-        # A bare [self-hosted, linux] default matched every Linux runner a caller may use — after DEC-AUP-0069 that
-        # includes the sensitive runner of any group the caller is allowlisted for (cubrim-api → arcana-dbs,
-        # arcana-prd-ci). Same lane as network-exposure-lint's default.
+        # A bare [self-hosted, linux] default matches every Linux runner the caller may use, including a
+        # restricted-group runner the caller is allowlisted for (e.g. a deploy or database host). The default
+        # names the general CI lane instead, the same lane as network-exposure-lint's default.
         default: '["self-hosted","linux","ci-general"]'
 
 permissions:
