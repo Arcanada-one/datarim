@@ -148,8 +148,15 @@ for skill_md in skills/*/SKILL.md; do
 done
 
 # AGENTS.md is the sole canonical project instruction file.
-if [[ ! -f AGENTS.md || -L AGENTS.md || -e CLAUDE.md || -L CLAUDE.md ]]; then
-    echo "FAIL expected regular AGENTS.md and no CLAUDE.md adapter"
+if [[ ! -f AGENTS.md || -L AGENTS.md ]]; then
+    echo "FAIL expected a regular AGENTS.md (not a symlink)"
+    fail=1
+fi
+# No CLAUDE.md in any form (file, symlink, dangling link, any case, any depth).
+claude_md_found="$(find . -path ./.git -prune -o -iname 'claude.md' -print 2>/dev/null)"
+if [[ -n "$claude_md_found" ]]; then
+    echo "FAIL CLAUDE.md is forbidden, AGENTS.md is the only instruction file:"
+    echo "$claude_md_found"
     fail=1
 fi
 

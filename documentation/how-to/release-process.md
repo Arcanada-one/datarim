@@ -70,9 +70,9 @@ If any pre-flight check fails, abort and fix on a feature branch first.
 echo "X.Y.Z" > VERSION
 $EDITOR CHANGELOG.md   # add a section for the new tag
 $EDITOR README.md      # update version badge or string if applicable
-$EDITOR CLAUDE.md      # update "Version:" line in the framework intro
+$EDITOR AGENTS.md      # update "Version:" line in the framework intro
 
-git add VERSION CHANGELOG.md README.md CLAUDE.md
+git add VERSION CHANGELOG.md README.md AGENTS.md
 git commit -m "release: vX.Y.Z"
 git push origin <branch>
 gh pr create --base main --title "release: vX.Y.Z" --body "Release notes in CHANGELOG.md"

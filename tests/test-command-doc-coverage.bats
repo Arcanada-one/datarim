@@ -20,7 +20,7 @@ setup() {
 }
 
 @test "every dr-* command file is mentioned in AGENTS.md (doc-fanout linter)" {
-    CFG="$BATS_TEST_DIRNAME/fixtures/test-command-doc-coverage-claude.yml"
+    CFG="$BATS_TEST_DIRNAME/fixtures/test-command-doc-coverage-agents.yml"
     run bash "$REPO/dev-tools/doc-fanout-lint.sh" --root "$REPO" --config "$CFG" --quiet
     [ "$status" -eq 0 ] || { echo "$output"; false; }
 }

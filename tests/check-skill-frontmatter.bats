@@ -190,3 +190,31 @@ description: ok
     [ "$status" -eq 1 ]
     [[ "$output" == *"AGENTS.md"* ]]
 }
+
+@test "FAIL when a CLAUDE.md file exists next to AGENTS.md" {
+    : >"$TMPROOT/CLAUDE.md"
+    run "$SCRIPT" --root "$TMPROOT"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"CLAUDE.md is forbidden"* ]]
+}
+
+@test "FAIL when CLAUDE.md is a symlink to AGENTS.md" {
+    ln -s AGENTS.md "$TMPROOT/CLAUDE.md"
+    run "$SCRIPT" --root "$TMPROOT"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"CLAUDE.md is forbidden"* ]]
+}
+
+@test "FAIL when CLAUDE.md is a dangling symlink" {
+    ln -s missing-target "$TMPROOT/CLAUDE.md"
+    run "$SCRIPT" --root "$TMPROOT"
+    [ "$status" -eq 1 ]
+}
+
+@test "FAIL when a nested or differently cased claude.md exists" {
+    mkdir -p "$TMPROOT/sub/dir"
+    : >"$TMPROOT/sub/dir/claude.md"
+    run "$SCRIPT" --root "$TMPROOT"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"sub/dir/claude.md"* ]]
+}

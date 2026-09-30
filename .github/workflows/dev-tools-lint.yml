@@ -17,7 +17,7 @@ name: dev-tools-lint
       - 'skills/**'
       - 'agents/**'
       - 'documentation/**'
-      - 'CLAUDE.md'
+      - 'AGENTS.md'
       - 'README.md'
       - 'dev-tools/**'
       - 'datarim/insights/INSIGHTS-TALO-0001.md'

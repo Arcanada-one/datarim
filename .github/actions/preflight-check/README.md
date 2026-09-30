@@ -167,7 +167,7 @@ the bats suite alongside the rest of the action contract:
 - `dev-tools/preflight-validate-overrides.sh` — env-driven, appends
   `PREFLIGHT_<KEY>=value` lines to `$GITHUB_ENV`.
 
-Mandate cross-reference: ecosystem `CLAUDE.md` § *CI Pre-deploy Health Checks
+Mandate cross-reference: ecosystem `AGENTS.md` § *CI Pre-deploy Health Checks
 Mandate* § 4 (severity-overrides), § 7 (SHA-pinning), § 9 (operational trigger
 context + `ops-bot-url` PROD canonical).
 
