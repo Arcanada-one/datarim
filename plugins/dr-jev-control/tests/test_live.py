@@ -381,12 +381,19 @@ class TestLedgerRedaction(unittest.TestCase):
                 self.assertEqual(ledger.redact(keep), keep)
 
     def test_secret_in_a_dict_key_is_scrubbed(self):
+        # Construct a deterministic synthetic token; no credential literal is
+        # stored in the fixture, while the runtime payload still exercises both
+        # the vendor token detector and redaction of dictionary keys.
+        secret = "sk-" + "-".join(["synthetic", "dictionary", "key"] * 3)
+        secret_key = f"ANTHROPIC_API_KEY={secret}"
         with tempfile.TemporaryDirectory() as d:
             c = cfg()
             c["telemetry"]["path"] = str(Path(d) / "ledger.jsonl")
-            ledger.log_event(c, "route", "t", {
-                "env": {"ANTHROPIC_API_KEY=sk-ant-api03-REALSECRET012345678901234567890AA": "present"}})
-            self.assertNotIn("REALSECRET", (Path(d) / "ledger.jsonl").read_text())
+            ledger.log_event(c, "route", "t", {"env": {secret_key: "present"}})
+            recorded = (Path(d) / "ledger.jsonl").read_text()
+            self.assertNotIn(secret, recorded)
+            self.assertIn("<redacted>", recorded)
+            self.assertEqual(len(recorded.splitlines()), 1)
 
     def test_unserialisable_value_does_not_discard_the_record(self):
         # A dropped live_session silently removes a whole predicted-vs-actual
