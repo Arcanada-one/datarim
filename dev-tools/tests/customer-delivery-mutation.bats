@@ -2668,13 +2668,6 @@ PY
         && [[ "$output" != *"setup_file failed"* ]] \
         && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
         || { printf 'alarm_pid_width_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
-    elif [[ "$group" == alarm-initialization ]]; then
-    run_alarm_initialization_mutant handler-order
-    run_alarm_initialization_mutant timer-bound
-    run_alarm_initialization_mutant init-hard-abort
-    run_alarm_initialization_mutant cancel-inherited
-    run_alarm_initialization_mutant drain-inherited
-    run_alarm_initialization_mutant arm-before-unblock
     else
         return 1
     fi
@@ -2754,8 +2747,28 @@ PY
     run_same_clock_alarm_group diagnostic
 }
 
-@test "Alarm initialization mutants are independently killed" {
-    run_same_clock_alarm_group alarm-initialization
+@test "Alarm initialization handler-order mutant is independently killed" {
+    run_alarm_initialization_mutant handler-order
+}
+
+@test "Alarm initialization timer-bound mutant is independently killed" {
+    run_alarm_initialization_mutant timer-bound
+}
+
+@test "Alarm initialization init-hard-abort mutant is independently killed" {
+    run_alarm_initialization_mutant init-hard-abort
+}
+
+@test "Alarm initialization cancel-inherited mutant is independently killed" {
+    run_alarm_initialization_mutant cancel-inherited
+}
+
+@test "Alarm initialization drain-inherited mutant is independently killed" {
+    run_alarm_initialization_mutant drain-inherited
+}
+
+@test "Alarm initialization arm-before-unblock mutant is independently killed" {
+    run_alarm_initialization_mutant arm-before-unblock
 }
 
 @test "post-Popen source-history and masked deadline mutants are independently killed" {

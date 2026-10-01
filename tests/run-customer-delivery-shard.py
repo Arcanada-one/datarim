@@ -38,7 +38,7 @@ PLATFORM_SHARD_POLICY = {
         **{shard: ("linux",) for shard in range(1, 14)},
         **{shard: ("linux", "macos") for shard in range(14, 16)},
         **{shard: ("macos",) for shard in range(16, 23)},
-        **{shard: ("linux", "macos") for shard in range(23, 53)},
+        **{shard: ("linux", "macos") for shard in range(23, 58)},
     },
 }
 MACOS_RUNTIME_ISOLATED_TESTS = {
@@ -88,7 +88,12 @@ MACOS_RUNTIME_ISOLATED_TESTS = {
         "wrapper exec and interpreter mutants are independently killed",
         "wrapper worker transport mutants are independently killed",
         "Alarm diagnostic grammar mutation attribution is fail-closed",
-        "Alarm initialization mutants are independently killed",
+        "Alarm initialization handler-order mutant is independently killed",
+        "Alarm initialization timer-bound mutant is independently killed",
+        "Alarm initialization init-hard-abort mutant is independently killed",
+        "Alarm initialization cancel-inherited mutant is independently killed",
+        "Alarm initialization drain-inherited mutant is independently killed",
+        "Alarm initialization arm-before-unblock mutant is independently killed",
         "post-Popen source-history and masked deadline mutants are independently killed",
         "post-Popen readiness and stale marker mutants are independently killed",
     ),
