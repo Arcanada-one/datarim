@@ -5,7 +5,7 @@ current_aal: 1
 target_aal: 2
 license: MIT
 metadata:
-  version: "0.2.2"
+  version: "0.2.3"
   default-language: ru
 ---
 
@@ -103,6 +103,14 @@ checked, and what was not checked. Use direct verbs and stable names. Do not pat
 Replace internal context references with their meaning. Public sources and links to
 the actual deliverable are allowed, but never replace the explanation. Keep raw logs,
 model routing, agent names, and bare evidence IDs out of the human narrative.
+
+Use normal word spacing in human prose, including Russian. Separate ordinary words
+from dates, counts, role numbers and version labels: "version 4.2.2", "report 218",
+"July 2022" and "role 1". Conciseness never means removing spaces. Preserve exact
+canonical identifiers, product and model names, schema keys, filenames, paths,
+URLs, hashes, code and literal quotations. Never silently split an opaque token;
+explain its meaning separately. Mark such a token as inline code when prose lint
+cannot distinguish a canonical name from a missing space.
 
 Use the bundled deterministic tools for structured reports. Structural validation
 and language lint do not prove semantic correctness or reader understanding. An

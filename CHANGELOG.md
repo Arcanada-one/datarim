@@ -4,6 +4,18 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.2.2] — 2026-10-03
+
+### Fixed
+
+- Human Outcome Reporting 0.2.3 explicitly preserves natural spaces in prose. Advisory checks identify obvious joined words, dates, counts and units outside literal identifiers and code, without silently changing canonical names or acceptance records.
+- Release preparation and signed release verification support an explicitly declared transition to a parentless `main`. The bootstrap verifies that the new root has the exact tested preparation tree and classifies the genuine preparation changes against the previous signed release. Ordinary signature, exact-main and version checks remain required.
+
+### Changed
+
+- The public branch surface contains only `main`, beginning at one signed root commit with the current source. Superseded public tags and release downloads are retired after the successor is verified. Repository identity and protections are preserved. GitHub-managed pull-request refs, forks and cached copies may retain older objects; this operation does not erase those surfaces.
+- Installation and update instructions distinguish clean clones from old histories, retain project-specific changes, and verify the successor release before updating consumers.
+
 ## [4.2.1] — 2026-10-03
 
 ### Fixed

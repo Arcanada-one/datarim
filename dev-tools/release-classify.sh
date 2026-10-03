@@ -2,11 +2,11 @@
 # release-classify.sh — deterministic SemVer bump classifier for autonomous releases.
 #
 # Reads the Conventional-Commits subjects between the last tag and a target ref,
-# maps them to a SemVer bump (patch / minor / major / none), optionally runs a
-# structural API-diff override, and prints a parseable verdict. Major bumps and
-# 0.x breaking changes set escalate=true (operator gate). The optional API-diff
-# override can only RAISE a bump (never lower it); when the diff tool is absent
-# it reports api_diff=unavailable and never fails open (see --api-diff).
+# maps them to a SemVer bump (patch / minor / major / none) and prints a
+# parseable verdict. Major bumps and 0.x breaking changes set escalate=true
+# (operator gate). No structural API-diff adapter is implemented: both auto and
+# off truthfully report api_diff=unavailable, even when a tool is installed.
+# A future computed API-diff override may only RAISE a bump, never lower it.
 #
 # Conventional Commits -> SemVer (the highest bump across the range wins):
 #   fix: / perf:                              -> patch
@@ -71,7 +71,7 @@ classify_one() {
 aggregate_bump() {
     local repo="$1" range="$2" max=0 msg one
     local shas
-    shas="$(git -C "$repo" log --format='%H' "$range" 2>/dev/null || true)"
+    shas="$(git -C "$repo" log --format='%H' "$range")" || return 3
     [ -z "$shas" ] && { echo none; return 0; }
     while IFS= read -r sha; do
         [ -z "$sha" ] && continue
@@ -134,23 +134,25 @@ main() {
         from="$(git -C "$repo" describe --tags --abbrev=0 2>/dev/null || true)"
     fi
     local range
+    git -C "$repo" rev-parse --verify "${to}^{commit}" >/dev/null 2>&1 || {
+        echo "ERROR: cannot resolve target commit" >&2; exit 3; }
+    if [ -n "$from" ]; then
+        git -C "$repo" rev-parse --verify "${from}^{commit}" >/dev/null 2>&1 || {
+            echo "ERROR: cannot resolve baseline commit" >&2; exit 3; }
+    fi
     if [ -n "$from" ]; then range="${from}..${to}"; else range="$to"; fi
 
     local bump version zero_x api_diff escalate rationale
-    bump="$(aggregate_bump "$repo" "$range")"
+    bump="$(aggregate_bump "$repo" "$range")" || exit 3
     version="$(resolve_version "$repo")"
     zero_x="$(is_zero_x "${version:-1.0.0}")"
 
-    # API-diff override: off => unavailable (not consulted); auto => run tool if
-    # present, else unavailable. The override can only RAISE the bump, never lower.
+    # API-diff modes currently remain unmeasured. A future computed override can
+    # only RAISE the bump, never lower it.
     api_diff=unavailable
-    if [ "$api_diff_mode" = auto ]; then
-        if command -v griffe >/dev/null 2>&1 || command -v cargo-semver-checks >/dev/null 2>&1; then
-            # Tool present: a real diff would run here in CI. Absent a computed
-            # break we report clean; a detected break raises bump to major.
-            api_diff=clean
-        fi
-    fi
+    case "$api_diff_mode" in auto|off) ;; *) echo "ERROR: invalid API-diff mode" >&2; exit 2 ;; esac
+    # No structural API-diff adapter currently executes here. A tool appearing
+    # on PATH is not a measured clean diff: preserve the unavailable verdict.
     if [ "$api_diff" = break ] && [ "$(rank major)" -gt "$(rank "$bump")" ]; then
         bump="major"
     fi

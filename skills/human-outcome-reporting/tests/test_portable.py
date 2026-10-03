@@ -81,6 +81,122 @@ class PortableReportingTests(unittest.TestCase):
         self.assertEqual(hr.schema_errors(text,{'type':'string'}),[])
         self.assertFalse(any(x['code']=='unsafe-control' for x in hr.lint(text)))
 
+    def test_glued_prose_words_dates_and_counts_warn_without_rewriting(self):
+        for text in ('версия4.2.1', 'по докладу218', 'июль2022', 'роль1',
+                     'бы785файлов', 'все525untrackedпути', '247fitdays',
+                     '2jobs/host', 'Jan2022'):
+            with self.subTest(text=text):
+                findings=[x for x in hr.lint(text) if x['code']=='prose-spacing']
+                self.assertTrue(findings)
+                self.assertTrue(all(x['severity']=='warning' for x in findings))
+                self.assertEqual(hr.human(text),text)
+
+    def test_renderer_keeps_natural_word_spacing(self):
+        for text in ('версия 4.2.2', 'доклад 218', 'июль 2022 года', 'роль 1'):
+            with self.subTest(text=text):
+                self.assertEqual(hr.human(text),text)
+
+    def test_natural_spacing_and_opaque_names_do_not_warn(self):
+        for text in ('версия 4.2.2', 'доклад 218', 'июль 2022 года', 'роль 1',
+                     '247 fit days', '2 jobs per host', 'January 2022',
+                     'TASK-0218', 'gpt-6.1-sol', 'Product2', 'SHA256',
+                     'Jan2022role1', 'field_name2', 'file2022.md',
+                     '10daa22b92ec137915712d89cf62d1aa6bd3f76d'):
+            with self.subTest(text=text):
+                self.assertFalse(any(x['code']=='prose-spacing' for x in hr.lint(text)))
+
+    def test_spacing_lint_excludes_literal_code_paths_and_link_destinations(self):
+        for text in ('`доклад218`', '``версия4.2.2``',
+                     '```text\nиюль2022\n```', '~~~text\n2jobs/host\n~~~',
+                     '    доклад218\n',
+                     '<!-- gate:literal -->\nверсия4.2.2\n<!-- /gate:literal -->',
+                     '/example/доклад218', './роль1', '~/июль2022',
+                     'reports/доклад218.md', 'отчёт218.md',
+                     'https://example.test/доклад218',
+                     '[Report](https://example.test/доклад218)',
+                     '[Report](/example/доклад218)', 'schema_поле2'):
+            with self.subTest(text=text):
+                self.assertFalse(any(x['code']=='prose-spacing' for x in hr.lint(text)))
+        self.assertTrue(any(x['code']=='prose-spacing' for x in hr.lint('[доклад218](https://example.test/report)')))
+
+    def test_spacing_lint_catches_prose_after_closed_code_fence(self):
+        text='```\nиюль2022\n```\nПо докладу218 проверено 2jobs/host.'
+        self.assertTrue(any(x['code']=='prose-spacing' for x in hr.lint(text)))
+
+    def test_repeated_schema_separators_finish_and_preserve_surrounding_prose(self):
+        import subprocess
+        import sys
+        for token in (('0_' * 20000) + '0', ('field\\_' * 10000) + 'field'):
+            with self.subTest(escaped='\\' in token):
+                path=self.root/'long-human.txt'
+                path.write_text(token + ' роль1', encoding='utf-8')
+                before=path.read_bytes()
+                result=subprocess.run([sys.executable,str(SKILL/'scripts/hr.py'),
+                                       'lint','--text-file',str(path)],capture_output=True,
+                                      text=True,timeout=5,check=False)
+                self.assertEqual(result.returncode,0,result.stderr)
+                findings=json.loads(result.stdout)
+                self.assertEqual([f['code'] for f in findings],['prose-spacing'])
+                self.assertEqual(path.read_bytes(),before)
+        for field in ('schema_поле2','schema\\_поле2','0_0_0'):
+            self.assertFalse(any(f['code']=='prose-spacing' for f in hr.lint(field)))
+
+    def test_spacing_warning_is_advisory_in_lint_cli(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        path=self.root/'human.txt';path.write_text('версия4.2.1')
+        before=path.read_bytes();out=StringIO()
+        with redirect_stdout(out):
+            code=hr.main(['lint','--text-file',str(path)])
+        self.assertEqual(code,0)
+        self.assertEqual(json.loads(out.getvalue())[0]['code'],'prose-spacing')
+        self.assertEqual(path.read_bytes(),before)
+
+    def test_spacing_warning_does_not_downgrade_existing_lint_findings(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        path=self.root/'human.txt';path.write_text('версия4.2.1\u202e')
+        out=StringIO()
+        with redirect_stdout(out):
+            code=hr.main(['lint','--text-file',str(path)])
+        self.assertEqual(code,2)
+        findings=json.loads(out.getvalue())
+        self.assertEqual({x['code'] for x in findings},{'unsafe-control','prose-spacing'})
+
+    def test_strict_render_emits_report_despite_advisory_spacing(self):
+        from contextlib import redirect_stdout,redirect_stderr
+        from io import StringIO
+        self.r['outcomes'][0]['text']='Подготовлена версия4.2.1.'
+        for name,value in [('contract.json',self.c),('report.json',self.r)]:
+            (self.root/name).write_text(json.dumps(value))
+        out,err=StringIO(),StringIO()
+        with redirect_stdout(out),redirect_stderr(err):
+            code=hr.main(['render','--contract',str(self.root/'contract.json'),
+                          '--report',str(self.root/'report.json'),'--strict-human'])
+        self.assertEqual(code,0)
+        self.assertIn('версия4.2.1',out.getvalue())
+        self.assertEqual(json.loads(err.getvalue())['language_findings'][0]['code'],'prose-spacing')
+
+    def test_native_finalizer_spacing_advice_preserves_report_and_readiness(self):
+        from contextlib import redirect_stdout,redirect_stderr
+        from io import StringIO
+        manifest=native.snapshot(self.root,self.c,self.selection)
+        self.r['outcomes'][0]['text']='Подготовлена версия4.2.1.'
+        for status,expected in [('passed',0),('not_run',3)]:
+            with self.subTest(status=status):
+                self.r['checks'][0]['status']=status
+                for name,value in [('contract.json',self.c),('report.json',self.r),('snapshot.json',manifest)]:
+                    (self.root/name).write_text(json.dumps(value))
+                before={p.name:p.read_bytes() for p in self.root.iterdir()}
+                out,err=StringIO(),StringIO()
+                with redirect_stdout(out),redirect_stderr(err):
+                    code=native.main(['finalize','--project',str(self.root),'--contract','contract.json',
+                                      '--snapshot','snapshot.json','--report','report.json'])
+                self.assertEqual(code,expected)
+                self.assertIn('версия4.2.1',out.getvalue())
+                self.assertEqual(json.loads(err.getvalue())['language_findings'][0]['code'],'prose-spacing')
+                self.assertEqual(before,{p.name:p.read_bytes() for p in self.root.iterdir()})
+
     def test_source_snapshot_is_read_only_and_detects_drift(self):
         before={p.name:p.read_bytes() for p in self.root.iterdir()}
         manifest=native.snapshot(self.root,self.c,self.selection)

@@ -8,6 +8,15 @@ The maintainer release gate needs Python 3 with PyYAML to inspect actual pinned
 attestation steps. Missing YAML support fails closed; comments or shell text do
 not establish an executable attestation pipeline.
 
+## Explicit history bootstrap
+
+For the 4.2.2 parentless-root transition, follow
+[history transition](history-transition.md). The declared bootstrap verifies
+signed baseline provenance, exact preparation/root tree equivalence and the
+original change range before classifying the release. Normal releases retain
+the ordinary path. Do not prepare the successor tag on the old ancestry or
+relax exact-source checks to make version parity green.
+
 ## Roles
 
 - **Release engineer** — runs the release. By default this is a member

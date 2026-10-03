@@ -130,7 +130,8 @@ def main(argv=None):
         text = hr.render(contract,report,result)
         findings = hr.lint(text)
         if findings:
-            print(json.dumps({'language_findings':findings},ensure_ascii=False),file=sys.stderr);return 2
+            print(json.dumps({'language_findings':findings},ensure_ascii=False),file=sys.stderr)
+            if hr.has_blocking_lint(findings):return 2
         print(text)
         return 0 if result['ready'] else 3
     except (OSError, TypeError, ValueError, RecursionError) as exc:

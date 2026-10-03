@@ -89,7 +89,11 @@ PY
   grep -F 'test "$EXPECTED_REF" = refs/heads/main' "$workflow"
   grep -F 'test "$(git cat-file -t "$tag")" = tag' "$workflow"
   grep -F 'git tag --merged "${release_sha}^" --list' "$workflow"
-  grep -F -- '--from "$previous_tag" --to "$release_sha"' "$workflow"
+  grep -F 'classification_sha="$release_sha"' "$workflow"
+  grep -F -- '--from "$previous_tag" --to "$classification_sha"' "$workflow"
+  grep -F 'python3 dev-tools/check-history-bootstrap.py --repo . --mode release' "$workflow"
+  grep -F -- '--source-sha "$source_sha" --release-sha "$release_sha" --tree-sha "$tree_sha"' "$workflow"
+  grep -F 'classification_sha="$source_sha"' "$workflow"
   ! grep -F -- '--from v2.67.1' "$workflow"
   grep -F 'ref: ${{ needs.classify.outputs.release_sha }}' "$workflow"
   [ "$(wc -l < .github/ssh-signing-allowed-signers)" -eq 1 ]
