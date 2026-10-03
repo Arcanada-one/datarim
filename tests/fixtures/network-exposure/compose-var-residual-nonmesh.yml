@@ -1,0 +1,7 @@
+version: "3.9"
+# Residual coverage: a non-mesh-named required var, unresolved → B3 WARN-but-PASS.
+services:
+  app:
+    image: arcanada/app:latest
+    ports:
+      - "${CUSTOM_BIND:?bind required}:8080:8080"

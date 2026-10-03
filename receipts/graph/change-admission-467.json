@@ -1,0 +1,2863 @@
+{
+ "admission": {
+  "rule": "admitted requires every verdict = verified; failed without exemption ⇒ refused; not_measured without exemption ⇒ paused_safe; exemptions (owner + expiry) are attached by the admitting agent, never by the verifier (DEC-AUP-0008, matrix P1/P4)",
+  "structural_exclusion_rule": "DEC-AUP-0034: an affected entity is NOT verdict-owing when all three hold — the verifier matrix declares neither a mandatory nor a selectable verifier for its node type (so the only verdict it could ever carry states a property of the MATRIX, not of this change), the change set does not contain it, and its bytes are identical at base and head. Each one is listed in structural_exclusions with the content hash at both revisions that proves the byte-identity, and impact_pair.receipt_problems re-derives that proof from Git rather than believing the receipt.",
+  "superseded_self_rule": "DEC-AUP-0035: the entity a receipt can never verify is the PREVIOUS VERSION OF ITSELF. When a receipt is re-issued at the same path for the same work item — the ordinary case after a rebase or a second commit on a card — the copy of it standing in the tree is superseded by construction: this run is the measurement that replaces it, so the only verdict it could carry is I14 `not_measured` about a document that no longer exists at that path once the run finishes. It is excluded with the work item and the output path that identify it, both re-derived from Git by impact_pair.receipt_problems, never asserted.",
+  "verdict": "admitted_with_exemptions"
+ },
+ "captured_at_utc": "2026-09-30T00:31:27Z",
+ "change_set": {
+  "base": "1b36781c8d265205044caefe1d0a9535bc788c3a",
+  "files": [
+   {
+    "kind": "other",
+    "path": "JEV-MANIFEST.sha256",
+    "status": "M",
+    "uncovered": true
+   },
+   {
+    "kind": "doc",
+    "node_id": "document:documentation/how-to/host-jev-with-project-datarim.md",
+    "node_ids": [
+     "document:documentation/how-to/host-jev-with-project-datarim.md"
+    ],
+    "path": "documentation/how-to/host-jev-with-project-datarim.md",
+    "status": "M"
+   },
+   {
+    "kind": "other",
+    "node_id": "code_unit:plugins/dr-jev-control/scripts/catalog.py",
+    "node_ids": [
+     "code_unit:plugins/dr-jev-control/scripts/catalog.py"
+    ],
+    "path": "plugins/dr-jev-control/scripts/catalog.py",
+    "status": "M"
+   },
+   {
+    "kind": "other",
+    "node_id": "code_unit:plugins/dr-jev-control/scripts/catalog_sources.py",
+    "node_ids": [
+     "code_unit:plugins/dr-jev-control/scripts/catalog_sources.py"
+    ],
+    "path": "plugins/dr-jev-control/scripts/catalog_sources.py",
+    "status": "A"
+   },
+   {
+    "kind": "other",
+    "node_id": "code_unit:plugins/dr-jev-control/scripts/components.py",
+    "node_ids": [
+     "code_unit:plugins/dr-jev-control/scripts/components.py"
+    ],
+    "path": "plugins/dr-jev-control/scripts/components.py",
+    "status": "M"
+   },
+   {
+    "kind": "other",
+    "node_id": "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py",
+    "node_ids": [
+     "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py"
+    ],
+    "path": "plugins/dr-jev-control/scripts/hook_user_prompt.py",
+    "status": "M"
+   },
+   {
+    "kind": "other",
+    "node_id": "code_unit:plugins/dr-jev-control/scripts/route.py",
+    "node_ids": [
+     "code_unit:plugins/dr-jev-control/scripts/route.py"
+    ],
+    "path": "plugins/dr-jev-control/scripts/route.py",
+    "status": "M"
+   },
+   {
+    "kind": "doc",
+    "new": true,
+    "path": "receipts/canary/jev-catalog-467/harness.py.txt",
+    "status": "A"
+   },
+   {
+    "kind": "doc",
+    "new": true,
+    "path": "receipts/canary/jev-catalog-467/make_plan.py.txt",
+    "status": "A"
+   },
+   {
+    "kind": "receipt",
+    "new": true,
+    "path": "receipts/canary/jev-catalog-467/negative/plan.json",
+    "status": "A"
+   },
+   {
+    "kind": "receipt",
+    "new": true,
+    "path": "receipts/canary/jev-catalog-467/negative/result.json",
+    "status": "A"
+   },
+   {
+    "kind": "receipt",
+    "new": true,
+    "path": "receipts/canary/jev-catalog-467/negative/source-evidence.json",
+    "status": "A"
+   },
+   {
+    "kind": "receipt",
+    "new": true,
+    "path": "receipts/canary/jev-catalog-467/plan.json",
+    "status": "A"
+   },
+   {
+    "kind": "receipt",
+    "new": true,
+    "path": "receipts/canary/jev-catalog-467/result.json",
+    "status": "A"
+   },
+   {
+    "kind": "receipt",
+    "new": true,
+    "path": "receipts/canary/jev-catalog-467/source-evidence.json",
+    "status": "A"
+   },
+   {
+    "kind": "receipt",
+    "node_id": "receipt:receipts/graph/change-admission-467.json",
+    "node_ids": [
+     "receipt:receipts/graph/change-admission-467.json"
+    ],
+    "path": "receipts/graph/change-admission-467.json",
+    "status": "A"
+   },
+   {
+    "kind": "other",
+    "node_id": "code_unit:scripts/jev_host_install.py",
+    "node_ids": [
+     "code_unit:scripts/jev_host_install.py"
+    ],
+    "path": "scripts/jev_host_install.py",
+    "status": "M"
+   },
+   {
+    "kind": "other",
+    "node_id": "code_unit:tests/test_jev_independent_catalog.py",
+    "node_ids": [
+     "code_unit:tests/test_jev_independent_catalog.py"
+    ],
+    "path": "tests/test_jev_independent_catalog.py",
+    "status": "A"
+   }
+  ],
+  "head": "092d2d3c122024ed2f3730aa69b268e477aeda9c",
+  "mode": "diff"
+ },
+ "decision_ref": "DEC-AUP-0008",
+ "exemptions": [
+  {
+   "code": "CONFIG_SCHEMA_NO_ENV_SOURCE",
+   "entity": "code_unit:plugins/dr-jev-control/scripts/catalog.py",
+   "expires_at_utc": "2026-10-13T00:00:00Z",
+   "granted_by": "Control decision 2026-09-29 on datarim#467 (config_schema only; canary measured)",
+   "owner": "jev-remediation",
+   "reason": "repo declares no env source; instrument gap",
+   "verifier": "v-config-schema"
+  },
+  {
+   "code": "CONFIG_SCHEMA_NO_ENV_SOURCE",
+   "entity": "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py",
+   "expires_at_utc": "2026-10-13T00:00:00Z",
+   "granted_by": "Control decision 2026-09-29 on datarim#467 (config_schema only; canary measured)",
+   "owner": "jev-remediation",
+   "reason": "repo declares no env source; instrument gap",
+   "verifier": "v-config-schema"
+  },
+  {
+   "code": "CONFIG_SCHEMA_NO_ENV_SOURCE",
+   "entity": "code_unit:plugins/dr-jev-control/scripts/route.py",
+   "expires_at_utc": "2026-10-13T00:00:00Z",
+   "granted_by": "Control decision 2026-09-29 on datarim#467 (config_schema only; canary measured)",
+   "owner": "jev-remediation",
+   "reason": "repo declares no env source; instrument gap",
+   "verifier": "v-config-schema"
+  },
+  {
+   "code": "CONFIG_SCHEMA_NO_ENV_SOURCE",
+   "entity": "code_unit:scripts/jev_host_install.py",
+   "expires_at_utc": "2026-10-13T00:00:00Z",
+   "granted_by": "Control decision 2026-09-29 on datarim#467 (config_schema only; canary measured)",
+   "owner": "jev-remediation",
+   "reason": "repo declares no env source; instrument gap",
+   "verifier": "v-config-schema"
+  }
+ ],
+ "graph": {
+  "builder_version": "1.0.1",
+  "built_at_utc": "2026-09-05T00:00:00Z",
+  "graph_digest": "sha256:e7dbc650608a08286bc0eae24649659f2d0190803ef5452c5b9635d555aed2eb",
+  "path": "/var/tmp/control-jev/verify-e/work/verifier-out/graph-1b36781c8d26.json",
+  "source_commit": "1b36781c8d265205044caefe1d0a9535bc788c3a"
+ },
+ "head_graph": {
+  "builder_version": "1.0.1",
+  "built_at_utc": "2026-09-05T00:00:00Z",
+  "graph_digest": "sha256:e599bec0cfb00d034f5d1c3f56359ac749fe29e9ae393817bed16e7cb8612c79",
+  "path": "/var/tmp/control-jev/verify-e/work/verifier-out/graph-head-092d2d3c1220.json",
+  "source_commit": "092d2d3c122024ed2f3730aa69b268e477aeda9c",
+  "staleness": {
+   "checked_at_utc": "2026-09-30T00:31:29Z",
+   "checked_nodes": 478,
+   "method": "manifest.dirty must be false; manifest.source_commit == change_set.head; working tree must be clean (a receipt in diff mode describes committed history only); content_hash of every whole-file node (code_unit, document, receipt; deployable_unit via its package.json) must equal the sha256 of the file bytes at head (git objects); contract/route/data_model hashes are extractor-owned (declaration text) and not recomputed",
+   "mismatched_nodes": [],
+   "verdict": "fresh"
+  }
+ },
+ "host": "public-ci-host",
+ "host_redacted": true,
+ "host_sha256": "6831d4feaae8e50eeb8413cf4e8d9b8393c08df067cea831063f418d829effd6",
+ "impact_set": {
+  "deterministic_core": [
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:AGENTS.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/reference/jev-cli.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:AGENTS.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/reference/jev-cli.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:AGENTS.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/jev-cli.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:AGENTS.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/reference/jev-cli.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:AGENTS.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/jev-cli.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:AGENTS.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/reference/jev-cli.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "document:CHANGELOG.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:CHANGELOG.md",
+      "provenance": "deterministic",
+      "to": "code_unit:scripts/jev_host_install.py",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 1,
+      "entity": "document:CHANGELOG.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:CHANGELOG.md",
+        "provenance": "deterministic",
+        "to": "code_unit:scripts/jev_host_install.py",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 1,
+      "entity": "document:CHANGELOG.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:CHANGELOG.md",
+        "provenance": "deterministic",
+        "to": "code_unit:scripts/jev_host_install.py",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "document:INSTALL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 1,
+      "entity": "document:INSTALL.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 1,
+      "entity": "document:INSTALL.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:JEV-INTEGRATION-REPORT.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/reference/jev-cli.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:JEV-INTEGRATION-REPORT.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/reference/jev-cli.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:JEV-INTEGRATION-REPORT.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/jev-cli.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:JEV-INTEGRATION-REPORT.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/reference/jev-cli.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:JEV-INTEGRATION-REPORT.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/jev-cli.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:JEV-INTEGRATION-REPORT.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/reference/jev-cli.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:JEV-QUICKSTART.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/configure-and-use-jev.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:JEV-QUICKSTART.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/configure-and-use-jev.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:JEV-QUICKSTART.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/configure-and-use-jev.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:JEV-QUICKSTART.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/configure-and-use-jev.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:JEV-QUICKSTART.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/configure-and-use-jev.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:JEV-QUICKSTART.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/configure-and-use-jev.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:JEV-V2-NOTES.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/reference/jev-cli.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:JEV-V2-NOTES.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/reference/jev-cli.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:JEV-V2-NOTES.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/jev-cli.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:JEV-V2-NOTES.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/reference/jev-cli.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:JEV-V2-NOTES.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/jev-cli.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:JEV-V2-NOTES.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/reference/jev-cli.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "document:README.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:README.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 1,
+      "entity": "document:README.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:README.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 1,
+      "entity": "document:README.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:README.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:SECURITY.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:README.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/reference/standards-mapping.md",
+      "provenance": "deterministic",
+      "to": "document:README.md",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:SECURITY.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/reference/standards-mapping.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:SECURITY.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:README.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/standards-mapping.md",
+        "provenance": "deterministic",
+        "to": "document:README.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:SECURITY.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/reference/standards-mapping.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:SECURITY.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:README.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/standards-mapping.md",
+        "provenance": "deterministic",
+        "to": "document:README.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:SECURITY.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/reference/standards-mapping.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:documentation/explanation/codex-slash-command-upstream-advocacy.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/multi-runtime.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/explanation/codex-slash-command-upstream-advocacy.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/multi-runtime.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:documentation/explanation/codex-slash-command-upstream-advocacy.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/multi-runtime.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/explanation/codex-slash-command-upstream-advocacy.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/multi-runtime.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:documentation/explanation/codex-slash-command-upstream-advocacy.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/multi-runtime.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/explanation/codex-slash-command-upstream-advocacy.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/multi-runtime.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/explanation/symlinks.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:README.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/explanation/symlinks.md",
+      "provenance": "deterministic",
+      "to": "document:README.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/explanation/symlinks.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:README.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/explanation/symlinks.md",
+        "provenance": "deterministic",
+        "to": "document:README.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/explanation/symlinks.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:README.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/explanation/symlinks.md",
+        "provenance": "deterministic",
+        "to": "document:README.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/how-to/claude-code-jev-control-plane.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:plugins/dr-jev-control/README.md",
+      "provenance": "deterministic",
+      "to": "code_unit:scripts/jev_host_install.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/claude-code-jev-control-plane.md",
+      "provenance": "deterministic",
+      "to": "document:plugins/dr-jev-control/README.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/how-to/claude-code-jev-control-plane.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:plugins/dr-jev-control/README.md",
+        "provenance": "deterministic",
+        "to": "code_unit:scripts/jev_host_install.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/claude-code-jev-control-plane.md",
+        "provenance": "deterministic",
+        "to": "document:plugins/dr-jev-control/README.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/how-to/claude-code-jev-control-plane.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:plugins/dr-jev-control/README.md",
+        "provenance": "deterministic",
+        "to": "code_unit:scripts/jev_host_install.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/claude-code-jev-control-plane.md",
+        "provenance": "deterministic",
+        "to": "document:plugins/dr-jev-control/README.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/how-to/configure-and-use-jev.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/configure-and-use-jev.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/how-to/configure-and-use-jev.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/configure-and-use-jev.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/how-to/configure-and-use-jev.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/configure-and-use-jev.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "document:documentation/how-to/jev-without-datarim.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/jev-without-datarim.md",
+      "provenance": "deterministic",
+      "to": "code_unit:scripts/jev_host_install.py",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 1,
+      "entity": "document:documentation/how-to/jev-without-datarim.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/jev-without-datarim.md",
+        "provenance": "deterministic",
+        "to": "code_unit:scripts/jev_host_install.py",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 1,
+      "entity": "document:documentation/how-to/jev-without-datarim.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/jev-without-datarim.md",
+        "provenance": "deterministic",
+        "to": "code_unit:scripts/jev_host_install.py",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/how-to/multi-runtime.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/multi-runtime.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/how-to/multi-runtime.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/multi-runtime.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/how-to/multi-runtime.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/multi-runtime.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:documentation/reference/cli.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/multi-runtime.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/reference/cli.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/multi-runtime.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:documentation/reference/cli.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/multi-runtime.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/cli.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/multi-runtime.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:documentation/reference/cli.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/how-to/multi-runtime.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/cli.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/multi-runtime.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/reference/jev-cli.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/reference/jev-cli.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/reference/jev-cli.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/jev-cli.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/reference/jev-cli.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/jev-cli.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/reference/standards-mapping.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:README.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/reference/standards-mapping.md",
+      "provenance": "deterministic",
+      "to": "document:README.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/reference/standards-mapping.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:README.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/standards-mapping.md",
+        "provenance": "deterministic",
+        "to": "document:README.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/reference/standards-mapping.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:README.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/standards-mapping.md",
+        "provenance": "deterministic",
+        "to": "document:README.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/tutorials/README.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/tutorials/README.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/tutorials/README.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/tutorials/README.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/tutorials/README.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/tutorials/README.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/tutorials/getting-started.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/tutorials/getting-started.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/tutorials/getting-started.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/tutorials/getting-started.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/tutorials/getting-started.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/tutorials/getting-started.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/tutorials/initialize-datarim-with-jev.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/tutorials/initialize-datarim-with-jev.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/tutorials/initialize-datarim-with-jev.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/tutorials/initialize-datarim-with-jev.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/tutorials/initialize-datarim-with-jev.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/tutorials/initialize-datarim-with-jev.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/tutorials/initialize-datarim.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/tutorials/initialize-datarim.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/tutorials/initialize-datarim.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/tutorials/initialize-datarim.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/tutorials/initialize-datarim.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/tutorials/initialize-datarim.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/tutorials/working-with-jev-orchestrator.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/tutorials/working-with-jev-orchestrator.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/tutorials/working-with-jev-orchestrator.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/tutorials/working-with-jev-orchestrator.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 2,
+      "entity": "document:documentation/tutorials/working-with-jev-orchestrator.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/tutorials/working-with-jev-orchestrator.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "document:plugins/dr-jev-control/README.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:plugins/dr-jev-control/README.md",
+      "provenance": "deterministic",
+      "to": "code_unit:scripts/jev_host_install.py",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 1,
+      "entity": "document:plugins/dr-jev-control/README.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:plugins/dr-jev-control/README.md",
+        "provenance": "deterministic",
+        "to": "code_unit:scripts/jev_host_install.py",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 1,
+      "entity": "document:plugins/dr-jev-control/README.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:plugins/dr-jev-control/README.md",
+        "provenance": "deterministic",
+        "to": "code_unit:scripts/jev_host_install.py",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/project-init/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:INSTALL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/tutorials/README.md",
+      "provenance": "deterministic",
+      "to": "document:INSTALL.md",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/project-init/SKILL.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/tutorials/README.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:skills/project-init/SKILL.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/tutorials/README.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:skills/project-init/SKILL.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/tutorials/README.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:skills/project-init/SKILL.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:INSTALL.md",
+        "provenance": "deterministic",
+        "to": "code_unit:plugins/dr-jev-control/scripts/route.py",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/tutorials/README.md",
+        "provenance": "deterministic",
+        "to": "document:INSTALL.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:skills/project-init/SKILL.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/tutorials/README.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/security-baseline/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:README.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/reference/standards-mapping.md",
+      "provenance": "deterministic",
+      "to": "document:README.md",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/security-baseline/SKILL.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/reference/standards-mapping.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revision_paths": [
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:skills/security-baseline/SKILL.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:README.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/standards-mapping.md",
+        "provenance": "deterministic",
+        "to": "document:README.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:skills/security-baseline/SKILL.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/reference/standards-mapping.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "base",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     },
+     {
+      "boundary": "intra_unit",
+      "depth": 3,
+      "entity": "document:skills/security-baseline/SKILL.md",
+      "node_type": "document",
+      "path": [
+       {
+        "edge_type": "documents",
+        "from": "document:README.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/how-to/host-jev-with-project-datarim.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:documentation/reference/standards-mapping.md",
+        "provenance": "deterministic",
+        "to": "document:README.md",
+        "via": "explicit-path"
+       },
+       {
+        "edge_type": "documents",
+        "from": "document:skills/security-baseline/SKILL.md",
+        "provenance": "deterministic",
+        "to": "document:documentation/reference/standards-mapping.md",
+        "via": "explicit-path"
+       }
+      ],
+      "revision": "head",
+      "section": "deterministic_core",
+      "verifier_hint": "doc reference check (path/id still resolves)"
+     }
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   }
+  ],
+  "edge_types": "all",
+  "global_fallback": {
+   "triggered": false
+  },
+  "inferred_tail": [],
+  "max_depth": 3,
+  "method": "Union of independently revision-bound base/head traversals; reverse traversal (dependents) + forward declared-by hops (provides_route, implements_contract, maps_model of the same file, deploys_to); best path = fewest inferred/observed hops, then shortest; max_depth 3",
+  "total": 25
+ },
+ "notes": [
+  "DRAFT produced by `arcana verify` (tools/graph/verify.py 1.2.0) from matrix contracts/graph-verified-change/verifier-matrix.v1.json; selection rule: required(entity) = ⋃ edge_types[t].mandatory over the edge types t of the hops that reach the entity in its best path (i…",
+  "profile: (auto-detected); baseline: (auto-base-freeze: pre-existing findings at base frozen for this run; persist one with --freeze-baseline) (valid); selected: none; disabled: none",
+  "exemptions: 4 attached from /var/tmp/control-jev/exemptions.json"
+ ],
+ "producer": {
+  "tool": "tools/graph/verify.py",
+  "version": "1.2.0"
+ },
+ "receipt_id": "car-verify-20260930T003127Z-092d2d3c",
+ "receipt_path": "receipts/graph/change-admission-467.json",
+ "repo": {
+  "name": "Arcanada-one/datarim",
+  "path": "/var/tmp/control-jev/datarim"
+ },
+ "revision_selection": {
+  "base": [
+   "code_unit:plugins/dr-jev-control/scripts/catalog.py",
+   "code_unit:plugins/dr-jev-control/scripts/components.py",
+   "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py",
+   "code_unit:plugins/dr-jev-control/scripts/route.py",
+   "code_unit:scripts/jev_host_install.py",
+   "document:AGENTS.md",
+   "document:CHANGELOG.md",
+   "document:INSTALL.md",
+   "document:JEV-INTEGRATION-REPORT.md",
+   "document:JEV-QUICKSTART.md",
+   "document:JEV-V2-NOTES.md",
+   "document:README.md",
+   "document:SECURITY.md",
+   "document:documentation/explanation/codex-slash-command-upstream-advocacy.md",
+   "document:documentation/explanation/symlinks.md",
+   "document:documentation/how-to/claude-code-jev-control-plane.md",
+   "document:documentation/how-to/configure-and-use-jev.md",
+   "document:documentation/how-to/host-jev-with-project-datarim.md",
+   "document:documentation/how-to/jev-without-datarim.md",
+   "document:documentation/how-to/multi-runtime.md",
+   "document:documentation/reference/cli.md",
+   "document:documentation/reference/jev-cli.md",
+   "document:documentation/reference/standards-mapping.md",
+   "document:documentation/tutorials/README.md",
+   "document:documentation/tutorials/getting-started.md",
+   "document:documentation/tutorials/initialize-datarim-with-jev.md",
+   "document:documentation/tutorials/initialize-datarim.md",
+   "document:documentation/tutorials/working-with-jev-orchestrator.md",
+   "document:plugins/dr-jev-control/README.md",
+   "document:skills/project-init/SKILL.md",
+   "document:skills/security-baseline/SKILL.md"
+  ],
+  "head": [
+   "code_unit:plugins/dr-jev-control/scripts/catalog.py",
+   "code_unit:plugins/dr-jev-control/scripts/catalog_sources.py",
+   "code_unit:plugins/dr-jev-control/scripts/components.py",
+   "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py",
+   "code_unit:plugins/dr-jev-control/scripts/route.py",
+   "code_unit:scripts/jev_host_install.py",
+   "code_unit:tests/test_jev_independent_catalog.py",
+   "document:AGENTS.md",
+   "document:CHANGELOG.md",
+   "document:INSTALL.md",
+   "document:JEV-INTEGRATION-REPORT.md",
+   "document:JEV-QUICKSTART.md",
+   "document:JEV-V2-NOTES.md",
+   "document:README.md",
+   "document:SECURITY.md",
+   "document:documentation/explanation/codex-slash-command-upstream-advocacy.md",
+   "document:documentation/explanation/symlinks.md",
+   "document:documentation/how-to/claude-code-jev-control-plane.md",
+   "document:documentation/how-to/configure-and-use-jev.md",
+   "document:documentation/how-to/host-jev-with-project-datarim.md",
+   "document:documentation/how-to/jev-without-datarim.md",
+   "document:documentation/how-to/multi-runtime.md",
+   "document:documentation/reference/cli.md",
+   "document:documentation/reference/jev-cli.md",
+   "document:documentation/reference/standards-mapping.md",
+   "document:documentation/tutorials/README.md",
+   "document:documentation/tutorials/getting-started.md",
+   "document:documentation/tutorials/initialize-datarim-with-jev.md",
+   "document:documentation/tutorials/initialize-datarim.md",
+   "document:documentation/tutorials/working-with-jev-orchestrator.md",
+   "document:plugins/dr-jev-control/README.md",
+   "document:skills/project-init/SKILL.md",
+   "document:skills/security-baseline/SKILL.md",
+   "receipt:receipts/graph/change-admission-467.json"
+  ],
+  "schema": "RevisionImpactSelection/v1",
+  "unmeasured_head_files": []
+ },
+ "schema": "ChangeAdmissionReceipt/v1",
+ "staleness": {
+  "checked_at_utc": "2026-09-30T00:31:28Z",
+  "method": "manifest.dirty must be false; manifest.source_commit == change_set.base; working tree must be clean (a receipt in diff mode describes committed history only); content_hash of every whole-file node (code_unit, document, receipt; deployable_unit via its package.json) must equal the sha256 of the file bytes at base (git objects); contract/route/data_model hashes are extractor-owned (declaration text) and not recomputed",
+  "mismatched_nodes": [],
+  "verdict": "fresh"
+ },
+ "structural_exclusions": [
+  {
+   "content_hash": {
+    "base": null,
+    "head": "sha256:caec13183d2120aeb398e4ee619dfc26a39b21925c51239354faebab44882f8d"
+   },
+   "entity": "receipt:receipts/graph/change-admission-467.json",
+   "node_type": "receipt",
+   "path": "receipts/graph/change-admission-467.json",
+   "reason": "historical receipt: asserted, never re-verified (I14); a new receipt supersedes it; superseded by construction — this run re-issues the receipt at receipts/graph/change-admission-467.json for work item 3b450be9-62fb-4bed-8279-89421e0912a5",
+   "rule": "DEC-AUP-0035",
+   "superseded": {
+    "receipt_path": "receipts/graph/change-admission-467.json",
+    "work_item": "3b450be9-62fb-4bed-8279-89421e0912a5"
+   }
+  }
+ ],
+ "tree": {
+  "commit": "092d2d3c122024ed2f3730aa69b268e477aeda9c",
+  "dirty": false
+ },
+ "verdicts": [
+  {
+   "entity": "code_unit:plugins/dr-jev-control/scripts/catalog.py",
+   "reason": "v-config-schema: the repository declares no env source (.env.example / env.schema / compose environment)",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-canary-1",
+    "v-config-schema",
+    "v-fitness"
+   ]
+  },
+  {
+   "entity": "code_unit:plugins/dr-jev-control/scripts/catalog_sources.py",
+   "reason": "v-fitness: no new fitness violation",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-fitness"
+   ]
+  },
+  {
+   "entity": "code_unit:plugins/dr-jev-control/scripts/components.py",
+   "reason": "v-fitness: no new fitness violation",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-fitness"
+   ]
+  },
+  {
+   "entity": "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py",
+   "reason": "v-config-schema: the repository declares no env source (.env.example / env.schema / compose environment)",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-canary-1",
+    "v-config-schema",
+    "v-fitness"
+   ]
+  },
+  {
+   "entity": "code_unit:plugins/dr-jev-control/scripts/route.py",
+   "reason": "v-config-schema: the repository declares no env source (.env.example / env.schema / compose environment)",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-canary-1",
+    "v-config-schema",
+    "v-fitness"
+   ]
+  },
+  {
+   "entity": "code_unit:scripts/jev_host_install.py",
+   "reason": "v-config-schema: the repository declares no env source (.env.example / env.schema / compose environment)",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-canary-1",
+    "v-config-schema",
+    "v-fitness"
+   ]
+  },
+  {
+   "entity": "code_unit:tests/test_jev_independent_catalog.py",
+   "reason": "v-fitness: no new fitness violation",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-fitness"
+   ]
+  },
+  {
+   "entity": "document:AGENTS.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:CHANGELOG.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:INSTALL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:JEV-INTEGRATION-REPORT.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:JEV-QUICKSTART.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:JEV-V2-NOTES.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:README.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:SECURITY.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/explanation/codex-slash-command-upstream-advocacy.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/explanation/symlinks.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/how-to/claude-code-jev-control-plane.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/how-to/configure-and-use-jev.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/how-to/host-jev-with-project-datarim.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/how-to/jev-without-datarim.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/how-to/multi-runtime.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/reference/cli.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/reference/jev-cli.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/reference/standards-mapping.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/tutorials/README.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/tutorials/getting-started.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/tutorials/initialize-datarim-with-jev.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/tutorials/initialize-datarim.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/tutorials/working-with-jev-orchestrator.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:plugins/dr-jev-control/README.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/project-init/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/security-baseline/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  }
+ ],
+ "verifier_selection": {
+  "applied": {},
+  "not_applied": [],
+  "requested": [],
+  "schema": "VerifierSelection/v1"
+ },
+ "verifiers": [
+  {
+   "command": "verify.py config_schema: keys read at head ⊆ declared keys",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:plugins/dr-jev-control/scripts/catalog.py",
+    "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py",
+    "code_unit:plugins/dr-jev-control/scripts/route.py",
+    "code_unit:scripts/jev_host_install.py"
+   ],
+   "entity_verdicts": {
+    "code_unit:plugins/dr-jev-control/scripts/catalog.py": "not_measured",
+    "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py": "not_measured",
+    "code_unit:plugins/dr-jev-control/scripts/route.py": "not_measured",
+    "code_unit:scripts/jev_host_install.py": "not_measured"
+   },
+   "exit_code": 0,
+   "id": "v-config-schema",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/control-jev/verify-e/work/verifier-out/v-config-schema.json",
+   "started_at_utc": "2026-09-30T00:31:30Z",
+   "summary": "0 source(s), 0 new / 0 frozen undeclared reads, 0 failed"
+  },
+  {
+   "command": "verify.py fitness_rules FR-01..FR-05 over the head graph + head sources",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:plugins/dr-jev-control/scripts/catalog.py",
+    "code_unit:plugins/dr-jev-control/scripts/catalog_sources.py",
+    "code_unit:plugins/dr-jev-control/scripts/components.py",
+    "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py",
+    "code_unit:plugins/dr-jev-control/scripts/route.py",
+    "code_unit:scripts/jev_host_install.py",
+    "code_unit:tests/test_jev_independent_catalog.py"
+   ],
+   "entity_verdicts": {
+    "code_unit:plugins/dr-jev-control/scripts/catalog.py": "verified",
+    "code_unit:plugins/dr-jev-control/scripts/catalog_sources.py": "verified",
+    "code_unit:plugins/dr-jev-control/scripts/components.py": "verified",
+    "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py": "verified",
+    "code_unit:plugins/dr-jev-control/scripts/route.py": "verified",
+    "code_unit:scripts/jev_host_install.py": "verified",
+    "code_unit:tests/test_jev_independent_catalog.py": "verified"
+   },
+   "exit_code": 0,
+   "id": "v-fitness",
+   "kind": "fitness_rules",
+   "output_ref": "/var/tmp/control-jev/verify-e/work/verifier-out/v-fitness.json",
+   "started_at_utc": "2026-09-30T00:31:30Z",
+   "summary": "0 finding(s): 0 new / 0 frozen; 0 entity(ies) failed"
+  },
+  {
+   "command": "verify.py doc_reference: path / route / model references of affected documents resolve at head",
+   "duration_s": 0.05,
+   "entities": [
+    "document:AGENTS.md",
+    "document:CHANGELOG.md",
+    "document:INSTALL.md",
+    "document:JEV-INTEGRATION-REPORT.md",
+    "document:JEV-QUICKSTART.md",
+    "document:JEV-V2-NOTES.md",
+    "document:README.md",
+    "document:SECURITY.md",
+    "document:documentation/explanation/codex-slash-command-upstream-advocacy.md",
+    "document:documentation/explanation/symlinks.md",
+    "document:documentation/how-to/claude-code-jev-control-plane.md",
+    "document:documentation/how-to/configure-and-use-jev.md",
+    "document:documentation/how-to/host-jev-with-project-datarim.md",
+    "document:documentation/how-to/jev-without-datarim.md",
+    "document:documentation/how-to/multi-runtime.md",
+    "document:documentation/reference/cli.md",
+    "document:documentation/reference/jev-cli.md",
+    "document:documentation/reference/standards-mapping.md",
+    "document:documentation/tutorials/README.md",
+    "document:documentation/tutorials/getting-started.md",
+    "document:documentation/tutorials/initialize-datarim-with-jev.md",
+    "document:documentation/tutorials/initialize-datarim.md",
+    "document:documentation/tutorials/working-with-jev-orchestrator.md",
+    "document:plugins/dr-jev-control/README.md",
+    "document:skills/project-init/SKILL.md",
+    "document:skills/security-baseline/SKILL.md"
+   ],
+   "entity_verdicts": {
+    "document:AGENTS.md": "verified",
+    "document:CHANGELOG.md": "verified",
+    "document:INSTALL.md": "verified",
+    "document:JEV-INTEGRATION-REPORT.md": "verified",
+    "document:JEV-QUICKSTART.md": "verified",
+    "document:JEV-V2-NOTES.md": "verified",
+    "document:README.md": "verified",
+    "document:SECURITY.md": "verified",
+    "document:documentation/explanation/codex-slash-command-upstream-advocacy.md": "verified",
+    "document:documentation/explanation/symlinks.md": "verified",
+    "document:documentation/how-to/claude-code-jev-control-plane.md": "verified",
+    "document:documentation/how-to/configure-and-use-jev.md": "verified",
+    "document:documentation/how-to/host-jev-with-project-datarim.md": "verified",
+    "document:documentation/how-to/jev-without-datarim.md": "verified",
+    "document:documentation/how-to/multi-runtime.md": "verified",
+    "document:documentation/reference/cli.md": "verified",
+    "document:documentation/reference/jev-cli.md": "verified",
+    "document:documentation/reference/standards-mapping.md": "verified",
+    "document:documentation/tutorials/README.md": "verified",
+    "document:documentation/tutorials/getting-started.md": "verified",
+    "document:documentation/tutorials/initialize-datarim-with-jev.md": "verified",
+    "document:documentation/tutorials/initialize-datarim.md": "verified",
+    "document:documentation/tutorials/working-with-jev-orchestrator.md": "verified",
+    "document:plugins/dr-jev-control/README.md": "verified",
+    "document:skills/project-init/SKILL.md": "verified",
+    "document:skills/security-baseline/SKILL.md": "verified"
+   },
+   "exit_code": 0,
+   "id": "v-doc-reference",
+   "kind": "doc_reference",
+   "output_ref": "/var/tmp/control-jev/verify-e/work/verifier-out/v-doc-reference.txt",
+   "started_at_utc": "2026-09-30T00:31:30Z",
+   "summary": "26 document(s), 0 failed"
+  },
+  {
+   "command": "tools/graph/deploy_gate.py canary --plan <plan> --phase pre|post (results supplied with --canary)",
+   "duration_s": 0.07,
+   "entities": [
+    "code_unit:plugins/dr-jev-control/scripts/catalog.py",
+    "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py",
+    "code_unit:plugins/dr-jev-control/scripts/route.py",
+    "code_unit:scripts/jev_host_install.py"
+   ],
+   "entity_verdicts": {
+    "code_unit:plugins/dr-jev-control/scripts/catalog.py": "verified",
+    "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py": "verified",
+    "code_unit:plugins/dr-jev-control/scripts/route.py": "verified",
+    "code_unit:scripts/jev_host_install.py": "verified"
+   },
+   "exit_code": 0,
+   "id": "v-canary-1",
+   "kind": "canary",
+   "output_ref": "receipts/canary/jev-catalog-467/result.json",
+   "started_at_utc": "2026-09-30T00:31:30Z",
+   "summary": "receipts/canary/jev-catalog-467/result.json: 4 verified / 0 failed / 0 not_measured"
+  },
+  {
+   "command": "tools/graph/deploy_gate.py canary --plan <plan> --phase pre|post (results supplied with --canary)",
+   "duration_s": 0.07,
+   "entities": [],
+   "exit_code": 0,
+   "id": "v-canary",
+   "kind": "canary",
+   "output_ref": "/var/tmp/control-jev/verify-e/work/verifier-out/v-canary.json",
+   "started_at_utc": "2026-09-30T00:31:30Z",
+   "summary": "1 canary result(s), 1 committed at head; 4 verified / 0 failed / 0 not_measured of 4 entities"
+  }
+ ],
+ "verify": {
+  "events": [
+   {
+    "code": "SUPERSEDED_SELF_EXCLUSION",
+    "entity": "receipt:receipts/graph/change-admission-467.json",
+    "rule": "DEC-AUP-0035",
+    "text": "the receipt at receipts/graph/change-admission-467.json is the previous version of the one this run is writing, for the same work item 3b450be9-62fb-4bed-8279-89421e0912a5 — superseded by construction, so it owes this change no verdict"
+   },
+   {
+    "code": "STRUCTURAL_EXCLUSION",
+    "rule": "DEC-AUP-0034",
+    "text": "1 affected entity(ies) owe no verdict (receipt: 1): unchanged at both revisions and given no verifier by the matrix"
+   }
+  ],
+  "required_by_entity": {
+   "code_unit:plugins/dr-jev-control/scripts/catalog.py": [
+    "canary",
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:plugins/dr-jev-control/scripts/catalog_sources.py": [
+    "fitness_rules"
+   ],
+   "code_unit:plugins/dr-jev-control/scripts/components.py": [
+    "fitness_rules"
+   ],
+   "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py": [
+    "canary",
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:plugins/dr-jev-control/scripts/route.py": [
+    "canary",
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:scripts/jev_host_install.py": [
+    "canary",
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:tests/test_jev_independent_catalog.py": [
+    "fitness_rules"
+   ],
+   "document:AGENTS.md": [
+    "doc_reference"
+   ],
+   "document:CHANGELOG.md": [
+    "doc_reference"
+   ],
+   "document:INSTALL.md": [
+    "doc_reference"
+   ],
+   "document:JEV-INTEGRATION-REPORT.md": [
+    "doc_reference"
+   ],
+   "document:JEV-QUICKSTART.md": [
+    "doc_reference"
+   ],
+   "document:JEV-V2-NOTES.md": [
+    "doc_reference"
+   ],
+   "document:README.md": [
+    "doc_reference"
+   ],
+   "document:SECURITY.md": [
+    "doc_reference"
+   ],
+   "document:documentation/explanation/codex-slash-command-upstream-advocacy.md": [
+    "doc_reference"
+   ],
+   "document:documentation/explanation/symlinks.md": [
+    "doc_reference"
+   ],
+   "document:documentation/how-to/claude-code-jev-control-plane.md": [
+    "doc_reference"
+   ],
+   "document:documentation/how-to/configure-and-use-jev.md": [
+    "doc_reference"
+   ],
+   "document:documentation/how-to/host-jev-with-project-datarim.md": [
+    "doc_reference"
+   ],
+   "document:documentation/how-to/jev-without-datarim.md": [
+    "doc_reference"
+   ],
+   "document:documentation/how-to/multi-runtime.md": [
+    "doc_reference"
+   ],
+   "document:documentation/reference/cli.md": [
+    "doc_reference"
+   ],
+   "document:documentation/reference/jev-cli.md": [
+    "doc_reference"
+   ],
+   "document:documentation/reference/standards-mapping.md": [
+    "doc_reference"
+   ],
+   "document:documentation/tutorials/README.md": [
+    "doc_reference"
+   ],
+   "document:documentation/tutorials/getting-started.md": [
+    "doc_reference"
+   ],
+   "document:documentation/tutorials/initialize-datarim-with-jev.md": [
+    "doc_reference"
+   ],
+   "document:documentation/tutorials/initialize-datarim.md": [
+    "doc_reference"
+   ],
+   "document:documentation/tutorials/working-with-jev-orchestrator.md": [
+    "doc_reference"
+   ],
+   "document:plugins/dr-jev-control/README.md": [
+    "doc_reference"
+   ],
+   "document:skills/project-init/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/security-baseline/SKILL.md": [
+    "doc_reference"
+   ],
+   "receipt:receipts/graph/change-admission-467.json": []
+  },
+  "seconds": {
+   "prepare": 1.43,
+   "total": 3.72,
+   "verifiers": 0.19
+  }
+ },
+ "work_item": "3b450be9-62fb-4bed-8279-89421e0912a5"
+}

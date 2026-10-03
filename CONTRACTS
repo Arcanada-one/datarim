@@ -1,0 +1,14 @@
+@cc [label:architecture;verification] verification-is-fail-closed
+A mandatory verification step must distinguish clean execution from skipped, unavailable, malformed, or failed execution. Missing or malformed verifier output must never be interpreted as a clean result.
+
+@cc [label:architecture] canonical-identifiers
+Task identifiers and other shared schema tokens must be validated from canonical schema definitions rather than independently redefined patterns where the semantics are intended to be identical.
+
+@cc [label:traceability] requirements-survive-task-closure
+Behavioral invariants that must survive the task that introduced them should be represented as persistent local contracts and backed by deterministic tests whenever the invariant is mechanically testable.
+
+@cc [label:architecture] framework-graph-single-source
+Framework topology MUST have one machine-checkable source per fact. Generated visual maps MUST be reproducible from the canonical inventory, command graph, and explicit repository references; hand-written diagrams MUST NOT introduce a second complete command/agent/skill relationship inventory.
+
+@cc [label:architecture] framework-reference-integrity
+Every explicit command-to-agent and consumer-to-skill reference MUST resolve to a shipped node. Command graph membership MUST exactly match the command files on disk.

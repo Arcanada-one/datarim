@@ -1,0 +1,1497 @@
+{
+  "schema": "ChangeAdmissionReceipt/v1",
+  "mode": "manual-provisional",
+  "task": "9b020379-c3cf-4cb4-9f5e-ca66ec48fdc8",
+  "base_sha": "29f28486f2206098e5a9a571477c42fc5b7324bf",
+  "observed_at": "2026-09-22T09:13:40.991546+00:00",
+  "verdict": "not_measured",
+  "merge_admitted": false,
+  "reason": "Candidate under implementation; full runtime, CI and affected-entity verification pending",
+  "impact": [
+    {
+      "entity": ".docrefignore",
+      "sha256": "ab2c9eaed4ee2aa40ceb6e6ab379fd32e6a2db91632d5f9006246e8461b6de8d",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": ".gitignore",
+      "sha256": "2649cae913dc9e6663fa7f9d12b6a5a85418bbd2a87a7ed2eb1560a6c7a6a411",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": ".gitleaks.toml",
+      "sha256": "e839df6a2bf3b7f5a92cd798716828606edb6d95e619453ea89b88d2cdd77982",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "AGENTS.md",
+      "sha256": "4a1d886dd469d2b56d0fc3dcfeff0e610edc4249c17cf358244c76ee0868ab9e",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "CHANGELOG.md",
+      "sha256": "cc4edaf0cd2d8c1633f4c15c8aeb1992c0f168ab4ea347dca782e6a8560b91a6",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "CLAUDE.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "CONTRACTS",
+      "sha256": "ad126df95cc94cc66d2985a5dd7a9c34b3cc435296deebf0f7e62a8269641d3a",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "FRAMEWORK-GRAPH-INTEGRATION.md",
+      "sha256": "a54d4473ab7bd693be7c988349327efea0264416b836ab40cc3ea097bf375424",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "JEV-INTEGRATION-REPORT.md",
+      "sha256": "0c66ce3fd7130c229e42f7329f9e68d734507317726673da2181d8ab06c6a8d6",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "JEV-MANIFEST.sha256",
+      "sha256": "7bdf05df65805a4d4bc02e8596a87b8d01e3cb592b7b4e785560032cab0e0e34",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "JEV-QUICKSTART.md",
+      "sha256": "0062d22081973c610c825f72146e95905bb7906ab08a7de3c34d9fcd51861934",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "JEV-V2-NOTES.md",
+      "sha256": "b24d57aadbaa91315c4102eb0ae446089bf92af35f5917ce90d3f01df527a81a",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "README.md",
+      "sha256": "b619bf538752edc3ca33cbc92001be8b2c45486e66dd73e6b0d5d211223ee9ec",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/architect.md",
+      "sha256": "5660774406e75a263a05f666a6536a20dcebf3ddd8719fdece3ae67a71789008",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/code-simplifier.md",
+      "sha256": "f06a5859a3683dcde53ba65768e7940d034913e13294a14bf5465182ff4112f6",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/compliance.md",
+      "sha256": "3457db870a58002c19f054b76961e9cbb2dbe9f68bf41b43e1ca4d8867e80a4c",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/developer.md",
+      "sha256": "3208df581aa8c5ec7b2c934032edde2c65e673cfeaa7fd53d9b8020e59ad2152",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/devops.md",
+      "sha256": "5579104061f48d046e6fd5842316f9270eaff46bc2ddbc5355da5f1ed0b26ca6",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/editor.md",
+      "sha256": "2127720f62a09d4b67407e1bba65e53e8bb6e3db6736af37b59ce4531331d7f1",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/librarian.md",
+      "sha256": "af96fee3a18f666a22baf599367ae3a025b56d325c38bf404d59a5c8f4a7782a",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/optimizer.md",
+      "sha256": "39a37a7d0a544d9ab0ecaad431f9e0ddf6df2ea6047132621789bf0584cacc3e",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/peer-reviewer.md",
+      "sha256": "73ab43921595fcc1962dcc6fdc3c4026f1ddc07610ccd5cb17bd23e5d4ce08aa",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/planner.md",
+      "sha256": "96d580e9f0b8a6c25a44933a780eabc4fe6672d5920b1576e23aebd5498ea690",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/researcher.md",
+      "sha256": "7347515b1d06163228e27da2de24ec16b1b664fe4993cdc63894029e719623fd",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/reviewer.md",
+      "sha256": "9a3d3ec735d482b460a2ac8afbd0b8426ce30234bc54e31ef0f449700f09e996",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/security.md",
+      "sha256": "ff7853c59a0af9901493da1626af65f2b3827ad42fe24e386d86bbbeeae58395",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/skill-creator.md",
+      "sha256": "7854e4ea8e635d2d690a9858e9d9fa0a92f5f7303ebd9eb6f612636804901b9d",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/sre.md",
+      "sha256": "4c9724855b7ec5728ca0069cf81eac9e23c56056226f39d17d0fcdc0e2f6b32f",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/strategist.md",
+      "sha256": "3deeaf7e089169c951e5f48b19111446c90799c749e476021421e15e30c11ee9",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/tester.md",
+      "sha256": "cf824bb19b050401cc96c1758b2b1c81da739c435372b49fcc9d138986fa172c",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "agents/writer.md",
+      "sha256": "e28d96231dc09cc8ed3aa305bba6ae5bddb0028bcea237be18053aead068a92a",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-addskill.md",
+      "sha256": "b08d3f2724451866ca6730484fdcbf91be42c68c55d139343364023d178fa4d4",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-archive.md",
+      "sha256": "3a176f7d1f32858938d7a7d594b8a9a7b1bbad89b4ec361c130f66f5d72f85b4",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-auto.md",
+      "sha256": "cf7efa0c40bb1123df5d673d28db9d9b28c9153a56b279fe202e6c67c56500dd",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-compliance.md",
+      "sha256": "8d588147a24a0b10c2090ee3f0fa9b63b31ecf2cf4e38d0e8ee9814fec675ac1",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-continue.md",
+      "sha256": "29b88d7df0e6e4d9e3a1607c66c15692fe9b4602a39af6ca33735158726a437d",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-design.md",
+      "sha256": "4027878947f93130ac83a19851ed8b2ed7403406ea51a9ec2b37dc33885da6ed",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-do.md",
+      "sha256": "119cb678d35fe9c85111e562bc9f4d4f649b054df016771ed3069d8a7b7b242a",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-doctor.md",
+      "sha256": "eb83e92a59b3accd1054ade61d3e44649059374c26d8fccce2406089e18e8d20",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-dream.md",
+      "sha256": "366caa4ca5652429e15d165fadd5d877da9deca14722e2d0697c8e3ff5675ffd",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-edit.md",
+      "sha256": "2525a89a57f13f501a62c775d4ecb2b3f0a8d19db861289a581f2ecc75be0580",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-help.md",
+      "sha256": "0ecdeb3f5e38a6e7dbc4fa20a157f65ab9b644ed18b636140229f5298ba9fe24",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-init.md",
+      "sha256": "b4c91ea077d5fb7096933114b63ba8e239a3e9e8aa09ca793e3db92ec8ec3d58",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-next.md",
+      "sha256": "d4ef512d3774eabac6214e78bc1d3740b07ab385540ab7e2b14bcc7cb0fb8498",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-optimize.md",
+      "sha256": "6d3573150f08c69f46852f72f76013ba3fa40c3aeec2679d127a45535bb119aa",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-plan.md",
+      "sha256": "cbf95af703c01feb3b24b6c3007a67b933d24221f4521be00f5e71d39d9926d2",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-plugin.md",
+      "sha256": "e40b72afbf1bcbe11be4075002275df4486eac95cc05908ddb480d1d1aca8cd3",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-prd.md",
+      "sha256": "5829fdbf11b4b270410ad34795e2c40c09626ed0f8770eac5bd01d164150190f",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-publish.md",
+      "sha256": "b5f8267c4bd55b65c2a508fe23acba7ad9c9bd10a37e0ad4a367efef7cbdc48e",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-qa.md",
+      "sha256": "734ae64fc04cd3a2bd41f7768c9209855e9688fd4607503673f22420afe65be1",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-quick.md",
+      "sha256": "dbb77710faecf6753288b723ea1edff924f86136f16e40fa898f0f83dc11855a",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-save.md",
+      "sha256": "d0fbcd6da08696a8adf5d54f07ab5fb99aee8bda93d020a11a4751a19cf1611d",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-status.md",
+      "sha256": "dd024137ed815c9de8ed9c0aa7a3e8f5015c4971d391149a11791b1375531951",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-verify.md",
+      "sha256": "09ecd62fff6c001bbce28f04eaa0e80ffe49ed087ef025e549ec5a4e9c59a0dd",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-wizard.md",
+      "sha256": "990ce47995507988e75335d4c0f9838deedc90f4ea7f2ed2a22f19b69aa7e3d5",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "commands/dr-write.md",
+      "sha256": "5f61dd3e3972ded2deb5ed16408f0bf2e8b61262b5232ca0cac85cb48ba11de6",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/activeContext.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/backlog.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/creative/creative-TUNE-0196-backlog-schema-adr.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/creative/creative-TUNE-0530-architecture-stack-proposal-mechanism.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/creative/creative-TUNE-0560-shell-harness-evidence-contract.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/creative/creative-TUNE-0561-unique-violation-classification-contract.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/creative/creative-prd-amendment-sidecars-decision.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/plans/TUNE-0517-plan.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/plans/TUNE-0530-plan.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/plans/TUNE-0574-plan.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/plans/TUNE-0599-security-closure-plan.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/prd/PRD-TUNE-0530.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/prd/PRD-TUNE-0574.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/provenance/TUNE-0517.sha",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/qa/qa-report-TUNE-0516.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/qa/qa-report-TUNE-0517.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/qa/qa-report-TUNE-0530.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/qa/qa-report-TUNE-0558.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/qa/qa-report-TUNE-0574.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/reflection/reflection-TUNE-0516.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/reflection/reflection-TUNE-0517.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/reflection/reflection-TUNE-0530.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/reflection/reflection-TUNE-0574.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/reports/branch-restore-manifest-INFRA-0394-cleanup-20260812.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/reports/compliance-report-TUNE-0516.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/reports/compliance-report-TUNE-0517.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/reports/compliance-report-TUNE-0530.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/reports/compliance-report-TUNE-0574.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/reports/compliance-report-TUNE-0578.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0193-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0437-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0498-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0499-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0500-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0516-expectations.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0516-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0517-expectations.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0517-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0521-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0530-expectations.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0530-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0530-validation-dry-run.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0574-expectations.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0574-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0578-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0579-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0580-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0581-expectations.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "datarim/tasks/TUNE-0581-task-description.md",
+      "sha256": null,
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/check-code-contracts.sh",
+      "sha256": "f7d2dfd332efdd296bc495ad0545717b80aea5efa763705b36ba545bd7250b35",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/check-skill-frontmatter.sh",
+      "sha256": "8d3fb27ce43871537ad220e31a2225c9501b17cb76801162374ef5fa0cfa349c",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/code-contracts-lint.py",
+      "sha256": "0a40e8b0e8898255bb836536a491747a7699df82b557ccf4c9208efff4279d03",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/command-graph.yaml",
+      "sha256": "bf065dc1eebbabcb1ccb660d2ac3ac26aaf487274a78495ee22c75907617e1cd",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/datarim-stage-probe-cleanup.sh",
+      "sha256": "2d1267dc9dc01eef98ba8fbe7e61145f9076498cfc79a68cb93475c620221772",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/datarim-stage-probe-coworker-echo.sh",
+      "sha256": "b51560fcbaa5d4f580db6d28ae199d292fb6164543616cc64006a796a4c258a6",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/datarim-stage-probe-init.sh",
+      "sha256": "d8c3d1fe62666c9212620c1d32f93560b69f16696510923fe887920079a61a96",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/dr-spec-lint.sh",
+      "sha256": "cab2ed3ce55cbf7110b8babe60d8d8947adbbe76257715b8f30d115624f8c5a6",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/dr-verify-floor.sh",
+      "sha256": "cc4902853ecdfef369f463f93e7961140e03d96dd083e883d20fa1eef2257871",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/framework-graph.py",
+      "sha256": "2d0c762d7b146eb0757b244aaccef25c1fe8219aa3aabde566d5f258001b3f13",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/framework-graph.yaml",
+      "sha256": "c41ee82ea228f582274e181b3cc1331eabbf00833eb362449f6f075d99cb0c68",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/measure-invocation-token-cost.sh",
+      "sha256": "ad2c07d13ea50777163af1aa88327da93cd9b3a32ed706ef1a0badfe77cd6854",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/provenance-gate.sh",
+      "sha256": "05679a46a8cd6dacc5a7aeb033596e4eb1e71115a083e005644b6e1b1e0f7b49",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/spec-graph-gate.sh",
+      "sha256": "9253695cfa22a6941f892dc8cf254e5e5872735cfb66bb7cb04721ed6df92673",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/tests/code-contracts.bats",
+      "sha256": "bfce98660de2f871bb82a421beaa618194b6a5d4ee81acaeba473c6a87bd6500",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/tests/dr-verify-floor-spec.bats",
+      "sha256": "1dbe633afc636a62d352ad4f332bde4170c83372020960e5fcaf2440525ee3dd",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "dev-tools/tests/spec-graph-gate.bats",
+      "sha256": "ca374287bb337dc0b11fb8257f2f10bf25c945d19186c0c2f0c78bf24e72ede2",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "documentation/archive/framework/archive-TUNE-0579.md",
+      "sha256": "67625f87f71cc94eb7b21c26ce56f12cbf6c752f8424e6b146663abfec7ca576",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "documentation/archive/framework/archive-TUNE-0580.md",
+      "sha256": "7f9b8527f7aea6286eb77a42a1e49c861896db3cc1b2dadcc758aa8bc1c5e672",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "documentation/explanation/framework-graph-and-skill-architecture.md",
+      "sha256": "f570a00de76eff68685ca01b97c91dce56a365e15c4ef15f8f2281a3c336eb7d",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "documentation/how-to/claude-code-jev-control-plane.md",
+      "sha256": "9f525356d5647da8d86ece519534e403be5ca09d7bacd566f2958412430456c4",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "documentation/reference/code-contracts.md",
+      "sha256": "855fdcd52d2902e086bcdc21687d79e537825d01079c5a0979b8d984c5c32fd8",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "documentation/reference/skills.md",
+      "sha256": "747391c23a62a27da9831a1668d98fc809283c88279763fcb09178fc903840f6",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "documentation/tutorials/README.md",
+      "sha256": "de568e49ac2cf0db41524e160de2f5b75cfdfec2e380073e68a241056fb637b1",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "documentation/tutorials/working-with-jev-orchestrator.md",
+      "sha256": "9d982f347e020ad0af8e412eaf7fa660dee6d8bf55279d1ae13ef99fc1c32842",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "install.sh",
+      "sha256": "0441e6bd94383865401233593420bee82a5237ef289e8e9079c9e783997b4468",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/README.md",
+      "sha256": "dd7008f6cb99c8f849ffa20acc8ce6c1f1bec3420f539ee7ed13c078ecba342c",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/bin/dr-claude-jev",
+      "sha256": "79b8a513e90b9b0cbdd21b677409702e0a1d65372e34d061c007f527e4666637",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/bin/dr-jev",
+      "sha256": "cd5f695b9d031701c6da1c1827968c5c46def37ee11f16796105b22aae1f57fd",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/config/jev-control.json",
+      "sha256": "21eda5e0a9a2cc1d796cd0a10f90a8401f797e4e45a6dcb6d6a81ee2e54ed70d",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/plugin.yaml",
+      "sha256": "5daefdd15347a0fa419911ec1909c9d5439e6d99fa068be0ff6b067a1049e4df",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/catalog.py",
+      "sha256": "8c03fc0437a760867fc5754921e333d02654cf94caa6f124c9bb1b19a6ffa91e",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/cli_report.py",
+      "sha256": "3d06dbf880b6ab23f8d1d85aff6661eda8b8fb18be2b739499c72c1e30599ba7",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/components.py",
+      "sha256": "8bddc9fc0c436429546e0d36f3de195b4385c35485fac790f1e31e729dae5230",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/doctor_api.py",
+      "sha256": "db87f25ee02988ccbc057c4655297194d7b143f5756c6099b3fe3a7433efef8e",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/hook_post_tool.py",
+      "sha256": "81fa6fce3edc971f2ce6d9e3588ca12fdc11b8752c818d83a696113c541fdc5b",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/hook_pre_tool.py",
+      "sha256": "ad47a34eeadb6cc0499ce4fafb61e5eaf76388b6bc414d29f47c775212edfb8e",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/hook_stop.py",
+      "sha256": "e951e8c30bc331248a3feae7f17cdb33ef5947d479b4ed7432827622dc4fbd34",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/hook_user_prompt.py",
+      "sha256": "345a29ebc348423993226e9eaacbbe2f0b1c0ff72a40e1bafcafee4295633405",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/install.py",
+      "sha256": "0f185524c3707edc96a9a39b0dc794dba2c2321687a554a45dbe6759ad4af50a",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/jev_client.py",
+      "sha256": "11602e78b47f59b9838f9f97e7b2e133cb1cf975fa5bccbd5f3625061fcba900",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/ledger.py",
+      "sha256": "e673709e049b607ef9edf6a5aa111d0a04e6bb111b899d4c819f2d2b084a6c97",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/live_policy.py",
+      "sha256": "7aee1416d40d06ab6ec16a0a83b4550c8b3326c0ba2315512fb93a8496d643dc",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/live_supervisor.py",
+      "sha256": "cac2e5d1b90874c423f52406ae0a94a811d8623cd5de66c2ec3ae27060ef2ee8",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/project_state.py",
+      "sha256": "ac4b0d5075a726d6c50b298664d3dce18297d044d7e9380c4718fb6b61c632d9",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/route.py",
+      "sha256": "2b9b1b1575cb7d91f70d49302fc6addf756d89f75b997f01d07b300f13106939",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/runtimes.py",
+      "sha256": "ab1372c86f4ec2b145705630deca025d3d72901e8a4947e0433d220c3fa67f50",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/scripts/safety_floor.py",
+      "sha256": "3a89e76e93cea7fe712a72d1eafee5b42cfd3d0dcd5c2c9ed9dc4f0030a28212",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/tests/fake_codex.py",
+      "sha256": "015033c2452caf6ecd7d8c8351cd8dc9e110a7d1739f1ef627054df2e4b97f5f",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/tests/test_live.py",
+      "sha256": "933fa37beba5dbdaa07b079baa73143ee8f0a82ae2e51ebac09eaae138f2ede0",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/tests/test_local.py",
+      "sha256": "b52bd3b762f722ff21fbc25397d5fe1067b13ef501b9464283a1b593760c6725",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/tests/test_runtimes.py",
+      "sha256": "a3ab4440b4a078429f975ca447741c474fadc6aa769ef97eaf089075aa0363b1",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "plugins/dr-jev-control/tests/test_supervisor_e2e.py",
+      "sha256": "a58cc2b648a8c62aa52b43169c82d52f893b1b5bd09061aeadf2d7030906335e",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "scripts/jev.py",
+      "sha256": "c89b3947fbfb9e301589253aed8c95ffad42d43b85bfb51ce61dd56b5d6a0ae0",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "scripts/lib/schema-regex.sh",
+      "sha256": "3aad13fd88cb0786df2fe1a3dc3aa6065ba389027974a6ea83392c2c11ef6333",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "scripts/pre-archive-check.sh",
+      "sha256": "afd26e5fe83073382574d20f700d24b1f34261c5e8df9388a64acbb63096790a",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "scripts/project_install.py",
+      "sha256": "0481b838c7e5674ac64664d4e60130f7ab957ea280742add6f2c8d5482defd8f",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "scripts/project_scope.py",
+      "sha256": "a31c214b1df2a7ceb0e6126ed6127a51c9de98ec91efb599b680371411b663c7",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/autonomous-mode/SKILL.md",
+      "sha256": "923924e69c4dc0e5f50c3c38b9ab3446d7f6fe62b0f767286638543d86550fb6",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/code-contracts/SKILL.md",
+      "sha256": "f45d10346bef6e0966760997b12b6246c589902efd2ed35bda0ace360d291f67",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/compliance/SKILL.md",
+      "sha256": "1dfb6aac0d330efb0373536e5fe7de7d273fd7db7c263ff35f1fcf0405be1688",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/consilium/SKILL.md",
+      "sha256": "f8d0e3099a122e9568004afdf631eddd7894a0e1fce86eb2cae1414deef935ea",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/coworker-context/SKILL.md",
+      "sha256": "0fa68a3c51efd33250af6b2d11cc822341b5c2f7db88f21a572524caecb2ad64",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/cta-format/SKILL.md",
+      "sha256": "9ffbbba733c54eb90991f39ba98f5f76d348e3e7c5a6af11851bccabfca21757",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/datarim-system/SKILL.md",
+      "sha256": "d1bf0636dab3e36732fdf89a0e8feb7a6fdfa427bf131adcad91031d8f0ac762",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/datarim-system/backlog-and-routing.md",
+      "sha256": "782be4dfc128d8ab47f940f67bea14d78f83df22c4cbb7f6cd6d66644ba7f9c4",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/datarim-system/command-and-archive-rules.md",
+      "sha256": "3bd450754731364d027715555112c367714c73876f453078d0ab3cfc6c7752e8",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/datarim-system/path-and-storage.md",
+      "sha256": "77b017cb82367c52d2db0378b985e468f61e4c4fcc1fc2c6aaaf4d1ff4713c58",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/datarim-system/task-identity-and-context.md",
+      "sha256": "78fb67782236ec1f2bf5ad05b071919cc865892d03971d360639c3bba50884f2",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/diataxis-docs/SKILL.md",
+      "sha256": "53702a69036a8aa0e88bd99386d0e519b41302e2475fc2071e2d3e2b44ccc9f3",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/discovery/SKILL.md",
+      "sha256": "757c33ef453c33c61582283d0394d76e09afff9ce280888f0ad81b6d092416a8",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/dr-init-id-collision-window/SKILL.md",
+      "sha256": "a4f631d09ba687aea51278a9b3485a00a179d66b9882f06be0cd4b1d80cccb04",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/dr-next-snapshot-replay/SKILL.md",
+      "sha256": "f39c749a2f93e6ea3858b3dfe7d4cfdb38ddb724a164cb9f5e665d4b01d43583",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/evolution/SKILL.md",
+      "sha256": "25f490d7cf0f0b554cfd74f130afd9efb7a4e9362b8c1557f08b4fe48b25917c",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/evolution/class-ab-gate.md",
+      "sha256": "3572576af05dee79e6915185dbfdd16a93c1bb3b19534a32f8d017130cc3896f",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/evolution/dev-tools-pattern.md",
+      "sha256": "12d3e4bc83ad913bb4ca5e6e4bcfed976f8dfa6403e4c57de7d64cb3859fe8a8",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/evolution/disaster-recovery.md",
+      "sha256": "cf6610671bb12adf96889cc241b0377b316246e547b1199dbac03ead0d7eee72",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/evolution/examples-and-patterns.md",
+      "sha256": "b6e624f0a754c144ae99595b67d62162dd00eddf82130c1391d01dbdbe86ca17",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/evolution/file-relocation-checklist.md",
+      "sha256": "6001162875042e3de8b556972e8ee88132220c6a5025331a587cec9b4aedd9b3",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/evolution/history-agnostic-gate.md",
+      "sha256": "dfe94dc7b72ab541fe6ff5884176ed3acc887c20c82023696de3032f7feab9bd",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/evolution/stack-agnostic-gate.md",
+      "sha256": "da58a7b855940b12c5ac96d68c5ed16b3531b62951b1dd1298fbc502ee8ac93b",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/expectations-checklist/SKILL.md",
+      "sha256": "02c796633122f75f854ef991de20739aaf0f53366c627a2c2d16b8761bb1eea6",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/file-sync-config/SKILL.md",
+      "sha256": "474c8820fdcd3de5b97ed338f934f04bbd01fce760ae1f9f2b1fd39272f5a1fa",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/frontend-ui/SKILL.md",
+      "sha256": "ba2068806a85059d7989051e3b1a144c2f483d3097895944311584b31f54d893",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/human-summary/SKILL.md",
+      "sha256": "90d2ee2813ffc5b467564d496b7efcadc6955e2364b1916ea63847b8ba8a9d0b",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/immutability/SKILL.md",
+      "sha256": "e7b1bc60d3a8eaa2853ce28a0ed6abeafddf72a5b958319f67d11e8520716b8b",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/infra-automation/SKILL.md",
+      "sha256": "09adfc3d77c7243fd5ace97fd72fc8902d37ef6390257a710b756a2894756c30",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/init-task-persistence/SKILL.md",
+      "sha256": "62f50089ceae244e14dcdfb93b6ede22fe80a7e750c33fef02f6481b5237e1a9",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/network-exposure-baseline/SKILL.md",
+      "sha256": "3d01b26bb151eab29ce3b198a7a8f2fe197826041742139624de0c933bab28d8",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/playwright-qa/SKILL.md",
+      "sha256": "ed74c73b980b5118a1bdef43a42a6cf8705993c8c03699a52c825a5820824874",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/prod-readiness-probe/SKILL.md",
+      "sha256": "24966b2611e8dc225f4ddb5c026d684dc0bb0dedef3b9610dc7dacbc01cd6009",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/project-init/SKILL.md",
+      "sha256": "9946639d72f1880f54bbf136aa2374082cffb1e3cd409a084c20f6a340051bca",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/publishing/SKILL.md",
+      "sha256": "31628a33f7cfd8fd21d4e64f8686cfe3528a939d2d6ab7bf62d28535a11fe058",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/receiving-code-review/SKILL.md",
+      "sha256": "6a0edf0f1f4acf974e1aed6e1712edbbfc86812a2d04823727b1c190b9ecf399",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/reflecting/SKILL.md",
+      "sha256": "56ae2031dc33b851c6e81f53f86983e3e82c0c3282df9acafa25898f60951fdb",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/release-verify/SKILL.md",
+      "sha256": "5e5b5654956f2b5aaa595e115a36a886637e4007229237f1d1b52bb4318e0c9f",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/research-workflow/SKILL.md",
+      "sha256": "29f30a273b6e583669c483a9eafb5d1a7103e131017135d39c3ba852980e4909",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/seam-vs-integration-boundary/SKILL.md",
+      "sha256": "da6a0284d7240fdc7def192ecbd42f4983524dcfbe14432d46720ba77c782d0d",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/security-baseline/SKILL.md",
+      "sha256": "4313318ead4378f52dd8eac2e396437b51e5b65c3228c12d16ca0349f260e495",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/security/SKILL.md",
+      "sha256": "14213d76dc7d8dc2956710b944481d39f208b553548c5250d02a812a85199bac",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/self-verification/SKILL.md",
+      "sha256": "912c618d07deb9afad26ca09db42b2bdf72cce66073c2b6bfd2991abc8cc696e",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/self-verification/findings-and-audit.md",
+      "sha256": "dfbae7335789fdf1c37b379c662efcbe2d07e358ee13d373ceea5477f417d5a1",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/session-handoff-replay/SKILL.md",
+      "sha256": "e5d02c65ebc5005181ffe551991b7cc3d29ded18990d32c0c5eefff987692a2a",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/session-handoff-writer/SKILL.md",
+      "sha256": "f27b25a059939fe4aed5e060191e851889ba565fd436196fc217b15580a0a6b6",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/stage-snapshot-writer/SKILL.md",
+      "sha256": "23f4c9f443756dcdd08795a4237f55c4df50bfbf18fcf3df841266f18eff9e07",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/tech-stack/SKILL.md",
+      "sha256": "ce09d7c1bb90693ed9a35fffe0b77c705db7b5be735b9df46bc1c62d90fcd5e1",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/test-env-verification/SKILL.md",
+      "sha256": "f649da9aaf414c599119c4c257d22321a8940bfa91b85767a2550cdd0164c197",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/testing/SKILL.md",
+      "sha256": "4e6119d7bef878c6bd8cbb58ba82c0c6b0ac6455d9984f9a2afd204db842006d",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/utilities/SKILL.md",
+      "sha256": "61591c385f198268369f30518e219e61d6ab96e8dbeafb25ebc051fda2f2bcec",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/utilities/datarim-sync.md",
+      "sha256": "69bc83f23af9636308bfb7d68a8b9f5f3b15e8378d5f9b8f68ecc835a83e04b7",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/utilities/recovery.md",
+      "sha256": "2558859e2b44da6874a29da442d7ac91de35a99b1965aa25982675d3ac5cf074",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/utilities/shell-conventions.md",
+      "sha256": "ace4fdd511303ef227f99ceb56cd0306cb326eb30d9d2035123630af89569f16",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/visual-maps/SKILL.md",
+      "sha256": "f827f5f1bf751ffd2ae75d6245ddb86b88d7e1e064af6a84b6528453bc75699b",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/visual-maps/command-dependencies.md",
+      "sha256": "4c4b57899ce8bececc20bcedca35c68790397e90388cdc4736e8539a666d7766",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/visual-maps/framework-architecture.md",
+      "sha256": "e07202d57309897d4c28c31af5d06059af72925b78e5f5ae4ec54cc7fbf7adfd",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/visual-maps/pipeline-routing.md",
+      "sha256": "c54038abc310ef1e2ef4e830de0f3df9c3ff7152af0ae6664420790c91259621",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/visual-maps/stage-process-flows.md",
+      "sha256": "25d1ef81a5556c83278a9bcadabc1d4d53994ea6219374ec5536af66ff2bae57",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "skills/visual-maps/utility-and-dependencies.md",
+      "sha256": "eb0dd0b483f1c19708a2d94218725938c9128699a80a3afc97fba99f0ac81e33",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/archive-template.md",
+      "sha256": "8ab8e5634fe8794774156fc233a531651f265eaa6e96c8b65755baee5afa07fa",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/compliance-report-template.md",
+      "sha256": "79e8d650a880013b30343cc07a4ca72ee1fb7e67dbace83282a49e0b9d7b68bc",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/coworker-delegation-fragment.md",
+      "sha256": "3db90b5a91c3e2e30c2053532ad20eac2cd61bd662b7415695d5175da3fd15b9",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/cta-template.md",
+      "sha256": "d1568fa54388ad9f81c3833d536ef545d18f64079fbe745fe9149647ef8e319c",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/docker-smoke-checklist.md",
+      "sha256": "a89d30fc17e99887b68ac11196e5541157df516dc487813059ec886bda2a59fb",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/expectations-template.md",
+      "sha256": "1ec0de664d0bca63c30c91d185f996aed47c31e2effc271c97bf6c8da1f872f7",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/integration-checklist.md",
+      "sha256": "6d14aa4303a40956f8bb25cc5fcdcb0534a9da34f1561501c34d72f6cccd5526",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/legacy-hardware-probe-checklist.md",
+      "sha256": "924647a65003fc4a7466a3b5386140738c1ceb7b3912ebc52b245b3d089c2d35",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/prd-template.md",
+      "sha256": "2bb81f64381a9b27c393297ffe409bf13dcc836eebfcb7e7f4a7e9edf84580f8",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/project-claude-md.md",
+      "sha256": "75d0672f6914fef3cf5fa29a4c045bfe65e95b054bd2bf236a3626ba47515e9d",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/project-docs-stubs.md",
+      "sha256": "92bdd49aacff8893f96bafe7958644bbb4eb4cf587ee650d4bd6b7082b461d55",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/reflection-template.md",
+      "sha256": "fa0846f3bba3470b878e5f00ff772eef32792ecea46f63e7ff556c059de9ac32",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/security-deps-upgrade-plan.md",
+      "sha256": "c2fa893ba6310feb6b9b7b0723080a937f0d4cec7cfbee45674740c8b3532aaa",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/security-workflow.yml",
+      "sha256": "ae77db9a59d2f15f5d9ecd31a2421d98ae0f4dfad8c0dd7b4ca885c0973c29b7",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "templates/version-consistency-fanout-checklist.md",
+      "sha256": "f10ed34829585ee1b3cd55995bd6ccd03423f52b8f00cbed7629e6f84451b528",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "tests/command-graph.bats",
+      "sha256": "323db3a20f3b526116ad901d55b0805bfe3615fb0648c14f591e50e4fe14b254",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "tests/framework-graph-consistency.bats",
+      "sha256": "dc69b3cf578d35d6a203ab13ebebcb948026bff2b8b2e95b3ce971353c5719ef",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "tests/test_project_runtime.py",
+      "sha256": "6b68dbe86799e49c96d863cd7dab25e384e431ac5aaf7d16227c659b1f3ea261",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "update.sh",
+      "sha256": "e89476baec59bd91408f35567bd37e0bbefd1a6df20f0ef47787a1a0bf4138d1",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    },
+    {
+      "entity": "validate.sh",
+      "sha256": "c8931d0df594b7798b7604ac1a772842bed8bfc45c3320308f14df99a446f91c",
+      "provenance": "deterministic",
+      "verdict": "not_measured"
+    }
+  ],
+  "verifiers": [
+    {
+      "command": "python3 tests/test_project_runtime.py",
+      "exit_code": 0,
+      "result": "11 tests passed"
+    },
+    {
+      "command": "python3 dev-tools/code-contracts-lint.py . --json",
+      "exit_code": 0,
+      "result": "1 file, 5 contracts"
+    },
+    {
+      "command": "python3 dev-tools/framework-graph.py --write",
+      "exit_code": 0,
+      "result": "28 commands, 19 agents, 79 skills, 259 extracted edges; graph does not cover all runtime callers"
+    },
+    {
+      "command": "gitleaks dir . --redact --no-banner",
+      "exit_code": 0
+    }
+  ]
+}

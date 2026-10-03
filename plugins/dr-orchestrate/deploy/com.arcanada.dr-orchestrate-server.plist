@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.arcanada.dr-orchestrate-server.plist — launchd supervision unit for the
+  dr-orchestrate socat/HTTP bridge (macOS equivalent of
+  dr-orchestrate-server.service). See that file's header for full rationale;
+  this is the launchd translation of the same restart-with-backoff contract.
+
+  Host-agnostic template — authored tooling, NOT installed or loaded on any
+  host by this change. Install (operator action):
+
+    cp com.arcanada.dr-orchestrate-server.plist ~/Library/LaunchAgents/
+    # edit WorkingDirectory + the two ProgramArguments paths below to the
+    # actual plugin install path
+    launchctl load -w ~/Library/LaunchAgents/com.arcanada.dr-orchestrate-server.plist
+
+  Verify: `launchctl list | grep dr-orchestrate-server` shows a PID; a clean
+  `launchctl unload` removes it without a relaunch (KeepAlive.SuccessfulExit
+  only triggers a restart on a NON-zero exit, matching the systemd
+  `Restart=on-failure` semantics); a `kill -9 <pid>` crash SHOULD relaunch
+  after ThrottleInterval seconds (launchd's fixed per-attempt delay — the
+  closest native equivalent to systemd RestartSec; launchd has no built-in
+  StartLimitBurst-style total-attempt cap, so persistent-crash-loop detection
+  here is operator-observed via macOS `log show` filtered on the process
+  name, not automatically fenced like the systemd unit).
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.arcanada.dr-orchestrate-server</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <!-- Edit to the actual plugin install path before loading. -->
+        <string>/Users/YOUR_USER/.claude/plugins/dr-orchestrate/scripts/dr_orchestrate_server.sh</string>
+        <string>start</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USER/.claude/plugins/dr-orchestrate</string>
+
+    <!-- Restart only on non-zero exit / crash — mirrors systemd Restart=on-failure.
+         A clean `launchctl unload` or a check/once-mode exit 0 is NOT relaunched. -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Fixed per-attempt restart delay (seconds) — launchd's closest native
+         equivalent to systemd RestartSec. launchd has no StartLimitBurst-style
+         total-attempt cap; monitor via `log show` per the header note above. -->
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/dr-orchestrate-server.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/dr-orchestrate-server.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

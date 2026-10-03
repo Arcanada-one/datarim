@@ -1,0 +1,59 @@
+# Personal-identifier hygiene gate.
+# Scans the shipped framework surface for personal names, handles, hostnames,
+# numeric GIDs, and Vault paths that must not appear in public artefacts.
+# See Security Mandate § S3 (personal data) in AGENTS.md for the canonical
+# policy text; the machine-readable contract surface lives in
+# dev-tools/personal-id-forbidden.regex + scripts/personal-id-gate.sh.
+
+name: personal-id-lint
+
+# Trigger on EVERY push to main and every pull request — no `paths:` filter.
+#
+# The gate scans every tracked file (`git ls-files`), so any change anywhere can
+# introduce a finding. An earlier revision carried a `paths:` filter mirroring
+# the gate's hand-maintained DEFAULT_PATHS; root-level files (a notes file with
+# an absolute home path, CHANGELOG.md) sat outside both lists, and a leak could
+# land without the gate ever running. The absence of a filter is asserted by
+# tests/personal-id-lint-scope.bats.
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  personal-id-lint:
+    name: personal-id-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Consumer, client and host names cannot live in the shipped denylist
+      # (listing them publishes them). The maintainer keeps them in the
+      # PERSONAL_ID_OVERLAY repository secret, one extended regex per line; the
+      # gate merges it additively. Absent secret (a fork PR, a fresh clone) =
+      # shipped patterns only, stated in the log rather than passed silently.
+      - name: Run personal-id gate
+        env:
+          PERSONAL_ID_OVERLAY: ${{ secrets.PERSONAL_ID_OVERLAY }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/personal-id-gate.sh
+          if [ -n "${PERSONAL_ID_OVERLAY:-}" ]; then
+            overlay="$(mktemp)"
+            printf '%s\n' "$PERSONAL_ID_OVERLAY" > "$overlay"
+            export DATARIM_PERSONAL_ID_OVERLAY="$overlay"
+            echo "private overlay: present ($(grep -cvE '^[[:space:]]*(#|$)' "$overlay") pattern(s))"
+          else
+            echo "::notice::private overlay: absent - shipped patterns only"
+          fi
+          # Findings are printed as path:line only; the matched text could be
+          # the very identifier the gate exists to keep out of public logs.
+          bash scripts/personal-id-gate.sh --report | sed -E 's/^([^:]+:[0-9]+):.*/\1/'

@@ -1,0 +1,7 @@
+{
+  "schema": "DatarimHistoryBootstrap/v1",
+  "version": "4.2.2",
+  "baseline_tag": "v4.2.1",
+  "baseline_commit": "10daa22b92ec137915712d89cf62d1aa6bd3f76d",
+  "baseline_tag_object": "2d1ac59f70c8aab2e9053fb79d7fc01a5399ef5a"
+}

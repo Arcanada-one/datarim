@@ -1,0 +1,493 @@
+---
+name: ai-quality
+description: Five pillars of AI-assisted development — decomposition, TDD, architecture-first, focused work, context. Method size limits, DoD, stubbing.
+current_aal: 1
+target_aal: 2
+---
+
+# AI Quality & Best Practices
+
+> **TL;DR:** These 5 pillars guide AI-assisted development. Apply them consistently for 30-50% better code quality and 40-50% fewer bugs.
+
+## THE 5 PILLARS OF QUALITY AI DEVELOPMENT
+
+### 1. DECOMPOSITION (Rules #1, #3, #9)
+> **Break complex tasks into small, focused units.**
+
+```
+KEY LIMITS:
+|- Max 50 lines per method
+|- Max 7-9 objects in working memory
+|- One responsibility per function
+|- Separate signals — one variable, one question
+```
+
+**Why:** AI loses focus with complexity. Small units = better output.
+
+**Separate-signals rule.** When a single variable answers two semantically distinct questions (e.g. "what to display" AND "is body non-empty"), refactoring one role silently breaks the other. Always extract independent signals for independent questions, even if they currently compute from the same source. The cost is one extra line at definition; the saving is not chasing regressions through downstream branches that read the variable as a proxy for something it no longer represents.
+
+**Measuring the 50-line limit — discount template-literals and object-literal method blocks.** A naive `awk`/regex heuristic that spans "from one function keyword to the next" over-counts badly: it swallows a trailing object-literal whose methods follow the function, and it counts a function defined *inside* a `page.evaluate('...')` (or any embedded-script) template-literal string as part of the host method. Before flagging a >50-line finding, cross-check the actual brace span by reading the file — an orchestrator that hands work to a step-object below it, or one that embeds a DOM-walker as a string for the browser to run, is usually far shorter than the heuristic reports. Flag on the real span, not the keyword-to-keyword distance.
+
+---
+
+### 2. TEST-FIRST (Rules #2, #5, #6)
+> **Tests are hallucination filters. Mock edges, not logic.**
+
+```
+SEQUENCE:
+1. Write tests BEFORE code
+2. Define "done" explicitly (DoD)
+3. Cover corner cases upfront
+4. STRICT mocking: edges only, NO data fitting
+```
+
+**Why:** Tests catch AI mistakes. No tests = no safety net.
+
+---
+
+### 3. ARCHITECTURE-FIRST (Rules #7, #8)
+> **Approve structure before coding.**
+
+```
+APPROACH:
+1. Create skeleton with stubs
+2. Review architecture
+3. Implement one method at a time
+```
+
+**Why:** Bad architecture = wasted work. Validate first.
+
+---
+
+### 4. FOCUSED WORK (Rules #10, #11, #12)
+> **Narrow context improves quality.**
+
+```
+PRACTICES:
+|- Review one method at a time
+|- Define clear boundaries (what we DON'T do)
+|- Verify AI can solve before starting
+|- Wire ALL planned features in first pass — if code/prompts are ready
+   and wiring is <30 min, do it. "Low risk deferral" is still deferral.
+|- Decompose multi-clause success criteria — a criterion joined by "and"
+   or listing N independent requirements is N checks. Close each sub-clause
+   with its own named test and verify each before marking the wish done.
+   One green test on the first clause does NOT satisfy a two-clause wish.
+|- Authorization prompts to user: 1 sentence risk + 1 yes/no question.
+   Threat models → docs, not interactive prompt.
+```
+
+**Why:** Broad context = scattered results. Focus = precision.
+Source (auth UX): prior incident — user requested simpler prompts after a 7-option authorization table.
+Source (wire-all): prior incident — dedup/rerank deferred as "low risk", user challenged, wiring took <15 min.
+Source (decompose): prior incident — a "select backend AND inject per-role allowed-tools" wish had its first clause implemented and the second silently skipped (the registry declared the tools but no consumer read them); the partial surfaced only at the expectations gate, costing one extra implement→review round.
+
+---
+
+### 5. CONTEXT MANAGEMENT (Rules #4, #13, #14, #15)
+> **Right information at right time.**
+
+```
+ELEMENTS:
+|- Gather requirements BEFORE coding
+|- Document transaction isolation needs
+|- Structure datarim hierarchically
+|- Engineer prompts carefully
+```
+
+**Why:** Bad context = bad output. Quality in = quality out.
+
+---
+
+### 6. LINT-ON-THE-SPOT
+> **Run project linters after each TDD code-change step, before moving to the next stub/method.** Defers to `/dr-compliance` only when the project has no auto-detectable linter — not when findings need fixing.
+
+```
+AUTO-DETECTION PATTERNS (check manifests in order of precedence):
+1. eslint / prettier → `package.json` (devDependencies or scripts)
+2. ruff / flake8 / pylint → `pyproject.toml`, `ruff.toml`, `setup.cfg`
+3. clippy / rustfmt → `Cargo.toml` (under [lints] or as dev-dependency)
+4. golangci-lint → `.golangci.yml` or `go.mod` + `tools.go`
+5. rubocop → `.rubocop.yml`
+6. Any linter configured in project root config files → detect by extension
+```
+
+**Procedure:**
+1. After each TDD RED-GREEN-REFACTOR cycle, run the auto-detected linter against changed files.
+2. Fix findings immediately — do not accumulate lint debt.
+3. If no auto-detectable linter exists: skip and note in the task description that lint discipline is manual.
+4. Never defer lint fixes to `/dr-compliance`: that stage assumes a clean baseline.
+
+**Why:** Lint findings discovered at compliance time force a fixup commit outside the TDD loop, breaking the RED-GREEN-REFACTOR cadence. Each lint rule is a potential bug that was visible at code time but deferred to a stage that expects cleanup, not bug-fixing.
+
+Covered by: `commands/dr-do.md` § Step 7 ACTION — Lint-on-the-spot (MANDATORY).
+
+---
+
+## STAGE-RULE MAPPING
+
+Load only the rules relevant to your current stage:
+
+| Stage | Rules to Apply | Focus |
+|-------|---------------|-------|
+| **/dr-init** | #4 Requirements, #12 Complexity | Is the task well-defined? Can AI solve it? |
+| **/dr-plan** | #1 Stubbing, #5 DoD, #6 Corner Cases, #7 Skeleton, #11 Boundaries | Decompose, define scope and done criteria |
+| **/dr-design** | #6 Corner Cases, #7 Skeleton, #9 Cognitive Load, #13 Transactions | Design quality, keep it simple |
+| **/dr-do** | #2 TDD, #3 Method Size, #8 Iterative, #9 Cognitive Load | Write tests first, small methods, one at a time |
+| **/dr-qa** | #5 DoD verification, #10 Focused Review | Review one method at a time, check done criteria |
+| **/dr-archive** | #8 Iterative verification + #10 Review (Step 0.5 reflection), #14 Structure (Step 2 archive doc) | Was the process followed? Hierarchical summaries for future context |
+
+---
+
+## QUICK RULE REFERENCE
+
+| # | Rule | One-Liner |
+|---|------|-----------|
+| 1 | Stubbing | Break into 50-line stubs |
+| 2 | TDD | Tests before code (Strict Mocking) |
+| 3 | Method Size | Max 50 lines, 7-9 objects |
+| 4 | Requirements | Context before coding |
+| 5 | DoD | Explicit done criteria |
+| 6 | Corner Cases | List boundaries first |
+| 7 | Skeleton | Architecture before code |
+| 8 | Iterative | One method at a time |
+| 9 | Cognitive | 7+/-2 objects max |
+| 10 | Review | Review one method only |
+| 11 | Boundaries | State what's out of scope |
+| 12 | Complexity | Verify AI can solve |
+| 13 | Transaction | Explicit isolation levels |
+| 14 | Structure | Hierarchical summaries |
+| 15 | Prompts | Structured prompt creation |
+
+---
+
+## QUALITY CHECKPOINT
+
+Before proceeding, ask:
+
+```
+[ ] Is this task decomposed into small units?
+[ ] Do I have tests/DoD defined?
+[ ] Is the architecture approved?
+[ ] Am I focused on one thing?
+[ ] Do I have the right context?
+```
+
+**If NO to any:** Stop and address before coding.
+
+---
+
+## COMMON MISTAKES
+
+### DON'T
+- Write code before tests
+- Create methods > 50 lines
+- Track > 9 objects per method
+- Review entire features at once
+- Start without clear requirements
+- Skip corner case analysis
+
+### DO
+- Tests -> Code -> Review -> Next
+- Keep methods small and focused
+- One method at a time
+- Define boundaries explicitly
+- Document requirements upfront
+
+---
+
+## Spec-First with Golden Fixtures (Format-Change Pattern)
+
+When a task changes **output format, structure, or contract across multiple files** (e.g. CTA block ([definition](../cta-format/SKILL.md))s across 17 commands + 5 agents, response envelopes across N services, log fields across handlers), apply this pattern as a default rule for L3+ tasks:
+
+```
+SEQUENCE:
+1. Spec-as-skill        → write the canonical specification first as a single
+                          source-of-truth skill (e.g. cta-format.md). Define
+                          structure, field rules, anti-patterns.
+2. Golden fixtures      → create one fixture per variant (single, multi,
+                          fail-routing, etc.) under tests/{topic}/fixtures/.
+                          These are the visual artefacts agents produce.
+3. Spec-regression tests → bats / language-native tests verify:
+                          (a) every consumer file references the skill
+                          (b) every consumer agent loads the skill
+                          (c) fixtures match all spec invariants
+                          (d) anti-pattern guards (forbidden chars, etc.)
+4. Mechanical propagation → only after 1-3 land, propagate the change to all
+                          consumers. Tests guard against drift.
+```
+
+**Why:** Without fixtures + tests, the same drift problem re-emerges every time a new consumer is added without spec compliance. Mechanical propagation alone protects current state, not future state.
+
+**When to apply:**
+- Format / structure changes affecting ≥5 files of the same kind
+- Output-contract changes (CTA, response envelope, log fields, validation messages)
+- Cross-cutting style / convention changes that need agent compliance
+
+**When NOT to apply:**
+- Single-file changes
+- Internal-only refactors with no external contract
+- One-off scripts where future drift is not a concern
+
+Source: prior incident — Approach C (Spec-First with Golden Fixtures) chosen over Approach A (Big Bang refactor) for canonical CTA block. 39 tests now guard 17 commands + 5 agents from drift; mechanical sweep alone (Approach A) would have left the same problem to re-emerge with the next added command.
+
+---
+
+## Pipeline-Position-Aware AC Formulation
+
+When an Acceptance Criterion asserts an HTTP status code (e.g. `→ 401`, `should return 403`), trace the request through the **full middleware/filter chain** — rate limiter → CORS → body parser → validator → guard → controller — before locking the literal status. Any layer upstream of the asserted source can short-circuit the chain and return a different code than expected.
+
+**Failure mode:** AC declares `→ 401` (auth-rejected). <!-- gate:example-only -->Validator (Zod / class-validator / Pydantic / Joi) runs *before* auth, sees an empty body, returns `400 Validation failed`.<!-- /gate:example-only --> AC literally fails — but the asserted *behavior* (auth bypass works) is correct. PRD/plan/QA all need amendment under self-review.
+
+**Rule:**
+1. **Trace step.** Identify the source file/line that emits the asserted status. List every preceding middleware that can return early.
+2. **Literal vs semantic gate.** If only the asserted source can produce the status under all valid inputs → literal AC OK. If any preceding middleware can short-circuit → phrase as **semantic gate**: `not <failure_class>` instead of `== <specific_status>`.
+3. **Semantic gate template:** `[[ "$code" != "<failure_status>" ]] || ! echo "$body" | grep -q '<failure_marker>'`. Asserts «failure class N did not happen», not «specific success class M did happen». Robust to upstream layer swaps.
+
+**When to apply:** any L2+ task that ships HTTP-routed code. Mandatory for L3+ when the controller sits behind ≥2 middleware layers.
+
+**Stack-agnostic:** applies to any HTTP framework with a middleware/filter chain. <!-- gate:example-only -->Concrete examples: Express, Fastify, NestJS, Koa, Hapi, Django, Flask, FastAPI, Rails, Spring Boot, ASP.NET Core, Phoenix, Gin.<!-- /gate:example-only -->
+
+**Applies equally to non-HTTP protocols with a layered guard chain.** The same trace-step / literal-vs-semantic gate / template rule covers gRPC interceptors, message-broker authorizers, and any RPC pipeline that emits a typed status code. <!-- gate:example-only -->Concrete example: an Acceptance Criterion that asserts `→ PermissionDenied` on a guarded RPC may instead surface as `Unauthenticated` if the service-layer `require_admin()` predicate distinguishes "no bearer" from "wrong role". Both codes communicate the same intent ("admin RPC denied"); a literal-status AC trips on a no-op refactor of the predicate. Phrase as semantic gate: `code ∈ {Unauthenticated, PermissionDenied}`.<!-- /gate:example-only -->
+
+**Anti-pattern:** copying the literal status from upstream PRD without re-tracing when middleware order changes (e.g. switching framework, adding rate limiter, moving validator). Re-trace on every PRD that touches HTTP routing.
+
+---
+
+## Surface-Count vs Host-Count AC Disambiguation
+
+When an Acceptance Criterion enumerates "**N domains / N surfaces**" for a security-relevant, exact-match allowlist — OIDC/OAuth `redirectUris`, CORS allowed-origins, CSP source lists, cookie-domain scopes — resolve **surface count vs host count** at `/dr-plan`, *before* `/dr-do`. A single DNS host can serve several distinct surfaces (pages, routes, callback paths), so "8 domains" and "8 surfaces" are not interchangeable: collapsing per-surface entries onto their shared host silently under-provisions the allowlist, and the missing entry surfaces only as a runtime redirect / CORS / CSP rejection for a legitimate surface.
+
+**Rule.**
+1. **Disambiguate at plan time.** When an AC enumeration could mean either host count (distinct DNS names) or surface count (distinct pages / routes / callback URLs), state which one the plan implements — in the plan, before any code is written.
+2. **Default to per-surface enumeration.** Absent an explicit operator decision otherwise, emit **N entries, one per surface**, and do NOT collapse two surfaces that share a host into a single entry. Under-provisioning an allowlist fails closed at runtime for a real surface; per-surface over-enumeration is harmless.
+3. **Trigger.** The check fires whenever the AC's stated count conflicts with the host count — e.g. "8 ecosystem domains" where two of the surfaces live on the same host (8 surfaces across 7 hosts). Flag the conflict and choose per-surface unless the operator directs otherwise.
+
+**Why:** these allowlists are exact-match security gates. An entry that is present-but-collapsed is indistinguishable at review time from a correct per-host entry, yet behaves differently at runtime. Resolving the ambiguity at plan time turns a latent production redirect / CORS failure into a one-line planning decision.
+
+**When to apply:** any L2+ task whose PRD AC enumerates a count of domains / surfaces feeding an exact-match allowlist (redirect URIs, CORS origins, CSP sources, cookie domains). Mandatory when the enumerated count and the host count disagree.
+
+**Anti-pattern:** reading "N domains" as "N hosts" and writing one allowlist entry per host when the surfaces are per-route — the collapsed surface is rejected at runtime while the AC still looks satisfied on paper.
+
+---
+
+## RFC 7807 Problem-Details Envelope for Programmatic API Errors
+
+For services with programmatic API consumers (SPA, mobile clients, server-to-server), HTTP error responses MUST be parseable by machines, not just by humans reading a log line. Standardize on **RFC 7807 `application/problem+json`** as the ecosystem error envelope and concentrate the mapping in a single seam, not scattered per-handler `try/catch` blocks.
+
+**Contract.**
+
+1. **Single exit point.** Implement a global error-mapping seam at the framework boundary — the framework's idiomatic global exception filter, error middleware, or top-level handler — that converts every thrown error to the RFC 7807 envelope. No controller or middleware emits error JSON directly; the global seam is the only place that writes error response bodies.
+2. **Frozen title table.** Define the `type` → `title` mapping centrally in one module. Every recognised problem type has a stable URI in `type` and a frozen short `title`. Adding a new problem type is an explicit edit to the table, not an ad-hoc string at the throw site.
+3. **Typed exception class.** Define one application exception type that carries `{type, title, status, detail?, instance?, ...extensions}` and is thrown from anywhere in the call stack. The global seam recognises it by class and pass-through-maps it to the response. Foreign exceptions (validation library errors, framework HTTP exceptions, generic `Error`) are mapped by class in a priority chain inside the seam.
+4. **Detail discipline for 5xx.** Server-class responses (`5xx`) MUST omit user-facing `detail` strings to prevent information disclosure (stack frames, internal paths, library messages). Client-class responses (`4xx`) MAY carry `detail` describing what the caller did wrong.
+5. **No per-handler error JSON.** A handler that produces an ad-hoc `reply.send({error: ...})` defeats the contract — programmatic consumers will receive two different envelope shapes from the same service. Replace such call sites with `throw new ProblemException(...)` and let the global seam render.
+
+**Why.** A programmatic consumer parses by `Content-Type` and field names. Inconsistent envelopes (some handlers use `{error, code}`, others `{message}`, others raw text) force defensive client code at every call site. RFC 7807 is a published standard; any well-formed problem document is parseable by off-the-shelf libraries. Concentrating the mapping in one seam means new endpoints get correct error shapes for free, and audit/refactor of error contracts is one file, not N.
+
+**When to apply.** Any service exposing an HTTP API to a programmatic consumer outside the team writing the service. Internal-only utilities with human-only callers may use simpler shapes, but the moment a SPA or mobile client lands as a consumer the global seam is mandatory.
+
+**Anti-patterns.**
+
+- Per-controller `@UseFilters` decorators / per-route error handlers — re-creates the per-handler scattering the rule is preventing.
+- Inline `if (err) reply.code(400).send({error: 'foo'})` after the global seam exists — silent contract divergence.
+- Mutating the title table at runtime or per-environment — titles are part of the wire contract; changing them breaks consumers.
+
+---
+
+## Atomic Multi-Surface Plan Amendment
+
+When an Acceptance Criterion's location moves mid-implementation — different controller, different module, different URL path, different scope boundary — update **all** parallel artefacts atomically within the same revision cycle, not lazily across separate commits or "I'll fix the plan later" deferrals. The parallel surfaces typically include:
+
+- The PRD section that owns the AC text (with an `AMENDED YYYY-MM-DD` marker and a one-line justification).
+- The implementation plan's per-step locus and the AC ↔ step mapping.
+- The task description's Implementation Notes (operator-facing record of the moved boundary).
+
+**Rule.**
+
+1. **One revision cycle, one operator-approval event.** Every amended surface references the same approval date or decision identifier. Drift starts when one artefact carries an old AC location and another carries the new one — readers cannot tell which is authoritative.
+2. **Cross-check after edit.** Grep the AC identifier across all parallel artefacts. Exactly one canonical definition per surface, and the location/path/scope text MUST match across surfaces. A mismatch is a post-amendment finding, not a normal state.
+3. **Ship in the same commit or same branch push as the code.** Do not merge the code change while the PRD/plan still describe the old location. The artefact set ships as a unit; consumers reading mid-stream see a consistent picture.
+4. **Step-locus precision.** When AC moves between modules/controllers, the implementation plan's Implementation Steps section MUST update its locus references — not just Implementation Notes. A reviewer reading only the Steps must reach the same code as a reviewer reading the Notes.
+
+**Why.** When PRD, plan, and task description carry the same AC under three different locations, future readers (QA at archive time, the next developer touching the area, a security audit) cannot distinguish authoritative from stale. Drift compounds: the next amendment based on a stale surface re-amplifies the divergence. Atomic updates with cross-check make the artefact set self-consistent at every commit.
+
+**When to apply.** Any L2+ task that maintains parallel PRD + plan + task description artefacts. Mandatory when an AC's path/module/controller changes mid-implementation. Recommended when scope reduction or expansion changes which surface owns which assertion.
+
+**Anti-patterns.**
+
+- "I'll update the PRD after this commit lands" — the moment the commit lands, the PRD is wrong and CI/QA reads stale text.
+- Updating Implementation Notes only, leaving Implementation Steps locus pointing at the old module — reviewers reading only one section drift.
+- Multiple amendment markers with conflicting dates or no operator approval reference — provenance becomes unrecoverable.
+
+---
+
+## Wire-Shape Citation Gate (Client/SDK/Adapter Tasks)
+
+For any task that implements a client, SDK wrapper, or adapter against an existing upstream interface (REST/gRPC contract, third-party SDK, internal service client), the plan MUST cite the exact `file:line` of every upstream symbol (method name, field name, enum value, request/response shape) the new code will call or mirror — not just name it in prose.
+
+**Rule.**
+
+1. **Grep before you write the plan step.** For each wire-shape element the plan references, run a symbol-existence grep against the upstream source (vendored SDK, generated types, contract repo) and cite the hit as `file:line` next to the plan step.
+2. **A missing hit is a plan-time finding, not a code-time surprise.** If the grep comes back empty, the plan step names a symbol that does not exist upstream — stop and correct the plan before any code generation, not after a test fails.
+3. **Cite, don't paraphrase.** "Mirrors the upstream `sendMessage` method" is not a citation. `src/vendor/sdk/client.ts:142` is.
+
+**Why.** A 1:1 wire-shape mirror verified via cited `file:line` in the plan is the cheapest correctness gate for any client/SDK/adapter task — a symbol-existence grep at plan time catches shape drift (renamed field, removed method, changed enum) before code generation, instead of during implementation or QA when the fix is more expensive.
+
+**When to apply.** Any L2+ task whose Acceptance Criteria describe matching or wrapping an existing upstream interface. Evidence cohort: a prior connector-integration incident (Class A).
+
+**Anti-patterns.**
+
+- Citing the upstream doc page or changelog instead of the actual source symbol — docs drift from shipped code.
+- Writing the plan step from memory of a similar prior integration without re-grepping the current upstream version.
+## Probe Before Harness
+
+Before writing a subprocess wrapper, sidecar, or pipeline adapter against an external CLI or API, run a **≤60-second probe** with representative input before committing to an implementation plan. Capture stdout, stderr, and exit code from the probe run. Treat the tool's documentation as a hypothesis, not a fact, until the probe confirms the actual wire semantics.
+
+**Rule.**
+
+1. **Probe first, plan second.** Spend at most 60 seconds invoking the real CLI/API with a representative input and capture all three channels: stdout, stderr, exit code.
+2. **Documentation is a hypothesis.** A man page, `--help` output, or README describing the tool's behavior is an untested claim until the probe reproduces it. Do not encode documented behavior into a wrapper's control flow before the probe confirms it.
+3. **What the probe catches.** A single short probe surfaces the failure modes a design built purely from documentation misses most often:
+   - **Persistent-pipe vs one-shot process behavior** — whether the target process holds a long-lived stdin pipe or exits after one request/response cycle.
+   - **Response schema gaps** — fields the docs promise but the real output omits, or extra fields the docs never mention.
+   - **Exit-code semantics** — whether non-zero exit reliably signals failure, or the tool exits 0 on partial/degraded success.
+   - **Auth failure modes** — what an expired/missing credential actually returns (silent empty response vs explicit error vs hang), which a docs-only design usually gets wrong.
+
+**Why.** Source: prior incident — an inline plan assumed the target CLI exposed a persistent stdin pipe for streaming requests, based solely on its documentation. A 30-second probe with representative input disproved this immediately — the process was one-shot per invocation. Catching this before the harness was written saved roughly 200 lines of wrapper code and a day of false-build work that a docs-only design would have produced and then had to unwind.
+
+**When to apply.** Any task that writes a subprocess wrapper, sidecar process, or pipeline adapter against an external CLI or API whose wire behavior is not already proven inside this codebase. Mandatory before `/dr-plan` locks the integration approach for such a task.
+
+**Anti-pattern:** designing the full wrapper/adapter surface (retry logic, streaming assumptions, schema parsing) from documentation alone, then discovering the real behavior diverges only once the harness is built and tests start failing in ways that don't match the design.
+## Task-Description Line-Reference Smoke Check
+
+When a task description cites a `<file>:<line>` reference (e.g. "CHANGELOG.md:45 templates 18→23"), the referenced line can drift between when the description was written and when `/dr-do` reads it — a prior step in the same task edits the file, a concurrent task touches it, or the claim is simply stale copy-paste. Editing against a stale line reference is worse than a clean failure: the agent edits the wrong line, or the wrong content at a coincidentally-valid line number, and the mistake surfaces only later.
+
+**Rule.**
+
+1. **Smoke-check every `<file>:<line>` claim before editing it.** At `/dr-do` startup (while reading the task description) AND at any mid-implementation point where a NEW `<file>:<line>` claim is introduced (Gap Discovery finding, review comment, self-authored note), run:
+   ```bash
+   grep -n '<expected-content>' <file>
+   ```
+   where `<expected-content>` is the literal text the claim asserts lives at that line.
+2. **Zero matches → ABORT the edit.** Emit a diagnostic in this shape:
+   ```
+   line-not-found: expected "<X>" at line N, found zero matches in <file>
+   ```
+3. **Correct before proceeding.** Re-locate the claim (grep for the expected content anywhere in the file, or ask the operator) and correct the task description before resuming. Do not silently proceed on a stale reference.
+
+**Why.** A line number is a snapshot, not a live pointer. Source: prior incident, recurring twice — a task description cited a stale line-count claim that no longer matched the file by the time implementation reached it. The smoke-check costs one `grep -n`; skipping it costs a revert-and-redo cycle when the edit lands on the wrong line or the wrong file region.
+
+**When to apply.** Any task description containing a `<file>:<line>` citation — mandatory at `/dr-do` startup for citations already present, and at the moment any new citation is introduced mid-implementation.
+
+**Stack-agnostic.** `grep -n` + line lookup is universal across languages and stacks; this is a workflow gate, not stack-specific content.
+
+**Anti-patterns.**
+- Trusting a line number without a content check "because it's probably still there."
+- Proceeding at the wrong line because *some* content exists there — a coincidental match is worse than a clean grep-miss.
+- Treating the check as a one-time `/dr-do`-startup gate only — a new file:line claim introduced mid-implementation needs the same check before it drives an edit.
+## Spike Falsifiable Thresholds Must Derive from the Consumer's UX Budget
+
+A spike (or any exploratory prototype meant to falsify a design hypothesis before full build-out) needs a numeric pass/fail threshold — latency ceiling, cost ceiling, error-rate ceiling — to be falsifiable at all. That threshold MUST be derived from the **consuming surface's own documented UX budget**, never copied from generic latency folklore or from a different project's convention.
+
+**Rule.**
+
+1. **Locate the consumer's documented budget before writing any number.** Different surfaces tolerate wildly different delays for the same underlying operation. <!-- gate:example-only -->Illustrative bands: async-tolerant surfaces (batch jobs, background enrichment, email-triggered flows) — 10-30s; voice surfaces — must stay invisible inside the existing STT+TTS round-trip, i.e. no additional user-perceived delay; interactive chat/UI surfaces — sub-2s.<!-- /gate:example-only --> The spike's threshold must match the actual consumer, not an assumed one.
+2. **No documented budget → operator interview first, numbers second.** If the task lacks a documented per-surface UX budget, the spike's first deliverable is an operator interview that establishes it. Do not write a falsifiable numeric threshold before that interview closes.
+3. **Cite the source consumer in the write-up.** The threshold recorded in the spike's PRD/plan/report MUST name which consumer/surface it derives from (e.g. "≤2s, per the chat-surface budget confirmed with the operator on <date>"), so a reviewer can trace the number back to its source instead of trusting it as self-evident.
+
+**Why.** A threshold inherited from generic folklore rather than the actual consumer mis-scopes the whole exploration: a criterion tuned for an interactive chat surface (sub-2-second) will falsify a spike whose real consumer is an async-tolerant surface that comfortably absorbs 10-30 seconds — killing a viable design over a threshold nobody asked for. The reverse mistake is equally possible: a threshold borrowed from an async surface would wrongly pass a design that is unusable on an interactive surface. Both failures trace to the same root cause — writing the number before identifying the consumer.
+
+**When to apply.** Any spike/prototype task that sets a falsifiable numeric threshold (latency, cost, error rate, throughput) as its pass/fail gate.
+
+**Anti-patterns.**
+
+- Copying a latency/cost threshold from a template, a different project, or a previous unrelated spike without checking whether the current consumer's surface shares that budget.
+- Writing a specific number into the PRD/plan without naming which documented consumer budget it traces to.
+- Treating the operator interview as optional when no budget is on record, and proceeding with an invented number instead.
+
+## Wire-Shape Mirror via Cited File-Line in the Plan
+
+When a task builds a client, an SDK, an adapter, or any consumer that must reproduce a shape defined elsewhere (a server response envelope, a DTO, a shared enum, a reserved-word field alias), the cheapest correctness gate is to mirror that shape **1:1** and prove the mirror against its source at plan time — before a single line of the consumer is generated. A shape asserted in prose ("mirror the response fields") drifts silently; a shape asserted by a cited `<file>:<line>` that a reviewer can grep does not.
+
+**Rule.**
+
+1. **Cite the source shape, do not describe it.** For every member the consumer reproduces, cite each mirrored field, type, or enum by `<file>:<line>` in the plan, pointing at the authoritative definition — not a prose paraphrase.
+2. **Prove each citation.** You must grep every cited symbol at plan time, before code generation, against the cited file:
+   ```bash
+   grep -n '<symbol-or-field-name>' <file>
+   ```
+   A match confirms the shape you are about to mirror actually exists as cited. **Zero matches means shape drift** — the source moved, was renamed, or the citation is stale — caught free at plan time instead of surfacing later as a runtime mismatch.
+3. **Keep the mirror exact.** Ensure the mirror is 1:1 — the consumer's shape matches the source wire-shape field-for-field, type-for-type, name-for-name. Any divergence (a renamed field, a dropped member, a reserved-word alias, a coerced type) MUST be a deliberate, documented adapter decision recorded in the plan — never an accident of paraphrase.
+
+**Why.** A symbol-existence grep is deterministic and near-free, and it catches a whole cohort's worth of wire-shape mirrors — server envelope fields, DTO members, reserved-word aliases — at plan time with zero runtime integration tests. The alternative, discovering a drifted field only when an integration test fails (or worse, in production), costs a full build-verify-revise cycle per missed member. Citing `<file>:<line>` also makes the mirror auditable: a reviewer re-runs the same greps and confirms the plan before any code exists.
+
+**When to apply.** Any client-SDK, API-adapter, cross-service DTO mirror, or shared-enum-consumer task — mandatory before `/dr-plan` locks the mirror approach. This is the plan-time analogue of the "Task-Description Line-Reference Smoke Check" above: that rule guards a `<file>:<line>` citation from going stale before an edit; this rule uses the same citation-plus-grep discipline to prove a mirrored shape exists before the mirror is built.
+
+**Stack-agnostic.** `grep -n` symbol lookup against a cited file is universal across languages and transports; this is a plan-time verification gate, not stack-specific content.
+
+**Anti-patterns.**
+
+- Describing the mirrored shape in prose ("copy the response fields") instead of citing each member by `<file>:<line>` a reviewer can grep.
+- Generating the consumer first and reconciling the shape against the source only when an integration test fails.
+- Silently diverging from the source shape (renamed field, coerced type, dropped member) without recording it as a deliberate adapter decision.
+- Trusting a citation without running the grep — a stale `<file>:<line>` that no longer resolves is exactly the drift this gate exists to catch.
+
+---
+
+## Spike-Defer-to-Production Protocol
+
+A spike (or any isolated harness/prototype built to validate an approach outside the production codebase) proves feasibility — nothing more. Its output is a **go/no-go decision plus a follow-up production task**, never the spike's own code shipped directly into the production path. Treating a validated spike as "close enough to ship" smuggles unreviewed, unstubbed, untested exploratory code into production under the cover of the spike's validation result.
+
+**Rule.**
+
+1. **The spike's deliverable is a decision, not a diff.** When the isolated harness confirms (or falsifies) the approach, the spike concludes with a written go/no-go verdict — what was validated, what was NOT covered (error paths, scale, integration boundaries the harness stubbed out), and why the approach is or is not viable for production.
+2. **Productionization is always a separate follow-up task.** A go verdict opens a new task in the backlog scoped to implement the approach against production standards — full TDD, house style, error handling, the target codebase's actual architecture — not a copy-paste of the spike's exploratory code. The follow-up task cites the spike's verdict as its rationale, not as its implementation.
+3. **Spike code does NOT auto-promote.** Code written inside a spike/harness lives in its isolated location (a scratch directory, a throwaway branch, an isolated worktree) and is discarded or archived as reference once the go/no-go decision is recorded. It MUST NOT be merged, moved, or renamed into the production tree as the implementation — the follow-up task's implementation is written fresh against production quality gates (TDD, style guide, review), informed by what the spike learned.
+4. **State the boundary explicitly in the verdict.** The go/no-go write-up names what the harness deliberately did not exercise (concurrency, auth, persistence, the full error-handling surface) so the follow-up task's plan does not assume those are already covered.
+
+**Why.** A spike's isolation is what makes it fast and safe to falsify — it skips the review, testing, and architectural discipline that production code requires precisely because it is not meant to ship. If validated spike code is merged directly, all of that skipped discipline ships with it: no tests written against the target's real test suite, no adherence to the target's error-handling conventions, no review of the parts the spike stubbed out to stay fast. Separating "decision" from "implementation" keeps the spike's speed advantage without letting its shortcuts leak into production.
+
+**When to apply.** Any task that builds an isolated spike, prototype, or harness to validate a design or technical approach before committing to a full build-out.
+
+**Anti-patterns.**
+
+- Merging or renaming the spike's own files directly into the production path once the approach is validated, instead of opening a follow-up task with a fresh implementation.
+- Treating the spike's go verdict as a substitute for the follow-up task's own tests and review.
+- Omitting the "what the harness did not cover" note, leaving the follow-up task to silently assume untested paths are already handled.
+
+---
+
+## Exact-Name Selectors for DOM Automation
+
+When automating against an **opaque third-party DOM** the team does not own (social and webmail surfaces — Facebook, X/Twitter, LinkedIn, Instagram, Gmail web), select **action buttons** — Publish, Post, Submit, Send, Delete, Confirm, Save — by their **exact accessible name** (exact `aria-label` / role-name equality), never by a substring / contains match. Reserve substring matching for **personalized, free-form text** whose exact string is not knowable in advance: composer prompts that interpolate the user's name, greeting banners, dynamically localised placeholder copy.
+
+**Why:** a substring match on an action-button label silently clicks the wrong element when a longer compound label contains the target word. A selector that matches a button whose name *contains* "Publish" also matches an adjacent `Publish later` or `Publish settings` control; whichever the DOM returns first wins, and the automation commits the wrong action with no error. Exact-name matching fails *loudly* (element not found) instead of *silently* (wrong element clicked) when the DOM shifts — the safer failure mode for an outward-facing or destructive click.
+
+**Rule.**
+1. **Action buttons → exact name.** Any control that commits an irreversible or outward-facing action is selected by exact accessible-name equality. When two buttons share a name prefix, exact match is the only safe discriminator.
+2. **Personalized prose → substring is acceptable.** When the visible text is user-specific or localised and the exact string cannot be known ahead of time, a substring match on a stable fragment is fine — but scope it to the smallest container that isolates the element, not the whole page.
+3. **Prefer role + exact name over raw text.** Query by accessibility role plus exact accessible name where the driver supports it; fall back to a text selector only when no stable role/name exists.
+
+**When to apply:** any task that drives a browser against a DOM the team does not own (publishing automation, webmail automation, side-effecting scraping). Mandatory whenever the click is outward-facing or destructive.
+
+**Anti-pattern:** <!-- gate:example-only -->a contains/regex text selector such as `getByText(/Publish/)` or `contains("Publish")`<!-- /gate:example-only --> against a page that also renders `Publish later` or `Publishing settings` — a silent wrong-element click that only surfaces after the unintended action has already been taken.
+
+---
+
+## Fragment Routing
+
+Load only the fragment needed for the current sub-problem:
+
+- `incident-patterns.md`
+  Use when adding safety guards, reviewing integration failure attribution, or making scope decisions for untracked files.
+- `deployment-patterns.md`
+  <!-- gate:example-only -->
+  Use when deploying services (Docker, venv, NestJS DI, CLI connectors in containers).
+  <!-- /gate:example-only -->
+- `bash-pitfalls.md`
+  Use when writing or reviewing any `.sh`, especially regex/grep/sed-heavy ops scripts. Mandatory shellcheck rule for /dr-do, plus the five recurring traps (grep -F + ^, boundary-alternation regex, raw ${var} in regex, password in process arglist, set -e + pipelines).
+
+---
+
+*These principles reduce bugs by 40-50% and improve code quality by 30-50%.*

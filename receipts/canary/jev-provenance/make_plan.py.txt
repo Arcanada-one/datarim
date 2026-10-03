@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+"""CanaryPlan/v2 for datarim provenance (scripts/jev_provenance_canary.py). argv: SUBJECT OUT"""
+import hashlib, json, subprocess, sys
+from datetime import datetime, timezone
+from pathlib import Path
+REPO, OUT = Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve()
+OUT.mkdir(parents=True, exist_ok=True)
+sha = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+git = lambda *a: subprocess.check_output(['git', '-C', str(REPO), *a], text=True).strip()
+assert not git('status', '--porcelain'), 'subject must be clean'
+commit, tree = git('rev-parse', 'HEAD'), git('rev-parse', 'HEAD^{tree}')
+ev = {'schema': 'MeasuredGitSource/v1', 'commit': commit, 'tree': tree, 'dirty': False,
+      'producer': {'tool': 'control-jev/prcanary/make_plan.py', 'version': '1.0.0'},
+      'captured_at_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}
+raw = json.dumps(ev, indent=1, sort_keys=True).encode() + b'\n'
+(OUT/'source-evidence.json').write_bytes(raw)
+PY = '/usr/bin/python3.12'
+files = [REPO/'scripts/jev_provenance_canary.py', REPO/'scripts/jev_hook.py'] + sorted((REPO/'plugins/dr-jev-control/scripts').glob('*.py'))
+probe = {'kind': 'process', 'id': 'native-provenance-fixture-consumer', 'argv': [PY, 'scripts/jev_provenance_canary.py'], 'cwd': '.',
+         'env_keys': ['PATH', 'TMPDIR'], 'timeout_seconds': 120, 'capture_limit_bytes': 262144,
+         'executable_sha256': sha(PY), 'execution_files': [{'path': str(p), 'sha256': sha(p)} for p in files],
+         'expect': {'exit_codes': [0], 'stdout_contains': ['"result": "PASS"', '"applied_switches": 0', '"hook_clients": 3',
+                                                           '"cached_request_identity_preserved": true']},
+         'entities': ['code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py', 'code_unit:plugins/dr-jev-control/scripts/jev_client.py',
+                      'code_unit:plugins/dr-jev-control/scripts/ledger.py', 'code_unit:plugins/dr-jev-control/scripts/live_supervisor.py',
+                      'code_unit:plugins/dr-jev-control/scripts/route.py', 'code_unit:plugins/dr-jev-control/tests/test_supervisor_e2e.py'],
+         'mutating': True}
+plan = {'schema': 'CanaryPlan/v2', 'id': 'jev-consumer-provenance-offline-process', 'environment': 'private-netns-synthetic-runtime',
+        'owner': 'Control network hand for JEV-audit remediation (Arcanada, claude-opus-5-5)', 'read_only': False,
+        'subject': {'schema': 'GitCanarySubject/v1', 'commit': commit, 'tree': tree,
+                    'evidence': {'path': 'source-evidence.json', 'sha256': hashlib.sha256(raw).hexdigest(), 'source_field': 'commit'}},
+        'purpose': ('AUP-GRAPH-008 process canary for the datarim JEV consumer-provenance change, re-measured by Control on the '
+                    'cherry-picked subject from a neutral path inside a private network namespace (no listener, no model call): '
+                    'synthetic CLI and native hook child processes, deferred-then-dispatched switch, cached request identity, '
+                    'unsupported Cursor prompt advice not counted. Same probe as the authoring session; not a production measurement.'),
+        'probes': [probe]}
+(OUT/'plan.json').write_text(json.dumps(plan, indent=1) + '\n')
+print(commit)

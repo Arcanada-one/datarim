@@ -1,0 +1,20 @@
+schema_version: 1
+id: dr-orchestrate
+title: "Datarim Orchestrator (Phase 3 — Auto-learning and Context Continuity)"
+version: 0.4.0
+author: "Datarim Contributors"
+license: MIT
+description: "tmux-based self-driving Datarim pipeline runner. Phase 3 includes confirmed learned rules, 24-hour re-validation, an immutable seven-day TTL, and default-off context-window compaction/clearing with snapshot-first continuity for Claude Code and Codex. Autonomy is resolved per space; the immutable hard-gated floor remains authoritative."
+categories:
+  - scripts
+  - rules
+# NOTE (TUNE-0439): the /dr-orchestrate command + resolver agent were promoted to
+# core (commands/, agents/) so the Claude Code slash-picker discovers them
+# (it does not scan plugins/*/commands/ or ~/.claude/local/). This plugin now
+# ships the orchestration scripts, rules, openapi, and tests only.
+homepage: https://datarim.club/commands/dr-orchestrate
+# Rollout gate (TUNE-0187): this plugin hosts autonomous agents, so `/dr-plugin
+# enable` refuses activation until the consumer ecosystem AGENTS.md mirrors the
+# canonical Autonomous Agent Operating Rules (FB-1..FB-8) at rank-1 mandate
+# level. See documentation/reference/fb-rules-consumer-rollout.md.
+requires_fb_rules_mirror: true

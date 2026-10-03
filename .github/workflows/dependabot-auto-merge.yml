@@ -1,0 +1,54 @@
+name: dependabot-auto-merge
+
+# Auto-merge Dependabot PRs once required checks pass.
+#
+# Scope: minor + patch updates auto-merge. Major bumps stay open for
+# manual review (the action label is `version-update:semver-major`).
+#
+# Required checks are enforced by branch protection — this workflow
+# just toggles auto-merge on the PR, so GitHub holds the merge until
+# the checks pass.
+
+on:
+  # zizmor: ignore[dangerous-triggers] — pull_request_target is the canonical
+  # Dependabot auto-merge pattern. The workflow runs with the base-ref code,
+  # not PR code; only metadata is inspected by the action. Branch protection
+  # required-status-checks guard the actual merge.
+  pull_request_target:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  auto-merge:
+    name: enable-auto-merge
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.sender.id == 49699333 &&
+      github.event.pull_request.user.id == 49699333 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.base.ref == 'main' &&
+      startsWith(github.event.pull_request.head.ref, 'dependabot/') &&
+      startsWith(github.event.pull_request.html_url, format('https://github.com/{0}/pull/', github.repository))
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable squash auto-merge on minor and patch updates
+        if: |
+          steps.meta.outputs.update-type == 'version-update:semver-minor' ||
+          steps.meta.outputs.update-type == 'version-update:semver-patch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"

@@ -1,0 +1,213 @@
+schema_version: 1
+requirement_set_id: reqset-0001
+created_at: "2026-01-02T10:00:00Z"
+source_remarks:
+  - source_id: source-0001
+    revision: "1"
+    source_digest: sha256:a9168dbfcbd80e888663394e7f511121f0387f31a8bf626e6fbaf5a468bd3818
+    authority_approval:
+      approved_digest: sha256:a9168dbfcbd80e888663394e7f511121f0387f31a8bf626e6fbaf5a468bd3818
+      authority_id: authority-customer-0001
+      authority_role: CUSTOMER
+      approved_at: "2026-01-02T09:02:00Z"
+      evidence_ref: source-authority-approval-0001
+      algorithm: ED25519
+      key_id: key-customer-0001
+      approval_payload_digest: sha256:7c33ad2e2ce4e6f2f4f28ecc971b2450d151a0d35afc05f398aa39fc6a340936
+      signature: ed25519:g7pnNW/y3if7b4y7OKbAJI9F6xzZt2RbOhQmYdoLcqXasy3oW2zO4PnYyAEokfEToZxuRPYxstOick6w15tsCQ==
+    source_tier: CUSTOMER_VERBATIM
+    verbatim_quote: "The comparison must remain readable on my phone in both languages and themes."
+    locale: en
+    captured_at: "2026-01-02T09:00:00Z"
+    source_ref: customer-interview-0001
+    requirement_ids:
+      - req-0001
+    prework_assignments:
+      - requirement_id: req-0001
+        task_id: task:web:0001
+        epic_id: epic:web:0000
+        knowledge_selection_digest: sha256:4321e061f0e07de3203a3b0b474a2bb05cc30d3db2dae345f6c637eab61f1277
+        implementation_started_at: "2026-01-02T10:00:00Z"
+    tier1_assertions:
+      - assertion_id: assertion-0001
+        revision: "1"
+        source_digest: sha256:a9168dbfcbd80e888663394e7f511121f0387f31a8bf626e6fbaf5a468bd3818
+        assertion_digest: sha256:13e1aec0f4344af2fdf92acbb7fca9ebc5bb16941dcfea1c888b21d30c2c8534
+        authority_approval:
+          approved_digest: sha256:13e1aec0f4344af2fdf92acbb7fca9ebc5bb16941dcfea1c888b21d30c2c8534
+          authority_id: authority-customer-0001
+          authority_role: CUSTOMER
+          approved_at: "2026-01-02T09:05:00Z"
+          evidence_ref: authority-approval-0001
+          algorithm: ED25519
+          key_id: key-customer-0001
+          approval_payload_digest: sha256:2219eef980b1e634b5fc3ef4e73b8192b0fd5aa015a531b45da1e59c498bcb28
+          signature: ed25519:vKFIBp4clwEQ02mSkxl5DsRhbmyxeloIByJefjQvSAL3W15yhAJ3bkTFO2oxCLQKI6Uol41Q+ST6MrSrlG7jAQ==
+        requirement_id: req-0001
+        predicate_id: predicate-visitor-readable
+        product: example-product
+        surface: public-comparison
+        surface_class: VISITOR_VISIBLE
+        applicability:
+          locales:
+            - ru
+            - en
+          viewports:
+            - mobile
+            - desktop
+          themes:
+            - light
+            - dark
+          painted_matrix_applicable: true
+        visitor_visible: true
+        prework_assignment:
+          requirement_id: req-0001
+          task_id: task:web:0001
+          epic_id: epic:web:0000
+          knowledge_selection_digest: sha256:4321e061f0e07de3203a3b0b474a2bb05cc30d3db2dae345f6c637eab61f1277
+          implementation_started_at: "2026-01-02T10:00:00Z"
+        asserted_at: "2026-01-02T09:00:00Z"
+requirements:
+  req-0001:
+    source_ids:
+      - source-0001
+    tier1_assertion_ids:
+      - assertion-0001
+    paraphrase: The comparison is visitor-readable in every applicable painted UI combination.
+    acceptance:
+      tier1_assertion_id: assertion-0001
+      predicate_id: predicate-visitor-readable
+      exact_source_quotes:
+        - source_id: source-0001
+          verbatim_quote: "The comparison must remain readable on my phone in both languages and themes."
+      product: example-product
+      surface: public-comparison
+      surface_class: VISITOR_VISIBLE
+      applicability:
+        locales:
+          - ru
+          - en
+        viewports:
+          - mobile
+          - desktop
+        themes:
+          - light
+          - dark
+        painted_matrix_applicable: true
+      before_state: The comparison overlaps its sticky header on mobile.
+      after_state: The comparison remains readable without overlap in every applicable painted combination.
+      evidence:
+        method:
+          kind: PAINTED_SURFACE_PROBE
+          product: example-product
+          surface: public-comparison
+          surface_class: VISITOR_VISIBLE
+          predicate_id: predicate-visitor-readable
+          applicability:
+            locales:
+              - ru
+              - en
+            viewports:
+              - mobile
+              - desktop
+            themes:
+              - light
+              - dark
+            painted_matrix_applicable: true
+          environment: PRODUCTION
+        owner: delivery-reviewer
+        evidence_class: VISITOR_VISIBLE_PRODUCTION
+      knowledge_selection:
+        roles:
+          - id: frontend-reviewer
+            revision: "1"
+            digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+            selected_at: "2026-01-02T09:10:00Z"
+            selected_before_implementation: true
+            immutable: true
+        skills:
+          - id: frontend-ui
+            revision: "3"
+            digest: sha256:2222222222222222222222222222222222222222222222222222222222222222
+            selected_at: "2026-01-02T09:11:00Z"
+            selected_before_implementation: true
+            immutable: true
+        blueprints:
+          - id: painted-matrix-blueprint
+            revision: "2"
+            digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+            selected_at: "2026-01-02T09:12:00Z"
+            selected_before_implementation: true
+            immutable: true
+        constraints:
+          - id: visitor-visible-production-ac
+            revision: "1"
+            digest: sha256:4444444444444444444444444444444444444444444444444444444444444444
+            selected_at: "2026-01-02T09:13:00Z"
+            selected_before_implementation: true
+            immutable: true
+        policies:
+          - id: customer-delivery-policy
+            revision: "1"
+            digest: sha256:5555555555555555555555555555555555555555555555555555555555555555
+            selected_at: "2026-01-02T09:14:00Z"
+            selected_before_implementation: true
+            immutable: true
+        success_criteria:
+          - id: live-painted-matrix
+            revision: "4"
+            digest: sha256:6666666666666666666666666666666666666666666666666666666666666666
+            selected_at: "2026-01-02T09:15:00Z"
+            selected_before_implementation: true
+            immutable: true
+      implementation:
+        task_id: task:web:0001
+        code_revision: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        content_revision: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        code_paths:
+          - src/styles/comparison.css
+        content_paths:
+          - content/comparison.yaml
+        environment: production
+        started_at: "2026-01-02T10:00:00Z"
+      visitor_visible: true
+      rendered_test_evidence:
+        environment: TEST
+        product: example-product
+        surface: public-comparison
+        predicate_id: predicate-visitor-readable
+        applicability:
+          locales:
+            - ru
+            - en
+          viewports:
+            - mobile
+            - desktop
+          themes:
+            - light
+            - dark
+          painted_matrix_applicable: true
+        baseline_ref: artifacts/test/comparison-before.png
+        candidate_ref: artifacts/test/comparison-after.png
+        observed_at: "2026-01-02T11:30:00Z"
+        owner: delivery-reviewer
+      production_assertion:
+        actor: VISITOR
+        environment: PRODUCTION
+        observation_kind: PAINTED_SURFACE
+        product: example-product
+        surface: public-comparison
+        surface_class: VISITOR_VISIBLE
+        predicate_id: predicate-visitor-readable
+        applicability:
+          locales:
+            - ru
+            - en
+          viewports:
+            - mobile
+            - desktop
+          themes:
+            - light
+            - dark
+          painted_matrix_applicable: true
+      disposition: accepted

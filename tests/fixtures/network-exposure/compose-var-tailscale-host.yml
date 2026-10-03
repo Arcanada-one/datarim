@@ -1,0 +1,7 @@
+version: "3.9"
+# TUNE-0123: bare ${TAILSCALE_IP} host token, unresolved → Tier 2 mesh var-name.
+services:
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "${TAILSCALE_IP}:3000:3000"

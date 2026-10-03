@@ -1,0 +1,8 @@
+[Unit]
+Description=Test socket fail
+
+[Socket]
+ListenStream=0.0.0.0:5432
+
+[Install]
+WantedBy=sockets.target

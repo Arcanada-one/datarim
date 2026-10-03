@@ -1,0 +1,6 @@
+version: "3.9"
+services:
+  app:
+    image: arcanada/app:latest
+    ports:
+      - "${BAD NAME}:8080:8080"

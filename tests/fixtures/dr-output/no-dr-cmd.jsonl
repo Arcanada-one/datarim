@@ -1,0 +1,2 @@
+{"type":"user","message":{"content":"please help with regex"}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"sure, here is the regex"}]}}

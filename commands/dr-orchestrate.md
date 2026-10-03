@@ -1,0 +1,119 @@
+---
+id: dr-orchestrate
+title: /dr-orchestrate — Self-Driving Datarim Pipeline (Phase 3)
+description: "Tmux-based pipeline runner. Phase 3 adds operator-confirmed learned rules with a seven-day TTL and 24-hour re-validation (autonomy L4). Command and autonomy policy are core; the runner is an opt-in plugin."
+usage: |
+  dr-orchestrate run
+  dr-orchestrate run --dry-run
+  dr-orchestrate run --unknown-prompt [text]
+options:
+  --dry-run: "Log decisions without executing"
+  --interval: "Poll cycle interval in seconds (default: 5)"
+  --unknown-prompt: "Resolve a parser-miss prompt via the subagent inference chain"
+autonomy: L4
+phase: 3
+---
+
+# /dr-orchestrate
+
+CLI-agent model, effort, and permission-aware version guidance is canonical in
+`skills/datarim-system/model-assignment.md`. Fleet availability remains
+selection-neutral and version hints are advisory only.
+
+Phase 2 — Subagent Inference Layer (v2.4.0).
+
+Phase 3 — Auto-learning with operator confirmation.
+
+Optional context-window self-clearing checkpoints the active task-description
+path and last completed snapshot phase before fixed Claude Code or Codex
+`/compact` or `/clear` instructions. It is default-off, requires explicit
+same-UID runtime trust plus key-injection opt-in, and resumes a full clear only
+through snapshot-first `/dr-next <TASK-ID>`. See
+`skills/context-window-self-clearing/SKILL.md`.
+
+## Cycle
+
+1. `tmux capture-pane -p -t <pane>` — captures the current pane buffer.
+2. **Snapshot-First Resume.** If the buffer or job-queue identifies an active TASK-ID and `datarim/snapshots/{TASK-ID}.snapshot.md` is valid (`dev-tools/check-stage-snapshot-on-exit.sh --validate-frontmatter --task <ID>` returns exit 0), read the snapshot before invoking `semantic_parser.sh` and pass `recommended_next` to `subagent_resolver.sh` as `--hint <command>`. The snapshot read happens before resolver dispatch, so the resolver can still return a different command — the snapshot is a hint, not a constraint. If the snapshot is absent or malformed, skip this step without warning (V-AC-7 — the seventh verification acceptance criterion) and continue with prior behaviour. Consumer-side contract: `skills/dr-next-snapshot-replay/SKILL.md`.
+3. `semantic_parser.sh parse` — rule-based pass returns the selected action, confidence, and provenance. Learned matches are exact and must still name an action in the bundled/user trust registry.
+4. **Hit (confidence > 0)** — apply the immutable action gate, write a cycle checkpoint, execute through the controlled pane seam, and append schema-v2 audit evidence.
+5. **Miss (confidence == 0)** — Phase 2 path:
+   - `subagent_resolver.sh resolve` — multi-backend chain (claude → codex → cursor by default, overridable via `DR_ORCH_SUBAGENT_CHAIN`), 15s per backend (`DR_ORCH_RESOLVER_TIMEOUT_S`), lenient JSON parse, FD-3 close.
+   - Confidence threshold gate (default `0.80`):
+     - Pass → derive `framework_command` for slash commands and call
+       `plugins/dr-orchestrate/scripts/action_gate.sh` before autonomous execution. Space-policy
+       `auto` proceeds; `operator` or invalid policy routes to escalation.
+       Then checkpoint and execute once. A successful resolution emits a
+       `Save as rule? [Y/N]` proposal bound to the authenticated actor/session.
+     - Fail / chain_exhausted → `escalation_backend.sh emit` (mock JSONL by default; the `dev-bot` backend remains a stub until a real consumer service exists) + audit `outcome: escalated`.
+6. `Y` atomically persists or renews the exact learned match; `N`, replay,
+   expiry, wrong context, or malformed input fails closed. Rules become due
+   after 24 hours and expire after seven days; re-validation proposes confirmation
+   but never executes a due rule.
+7. Every `tmux send-keys` still passes through the security floor: whitelist → escape-block → micro-cooldown (500 ms) + decision-cooldown (60 s) → fail-closed. Per-space policy and the immutable hard-gated floor remain authoritative at L4.
+
+## Configuration (user-config.yaml)
+
+```yaml
+key_injection: false
+context_window:
+  enabled: false
+  trust_same_uid_runtime: false
+  policy_label: ""
+```
+
+The resolver chain, its budget, the confidence threshold and the escalation
+backend are read from environment variables, not from `user-config.yaml`:
+
+| Variable | Default |
+|----------|---------|
+| `DR_ORCH_SUBAGENT_CHAIN` | `claude codex cursor` |
+| `DR_ORCH_RESOLVER_TIMEOUT_S` | `15` |
+| `DR_ORCH_CONFIDENCE_THRESHOLD` | `0.80` |
+| `DR_ORCH_ESCALATION_BACKEND` | `mock` |
+| `DR_ORCH_ESCALATION_MOCK_LOG` | `~/.local/share/dr-orchestrate/escalation.jsonl` |
+
+## Audit (schema v2)
+
+- `make_event_v2` — adds fields `schema_version: 2`, `confidence`, `subagent_model`, `backend_used`, `escalation_backend`, `stage` (parse / resolve / escalate), `outcome` (matched / resolved / escalated / blocked_decision_cooldown), `reason` (grep-redacted).
+- Phase 1 v1 events are preserved for the rule-hit path — backwards compatibility.
+- `matched_text_hash` (sha256) — V-AC-12 (the twelfth verification acceptance criterion — pane-text never logged in raw form) invariant preserved; raw pane text never reaches the log.
+
+## Security Floor (Phase 2 extensions)
+
+- `flock -n` wrapper around cooldown read-write on Linux hosts (V-AC-21 — twenty-first verification acceptance criterion — race-safe cooldown).
+- macOS fallback: one-time WARN, non-atomic semantics (Phase 1 behaviour).
+- Decision-cooldown (60 s) — separate gate for autonomous decisions through the resolver path.
+- Reason-redaction: `password=`, `token=`, `secret=`, `credential=`, `api_key=` elided to `<REDACTED>` before write.
+
+<!-- gate:example-only -->
+
+## CLI examples
+
+```bash
+# default Phase 3 cycle: parse → gate → execute → optional Save-as-rule proposal
+dr-orchestrate run --pane "%5"
+
+# dry-run reports the baseline without mutation
+dr-orchestrate run --dry-run
+
+# manual resolver invocation with inline text
+dr-orchestrate run --unknown-prompt "operator paste: > /dr-prd strategy gate"
+```
+
+Inspect audit:
+
+```bash
+tail -1 ~/.local/share/datarim-orchestrate/audit-"$(date -u +%Y-%m-%d)".jsonl | jq .
+```
+
+<!-- /gate:example-only -->
+
+## Architecture boundary
+
+- Scheduling invariant: see `skills/datarim-system/backlog-and-routing.md` section "Parallel orchestration is the default".
+- **Core (no plugin needed):** this command file, `dev-tools/resolve-space-autonomy.sh`, `dev-tools/lib/space-autonomy.sh`, `dev-tools/fb-policy-loader.sh`, `dev-tools/rules/fb-rules.yaml` (autonomy floor + policy map). The autonomy floor and policy map resolve without enabling the plugin.
+- **Plugin (opt-in — `dr-plugin enable <path>/plugins/dr-orchestrate`):** tmux runner, subagent inference chain, bot/HTTP transport, Redis pub/sub, HMAC audit, fleet scripts, content-consilium fan-out. Enable the plugin to use `/dr-orchestrate run`.
+- Resolver agent: `agents/dr-orchestrate-resolver.md` — plugin-backed; non-functional without the `dr-orchestrate` plugin's `subagent_resolver.sh`. See plugin README for setup.
+- Plugin README: `plugins/dr-orchestrate/README.md`
+- Provenance: `documentation/how-to/evolution-log.md`

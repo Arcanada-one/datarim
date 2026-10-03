@@ -1,0 +1,88 @@
+# personal-id-forbidden.regex
+#
+# Patterns that MUST NOT appear in any shipped framework artefact
+# (cli/, skills/, agents/, commands/, templates/, scripts/, dev-tools/,
+# AGENTS.md, README.md, docs/).
+#
+# Format: one extended-regex pattern per non-empty, non-comment line.
+# Lines starting with `#` are comments. Each pattern is matched
+# case-insensitively via perl -CSD (UTF-8-safe; BSD-compatible).
+#
+# Inline exclusion fence: lines between
+#   <!-- gate:example-only -->
+# and
+#   <!-- /gate:example-only -->
+# are exempt (counter-examples and teaching content).
+#
+# Consumers may extend this by pointing --regex at their own merged file.
+# Do NOT add ecosystem-specific entries here — keep the framework contract
+# neutral. Consumer extensions belong in the consumer's local copy.
+
+# Names are NOT listed here. A personal name, a consumer project name or a
+# host name written into this PUBLIC file publishes exactly what the gate exists
+# to suppress. They belong in the private overlay: a local, gitignored
+# `${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal-id-forbidden.regex`, or
+# `$DATARIM_PERSONAL_ID_OVERLAY` (CI fills it from the PERSONAL_ID_OVERLAY
+# repository secret). This file carries only SHAPES that identify any operator:
+# home paths, tracker ID fields, consumer task IDs, tailnet hosts, addresses.
+# tests/personal-id-gate.bats enforces that no entry here is a bare word.
+
+# Consumer task IDs. `DEV-` is a universal area prefix, and this repository
+# uses it for synthetic fixtures in the 0xxx and 9xxx ranges only. A DEV-1xxx
+# to DEV-8xxx number is a real task from a consumer project's tracker cited as
+# provenance; describe the incident instead of citing its ticket.
+\bDEV-[1-8][0-9]{3}\b
+
+# Consumer-specific tracker fields. A field named after one vendor's tracker
+# (e.g. an Asana GID) couples a public contract to one customer's tooling; use
+# a generic tracker reference field instead.
+\basana_?gid\b
+
+# Absolute home-directory paths name a person and a machine. Use $HOME, `~`,
+# or a placeholder such as /Users/example, /home/example, /Users/YOUR_USER,
+# or /home/<user>; /home/app is the conventional container service account. Matched case-sensitively so a URL path such as
+# /v2/users/login is not mistaken for a macOS home. /home/runner and /home/dependabot are GitHub-hosted runner
+# accounts, not people.
+(?-i:/Users/)(?!example\b|YOUR_USER\b)[A-Za-z0-9_][A-Za-z0-9._-]*
+/home/(?!example\b|app\b|runner\b|dependabot\b|linuxbrew\b)[A-Za-z0-9_][A-Za-z0-9._-]*
+
+# The same home directory as encoded in an agent runtime's per-project state
+# directory name (e.g. ~/.claude/projects/-Users-<name>-<project>/).
+(?-i:-(?:Users|home)-)(?!example-)[A-Za-z0-9._]+-
+
+# A tailnet's MagicDNS suffix is unique to one organisation's network.
+\btail[0-9a-f]{6}\.ts\.net\b
+
+# Personal Asana PAT variable names (any ASANA_*_PAT pattern)
+ASANA_[A-Z_]*PAT
+
+# 16-digit numeric IDs (Asana workspace/user GIDs)
+\b[0-9]{16}\b
+
+# Real public IPv4 — handled by heuristic, NOT by a literal denylist.
+#
+# This file ships in a PUBLIC repository. A denylist of literal infrastructure
+# addresses would publish exactly what this gate exists to suppress: the file
+# becomes its own leak, and a reader gets a ready-made role-to-address map.
+# Literal addresses therefore MUST NOT be added here.
+#
+# The floor is the heuristic in scripts/personal-id-gate.sh
+# (sub is_real_public_ipv4): it flags ANY globally-routable public IPv4 in the
+# shipped surface, so a new, never-listed address is caught with no edit to
+# this file. Reserved and documentation ranges are excluded there (RFC 1918,
+# RFC 5737 TEST-NET, loopback, link-local, 100.64/10 CGNAT, and 4th-octet-0
+# network/version strings).
+#
+# CGNAT mesh addresses (100.64/10) are deliberately outside the heuristic —
+# they are not globally routable, and flagging the whole range would break
+# legitimate documentation. An operator who needs specific mesh addresses
+# caught supplies them through the private overlay, which the gate merges
+# additively when present:
+#
+#   ${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal-id-forbidden.regex
+#
+# That path is gitignored and machine-local. Override for tests/CI with
+# DATARIM_PERSONAL_ID_OVERLAY=<file>.
+
+# ssh root@ to a literal IPv4 (entry-point leak — use ssh root@<host> placeholder instead)
+ssh root@[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}

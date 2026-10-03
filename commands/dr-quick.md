@@ -1,0 +1,140 @@
+---
+name: dr-quick
+description: Lightweight fast-lane for trivial fixes or quick lookups — assign QCK-XXXX, weak-model KB scan, apply the change, short archive. Skips the heavy init→prd→plan pipeline.
+---
+
+# /dr-quick — Fast-Lane for Trivial Fixes & Lookups
+
+**Mutating QCK acceptance/evidence floor:** before Step 5, define falsifiable quick-stage
+cases and capture the preflight receipt per `skills/immutability/SKILL.md`
+§ Acceptance and Evidence Loop. Before Step 6, run
+`check-live-evidence.sh --root <repo-root> --contract <acceptance.json>
+--evidence <evidence.json> --stage quick`. Any nonzero result blocks closure.
+Fix the discrepancy, rerun the check, and retain each attempt. The fast lane
+skips full QA/compliance stages, never the acceptance/evidence floor.
+
+**Role**: Developer Agent (lightweight)
+**Source**: `${DATARIM_RUNTIME:?}/agents/developer.md`
+
+Use this command for tiny, self-contained edits or quick information lookups that do not merit the full heavyweight pipeline. It deliberately bypasses PRD, planning, design, QA, and compliance stages to minimize overhead.
+
+## Intent and evidence routing
+
+Classify the request before resolving task files or allocating an ID. This
+branch applies on every host and takes precedence over the task-ledger,
+structured-gate, stage-header, archive, CTA and snapshot steps below.
+
+- **Read-only lookup:** declare falsifiable acceptance cases in the conversation before searching.
+  No Git repository or existing task files are required. Use the read-only
+  context scan in Step 4 and report findings in Step 5. Include
+  dated source references, exact read-only commands and observed results for
+  each case, plus failed attempts and recheck disposition. Resolve discrepancies
+  with further read-only checks; report unknown or unmet cases honestly.
+  Label the result **informational / UNCERTIFIED**: it is
+  not structured gate PASS or an archived task.
+  Do not create metadata, archives, snapshots, or branch changes.
+  Skip Steps 1–3 and 6–7, ID allocation, task headers and task-completion CTA.
+  The lookup stays local, including when execution-host policy would route a
+  mutating task elsewhere. No persisted structured gate is invoked in this branch.
+- **Mutating QCK:** use the normal steps below, including canonical task metadata,
+  immutable acceptance cases, persisted preflight, actual evidence and strict
+  quick-stage gate. The read-only exception never waives this floor.
+- **Intent changes to editing:** re-evaluate execution-host routing before any mutation.
+  Enter the normal mutating QCK flow on the permitted host, allocate its ID,
+  create canonical metadata and acceptance cases, and
+  capture the persisted preflight before editing. Conversational lookup evidence
+  cannot replace the mutating task's baseline or authorize a local off-host edit.
+
+## Usage
+
+```text
+/dr-quick "<short task title>"
+```
+
+Note: title defaults to English unless the operator's configured content language is otherwise.
+
+## What happens, step by step
+
+1. Resolve `datarim/` via standard path resolution (walk up; if absent, STOP and tell user to run `/dr-init` — only `/dr-init` creates `datarim/`).
+
+### EXECUTION HOST
+
+1. Source the resolver: `source "${DATARIM_RUNTIME:?}/dev-tools/lib/execution-host.sh"`.
+2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (map path: `$DATARIM_EXEC_HOSTS_MAP` when set, else the machine-local `$HOME/.claude/local/config/execution-hosts.yml` that `dev-tools/check-execution-host-health.sh` also defaults to; the map is operator-local, never part of the project install, and absent means unconfigured).
+3. On **off-host** (exit code 10), use the initial intent classified before metadata or ID allocation. Dispatch mutating work before any mutation. At Step 5, re-evaluate routing if a lookup changes into an edit; a deferred mutation must still satisfy host routing and persisted preflight before it starts. The two fixed outcomes are:
+   - **READ-ONLY QCK** (a lookup / "where is X" / "does Y exist" -- Step 5 only *reports* the located item: touches no files, switches no branch, writes no archive): proceed LOCALLY in read-only mode -- do NOT dispatch (dispatching an observational command to the very host the laptop is meant to monitor buys nothing). Surface the delegation directive (your site's dispatch tooling, if any -- the framework ships none) as information only, never as a blocking question.
+   - **MUTATING QCK** (Step 5 applies the fix / edits files / switches branches / writes the archive): AUTO-DISPATCH to `required_host` -- do NOT run the mutation locally. This mirrors the `commands/dr-do.md` § EXECUTION HOST AUTO-DISPATCH contract; apply that contract's sub-points a–e in full and do not weaken its fail-closed guards:
+     a. **RUN vs INSPECT.** Auto-dispatch only when the intent is to RUN the fix (apply/edit/branch/archive). Pure-lookup intent stays local per the READ-ONLY branch above -- do not dispatch a report-only QCK.
+     b. **Has-session: attach, don't relaunch.** Before dispatch, probe for an existing session for this task on the required host. Live → attach and monitor, do NOT relaunch. Dead/stale → report and ask before resuming (resuming a partially-done mutating QCK is not unconditionally reversible). Absent → dispatch.
+     c. **Target integrity (fail-closed).** The target host key MUST match a pinned `known_hosts` entry and the map MUST be the operator-local gitignored file. Host-key mismatch, missing pin, or any probe failure → STOP and report; NEVER run the QCK locally and NEVER dispatch to an unverified host. Pass `<TASK-ID>`/`<root>` as single non-evaluated argv elements; the dispatch payload is the bare task-id only -- never forward an autonomy/confirm-suppression flag.
+     d. **Exit 10 has exactly two outcomes: successful remote dispatch, or STOP-and-report.** Local execution of a mutating QCK is never an outcome of exit 10 (a corrupted/unreadable map under exit 10 is fail-CLOSED, not fail-open).
+     e. **Read-only monitor.** After dispatch/attach, act only as a READ-ONLY MONITOR: poll `datarim/runtime/<TASK-ID>.status` and classify the remote pane (`dev-tools/classify-pane.sh`); wait up to ~90s for the first status write, re-send the bare task-id ONCE if none, then FAILED-LAUNCH → durable local log line + escalate + STOP (never silent re-dispatch). Relay any remote hard-gate to the operator as an option index; never answer it yourself and never proceed on silence.
+   - **Intent-flip guard (deferred re-evaluation).** A QCK that STARTS as a lookup but, at Step 5, turns into a mutating edit MUST take the MUTATING branch **before** any local mutation -- dispatch first. If the agent has already committed to local execution when the mutating intent emerges, STOP and report (recommend dispatched re-entry) rather than mutate locally on an off-host machine. Never let a mutating edit slip through locally on the "it started as read-only" technicality.
+4. On **unconfigured** (exit code 0, binding absent): proceed unchanged (fail-open).
+5. On **on-host** (exit code 0, binding present): proceed normally.
+
+Enforcing this binding mechanically is **site policy, and the framework ships no reference implementation**. What ships is the mechanism, not the decision: the resolver library (`dev-tools/lib/execution-host.sh`), the drift validator (`dev-tools/check-execution-host-drift.sh`) and their tests. If your setup separates a control machine from execution hosts, wire your own PreToolUse hook against that resolver and keep it in your own workspace repo — a hook that decides which host may run work encodes your topology, and a second copy of an enforcement artefact living in two repos is exactly what drifted and failed closed before. This Step-0 check is the cooperative soft layer over the same resolver.
+2. **Assign the next free `QCK-XXXX` id — probe-before-emit (MANDATORY):**
+   - Run the canonical helper (do NOT compute `max+1` mentally):
+     `"${DATARIM_RUNTIME:?}/dev-tools/next-free-id.sh" QCK "$DATARIM_ROOT"`
+     where `$DATARIM_ROOT` is the workspace root (parent of `datarim/`). The helper applies the canonical formula
+     `max(claimed across archive/datarim filenames ∪ line-leading index rows in datarim/tasks.md and datarim/backlog.md) + 1`
+     and auto-bumps on a parallel-session race, printing the chosen `QCK-NNNN` to stdout. Its CEILING counts only
+     structural positions (filenames, line-leading rows); its separate COLLISION probe is wider and also counts prose
+     mentions, live tmux session names and git worktree/branch names. The helper exits non-zero rather than emit an
+     ID outside the 4-digit space.
+     **Documented fallback** (helper unavailable in this runtime): compute the same formula by hand.
+   - **Do not emit or announce the chosen task ID — in reply text or in any artefact — until the helper has returned (its grep IS the full claim-surface collision probe).**
+   - If the computed candidate is already claimed (a parallel-session race on the agent's own new ID), the helper auto-bumps to the next free ID and emits a warning — no operator prompt.
+   - `QCK` is a universal area-prefix; its archive subdirectory is `quick/`.
+
+## Stage Header (mandatory)
+
+After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {title}**` as the first line of the post-Step-2 message block, per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header. Do NOT emit the header before the ID is known (before the probe completes). Single occurrence per command invocation.
+3. Append a thin one-liner task line to `tasks.md` and mirror it into `activeContext.md` § Active Tasks. Short English title. By convention the fast-lane uses status `in_progress`, priority `P3`, complexity `L1` (it is for L1-sized work; if the work turns out larger, STOP and recommend `/dr-init` for the full pipeline). Emit the bare VALUES in their positional slots — writing the field NAMES into the line (`· status in_progress · priority P3 · complexity L1 ·`) does not match `ONELINER_RE` and fails the doctor:
+
+   For this mutating branch, create the referenced canonical task-description
+   from `${DATARIM_RUNTIME:?}/templates/task-template.md`, with the allocated ID,
+   complexity `L1` and actual task type, before capturing the strict preflight.
+
+<!-- gate:history-allowed -->
+```
+- QCK-0000 · in_progress · P3 · L1 · Short English title → tasks/QCK-0000-task-description.md
+```
+<!-- /gate:history-allowed -->
+
+   A completed task does NOT stay in `tasks.md`: when the QCK archives, REMOVE its row (and its `activeContext.md` mirror). `ONELINER_RE` has no `done` status precisely because the single source of truth for completion history is `documentation/archive/`.
+4. Quick KB scan for context: spawn ONE subagent via the Agent tool, using the runtime's CHEAPEST / WEAKEST reasoning tier (vendor-neutral — each runtime resolves its own cheap tier). The subagent does a fast, shallow read of the knowledge base / codebase to locate where the change belongs (or to find what was asked). It returns only the relevant files/context, not a full analysis. This keeps the main (strong) context free and avoids the multi-hour full-analysis path.
+5. Apply the fix (for a fix task) or report the located item (for a search task). The actual edit runs in the main context.
+6. **CLOSURE REACHABILITY GATE** (MANDATORY before Step 7, for every git repository this QCK changed; skip only for a READ-ONLY QCK, which touches no repository). The fast-lane skips PRD, plan, QA and compliance — it does NOT skip the check that the work exists where consumers can reach it. A QCK that edits files on a branch, writes its archive and flips `done` while the branch never lands produces exactly the defect the slow lane's `/dr-archive` Step 0.13 exists to prevent, and produces it faster.
+
+   ```bash
+   "${DATARIM_RUNTIME:?}/dev-tools/closure-gate.sh" \
+       --root <repo-path> --branch <task-branch> --task QCK-XXXX
+   ```
+
+   Exit `0` = the branch's content is present in `origin/main`; proceed to Step 7.
+   Exit `1` = the work is absent. Do NOT write the archive and do NOT flip the status: land the change (open the pull request, merge it, re-run the gate), or record a cancellation. Exit `2` = usage or environment error; the gate fails **closed**, so an unresolvable base ref is never read as "everything landed". Rationale, and the reason this asserts content reachability rather than commit ancestry: `commands/dr-archive.md` § 0.13.2.
+
+7. Write a SHORT archive: `documentation/archive/quick/archive-QCK-XXXX.md` — what was done (1-3 sentences) + files touched + a diff/commit reference. NO reflection, NO evolution proposals, NO compliance report. Remove the task row and Active Tasks mirror per Step 3; do not write a done row.
+
+## When to use / When not to use
+
+- **Use:** one-file or few-line fixes, typo/config tweaks, quick "where is X / does Y exist" lookups.
+- **Not:** anything needing design, multiple files with shared state, security-sensitive logic, or architectural decisions — those go through `/dr-init` and the full pipeline.
+
+## Boundaries
+
+- Skips PRD, plan, design, QA, compliance, and reflection stages.
+- QCK archive is intentionally minimal.
+- If scope grows mid-task, escalate to `/dr-init`.
+
+## Next Steps (CTA)
+
+Read-only lookups terminate with their informational evidence response; do not emit a task CTA or snapshot.
+
+After the mutating QCK's short archive, emit a CTA block per the cta-format skill. Primary recommendation: the task is done. Alternative: `/dr-init {TASK-ID-or-new}` if it turned out non-trivial. Always include `/dr-status`.
+
+## Stage Snapshot Emission (Mandatory Terminal Step)
+
+Mutating QCK only: after the CTA block, perform snapshot emission per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Snapshot Emission, bound for this command: `stage: quick`, `command: /dr-quick`, `captured-by: agent`, `recommended-next` = primary CTA option. Fail-closed: on non-zero writer exit, emit a single stderr warning line and continue. Kill switch `DATARIM_DISABLE_SNAPSHOT=1` is handled inside the library.

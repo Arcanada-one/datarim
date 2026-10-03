@@ -1,0 +1,11 @@
+schema_version: 1
+id: controller-continuation
+title: "Controller Continuation (worker entry for external controllers)"
+version: 1.0.0
+author: "Datarim Contributors"
+license: MIT
+description: "Opt-in worker entry /dr-continue-checkpoint for an external controller that pauses a pipeline stage on a question and resumes it in a fresh worker: reads controller-owned immutable resources, checks workspace provenance, and enters exactly the recorded stage with production HOLD retained. Linux only; other platforms are refused with continuation_unsupported_platform. Not a core command."
+categories:
+  - commands
+# Not default-enabled and not listed in core commands/. A controller runs the
+# entry from its own read-only framework mount; see README.md.

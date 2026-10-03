@@ -1,0 +1,48 @@
+# plugin.yaml — static manifest for a Datarim plugin.
+#
+# Schema version 1. Place this file in the root of your plugin repo.
+# Example: plugin-storage/<id>/plugin.yaml
+#
+# Validation rules:
+#   - id: kebab-case, [a-z][a-z0-9-]{0,31}
+#   - categories: subset of {skills, agents, commands, templates}
+#   - overrides: optional list of file basenames (without extension) from active
+#     datarim-core to shadow. Each override renames the core symlink to
+#     <name>.datarim-core.disabled and installs your file in its place.
+#   - depends_on: optional list of other plugin ids that MUST be enabled first.
+#   - schema_version: must equal 1. Future schemas bump this and stay backwards
+#     compatible for one minor release.
+
+schema_version: 1
+
+# Required ----------------------------------------------------------------
+id: my-plugin
+title: My Plugin Title
+version: 0.1.0          # populated from `git rev-parse HEAD` by /dr-plugin enable
+author: Your Name
+license: MIT
+description: One-line summary of what this plugin does.
+
+# Categories — subset of: skills, agents, commands, templates ------------
+categories:
+  - skills
+  - commands
+
+# Optional ----------------------------------------------------------------
+homepage: https://example.com/my-plugin
+
+# Override files in active datarim-core (use sparingly, document rationale):
+# overrides:
+#   - tdd
+#   - evolution
+
+# Plugins that MUST be enabled before this one:
+# depends_on:
+#   - other-plugin-id
+
+# Rollout gate — set to true for a plugin that hosts autonomous agents. When
+# true, `/dr-plugin enable` refuses activation until the consumer ecosystem
+# AGENTS.md mirrors the canonical Autonomous Agent Operating Rules (FB-1..FB-8)
+# at rank-1 mandate level (checked by scripts/check-fb-rules-mirror.sh). Default:
+# unset (no gate). See documentation/reference/fb-rules-consumer-rollout.md.
+# requires_fb_rules_mirror: true
