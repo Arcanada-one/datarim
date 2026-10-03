@@ -17,7 +17,7 @@ import re
 import sys
 from typing import Any
 
-VERSION = '0.2.2'
+VERSION = '0.2.3'
 BASE = Path(__file__).resolve().parents[1]
 MAX_JSON = 2 * 1024 * 1024
 MAX_EVIDENCE = 16 * 1024 * 1024
@@ -457,6 +457,41 @@ def human(text: str) -> str:
     value = html.escape(' '.join(redact(text).split()), quote=False)
     return re.sub(r'([\\`*_\[\]])', r'\\\1', value)
 
+COUNT_UNIT_JOIN = re.compile(r'(?i)\d+(?:fitdays?|fits?|days?|jobs?|hosts?|files?|roles?|reports?)(?:/host)?')
+SPACING_JOINS = re.compile(
+    r'[\u0410-\u044f\u0401\u0451][0-9]|[0-9][\u0410-\u044f\u0401\u0451]|'
+    r'(?i:\b\d+(?:fitdays?|fits?|days?|jobs?|hosts?|files?|roles?|reports?)(?:/host)?\b)|'
+    r'(?i:\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|'
+    r'jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\d{4}\b)')
+
+def spacing_prose(text: str) -> str:
+    """Mask recognizable literal surfaces for advisory lint, never for rendering."""
+    text = re.sub(r'(?s)<!-- gate:literal -->.*?(?:<!-- /gate:literal -->|\Z)', ' ', text)
+    lines, fence = [], None
+    for line in text.splitlines():
+        marker = re.match(r'^ {0,3}(`{3,}|~{3,})(.*)$', line)
+        if fence:
+            if marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence) and not marker[2].strip():
+                fence = None
+            lines.append('')
+        elif marker:
+            fence = marker[1]
+            lines.append('')
+        else:
+            lines.append('' if line.startswith(('    ', '\t')) else line)
+    text = '\n'.join(lines)
+    text = re.sub(r'(?s)(`+)(?!`).*?(?<!`)\1(?!`)', ' ', text)
+    text = re.sub(r'(?<=\])\([^\n]*?\)', ' ', text)
+    text = re.sub(r'(?m)^ {0,3}\[[^\n]+\]:[^\n]*$', ' ', text)
+    text = re.sub(r'(?s)<!--.*?-->|<[^>\n]+>', ' ', text)
+    text = re.sub(r'\b(?:https?://|www\.)[^\s<>]+', ' ', text)
+    # Relative paths are opaque, except the explicitly recognized human count unit.
+    text = re.sub(r'(?<!\w)[\w.~:-]*[/\\][\w./\\~:-]+',
+                  lambda m: m[0] if COUNT_UNIT_JOIN.fullmatch(m[0]) else ' ', text)
+    text = re.sub(r'\b[\w-]+\.[a-zA-Z][\w.-]*\b', ' ', text)
+    text = re.sub(r'\b\w+(?:\\?_\w+)+\b|\b[A-Z\u0400-\u04ff]+-\d+\b', ' ', text)
+    return text
+
 def lint(text: str) -> list[dict[str, str]]:
     findings = []
     if UNSAFE_CONTROLS.search(text):
@@ -472,7 +507,13 @@ def lint(text: str) -> list[dict[str, str]]:
         findings.append({'code': 'absolute-completion', 'severity': 'warning', 'message': 'Утверждение о готовности нужно сверить с критериями и ограничениями.'})
     if re.search(r'(?i)\b(?:в рамках|на текущий момент|следует отметить)\b', text):
         findings.append({'code': 'bureaucratic', 'severity': 'warning', 'message': 'Есть канцелярская конструкция без продуктового смысла.'})
+    if SPACING_JOINS.search(spacing_prose(text)):
+        findings.append({'code': 'prose-spacing', 'severity': 'warning', 'message': 'В обычном тексте проверьте пробелы между словами и числами; точные идентификаторы и цитаты сохраняйте.'})
     return findings
+
+def has_blocking_lint(findings: list[dict[str, str]]) -> bool:
+    """Spacing advice does not suppress reports; retain all existing lint gates."""
+    return any(x['code'] != 'prose-spacing' for x in findings)
 
 def trace_graph(contract: dict, report: dict) -> dict:
     """Task-local graph, not the native Datarim framework topology schema."""
@@ -658,7 +699,7 @@ def main(argv=None):
                 raise ReportError('Text input exceeds the configured size limit')
             findings = lint(path.read_text(encoding='utf-8'))
             print(json.dumps(findings, ensure_ascii=False, indent=2))
-            return 2 if findings else 0
+            return 2 if has_blocking_lint(findings) else 0
         if not args.contract:
             ap.error('--contract is required')
         contract = load_json(args.contract)
@@ -680,7 +721,8 @@ def main(argv=None):
             findings = lint(text) if args.strict_human else []
             if findings:
                 print(json.dumps({'language_findings': findings}, ensure_ascii=False), file=sys.stderr)
-                return 2
+                if has_blocking_lint(findings):
+                    return 2
             print(text)
         else:
             value = trace_graph(contract, report) if args.command == 'graph' else assessment

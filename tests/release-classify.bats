@@ -121,3 +121,25 @@ _classify_field() {
     run "$SCRIPT" --api-diff off
     [ "$status" -eq 2 ]
 }
+
+@test "unresolved explicit baseline or target fails closed instead of no bump" {
+    run "$SCRIPT" --repo "$REPO" --from v99.99.99 --api-diff off
+    [ "$status" -eq 3 ]
+    run "$SCRIPT" --repo "$REPO" --to missing-commit --api-diff off
+    [ "$status" -eq 3 ]
+}
+
+@test "installed API tool without a computed diff remains unavailable" {
+    _commit "fix: x"
+    mkdir "$REPO/tools"
+    printf '#!/bin/sh\nexit 0\n' > "$REPO/tools/griffe"
+    chmod +x "$REPO/tools/griffe"
+    run env PATH="$REPO/tools:$PATH" "$SCRIPT" --repo "$REPO" --api-diff auto
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"api_diff=unavailable"* ]]
+}
+
+@test "invalid API-diff mode is refused" {
+    run "$SCRIPT" --repo "$REPO" --api-diff invented
+    [ "$status" -eq 2 ]
+}

@@ -47,14 +47,35 @@ probe() {
     # tag must NOT pass (the release workflow triggers on the remote push).
     # Output capture, not exit code, decides: empty stdout = tag absent.
     local out
-    out="$(git -C "$repo" ls-remote --tags origin "$tag_ref" 2>/dev/null || true)"
-    [ -n "$out" ]
+    out="$(git -C "$repo" ls-remote --tags origin "$tag_ref" "${tag_ref}^{}" 2>/dev/null || true)"
+    # A lightweight tag is not the annotated release required by this contract.
+    printf '%s\n' "$out" | awk -v ref="${tag_ref}^{}" '$2 == ref { found=1 } END { exit !found }'
+}
+
+preparation() {
+    # This is a separately named preparation condition, never proof of shipment.
+    # The pinned baseline must still be published and an ancestor of this
+    # non-root checkout. After cutover the unrelated root cannot use the marker.
+    local helper baseline baseline_object remote_object target_object
+    helper="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/check-history-bootstrap.py"
+    [ -f "$repo/.datarim/history-bootstrap.json" ] || return 1
+    target_object="$(git -C "$repo" ls-remote --tags origin "$tag_ref" 2>/dev/null)" || return 1
+    [ -z "$target_object" ] || return 1
+    baseline="$(python3 "$helper" --repo "$repo" --mode preparation 2>/dev/null)" || return 1
+    baseline="$(printf '%s\n' "$baseline" | sed -n 's/^baseline_tag=//p')"
+    baseline_object="$(git -C "$repo" rev-parse "refs/tags/${baseline}")" || return 1
+    remote_object="$(git -C "$repo" ls-remote --tags origin "refs/tags/${baseline}" 2>/dev/null)" || return 1
+    [ "$remote_object" = "$(printf '%s\t%s' "$baseline_object" "refs/tags/${baseline}")" ] || return 1
+    echo "DEFERRED: VERSION ${version} is verified history-bootstrap preparation; v${version} is not shipped. The parentless cutover must publish its matching tag."
 }
 
 deadline=$(( $(date +%s) + wait_seconds ))
 while :; do
     if probe; then
         echo "PASS: VERSION ${version} has matching remote tag v${version}"
+        exit 0
+    fi
+    if preparation; then
         exit 0
     fi
     [ "$(date +%s)" -lt "$deadline" ] || break

@@ -1,6 +1,8 @@
 # Human Outcome Reporting
 
-Human Outcome Reporting 0.2.2 is integrated into Datarim 4.2.0 and can be installed independently. It explains the original need, the observed user-visible outcome, acceptance evidence, delivery state and material open conditions without requiring the previous conversation.
+Human Outcome Reporting 0.2.3 is integrated into Datarim 4.2.2 and can be installed independently. It explains the original need, the observed user-visible outcome, acceptance evidence, delivery state and material open conditions without requiring the previous conversation.
+
+Natural prose keeps spaces between words and numbers, dates, roles and measured units. Conciseness never means removing word boundaries. The advisory `prose-spacing` lint flags obvious compression outside literal code, paths and identifiers; it never rewrites canonical names. Passing this heuristic does not prove that every report is readable.
 
 The working relationship is goal → requirement → criterion → plan step → outcome → verification → evidence. Work performed, criterion verified, result delivered and human acceptance remain distinct. A completed plan does not establish that the user scenario works.
 

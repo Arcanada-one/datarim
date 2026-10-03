@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 4.2.1](https://img.shields.io/badge/Version-4.2.1-green.svg)](VERSION)
+[![Version: 4.2.2](https://img.shields.io/badge/Version-4.2.2-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -19,7 +19,9 @@ Datarim coordinates AI agents, takes tasks through their required stages autonom
 
 Autonomous execution keeps permission and irreversible-action boundaries. JEV advice is not permission or verification. Install Datarim in the projects where you want the workflow; JEV and the reporting skill can also operate independently.
 
-**New in 4.2:** human-readable progress and results explain what you can now do, what was checked and what remains open. [`/dr-explain`](commands/dr-explain.md) clarifies an outcome or term without restarting work. [Install the reporting skill alone](documentation/how-to/install-human-outcome-reporting.md).
+**New in 4.2.2:** reporting preserves natural spaces between words, dates, counts and units; its advisory lint flags obvious compressed prose while preserving literal identifiers. The published `main` starts from one signed root commit.
+
+**Introduced in 4.2:** human-readable progress and results explain what you can now do, what was checked and what remains open. [`/dr-explain`](commands/dr-explain.md) clarifies an outcome or term without restarting work. [Install the reporting skill alone](documentation/how-to/install-human-outcome-reporting.md).
 
 ---
 

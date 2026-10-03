@@ -18,6 +18,14 @@ exit 2 means invalid input. Neither exit 0 nor a hash means human acceptance.
 `render` produces a readable report even for a valid negative result. `--strict-human`
 adds heuristic lint; it does not measure reader comprehension.
 
+The `prose-spacing` warning detects obvious Cyrillic word-number joins and a closed
+set of English count-unit and month-year joins in prose. It excludes Markdown code,
+literal blocks, links' destinations and recognizable identifier surfaces. Spacing
+warnings never rewrite input, suppress the report or change the command's exit code;
+other lint findings keep their existing behavior. This is a bounded heuristic, not
+a grammar checker. Keep ambiguous canonical names in inline code rather than
+changing their bytes to satisfy the warning.
+
 Treat `not_run` and `skipped` as unverified. Keep contradictory active checks in
 conflict. Partial verification is partial. Evidence for a different revision,
 environment or run does not establish the current result. Excluded criteria need
