@@ -2065,6 +2065,7 @@ PY
         && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
         && [[ "$output" != *"setup_file failed"* ]] \
         && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        && [[ "$output" != *"HARNESS_INVALID:"* ]] \
         || { printf 'alarm_initialization_mutant_not_attributed=%s status=%s output=%s\n' \
             "$mode" "$status" "$output"; return 1; }
     "$PYTHON" -c \

@@ -9,6 +9,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 ### Fixed
 
 - Human Outcome Reporting 0.2.3 explicitly preserves natural spaces in prose. Advisory checks identify obvious joined words, dates, counts and units outside literal identifiers and code, without silently changing canonical names or acceptance records.
+- Prose-spacing checks use disjoint schema-token components so repetitive identifier-shaped input does not cause excessive backtracking. Real CLI controls verify bounded processing without rewriting the input.
+- Deadline mutation fixtures wait for an observed pending signal instead of assuming that a fixed sleep created one. An invalid fixture cannot count as detection of a deliberately removed safety check.
 - Release preparation and signed release verification support an explicitly declared transition to a parentless `main`. The bootstrap verifies that the new root has the exact tested preparation tree and classifies the genuine preparation changes against the previous signed release. Ordinary signature, exact-main and version checks remain required.
 
 ### Changed

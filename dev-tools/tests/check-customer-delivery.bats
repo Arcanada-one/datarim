@@ -544,7 +544,11 @@ source = open(path, encoding="utf-8").read()
 anchor = "sys.excepthook = validator_excepthook\n\n"
 injected = '''signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
 signal.setitimer(signal.ITIMER_REAL, 0.01, 0.01)
-time.sleep(0.05)  # TEST_INHERITED_PENDING_ALARM
+_test_pending_alarm_deadline = time.monotonic() + 1
+while signal.SIGALRM not in signal.sigpending():
+    if time.monotonic() >= _test_pending_alarm_deadline:
+        raise RuntimeError("HARNESS_INVALID:inherited_pending_alarm_not_observed")
+    time.sleep(0.001)  # TEST_INHERITED_PENDING_ALARM
 
 ''' + anchor
 if source.count(anchor) != 1:
