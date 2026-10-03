@@ -2,8 +2,8 @@
 # wizard-state.sh — append-only JSONL state engine for the interactive
 # task-spec wizard (TUNE-0390). Sourced library: no shebang, no top-level
 # side-effects. Drives the /dr-wizard interview (discovery + consilium
-# composition); the arcana CLI/TUI carrier is ARAS-0028, the task-tracker graph
-# sink is MUN-0036.
+# composition); consumer CLI/TUI frontends and tracker graph integrations
+# consume the exported artifacts.
 #
 # State model. Two append-only JSONL artefacts per task, under the gitignored
 # runtime tree resolved from --root:
@@ -311,7 +311,7 @@ wizard_status() {
     printf 'status=%s\nquestions=%s\nanswered=%s\ndrill_depth=%s\n' "$st" "$q" "$a" "$d"
 }
 
-# ---- public API: knowledge/dependency graph (MUN-0036 ingestion contract) ----
+# ---- public API: knowledge/dependency graph (tracker ingestion contract) ----
 
 wizard_graph_node() {
     _wz_parse "$@"

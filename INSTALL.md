@@ -118,10 +118,10 @@ cd ~/src/datarim
 git checkout "$(git describe --tags --abbrev=0 --match 'v*')"   # latest release tag
 ```
 
-The 4.2.2 public history begins at a new signed root commit. An older clone has
+The 4.2.3 public history begins at a new signed root commit. An older clone has
 unrelated ancestry: do not merge the histories or force-reset a working project.
 Keep local branches and edits, create a separate clean source clone, verify
-`v4.2.2` using [release verification](documentation/how-to/release-verification.md),
+`v4.2.3` using [release verification](documentation/how-to/release-verification.md),
 and run `./update.sh --project <PROJECT>` from that clone. The installer checks
 owned files before updating and retains the project's remembered choices.
 See [history transition](documentation/how-to/history-transition.md).

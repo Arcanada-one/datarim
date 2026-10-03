@@ -4,7 +4,7 @@
 # regression guard (TUNE-0246). When a plan introduces a NEW external
 # library dependency, the planner must query the package registry for the
 # latest stable version and record version + rationale, rather than guessing
-# or copying a pin from memory (ARAS-0004).
+# or copying a pin from memory (consumer review).
 
 REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 DR_PLAN_DOC="$REPO_ROOT/commands/dr-plan.md"

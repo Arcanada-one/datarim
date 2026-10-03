@@ -4331,6 +4331,20 @@ PY
         assert_completed_parent_descendant_cleanup "$completed_parent_only" || return 1
         return 0
     fi
+    # Targeted post-Popen oracles own their baseline and signal/deadline fixture.
+    # Readiness of the unrelated stubborn-OpenSSL fixture is checked separately.
+    if [[ -n "$post_popen_only" ]]; then
+        case "$post_popen_only" in
+            silent|bounded|source_history)
+                assert_post_popen_signal_cleanup "$post_popen_only" || return 1
+                ;;
+            masked)
+                assert_masked_popen_deadline_cleanup || return 1
+                ;;
+            *) return 1 ;;
+        esac
+        return 0
+    fi
     "$PYTHON" - "$shim" "$pid_file" <<'PY' || return 1
 import os
 import sys
@@ -4384,18 +4398,6 @@ PY
         kill -KILL "$descendant_pid" 2>/dev/null || true
         printf 'stubborn_crypto_descendant_survived=%s\n' "$descendant_pid"
         return 1
-    fi
-    if [[ -n "$post_popen_only" ]]; then
-        case "$post_popen_only" in
-            silent|bounded|source_history)
-                assert_post_popen_signal_cleanup "$post_popen_only" || return 1
-                ;;
-            masked)
-                assert_masked_popen_deadline_cleanup || return 1
-                ;;
-            *) return 1 ;;
-        esac
-        return 0
     fi
 }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# ARCA-0099 — check-security-policy.sh contract.
+# consumer review — check-security-policy.sh contract.
 #
 # Two orthogonal modes: presence-gate (--check) and YAML schema v1 validation
 # (--validate-yaml). Covers happy path, every enum/range/regex rejection, and

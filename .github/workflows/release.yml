@@ -49,6 +49,7 @@ jobs:
       bump_level: ${{ steps.read.outputs.bump_level }}
       release_sha: ${{ steps.read.outputs.release_sha }}
       release_tag: ${{ steps.read.outputs.release_tag }}
+      root_release: ${{ steps.read.outputs.root_release }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -124,6 +125,7 @@ jobs:
             echo "bump_level=${final}"
             echo "release_sha=${release_sha}"
             echo "release_tag=${tag}"
+            echo "root_release=${root_release}"
           } >> "$GITHUB_OUTPUT"
           if [ "$ci" = "major" ] && [ "$stamped" != "major" ]; then
             echo "::error::CI classified MAJOR but the tag stamped '${stamped}' — aborting" >&2
@@ -267,11 +269,14 @@ jobs:
           tag_name: ${{ env.TAG }}
           name: ${{ env.TAG }}
           prerelease: ${{ env.IS_PRERELEASE }}
-          generate_release_notes: true
+          # Retired baseline tags cannot support a bootstrap compare link.
+          generate_release_notes: ${{ needs.classify.outputs.root_release != 'true' }}
           fail_on_unmatched_files: true
           body: |
             Verify this release before installing — see
             [documentation/how-to/release-verification.md](https://github.com/Arcanada-one/datarim/blob/${{ env.TAG }}/documentation/how-to/release-verification.md).
+
+            Changes: [CHANGELOG.md](https://github.com/Arcanada-one/datarim/blob/${{ env.TAG }}/CHANGELOG.md).
           files: |
             ${{ env.TARBALL }}
             ${{ env.TARBALL }}.sha256

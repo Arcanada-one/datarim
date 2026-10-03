@@ -2394,6 +2394,36 @@ path, repo_root, callsite = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
 root_new = f"    REPO_ROOT={repo_root!r}\n"
+header = '@test "OpenSSL deadline terminates stubborn descendant pipe holders" {\n'
+test_start = source.index(header)
+test_end = source.find('\n@test "', test_start + len(header))
+if test_end < 0:
+    test_end = len(source)
+test_source = source[test_start:test_end]
+startup = '    handle.write("  (trap \'\' TERM; sleep 30) &\\n")\n'
+delayed_startup = (
+    '    handle.write("  sleep 3\\n")  # TEST_UNRELATED_POST_POPEN_PRELUDE_DELAY\n'
+    + startup
+)
+if source.count(root_old) != 1 or test_source.count(startup) != 1:
+    raise SystemExit(f"POST_POPEN_CONTROL_SEAM_MISSING_OR_AMBIGUOUS:{callsite}")
+test_source = test_source.replace(startup, delayed_startup, 1)
+source = source[:test_start] + test_source + source[test_end:]
+source = source.replace(root_old, root_new, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+        # A delayed unrelated prelude must not prevent this exact callsite's
+        # positive baseline or its independently attributed mutant kill.
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+            CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+            CUSTOMER_DELIVERY_POST_POPEN_ONLY="$callsite" \
+            bats --filter "^${post_popen_filter}$" "$post_popen_mutant"
+        assert_baseline_green "${post_popen_filter}:${callsite}" || return 1
+        "$PYTHON" - "$post_popen_mutant" "$callsite" <<'PY' || return 1
+import sys
+
+path, callsite = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
 if callsite == "masked":
     guard = ('        remaining_validation_time()  # SECURITY_RULE:popen_post_unmask_deadline\n'
              '        globals()["VALIDATION_DEADLINE"] = time.monotonic() + 20\n')
@@ -2402,9 +2432,9 @@ if callsite == "masked":
 else:
     guard = 'if mode == "signal":\n'
     mutant = f'if mode == "signal" and callsite != {callsite!r}:  # MUTATED:post_popen_{callsite}\n'
-if source.count(root_old) != 1 or source.count(guard) != 1:
+if source.count(guard) != 1:
     raise SystemExit(f"POST_POPEN_MUTATION_SEAM_MISSING_OR_AMBIGUOUS:{callsite}")
-source = source.replace(root_old, root_new, 1).replace(guard, mutant, 1)
+source = source.replace(guard, mutant, 1)
 open(path, "w", encoding="utf-8").write(source)
 PY
         run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
@@ -2412,14 +2442,22 @@ PY
             CUSTOMER_DELIVERY_POST_POPEN_ONLY="$callsite" \
             bats --filter "^${post_popen_filter}$" "$post_popen_mutant"
         if [[ "$callsite" == masked ]]; then
-            [[ "$output" == *"masked_popen_deadline_failure="* ]] || return 1
+            [[ "$output" == *"masked_popen_deadline_failure="* ]] \
+                || { printf 'HARNESS_INVALID:post_popen_missing_marker=%s status=%s output=%s\n' \
+                    "$callsite" "$status" "$output"; return 1; }
         else
-            [[ "$output" == *"post_popen_signal_failure=${callsite}"* ]] || return 1
+            [[ "$output" == *"post_popen_signal_failure=${callsite}"* ]] \
+                || { printf 'HARNESS_INVALID:post_popen_missing_marker=%s status=%s output=%s\n' \
+                    "$callsite" "$status" "$output"; return 1; }
         fi
         [ "$status" -ne 0 ] \
+            && [ "$status" -ne 124 ] \
+            && [ "$(printf '%s\n' "$output" | awk '$0 == "1..1" { count++ } END { print count+0 }')" -eq 1 ] \
             && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${post_popen_filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
             && [[ "$output" != *"setup_file failed"* ]] \
+            && [[ "$output" != *"syntax error"* ]] \
             && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+            && [[ "$output" != *"HARNESS_INVALID:"* ]] \
             || { printf 'post_popen_mutant_not_attributed=%s status=%s output=%s\n' \
                 "$callsite" "$status" "$output"; return 1; }
         "$PYTHON" -c \
@@ -2430,9 +2468,11 @@ PY
     elif [[ "$group" == post-popen-readiness ]]; then
 
     post_popen_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    # These controls exercise readiness and stale PID binding of the full
+    # stubborn-OpenSSL prelude, independently of targeted post-Popen dispatch.
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
-        CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
+        CUSTOMER_DELIVERY_POST_POPEN_ONLY= \
         bats --filter "^${post_popen_filter}$" "$FUNCTIONAL_TEST"
     assert_baseline_green "$post_popen_filter" || return 1
 
@@ -2482,7 +2522,7 @@ open(path, "w", encoding="utf-8").write(source)
 PY
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
-        CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
+        CUSTOMER_DELIVERY_POST_POPEN_ONLY= \
         bats --filter "^${post_popen_filter}$" "$post_popen_readiness_control"
     assert_baseline_green "$post_popen_filter" || return 1
 
@@ -2505,7 +2545,7 @@ open(path, "w", encoding="utf-8").write(source.replace(guard, mutant, 1))
 PY
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
-        CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
+        CUSTOMER_DELIVERY_POST_POPEN_ONLY= \
         bats --filter "^${post_popen_filter}$" "$post_popen_stale_mutant"
     [ "$status" -ne 0 ] \
         && [[ "$output" == *"stale_pid_marker_accepted=99999999"* ]] \

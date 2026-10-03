@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
 # TUNE-0408 — subagent path-resolution NOTE regression guard.
-# Prevents recurrence of the VERD-0031 false BLOCKED ("expectations file
+# Prevents recurrence of the consumer review false BLOCKED ("expectations file
 # missing"), caused by a subagent probing `Projects/<name>/code/datarim/`
 # for a code-project task instead of the project's git-toplevel `datarim/`.
-# Source: reflection-VERD-0031 Class B (discovered-during-auto-VERD-0031).
+# Source: consumer review Class B (consumer review).
 
 SKILL_DOC="$BATS_TEST_DIRNAME/../skills/datarim-system/path-and-storage.md"
 DR_QA="$BATS_TEST_DIRNAME/../commands/dr-qa.md"

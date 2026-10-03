@@ -34,7 +34,7 @@ Usage: provision-release-env.sh --repo <owner/name> --env <name>
                                 [--tag-policy 'v*'] [--branch-policy main]
                                 [--reviewers <type:id>]... [--apply]
 
-  --repo <owner/name>   Target repository (e.g. Arcanada-one/coworker). Required.
+  --repo <owner/name>   Target repository (e.g. your-org/your-project). Required.
   --env  <name>         Deployment environment name (e.g. release-auto). Required.
   --tag-policy <glob>   Tag pattern to allow (default: v*).
   --branch-policy <glob> Branch pattern to allow (default: main).

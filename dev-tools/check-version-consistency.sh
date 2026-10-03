@@ -26,7 +26,7 @@
 #   hero copy in three locales) is checked against that ground truth. This
 #   absorbs TUNE-0154's original scope-target TUNE-0163 deferred and
 #   TUNE-0174 carries forward — one enforcer, two drift classes, zero new
-#   infrastructure (ARCA-0142 consolidation).
+#   infrastructure (consumer review consolidation).
 #
 # SCANNED SURFACES — version (canonical = VERSION)
 #   In-repo (relative to repo root = this script's ../):

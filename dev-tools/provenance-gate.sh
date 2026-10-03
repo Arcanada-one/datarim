@@ -3,7 +3,7 @@
 # /dr-compliance.
 #
 # Prevents false-green certification of a tree that is no longer the branch
-# state (the ARAS-0033 failure: a COMPLIANT sign-off recorded against a commit
+# state (the consumer review failure: a COMPLIANT sign-off recorded against a commit
 # that was later rebased away). At certification time the gate asserts:
 #
 #   1. The working tree is clean (`git status --porcelain` is empty).

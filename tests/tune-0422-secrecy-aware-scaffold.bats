@@ -2,8 +2,8 @@
 #
 # TUNE-0422 — Secrecy-aware project-init scaffolding contract.
 #
-# Origin: reflection-CUBR-0002 primary lesson (scaffold-leak pattern). During
-# CUBR-0002, /dr-init project-init populated documentation/reference/architecture.md
+# Origin: consumer review primary lesson (scaffold-leak pattern). During
+# consumer review, /dr-init project-init populated documentation/reference/architecture.md
 # with the verbatim secret algorithm BEFORE the secrecy constraint was codified,
 # committing a public-surface leak. Root cause: no secrecy gate at scaffold time.
 #

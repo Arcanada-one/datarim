@@ -60,7 +60,7 @@ teardown() {
     [ "$status" -eq 1 ]
 }
 
-@test "PUB-0025: pane_send_content delivers a cyrillic+HTML brief the command whitelist would block" {
+@test "pane_send_content delivers a cyrillic+HTML brief the command whitelist would block" {
     source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
     session_init "$SESSION"
     target=$(tmux list-panes -t "$SESSION" -F '#{pane_id}' | head -1)
@@ -77,7 +77,7 @@ teardown() {
     echo "$output" | grep -q 'Второй месяц'
 }
 
-@test "PUB-0025: pane_send_content still blocks escape-sequence injection (CVE-2019-9535)" {
+@test "pane_send_content still blocks escape-sequence injection (CVE-2019-9535)" {
     source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
     session_init "$SESSION"
     target=$(tmux list-panes -t "$SESSION" -F '#{pane_id}' | head -1)
@@ -87,7 +87,7 @@ teardown() {
     [ "$status" -eq 1 ]
 }
 
-@test "PUB-0025: pane_send_content rejects a missing content file" {
+@test "pane_send_content rejects a missing content file" {
     source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
     session_init "$SESSION"
     target=$(tmux list-panes -t "$SESSION" -F '#{pane_id}' | head -1)

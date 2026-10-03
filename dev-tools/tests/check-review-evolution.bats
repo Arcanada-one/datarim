@@ -633,7 +633,7 @@ assert_not_met() {
 }
 
 @test "CLI task is bound to signed internal task identities and cannot be renamed" {
-    local renamed='TALO-0001'
+    local renamed='TUNE-9998'
     cp "$REQUIREMENTS" "${ROOT}/datarim/tasks/${renamed}-customer-requirements.yaml"
     cp "$RECEIPT" "${ROOT}/datarim/receipts/${renamed}-customer-delivery.yaml"
     cp "$REVIEW" "${ROOT}/datarim/receipts/${renamed}-review-evolution.yaml"
@@ -644,7 +644,7 @@ assert_not_met() {
     run_validator
     [ "$status" -eq 1 ] \
         && [[ "$output" == *'customer_delivery_not_met'* ]] \
-        && [[ "$output" == *'task_identity_mismatch:TALO-0001'* ]]
+        && [[ "$output" == *'task_identity_mismatch:TUNE-9998'* ]]
 }
 
 @test "evolution alone cannot close a product Requirement" {

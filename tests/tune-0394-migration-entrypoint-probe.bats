@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
-# tune-0394-migration-entrypoint-probe.bats — reflection-SPACE-0029 EV-3.
+# tune-0394-migration-entrypoint-probe.bats — consumer review EV-3.
 #
 # Covers: templates/infra-artifact-checklist.md Phase A carries a mandatory
 # Phase-0 step requiring a live `docker inspect ... Entrypoint` probe before
-# a migration step is authored (root cause: SPACE-0029's plan assumed
+# a migration step is authored (root cause: consumer review's plan assumed
 # `lf-worker` ran Langfuse ClickHouse migrations; the actual entrypoint was
 # on `lf-web`, caught only on /dr-do execution).
 

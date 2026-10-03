@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 4.2.2](https://img.shields.io/badge/Version-4.2.2-green.svg)](VERSION)
+[![Version: 4.2.3](https://img.shields.io/badge/Version-4.2.3-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -19,7 +19,7 @@ Datarim coordinates AI agents, takes tasks through their required stages autonom
 
 Autonomous execution keeps permission and irreversible-action boundaries. JEV advice is not permission or verification. Install Datarim in the projects where you want the workflow; JEV and the reporting skill can also operate independently.
 
-**New in 4.2.2:** reporting preserves natural spaces between words, dates, counts and units; its advisory lint flags obvious compressed prose while preserving literal identifiers. The published `main` starts from one signed root commit.
+**New in 4.2.3:** human reports keep natural spaces between words, dates, counts and units while preserving literal identifiers. Targeted delivery tests now run independently of unrelated fixture startup, and the source excludes private project provenance. The final history transition retains one signed root commit on `main`; see [update instructions](documentation/how-to/history-transition.md).
 
 **Introduced in 4.2:** human-readable progress and results explain what you can now do, what was checked and what remains open. [`/dr-explain`](commands/dr-explain.md) clarifies an outcome or term without restarting work. [Install the reporting skill alone](documentation/how-to/install-human-outcome-reporting.md).
 
@@ -34,7 +34,7 @@ Autonomous execution keeps permission and irreversible-action boundaries. JEV ad
 Needs Python 3.10+, git, and a signed-in Claude Code, Codex or Cursor client.
 
 What the installer will ask (defaults in brackets; [INSTALL.md](INSTALL.md) explains each). An agent
-relays the installer's own wording, all six questions, without recommending an answer:
+relays the installer's own wording, all six setup choices, without recommending an answer:
 
 - **Jev**: none (`--without-jev`), per project (`--with-jev`), or host-wide for
   every project of this user [none]. Its safety floor needs no key, so "no

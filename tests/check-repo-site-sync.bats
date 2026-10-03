@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # check-repo-site-sync.bats — V-AC matrix for the ecosystem repo↔site drift
-# detector (ARCA-0143). Each test builds a throwaway KB-root with a fixture
+# detector (consumer review). Each test builds a throwaway KB-root with a fixture
 # product (git repo + site dir + registry) and asserts detector behaviour.
 
 setup() {

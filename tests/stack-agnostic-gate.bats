@@ -4,8 +4,8 @@
 #
 # Contract under test (skills/evolution/stack-agnostic-gate.md +
 # scripts/stack-agnostic-gate.sh):
-#   T1: VERD-0010 fixture (NestJS smoke + npm audit) → exit 1
-#   T2: VERD-0021 fixture (fetch migration, multi-PM list, audit recipes) → exit 1
+#   T1: consumer review fixture (NestJS smoke + npm audit) → exit 1
+#   T2: consumer review fixture (fetch migration, multi-PM list, audit recipes) → exit 1
 #   T3: process-only fixture (dogfooding clause) → exit 0
 #   T4: tech-stack.md whitelisted by default — gate must PASS even with
 #       NestJS-laden content (proves --whitelist mechanic works).
@@ -17,13 +17,13 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 GATE="$REPO_ROOT/scripts/stack-agnostic-gate.sh"
 FIXTURES="$REPO_ROOT/tests/fixtures/stack-agnostic-gate"
 
-@test "T1: VERD-0010 FAIL fixture exits 1" {
-    run "$GATE" "$FIXTURES/verd-0010-fail.md"
+@test "T1: consumer review FAIL fixture exits 1" {
+    run "$GATE" "$FIXTURES/consumer-smoke-fail.md"
     [ "$status" -eq 1 ]
 }
 
-@test "T2: VERD-0021 FAIL fixture exits 1" {
-    run "$GATE" "$FIXTURES/verd-0021-fail.md"
+@test "T2: consumer review FAIL fixture exits 1" {
+    run "$GATE" "$FIXTURES/consumer-migration-fail.md"
     [ "$status" -eq 1 ]
 }
 

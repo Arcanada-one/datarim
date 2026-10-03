@@ -4,27 +4,25 @@ setup() {
   REPO_ROOT="$(git -C "$BATS_TEST_DIRNAME" rev-parse --show-toplevel)"
 }
 
-@test "retired TALO replay surface is absent while research evidence remains" {
+@test "framework lint uses generic validators without consumer-private inputs" {
   cd "$REPO_ROOT"
-  retired=(
-    .github/actionlint.yaml
-    .github/workflows/talo-0001-trusted-replay.yml
-    dev-tools/check-talo-0001-workflow-contract.py
-    dev-tools/check-talo-0001-trusted-authority.py
-    dev-tools/preflight-talo-0001-workflow-run.sh
-    dev-tools/provision-talo-0001-trusted-runner.sh
-    dev-tools/publish-talo-0001-check.sh
-    dev-tools/trusted-talo-0001-replay.sh
-    dev-tools/systemd/talo-0001-trusted-runner.service
-    dev-tools/tests/check-talo-0001-workflow-contract.bats
-    dev-tools/tests/fixtures/talo-0001-command-mock.sh
-  )
-  for path in "${retired[@]}"; do
-    [ ! -e "$path" ]
-  done
-  [ -s dev-tools/check-talo-0001-research-projection.py ]
-  ! rg -n 'talo-0001-trusted-replay\.yml|trusted-talo-0001-replay\.sh' \
-    .github dev-tools tests --glob '!tests/security/scorecard-contract.bats'
+  [ ! -e .github/actionlint.yaml ]
+  [ -x dev-tools/check-customer-delivery.sh ]
+  run python3 - <<'PY'
+from pathlib import Path
+import yaml
+workflow = yaml.safe_load(Path('.github/workflows/dev-tools-lint.yml').read_text())
+assert workflow['permissions'] == {'contents': 'read'}
+events = workflow.get('on', workflow.get(True))
+assert isinstance(events, dict)
+assert all(not path.startswith('datarim/insights/') for path in events['pull_request']['paths'])
+for job in workflow['jobs'].values():
+    for step in job.get('steps', []):
+        for line in step.get('run', '').splitlines():
+            assert 'research-projection.py' not in line
+            assert 'datarim/insights/' not in line
+PY
+  [ "$status" -eq 0 ]
 }
 
 @test "superseded mutable SHA bridge implementation is absent" {
@@ -98,6 +96,27 @@ PY
   grep -F 'ref: ${{ needs.classify.outputs.release_sha }}' "$workflow"
   [ "$(wc -l < .github/ssh-signing-allowed-signers)" -eq 1 ]
   grep -E '^Arcanada ssh-ed25519 [A-Za-z0-9+/=]+$' .github/ssh-signing-allowed-signers
+  run python3 - <<'PY'
+from pathlib import Path
+import yaml
+workflow = yaml.safe_load(Path('.github/workflows/release.yml').read_text())
+classify = workflow['jobs']['classify']
+assert classify['outputs']['root_release'] == '${{ steps.read.outputs.root_release }}'
+read = next(step for step in classify['steps'] if step.get('id') == 'read')
+assert 'root_release=false' in read['run'] and 'root_release=true' in read['run']
+assert 'echo "root_release=${root_release}"' in read['run']
+release = workflow['jobs']['release']
+validate = next(step for step in release['steps'] if step.get('name') == 'Validate tag format')
+assert validate['env']['RELEASE_TAG'] == '${{ needs.classify.outputs.release_tag }}'
+assert 'tag="$RELEASE_TAG"' in validate['run']
+assert 'echo "TAG=$tag"' in validate['run'] and '"$GITHUB_ENV"' in validate['run']
+publish = next(step for step in release['steps'] if step.get('name') == 'Publish GitHub Release')['with']
+assert publish['tag_name'] == '${{ env.TAG }}'
+assert publish['generate_release_notes'] == "${{ needs.classify.outputs.root_release != 'true' }}"
+assert 'https://github.com/Arcanada-one/datarim/blob/${{ env.TAG }}/CHANGELOG.md' in publish['body']
+assert '/compare/' not in publish['body']
+PY
+  [ "$status" -eq 0 ]
 }
 
 @test "Scorecard residuals are explicitly bounded and re-evaluated" {

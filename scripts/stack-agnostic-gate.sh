@@ -3,9 +3,9 @@
 # in Datarim runtime files (skills/agents/commands/templates).
 #
 # Source contract: skills/evolution/stack-agnostic-gate.md.
-# Source incident: VERD-0010 + VERD-0021 — three Class A proposals containing
-# NestJS / npm / fetch-migration wording passed reflection approval and leaked
-# into framework runtime; reverted manually. This gate enforces the rule the
+# Consumer reviews found stack-specific smoke and migration proposals that
+# passed reflection approval and leaked into framework runtime before being
+# reverted. This gate enforces the rule the
 # user-memory `feedback_datarim_stack_agnostic.md` already declares.
 #
 # Usage:

@@ -1,11 +1,11 @@
 #!/usr/bin/env bats
 #
 # Regression test for security-baseline S11 — untrusted-content boundary
-# review gate (TUNE-0515, from ARAS-0029 Phase-E / ARAS-0049 fence review).
+# review gate (TUNE-0515, from consumer review Phase-E / consumer review fence review).
 #
 # S9 obligation: a new rule ships with a regression test. This asserts the
 # S11 rule text, its six probing dimensions, the CI-green-insufficient
-# clause, and the ARAS-0049 source citation are present across the three
+# clause, and the consumer review source citation are present across the three
 # artefacts that carry the gate — the canonical rule (security-baseline),
 # the review vehicle (self-verification), and the entry point (AGENTS.md).
 #

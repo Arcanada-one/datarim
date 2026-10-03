@@ -10,7 +10,7 @@ not establish an executable attestation pipeline.
 
 ## Explicit history bootstrap
 
-For the 4.2.2 parentless-root transition, follow
+For the 4.2.3 parentless-root transition, follow
 [history transition](history-transition.md). The declared bootstrap verifies
 signed baseline provenance, exact preparation/root tree equivalence and the
 original change range before classifying the release. Normal releases retain

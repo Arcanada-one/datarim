@@ -1,11 +1,11 @@
 #!/usr/bin/env bats
-# tune-0393-provision-public-ip-checklist.bats — reflection-SPACE-0029 EV-4.
+# tune-0393-provision-public-ip-checklist.bats — consumer review EV-4.
 #
 # Covers: skills/infra-automation/SKILL.md carries a post-provision checklist
 # rule requiring a routable public IP to be recorded in the server inventory
 # before a provisioning task closes (root cause: prod-host had a null
 # public_ip from bootstrap, so an operator SSHing to a known address did not
-# recognize the host from the inventory record — SPACE-0029 "dark server"
+# recognize the host from the inventory record — consumer review "dark server"
 # false perception).
 
 SKILL="$BATS_TEST_DIRNAME/../skills/infra-automation/SKILL.md"

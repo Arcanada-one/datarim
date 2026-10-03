@@ -1,13 +1,12 @@
 ---
-name: fixture/verd-0021-fail
-description: Golden FAIL fixture — VERD-0021 trio (security.md fetch migration, multi-PM list, ai-quality.md Live Audit recipes). Gate MUST exit 1.
+name: fixture/consumer-migration-fail
+description: Golden FAIL fixture — stack-specific migration and package-manager recipes. Gate MUST exit 1.
 ---
 
-# Golden FAIL fixture — VERD-0021 stack-specific leak
+# Golden FAIL fixture — stack-specific migration and package-manager recipes
 
-Three artefacts that passed Class A gate in VERD-0021 reflection and were applied
-to runtime, then reverted. This fixture pins them so a future regression is
-caught by the gate before re-apply.
+These three negative examples pin stack-specific instructions so a future
+regression is caught by the gate before application to framework runtime.
 
 ## Artefact 1 — security.md fetch migration
 

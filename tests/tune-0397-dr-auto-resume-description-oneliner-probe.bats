@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 # TUNE-0397 — /dr-auto resume description-vs-oneliner consistency probe
-# regression guard. Prevents recurrence of VERD-0037 (a reused task ID left
+# regression guard. Prevents recurrence of consumer review (a reused task ID left
 # a stale task-description § Overview describing a different scope than the
-# current tasks.md one-liner). Source: reflection-VERD-0037 Class B.
+# current tasks.md one-liner). Source: consumer review Class B.
 
 DR_AUTO="$BATS_TEST_DIRNAME/../commands/dr-auto.md"
 

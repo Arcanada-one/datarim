@@ -2,7 +2,7 @@
 #
 # Regression guard for /dr-init Step 2.5e «SYMPTOM-FRESHNESS RE-PROBE».
 #
-# Source: reflection-CONN-0078.md proposal #1 — CONN-0078 lost 5h29m of
+# Source: consumer review proposal #1 — consumer review lost 5h29m of
 # staleness because the ops-fire symptom that motivated the task was fixed
 # in production between discovery and /dr-init time, but /dr-init routed the
 # task straight to /dr-plan as if the symptom were still live. This step

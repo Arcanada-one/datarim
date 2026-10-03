@@ -1,4 +1,4 @@
-# Update across the 4.2.2 history transition
+# Update across the 4.2.3 history transition
 
 The published `main` begins at one signed root commit containing the latest
 verified source. Superseded public branches, tags and release downloads are
@@ -10,7 +10,7 @@ This changes Git ancestry; it does not enable Datarim in an unrelated project.
 Keep the old source checkout and any local work. Create a separate clean clone:
 
 ```bash
-git clone --branch v4.2.2 --single-branch https://github.com/Arcanada-one/datarim.git /path/to/new-source
+git clone --branch v4.2.3 --single-branch https://github.com/Arcanada-one/datarim.git /path/to/new-source
 cd /path/to/new-source
 ```
 
@@ -33,7 +33,10 @@ Start a new client session to verify that the new preference is loaded.
 ## Maintainers
 
 Prepare every source change through the normal reviewed PR and CI path before
-cutover. The explicit bootstrap manifest pins the previous signed release.
+cutover. The explicit bootstrap manifest pins the previous signed version tag.
+The 4.2.2 baseline was a signed candidate whose root CI failed; it was never
+published as a stable GitHub release. The 4.2.3 successor must pass its own
+exact-root CI and consumer verification before rollout.
 The new signed tag binds the prepared source and the exact root tree. Release
 CI verifies that tree equivalence and classifies the original preparation range;
 it never treats an orphan commit message as the entire release change.
@@ -46,7 +49,7 @@ atomically with explicit expected values. Verify exact-root CI and downloaded
 release assets before retiring old public refs and restore every temporarily
 changed protection. Preserve local linked worktrees and collaborators' edits.
 
-The bootstrap depends on its pinned previous release and prepared-source object
+The bootstrap depends on its pinned previous version tag and prepared-source object
 being retrievable at publication time. Once those historical inputs are retired,
 a rerun fails closed if they are unavailable; a normal successor release uses
 its preceding retained signed release. See [release process](release-process.md).

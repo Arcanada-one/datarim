@@ -266,7 +266,7 @@ dr-alpha-RESEARCH-0015"
 
 # ── Group D — widened NAME claim surface ─────────────────────────────────────
 #
-# Absorbs TUNE-0538 item 1, reproduced during CTRL-0037: an epic decomposition
+# Absorbs TUNE-0538 item 1, reproduced during consumer review: an epic decomposition
 # wrote `datarim/tasks/{ID}-task-description.md` files but no tasks.md rows, so
 # a 12-ID block was invisible and the allocator handed the first of them out
 # again. A FILENAME carrying an ID is as structural a claim as an archive

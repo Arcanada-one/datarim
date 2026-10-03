@@ -120,14 +120,14 @@ _fleet_cli_version_hint() {
 
 # select_fleet_backend — walk DR_FLEET_BACKEND_CHAIN, return the first backend
 # whose binary is present (health-check). Echoes the backend NAME on success.
-# CONN wiring is OFF by default (DR_FLEET_CONN_ENABLED unset → contract-first
-# stub: pure `command -v` health-check). When the real CONN-0088 fallback ships,
+# Connector wiring is OFF by default (DR_FLEET_CONN_ENABLED unset → contract-first
+# stub: pure `command -v` health-check). When the configured connector fallback ships,
 # the enabled branch routes through its contract without changing this interface.
 select_fleet_backend() {
   local backend first
   for backend in $DR_FLEET_BACKEND_CHAIN; do
-    # Health-check. Default (stub) path = local `command -v`. When CONN-0088
-    # ships, DR_FLEET_CONN_ENABLED routes the check through the Model-Connector
+    # Health-check. Default (stub) path = local `command -v`. When the connector
+    # integration ships, DR_FLEET_CONN_ENABLED routes the check through its
     # fallback contract; the loop interface stays identical.
     if [ -n "${DR_FLEET_CONN_ENABLED:-}" ]; then
       _fleet_backend_present_conn "$backend" || continue
@@ -143,8 +143,8 @@ select_fleet_backend() {
   return 1
 }
 
-# CONN-0088 contract-first stub. Until the Model Connector fallback-chain ships,
-# this defers to the local health-check. Replace the body with the real CONN
+# Connector contract-first stub. Until the configured connector fallback ships,
+# this defers to the local health-check. Replace the body with the connector
 # probe (HTTP /health against the connector) when DR_FLEET_CONN_ENABLED is the
 # documented production path.
 _fleet_backend_present_conn() {
