@@ -1,13 +1,15 @@
 ---
 name: human-summary
-description: Plain-language operator recap for /dr-qa, /dr-compliance, /dr-archive. Four sub-sections, banlist + whitelist + per-paragraph escape hatch, 150-400 words.
+description: Plain-language operator recap for /dr-qa, /dr-compliance, /dr-archive. Four compatible sub-sections; completeness before brevity, with no hard word cap.
 current_aal: 1
 target_aal: 2
 ---
 
 # Human Summary — Operator-Facing Recap
 
-A short, human-friendly recap that ends the output of `/dr-qa`, `/dr-compliance`, and `/dr-archive`. It sits **between** the technical block (verdict / report / archive write) and the CTA block (the numbered Next-Step menu at the end of every pipeline command, one entry marked recommended). The technical block stays unchanged — this is a supplemental layer for a human reader, not for the agent.
+Load `${DATARIM_RUNTIME:?}/skills/human-outcome-reporting/SKILL.md` first. This is the compatibility presentation for the existing four-heading Stop hook, not a second reporting authority. The shared skill governs facts, traceability, completeness, terminology and re-explanation. Emit one recap. Keep technical records and exact protocols intact, but do not paste their internal context into the human explanation. Use the four sections below for legacy callers; other commands use the shared skill's appropriate profile.
+
+A human-friendly recap that ends the output of `/dr-qa`, `/dr-compliance`, and `/dr-archive`, before the existing CTA block. Preserve technical records, command verdicts, and machine protocols in their authorized surfaces. Do not paste the agent-oriented technical block into human chat or emit a second recap. The four sections below explain the product result and acceptance evidence, not internal activity.
 
 ## Why it exists
 
@@ -85,7 +87,7 @@ When the init-task brief is unavailable (a legacy task predating the init-task c
 
 Language detection: choose the language of the most recent operator message. The default for Russian-speaking operators is Russian.
 
-Length budget: **150-400 words total** across the four sub-sections (not per sub-section). Hard upper bound. If the source material (archive document, compliance report, QA report) is bigger, compress aggressively — the goal is a fast read, not a faithful index.
+Length policy: **completeness before brevity; no hard word cap and no minimum length**. Use the shortest explanation that preserves the goal, observed result, verification and every material open condition. A short chat view may abbreviate confirmed items only when clearly labelled and accompanied by an available complete report in an authorized location. Never omit failures, risks, exclusions, unanswered questions or missing verification to meet a length target. When no complete artifact can be provided, include the necessary detail in chat. This policy applies to the total across the four sub-sections, not separately to each section.
 
 ### Mutability per caller
 
@@ -154,14 +156,14 @@ If `banlist.txt` or `whitelist.txt` is absent at runtime, the caller MUST emit a
 
 - "What was done" — one phrase about the scope of the task being reviewed (read from `datarim/tasks/{TASK-ID}-task-description.md` § Overview).
 - "What worked" — layers that returned PASS or PASS_WITH_NOTES; expectations checklist (the operator wishlist at `tasks/{TASK-ID}-expectations.md`, verified at `/dr-qa` and `/dr-compliance`) items that ended `met`.
-- "What didn't work" — layers that returned FAIL with one-phrase reasons; expectations items at `partial` without override or at `missed`. On overall ALL_PASS, emit "всё закрыто" / "nothing outstanding". <!-- allow-non-ascii: bilingual-russian-placeholder-token-required-for-contract -->
+- "What didn't work" — failed, blocked, partial, skipped, missing, stale or conflicting checks; unfulfilled expectations, exclusions and material risks. An ALL_PASS stage verdict alone does not mean nothing remains open for the product. Use the empty-state placeholder only after checking all applicable requirements and outstanding state.
 - "What's next" — for ALL_PASS / CONDITIONAL_PASS at L3-L4: "ready for compliance". For L1-L2: "ready to archive". For BLOCKED: paraphrase the FAIL-Routing target layer name without command syntax. **Mirror** means paraphrase, not verbatim copy — the CTA block below already carries the command tokens.
 
 ### From `/dr-compliance`
 
 - "What was done" — one phrase about the scope of the task being verified (read from `datarim/tasks/{TASK-ID}-task-description.md` § Overview).
 - "What worked" — checks that passed in the compliance report.
-- "What didn't work" — checks that failed; on COMPLIANT verdict, emit "всё закрыто" / "nothing outstanding". <!-- allow-non-ascii: bilingual-russian-placeholder-token-required-for-contract -->
+- "What didn't work" — failed or unverified conditions and remaining risks, including delivery and human acceptance where applicable. COMPLIANT is a stage result, not proof that every product condition is satisfied. Use the empty-state placeholder only when the linked task records actually contain no material open conditions.
 - "What's next" — for PASS: "ready to archive". For NON-COMPLIANT: paraphrase the FAIL-Routing direction in plain language. **Mirror** means paraphrase, not verbatim copy.
 
 ### From `/dr-archive`
@@ -188,7 +190,7 @@ If `banlist.txt` or `whitelist.txt` is absent at runtime, the caller MUST emit a
 - A bullet list of acronyms.
 - A copy-paste of the technical verdict block.
 - Promises (for example "the next version will…").
-- A summary longer than 400 words. If the source material does not fit, drop detail; never extend.
+- Removing acceptance conditions, risks or limitations to make a summary shorter. Completeness wins over a word budget.
 - Mixing languages inside one summary. Pick one and stick to it.
 - Wrapping the entire summary in `<!-- gate:literal -->` to bypass the banlist. The fence is for verbatim quoted blocks, not for narrative prose.
 
@@ -207,7 +209,7 @@ In addition to the markdown contract, the severity ladder above is also checked 
 > **Что было сделано.** В трёх командах Датарима — проверке качества, проверке итогов и архивации — теперь печатается короткий человеческий пересказ для оператора. Раньше после прогона выводился только технический блок (вердикт, ссылки на файлы, инструкции для следующего шага); теперь над инструкциями появляется четыре простых абзаца.
 >
 > **Что получилось**
-> - Один навык описывает контракт пересказа: четыре подзаголовка, длина от ста пятидесяти до четырёхсот слов, без таблиц.
+> - Один навык описывает пересказ: четыре подзаголовка, все важные условия и ограничения, без обязательного сокращения до заданного числа слов.
 > - Появились два словаря — запрещённых англоязычных слов и общепринятых сокращений (например, `JSON` или `OAuth`); словарь общепринятых читается раньше словаря запрещённых.
 > - Внутри одного пересказа допустимо процитировать вывод инструмента дословно — для этого предусмотрен «литеральный блок» с открывающим и закрывающим маркером.
 > - Тест-сторож в `tests/` ловит случайное удаление подзаголовков, словарей или маркеров литерального блока.
@@ -226,7 +228,7 @@ In addition to the markdown contract, the severity ladder above is also checked 
 > **What was done.** Three Datarim commands — the quality-review step, the post-verification step, and the archive step — now end with a short human recap for the operator. Previously the output was technical only (verdict, file paths, next-step instructions); now four plain paragraphs sit above the instructions.
 >
 > **What worked**
-> - A single skill captures the recap contract: four sub-headings, a length budget of 150 to 400 words, no tables.
+> - A single skill captures the recap contract: four sub-headings and all material conditions and limitations, with no forced word limit.
 > - Two sibling lists appeared — a list of forbidden anglicisms and a list of universal abbreviations (`JSON`, `OAuth`); the universal list is consulted before the forbidden list.
 > - Inside one recap the operator may quote tool output verbatim through a literal-block fence with explicit opening and closing markers.
 > - A guard test in `tests/` catches accidental removal of the sub-headings, the lists, or the literal-block fence.

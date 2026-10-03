@@ -30,7 +30,7 @@ import re
 import sys
 from typing import Iterable
 
-STAGE_HEADER_EXCEPTIONS = frozenset({"/dr-help", "/dr-status", "/dr-doctor"})
+STAGE_HEADER_EXCEPTIONS = frozenset({"/dr-help", "/dr-status", "/dr-doctor", "/dr-explain"})
 # Commands whose Stage Header legitimately appears after the TASK-ID is determined
 # (not as line 1 of the response) — the skip predicate below handles them.
 _DEFERRED_HEADER_CMDS = frozenset({"/dr-init", "/dr-quick"})

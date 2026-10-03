@@ -151,6 +151,12 @@ keys:
     mirror: none
     status: live
     note: "Path-activation hint (advisory match), not a hide/block gate."
+  - key: license
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+    note: "License identifier for a reusable standalone skill; descriptive only."
   - key: metadata
     surface: instruction
     category: M

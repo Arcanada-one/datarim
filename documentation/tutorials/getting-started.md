@@ -1,5 +1,9 @@
 # Getting Started with Datarim
 
+Datarim's main capabilities are [agent orchestration](../../commands/dr-orchestrate.md), [autonomous stage execution](../../commands/dr-auto.md), [quick tasks without the full cycle](../../commands/dr-quick.md), and [JEV classification and routing advice](initialize-datarim-with-jev.md). Start with `/dr-auto "Describe your desired result"` when you want the agent to select and execute the required stages; it proceeds through passing compliance and reflection, with final archive separate and existing permission boundaries preserved.
+
+For a tiny, self-contained edit or lookup, start with `/dr-quick "Describe the small task"`. It skips the full PRD, planning, design, QA and compliance stages. Edits still need falsifiable acceptance cases, preflight and actual evidence, and must reach the shared main branch before closure. Read-only lookups are informational and create no task files. If the scope grows, use the full workflow.
+
 Datarim is a workflow framework for AI coding agents. It installs **into one
 project at a time** and runs only when you call one of its `/dr-*` commands.
 It adds nothing to your agents' instructions otherwise, and nothing it writes

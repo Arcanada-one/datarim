@@ -2,10 +2,11 @@
 
 > **GENERATED FILE. DO NOT EDIT.** Source: `dev-tools/command-graph.yaml`. Regenerate with `python3 dev-tools/framework-graph.py --write`.
 
-Full Command Inventory (28 commands)
+Full Command Inventory (29 commands)
 
 ```mermaid
 graph LR
+    dr-explain["/dr-explain"]
     dr-init["/dr-init"] --> dr-prd["/dr-prd"]
     dr-init["/dr-init"] --> dr-plan["/dr-plan"]
     dr-init["/dr-init"] --> dr-do["/dr-do"]
@@ -39,6 +40,7 @@ graph LR
 
 ## Inventory
 
+- `/dr-explain` — stage `utility` · entry point
 - `/dr-init` — stage `init`
 - `/dr-prd` — stage `requirements`
 - `/dr-wizard` — stage `requirements` · entry point

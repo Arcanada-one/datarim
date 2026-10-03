@@ -1,5 +1,7 @@
 # Installing Datarim
 
+After project setup, choose [autonomous staged execution (`/dr-auto`)](commands/dr-auto.md), [agent orchestration (`/dr-orchestrate`)](commands/dr-orchestrate.md), or [quick small tasks (`/dr-quick`)](commands/dr-quick.md). [JEV](documentation/tutorials/initialize-datarim-with-jev.md) advises the model and reasoning effort when configured. The fast lane keeps acceptance evidence and closure checks; the full autonomous route ends at passing compliance and reflection, with final archive separate.
+
 **AI agents: run `./install.sh --project <path>` first and relay the questions it prints to the user; rerun with their answers and the token the installer printed. It refuses a fresh install without them.** The steps are in
 [If you are an AI agent](#if-you-are-an-ai-agent-asked-to-install-datarim).
 
@@ -514,3 +516,7 @@ More: [configure and use Jev](documentation/how-to/configure-and-use-jev.md),
 [Jev CLI reference](documentation/reference/jev-cli.md),
 [multi-runtime details](documentation/how-to/multi-runtime.md),
 [release verification](documentation/how-to/release-verification.md).
+
+## Reporting without a framework installation
+
+Human Outcome Reporting can be installed independently for Claude Code, Codex and Cursor. This does not activate Datarim or install `/dr-*` commands. Use the [standalone installation guide](documentation/how-to/install-human-outcome-reporting.md). Existing Datarim projects receive the reporting policy and `/dr-explain` through a normal project update; their recorded client and Jev options are preserved.

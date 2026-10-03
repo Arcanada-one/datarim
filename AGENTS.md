@@ -1,9 +1,18 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 4.1.0
+> **Version:** 4.2.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** `AGENTS.md` is the sole project-instruction format. Install this framework only inside an explicitly enabled project. Codex, Claude Code, and Cursor use their native AGENTS loaders; no alternate instruction files or import adapters are installed. See `documentation/reference/jev-cli.md` for client requirements.
 > **Installing Datarim?** This file holds the framework's runtime rules, which the `/dr-*` commands load after installation; it is not an install guide. To install Datarim (and optionally Jev) into a project, follow `INSTALL.md` at the root of the source repository (https://github.com/Arcanada-one/datarim/blob/main/INSTALL.md), including its section for AI agents. Do not install into, or start task work in, the Datarim source checkout.
+
+## Primary entry points
+
+Use `/dr-auto` for autonomous stage selection and execution, `/dr-orchestrate` to
+coordinate agents (terminal transport is an optional plugin), and `/dr-quick` for
+tiny edits or lookups without the full lifecycle. Quick edits keep acceptance
+evidence and closure checks. JEV advises model tier and reasoning effort; it does
+not switch a running model or grant permission. The full autonomous route ends
+after passing compliance and reflection; final archive remains separate.
 
 ## CLI-Agent Models and Versions
 
@@ -103,6 +112,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 
 **Always loaded (mandatory):**
 - `datarim-system.md` — Core workflow rules, path resolution, file locations
+- `skills/human-outcome-reporting/SKILL.md` — Product-oriented, self-contained human reports in Russian by default; requirements, plan and evidence remain linked. Applies to every Datarim command, including plugin execution and delegated human-facing output. Preserve machine protocols, artifact-only output and mandatory installation questions. Use one report; `human-summary` is the compatibility presentation, not a second authority.
 
 **Loaded per stage:**
 - `ai-quality.md` — TDD, decomposition, cognitive load (loaded by: developer, planner)
@@ -136,13 +146,13 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `init-task-persistence.md` — Verbatim operator brief artefact contract — frontmatter + append-log + mandatory read by every pipeline command. Source of truth for operator intent across the task lifecycle. **v2.9.0** extends the contract with the `Q&A round-trip` section: six pipeline commands auto-append `Q&A by /dr-<stage>` blocks to the Append-log via `dev-tools/append-init-task-qa.sh`; `decided_by: agent` rounds carry ≥50-char `Decision rationale` and are verified by `/dr-qa` Layer 3b against the implementation.
 - `expectations-checklist.md` — Operator wishlist artefact (Option B flat markdown) — wish_id slug + status-history block + current-status block + override semantics (canonical headings live in the skill's own template). Written at PRD/PLAN, verified at QA/COMPLIANCE.
 - `playwright-qa.md` — Browser-based frontend QA contract — CLI / MCP / env-browser resolution chain + headed / headed-strict modes + per-task flock lock + run-{ISO-ts}/ artefact layout. Loaded by `/dr-qa` Layer 4f on frontend touch.
-- `human-summary.md` — Plain-language operator recap (`/dr-qa`, `/dr-compliance`, `/dr-archive` Step 8) — four sub-sections + banlist + whitelist + per-paragraph escape hatch + 150–400 word budget.
+- `human-summary.md` — Compatible four-section operator recap for `/dr-qa`, `/dr-compliance`, and `/dr-archive`; delegates facts to `human-outcome-reporting`, retains the language guard, and prioritizes complete acceptance disclosure over brevity without a hard word cap.
 - `v-ac-axis-split.md` — V-AC group axis-split pattern: when a group mixes a deterministic axis (rule match / shape check / type assertion) and a statistical axis (live-rate threshold / SLA percentile / soak distribution), split them upfront (loaded by: /dr-prd V-AC drafting, /dr-plan V-AC review).
 - `session-handoff-writer.md` — Producer contract for `/dr-save`: write `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` with 5-layer body, 32 KB cap (L1/L5 non-truncatable), append-only semantics, claim-provenance enforcement (exit 1 on untagged claims), T-8 secret redaction, mkdir-based atomic lock, chmod 600. (loaded by: /dr-save)
 - `session-handoff-replay.md` -- Consumer contract for `/dr-continue`: read session artefact in clean window, re-verify every claim via live probes (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrade provenance tags, route to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. Shares bilingual replay renderer with `/dr-next` via `skills/dr-next-snapshot-replay/SKILL.md § Shared Replay Renderer`. (loaded by: /dr-continue)
 - `context-window-self-clearing.md` — Default-off orchestrator contract for deterministic Claude Code/Codex pressure thresholds, checkpoint-before-reset transactions, fixed compact/clear instructions, and snapshot-first continuation. (loaded by: /dr-orchestrate plugin runtime)
 
-Skill files: `${DATARIM_RUNTIME:?}/skills/{name}/SKILL.md` (79 skills, 13 with supporting fragment directories — a "supporting fragment directory" is a skill folder that ships at least one sibling `.md` beside its `SKILL.md`)
+Skill files: `${DATARIM_RUNTIME:?}/skills/{name}/SKILL.md` (80 skills, 13 with supporting fragment directories — a "supporting fragment directory" is a skill folder that ships at least one sibling `.md` beside its `SKILL.md`)
 
 > **Available since v1.16.0:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant.
 
@@ -230,6 +240,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-orchestrate run` | Core+Plugin | Self-driving Datarim pipeline runner (v2.5.0). **Command and autonomy policy are core** (no plugin needed — `dev-tools/rules/fb-rules.yaml` + `dev-tools/fb-policy-loader.sh`). Phase 1 lean rule-based tmux runner; Phase 2 adds multi-backend subagent inference (claude → codex → cursor) for unknown prompts, autonomy L1 → L2 (assisted), flock-race-safe cooldown, audit schema v2. v2.5.0 adds bot-interaction interface. **Tmux/bot transport runner is the opt-in plugin** — `dr-plugin enable <abs-path>/plugins/dr-orchestrate`. Security floor: whitelist + 0x1b escape-block + 500 ms micro + 60 s decision cooldown + 5-violations/hr 1 h pane block. JSONL audit, hash-only credentials. |
 | `/dr-save` | Utility | Capture current session to `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` before context is destroyed. 5-layer body, 32 KB cap (L1/L5 non-truncatable), append-only, claim-provenance enforcement, secret redaction. Cross-runtime: Claude Code / Codex CLI / Cursor. |
 | `/dr-continue` | Utility | Resume from session artefact in a **clean context window**. Re-verifies every claim (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrades provenance, routes to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. |
+| `/dr-explain` | Explanation | Re-explain an outcome or scoped term from authorized sources; read-only, with no tests, edits, deployment or task closure. |
 | `/dr-help` | Utility | List all commands with descriptions and usage guidance |
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
@@ -242,7 +253,7 @@ Before writing ANY file to `datarim/`:
 > rule, and every learned action stays subject to per-space policy and the immutable
 > hard-gated floor.
 
-Command files: `${DATARIM_RUNTIME:?}/commands/{name}.md` (28 commands, including the plugin command)
+Command files: `${DATARIM_RUNTIME:?}/commands/{name}.md` (29 commands, including the plugin command)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 
@@ -510,7 +521,7 @@ Datarim framework's contribution:
   `python`, `framework`. First step is the `SECURITY.md` presence-gate;
   second step validates the accepted-risk register when present.
 - **`.github/workflows/security-stale-trigger.yml`** — cron Monday 09:00 UTC
-  watcher. POSTs to `https://ops.arcanada.ai/events` when an entry's
+  watcher. POSTs to `https://ops.example.invalid/events` when an entry's
   `re_review` date has passed; severity escalates from `warning` to
   `fatal` after 30 days overdue. Uses existing `OPS_BOT_API_KEY` org
   secret. Fail-soft on Ops Bot non-2xx and on missing secret.

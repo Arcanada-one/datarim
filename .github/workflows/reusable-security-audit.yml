@@ -101,7 +101,7 @@ jobs:
       #   runner-G   y     y       y     N      y       N          y
       #
       # Consequences that were live before this change:
-      #   - typescript_pnpm exited 127 on runner-E (cubrim-api PR #21) while
+      #   - typescript_pnpm exited 127 on runner-E (example-api PR #21) while
       #     passing on runner-B (PR #16) — identical code, different verdict.
       #   - `python` is absent on EVERY host, so the python profile could never
       #     have run at all.
@@ -114,7 +114,7 @@ jobs:
       # INFRA-0364.
       - name: Setup Rust toolchain (rust_cargo profile only)
         if: inputs.stack == 'rust_cargo'
-        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
 
       # Brings node AND corepack into the runner tool cache, so the corepack
       # shim trick below works on a host that ships neither.

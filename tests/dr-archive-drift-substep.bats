@@ -24,7 +24,7 @@ setup() {
     : > "$KB/repo/commands/a.md"; : > "$KB/repo/commands/b.md"
     printf '# demo\nSee https://demo.example for the site.\n' > "$KB/repo/README.md"
     printf "<?php return ['version' => '1.0.0'];\n" > "$KB/site/config.php"
-    printf '2 commands\n<a href="https://arcanada.one/ecosystem">eco</a>\n' > "$KB/site/features.php"
+    printf '2 commands\n<a href="https://example.invalid/ecosystem">eco</a>\n' > "$KB/site/features.php"
     ( cd "$KB/repo" && git add -A && git commit -qm init )
     write_registry
     export DATARIM_BACKLOG_PATH="$KB/datarim/backlog.md"
@@ -39,7 +39,7 @@ products:
     repo_local: repo
     domain: demo.example
     site_local: site
-    head_site: arcanada.one
+    head_site: example.invalid
     version_repo: VERSION
     version_site: config.php
     feature_count_repo: commands

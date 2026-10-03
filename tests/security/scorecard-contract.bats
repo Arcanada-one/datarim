@@ -93,7 +93,7 @@ PY
   ! grep -F -- '--from v2.67.1' "$workflow"
   grep -F 'ref: ${{ needs.classify.outputs.release_sha }}' "$workflow"
   [ "$(wc -l < .github/ssh-signing-allowed-signers)" -eq 1 ]
-  grep -E '^dev@veritasarcana\.ai ssh-ed25519 [A-Za-z0-9+/=]+$' .github/ssh-signing-allowed-signers
+  grep -E '^Arcanada ssh-ed25519 [A-Za-z0-9+/=]+$' .github/ssh-signing-allowed-signers
 }
 
 @test "Scorecard residuals are explicitly bounded and re-evaluated" {

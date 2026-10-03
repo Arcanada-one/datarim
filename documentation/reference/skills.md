@@ -1,6 +1,6 @@
 # Skills Reference
 
-Datarim includes 79 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files. This count includes the five tier-specific skills under `skills/fleet/`; `fleet` itself is also a skill node.
+Datarim includes 80 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files. This count includes the five tier-specific skills under `skills/fleet/`; `fleet` itself is also a skill node.
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. No `model` field in frontmatter, so they inherit the caller's model. 59 of the 79.
@@ -134,3 +134,7 @@ metadata:
 ```
 
 See [Model Assignment Convention](../../skills/datarim-system/SKILL.md) in `datarim-system.md` for choosing the right tier.
+
+## Human Outcome Reporting
+
+[human-outcome-reporting](../../skills/human-outcome-reporting/SKILL.md) applies to all human-facing command results and checkpoints. It links the original need to outcomes and evidence, preserves partial and unmeasured conditions, explains project terminology, and supports read-only re-explanation. [human-summary](../../skills/human-summary/SKILL.md) retains the legacy four-section presentation under this single policy. [Install independently](../how-to/install-human-outcome-reporting.md) or use the [reporting guide](../human-reporting/README.md).

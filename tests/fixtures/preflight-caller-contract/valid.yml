@@ -36,13 +36,13 @@ jobs:
         uses: Arcanada-one/datarim/.github/actions/preflight-check@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         with:
           target-host: prod-host
-          service-name: muneral
+          service-name: example-service
           extra-checks: |
             vault
             time-skew
           ops-bot-emit: "true"
-          ops-bot-agent: muneral
+          ops-bot-agent: example-service
           ops-bot-key: ${{ secrets.OPSBOT_API_KEY }}
-          ops-bot-url: https://ops.arcanada.ai/events
+          ops-bot-url: https://ops.example.invalid/events
       - if: steps.preflight.outputs.status != 'fail'
-        run: sudo -n /usr/local/sbin/arcanada-compose-broker muneral up
+        run: sudo -n /usr/local/sbin/arcanada-compose-broker example-service up

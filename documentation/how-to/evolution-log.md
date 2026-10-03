@@ -300,7 +300,7 @@ DISK-0037 (EnrollmentService listener split) выявил две L1 inline-ре�
 
 ## 2026-05-18 — CONN-0208 — Container-name race fix on Model Connector deploy (Class A × 1 applied)
 
-`Arcanada-one/model-connector` post-merge `CI & Deploy` workflow deploy job intermittently failed with «Container `model-connector-model-connector-1 ... already in use`» after CONN-0104 tightened the healthcheck/`start_period`. Root cause: `docker compose up -d --build` allocated the new container name before the previous instance (`restart: unless-stopped` policy) finished transitioning to a clean stopped state. Fix: two-line edit to `.github/workflows/ci.yml` deploy job — one inline comment + `$COMPOSE down --remove-orphans || true` before `$COMPOSE up -d --build` — plus a new `docs/how-to/deploy-runbook.md` (~70 LoC, Diátaxis how-to). PR #18 squash-merged to `main@1e34c029`; post-merge run `26047683199` deploy ✅ 47s (baseline failed-jobs `{deploy}` → post-fix `{}`); PROD smoke confirmed: `https://connector.arcanada.one/health` 200 ok, all five named volumes (`claude-auth`, `codex-bin`, `cursor-auth`, `cursor-config`, `gemini-auth`) preserved, `CODEX_BINARY_PATH=/codex-sidecar/bin/codex` regression-check green. All eight V-AC gates passed. The cleanup is idempotent on cold-start (`|| true`) and named volumes survive because `down` is invoked without `-v`. `--remove-orphans` is scoped to the current compose project — foreign containers are untouched even when they share networks.
+`Arcanada-one/model-connector` post-merge `CI & Deploy` workflow deploy job intermittently failed with «Container `model-connector-model-connector-1 ... already in use`» after CONN-0104 tightened the healthcheck/`start_period`. Root cause: `docker compose up -d --build` allocated the new container name before the previous instance (`restart: unless-stopped` policy) finished transitioning to a clean stopped state. Fix: two-line edit to `.github/workflows/ci.yml` deploy job — one inline comment + `$COMPOSE down --remove-orphans || true` before `$COMPOSE up -d --build` — plus a new `docs/how-to/deploy-runbook.md` (~70 LoC, Diátaxis how-to). PR #18 squash-merged to `main@1e34c029`; post-merge run `26047683199` deploy ✅ 47s (baseline failed-jobs `{deploy}` → post-fix `{}`); PROD smoke confirmed: `https://model.example.invalid/health` 200 ok, all five named volumes (`claude-auth`, `codex-bin`, `cursor-auth`, `cursor-config`, `gemini-auth`) preserved, `CODEX_BINARY_PATH=/codex-sidecar/bin/codex` regression-check green. All eight V-AC gates passed. The cleanup is idempotent on cold-start (`|| true`) and named volumes survive because `down` is invoked without `-v`. `--remove-orphans` is scoped to the current compose project — foreign containers are untouched even when they share networks.
 
 One Class A evolution proposal applied with operator approval:
 
@@ -309,7 +309,7 @@ One Class A evolution proposal applied with operator approval:
 Three follow-up backlog items spawned during /dr-do (Proposal 1 is documentation of work already done):
 
 - `CONN-* — MC blue-green deploy migration` (L3 P3) — addresses the ~3-5 s availability dip between `down` and `up -d --build` (mitigated today by Cloudflare retry + client-side retry on 502/503, but eliminated by zero-downtime deploys).
-- `INFRA-* — Ecosystem-wide compose deploy race audit` — symmetric apply of the CONN-0208 fix to Transcribator, Munera, OpsBot, Status, and any other ecosystem service using `docker compose up -d --build` with `restart: unless-stopped`.
+- `INFRA-* — Ecosystem-wide compose deploy race audit` — symmetric apply of the CONN-0208 fix to media-service, billing, OpsBot, Status, and any other ecosystem service using `docker compose up -d --build` with `restart: unless-stopped`.
 - `INFRA-* — MC deploy runbook Tailscale-form update` (L1 P3) — the new runbook references `ssh root@<prod-host>` (MagicDNS form); per the `feedback_tailscale_magicdns_not_default` rule this resolves to a public Hetzner IP on ecosystem hosts unless the operator has a `/etc/hosts` override. Switch the runbook to the Tailscale IP literal.
 
 Health-metrics: no thresholds exceeded — one paragraph + one new section in an existing skill. `/dr-optimize` not warranted. Provenance: reflection `datarim/reflection/reflection-CONN-0208.md` + QA report `datarim/qa/qa-report-CONN-0208.md` + task description `datarim/tasks/CONN-0208-task-description.md` § Implementation Notes + project-repo commit `1e34c029` on `main` (`Arcanada-one/model-connector`).
@@ -511,7 +511,7 @@ Skills ~80 / agents 22 / commands 24 / templates ~25 — all under thresholds; n
 
 ### Class A Deferred (Pending Stack-Agnostic Rewording)
 
-- **`skills/testing/SKILL.md` § Live Smoke-Test Gate — Current-State Auth Probe** (Proposal A1). Текущая draft формулировка cites «Auth Arcana migration list (Phase 5+)», что fails `scripts/stack-agnostic-gate.sh`. Reword stack-neutral («migration roadmap toward centralised IdP») перед apply. Deferred to follow-up task F-1 (backlog spawn).
+- **`skills/testing/SKILL.md` § Live Smoke-Test Gate — Current-State Auth Probe** (Proposal A1). Текущая draft формулировка cites «identity service migration list (Phase 5+)», что fails `scripts/stack-agnostic-gate.sh`. Reword stack-neutral («migration roadmap toward centralised IdP») перед apply. Deferred to follow-up task F-1 (backlog spawn).
 
 ### Class B Held (PRD Required)
 
@@ -1155,7 +1155,7 @@ None. TUNE-0035 (Site update cross-product checklist verify) is already in backl
 
 ### Summary
 
-Groq connector deploy revealed silent env-var staleness mode: `.env` updated on disk, but `docker compose up -d --build` did not recreate the container because the image hash matched. Container kept the pre-edit env snapshot; smoke against the application would have failed `auth_error` despite a "successful" deploy. Closed by `docker compose up -d --force-recreate`. Generic pattern, applies across the ecosystem (Transcribator, Verdicus, Auth Arcana, Munera, Ops Bot).
+Groq connector deploy revealed silent env-var staleness mode: `.env` updated on disk, but `docker compose up -d --build` did not recreate the container because the image hash matched. Container kept the pre-edit env snapshot; smoke against the application would have failed `auth_error` despite a "successful" deploy. Closed by `docker compose up -d --force-recreate`. Generic pattern, applies across the ecosystem (media-service, review-service, identity service, billing, Ops Bot).
 
 ### Class A applies
 
@@ -1216,13 +1216,13 @@ Reflect-job entity-grouping pilot caught a corpus floor case (188 entities, 187 
 
 ### Class B (HELD)
 
-- **B1:** Per-request `score_factor` override в Scrutator `RecallRequest`. **Defer reason:** project-specific API contract change, not framework-level. Tracked в LTM project follow-up.
-- **B2:** Pre-pilot operator checklist (migration apply / container deploy / `.env` setup). **Defer reason:** project-specific (search service on its database host). Belongs в `Projects/Scrutator/code/CLAUDE.md`.
+- **B1:** Per-request `score_factor` override в search-service `RecallRequest`. **Defer reason:** project-specific API contract change, not framework-level. Tracked в LTM project follow-up.
+- **B2:** Pre-pilot operator checklist (migration apply / container deploy / `.env` setup). **Defer reason:** project-specific (search service on its database host). Belongs в `Projects/search-service/code/CLAUDE.md`.
 
 ### Follow-Up Tasks Added to Backlog
 
 - **LTM-future-DIAGNOSE** (P2, L2) — already added 2026-04-27 per plan §3.4 trigger (entity-resolver coverage gap audit + reflect rerun + sweep rerun).
-- **LTM-future-OPS-1, OPS-2, SCRUTATOR-housekeeping-1** — proposed в reflection «Next Steps»; awaiting user confirmation before adding.
+- **LTM-future-OPS-1, OPS-2, SEARCH-SERVICE-housekeeping-1** — proposed в reflection «Next Steps»; awaiting user confirmation before adding.
 
 ---
 
@@ -1307,7 +1307,7 @@ LTM-0012 (`/dr-archive` Step 0.5) reflection produced two stack-agnostic Class A
 
 ### Summary
 
-One Class A reflection proposal applied during `/dr-archive TRANS-0017` (Phase C CI/CD hardening for Transcribator). Source bug: initial `post-deploy-verify.sh` evaluator used `python3 - <<'PY' ... sys.stdin.read() PY` over a piped JSON payload — the heredoc body replaced stdin entirely, so the parser silently consumed its own template instead of the captured PROD snapshot. Tests passed for the wrong reason until cross-checked by hand. Generic bash + inline-interpreter pitfall, not stack-specific. Recovery recipe (env-var pass-through or here-string + `-c` script) included so future ops-script work doesn't repeat it.
+One Class A reflection proposal applied during `/dr-archive TRANS-0017` (Phase C CI/CD hardening for media-service). Source bug: initial `post-deploy-verify.sh` evaluator used `python3 - <<'PY' ... sys.stdin.read() PY` over a piped JSON payload — the heredoc body replaced stdin entirely, so the parser silently consumed its own template instead of the captured PROD snapshot. Tests passed for the wrong reason until cross-checked by hand. Generic bash + inline-interpreter pitfall, not stack-specific. Recovery recipe (env-var pass-through or here-string + `-c` script) included so future ops-script work doesn't repeat it.
 
 ### Changes
 
@@ -1765,7 +1765,7 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 ## AUTH-0061 — Reflection-driven Class A skill updates (2026-05-10)
 
 **Date:** 2026-05-10
-**Source task:** AUTH-0061 (Auth Arcana Phase 2A — admin OIDC clients API + Redis cache + seed CLI). Reflection at `<workspace>/datarim/reflection/reflection-AUTH-0061.md`.
+**Source task:** AUTH-0061 (identity service Phase 2A — admin OIDC clients API + Redis cache + seed CLI). Reflection at `<workspace>/datarim/reflection/reflection-AUTH-0061.md`.
 **Outcome:** Two Class A skill updates accepted by operator and applied to runtime; one Class A project-CLAUDE.md update applied to consumer; one Class B proposal HELD pending PRD update. Stack-agnostic gate `--diff-only`: PASS clean on both runtime files.
 
 ### Class A Applied (framework runtime)
@@ -1779,7 +1779,7 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 
 ### Class B (HELD — pending PRD)
 
-- **Auth Arcana seed-CLI default-flip.** Until AUTH-0074 ships (P1 L3 — static OIDC `client_secret_basic` verification path on `/token`), the seed CLI MUST default `tokenEndpointAuthMethod='private_key_jwt'` (or refuse `client_secret_basic` without explicit env opt-in). Today's default ships static clients with an end-to-end-broken `/oidc/token` exchange. Modifies the default contract for shipping OIDC clients in the ecosystem and touches AUTH-0062 sequencing → requires PRD-AUTH-0002 amendment before approval. **HOLD until PRD update lands.**
+- **identity service seed-CLI default-flip.** Until AUTH-0074 ships (P1 L3 — static OIDC `client_secret_basic` verification path on `/token`), the seed CLI MUST default `tokenEndpointAuthMethod='private_key_jwt'` (or refuse `client_secret_basic` without explicit env opt-in). Today's default ships static clients with an end-to-end-broken `/oidc/token` exchange. Modifies the default contract for shipping OIDC clients in the ecosystem and touches AUTH-0062 sequencing → requires PRD-AUTH-0002 amendment before approval. **HOLD until PRD update lands.**
 
 ### Verification
 
@@ -1918,7 +1918,7 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 
 ## 2026-05-12 · TUNE-0185 Phase 4 archive — Class A applied
 
-- **A1 — `feedback_rank1_mandate_canonical_text_split.md`**: rank-1 ecosystem mandates keep canonical rule text in consumer ecosystem `CLAUDE.md`; framework runtime ships only contract surface (yaml policy + loader entry-points + cross-link section). Stack-agnostic gate PASS. Pattern previously applied implicitly across AAL / Auth Arcana / File Sync / Operational Resilience / Documentation Taxonomy mandates — now explicit.
+- **A1 — `feedback_rank1_mandate_canonical_text_split.md`**: rank-1 ecosystem mandates keep canonical rule text in consumer ecosystem `CLAUDE.md`; framework runtime ships only contract surface (yaml policy + loader entry-points + cross-link section). Stack-agnostic gate PASS. Pattern previously applied implicitly across AAL / identity service / File Sync / Operational Resilience / Documentation Taxonomy mandates — now explicit.
 - **A2 — `feedback_yaml_policy_loader_orthogonality.md`**: new policy schemas in shared loader scripts get their own `load_<name>()` entry-point — never merge into the existing unified stream. Different cardinality + semantics make merge a maintenance liability. Smoke = `yq` pipeline + `shellcheck` clean.
 - **Stack-agnostic gate**: PASS on both memory entries + reflection doc.
 - **Class B (HELD, PRD-gated)**: B1 `/dr-orchestrate` consumer wiring full integration suite (extends TUNE-0187); B2 mandate drift detector automation via GH Actions (extends TUNE-0186).
@@ -2004,7 +2004,7 @@ Reflection on TUNE-0259 surfaced an ID collision: `datarim/backlog.md` carried `
 
 Reflection on TUNE-0271 (Coworker × RTK opt-in plugin) surfaced two universal predicates eligible for runtime apply. Both passed `scripts/stack-agnostic-gate.sh --diff-only`.
 
-- **P-A1 applied — External target reality-probe in `/dr-plan` Step 6.5.** Trigger: agent-decision (FB-4/FB-5) cites a specific filesystem path (`Projects/<repo>/`, `Projects/Websites/<site>/`) or external URL as deploy/write/lookup target. Rule: `ls "<path>"` MUST return a real entry; for any web target, `curl -fsSL -o /dev/null -w '%{http_code}\n' https://<domain>/` MUST return `200` (or a justified non-200). Non-existent path or HTTP `000` (DNS does not resolve) ⇒ memory stale; pause and ask the operator. Provenance: TUNE-0271 /dr-plan round 3 D3 cited `Projects/Websites/arcanada.club/` as blog deploy target; arcanada.club never existed (no DNS, no local dir); incident surfaced as `partial` expectation in `/dr-qa` and required a full re-plan to arcanada.one in `/dr-qa` v2.
+- **P-A1 applied — External target reality-probe in `/dr-plan` Step 6.5.** Trigger: agent-decision (FB-4/FB-5) cites a specific filesystem path (`Projects/<repo>/`, `Projects/Websites/<site>/`) or external URL as deploy/write/lookup target. Rule: `ls "<path>"` MUST return a real entry; for any web target, `curl -fsSL -o /dev/null -w '%{http_code}\n' https://<domain>/` MUST return `200` (or a justified non-200). Non-existent path or HTTP `000` (DNS does not resolve) ⇒ memory stale; pause and ask the operator. Provenance: TUNE-0271 /dr-plan round 3 D3 cited `Projects/Websites/arcanada.club/` as blog deploy target; arcanada.club never existed (no DNS, no local dir); incident surfaced as `partial` expectation in `/dr-qa` and required a full re-plan to example.invalid in `/dr-qa` v2.
 - **P-A2 applied — Operator-mandated delegation flow in `/dr-do` Step 5.5.** Trigger: operator's project/global CLAUDE.md declares a hook-enforced delegation rule for the artefact type being produced. Rule: use the delegated flow for the first draft; record the invocation in § Implementation Notes (provider + profile + target path); silent bypass = process regression flagged by `/dr-compliance`. Provenance: TUNE-0271 /dr-do — the `coworker write` mandate hook fired twice (blog draft + reflection draft), correctly routing the artefact through the delegated flow; documenting this as an actionable rule converts the implicit «mandate exists» into an explicit «recorded invocation expected by Layer 3b».
 - **Stack-agnostic verdict:** both edits PASS `scripts/stack-agnostic-gate.sh --diff-only` (POSIX shell only: `ls`, `curl`; no stack-specific terms).
 - **History-agnostic verdict:** both edits PASS — no task IDs in runtime files.
@@ -2328,3 +2328,16 @@ run — see PR body for the pass/fail count captured at PR-open time.
 **Superseded on main (deliberately NOT re-landed):** batch-A task-id-gate rules/-segment yaml scan + T18-T21 (main scans *.yaml/*.sh/*.template everywhere — broader; T20 would contradict it) and fb-rules shim-test slimming (shim deleted, `test-fb-rules-core-resolution.bats` replaced it); batch-C TUNE-0355 milestone-regex tightening + its two lint cases (main dropped `Phase` from the pattern entirely — the batch's `Phase2 → exit 1` case would redden main's design) and the `/dr-qa` Deferred-Items table (already on main); batch-D release.yml env-drop + `check-release-env-gate.bats` (main kept `release-auto` and made its policy settings-as-code: `.github/environments-policy.yml` + `provision-release-env.sh` + drift check), `rename-task-prefix.sh` + bats (main ships the evolved TUNE-0368 homograph-protecting tool, #305 — the batch's older contract fails against it), dr-doctor Step-2.4 citations, dr-edit source-count restatement (main defers to factcheck by pointer), fragment fact-verified-creative exemption (main carries the richer vetted-creative-docs text), and the `security` short-form type (already in gate + skill).
 
 **Verification:** targeted bats suites green (see PR); task-id-gate + stack-agnostic gate on touched shipped files; actionlint/yaml parse on touched workflows.
+
+### 2026-10-03 — Human-readable outcomes and standalone distribution (4.2.0)
+
+One reporting policy now connects native commands, agents, schemas and templates.
+The standalone installer uses native client discovery without enabling the workflow
+in unrelated projects. `/dr-explain` reads existing evidence without resuming work.
+The introductory surfaces expose orchestration, autonomous execution, the quick
+task path and JEV advice together. Graph and template checks cover those links.
+Release admission now binds evidence to exact source, verifies a signed tag and
+confirms the one remote tag; publication and install smoke still require actual
+observations. See [the reporting guide](../human-reporting/README.md),
+[standalone installation](install-human-outcome-reporting.md), and
+[the release playbook](release-process.md).

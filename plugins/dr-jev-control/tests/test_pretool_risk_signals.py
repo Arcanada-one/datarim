@@ -141,7 +141,7 @@ class PretoolRiskSignals(unittest.TestCase):
     def test_review_privilege_wrappers_and_shell_grammar_reach_question(self):
         commands = [
             'sudo reboot', 'sudo kill 1234', 'sudo mount /dev/example /mnt/example',
-            'sudo apt-get install example', 'sudo talomnia-deploy purge-edge prod',
+            'sudo apt-get install example', 'sudo example-deploy purge-edge prod',
             'env -i sudo reboot', 'nice -n 5 sudo reboot',
             'timeout 30 sudo reboot', 'doas reboot',
             "env --split-string='sudo reboot'",
@@ -166,14 +166,14 @@ class PretoolRiskSignals(unittest.TestCase):
             'sudo reboot', 'sudo shutdown -h now', 'sudo kill -9 1234',
             'sudo mount /dev/sdb1 /mnt', 'sudo apt-get update',
             'sudo apt-get install -y bats', 'sudo npm i -g x',
-            'sudo tee /opt/app/config.yml', 'sudo talomnia-deploy purge-edge prod',
+            'sudo tee /opt/app/config.yml', 'sudo example-deploy purge-edge prod',
             '( git push origin main )', '{ git push origin main; }',
             '! git push origin main',
             'if git push --quiet origin HEAD:main 2>/dev/null; then echo ok; fi',
             'if true; then git push origin main; fi',
             'for h in a b; do ssh $h reboot; done',
             'while true; do curl -X POST http://x; done',
-            'talomnia-deploy deploy',
+            'example-deploy deploy',
             'su -c reboot', 'pkexec reboot',
             'flock lock bash scripts/ops.sh',
             'flock -w 5 lock bash scripts/ops.sh',
@@ -295,7 +295,7 @@ class PretoolRiskSignals(unittest.TestCase):
         commands = [
             'bash deploy/broker/bootstrap-host.sh ./reviewed-checkout',
             'node dist/../scripts/support-sync.js',
-            'bash deploy/monitoring/talomnia-monitor.sh',
+            'bash deploy/monitoring/example-monitor.sh',
             # Unknown repository scripts can hide production DB/API writes.
             './worker.sh', 'bash tests/check.sh', 'python3 scripts/worker.py',
             'env NODE_ENV=production node scripts/worker.js',

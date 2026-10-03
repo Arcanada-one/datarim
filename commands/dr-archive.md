@@ -690,7 +690,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - Source material: the just-written archive document (§ Начальная задача / § Как решили / § Артефакты задачи / § Следующие шаги, plus the audit addendum’s § Operator Handoff) and the reflection file from Step 0.5. <!-- allow-non-ascii: literal-russian-archive-section-names-from-template -->
    - Do NOT mutate the archive document or the reflection file — the summary is chat-only; the archive remains the permanent record.
    - The summary MUST honour the banlist + whitelist + per-paragraph escape-hatch contract from the skill (`<!-- gate:literal -->` … `<!-- /gate:literal -->` for verbatim quoted blocks only; max two fenced paragraphs per summary).
-   - Length budget: 150–400 words **total across the four sub-sections** (not per sub-section). Hard upper bound. If sources are bigger, compress.
+   - Length policy: completeness before brevity; no hard word cap. Preserve all material conditions and limitations total across the four sub-sections. Keep this recap chat-only; do not mutate the permanent archive to make an abbreviated view fit.
 
 ## Read
 - `datarim/tasks.md` (thin index — one-liner for the archived task)

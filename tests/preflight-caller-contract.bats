@@ -23,7 +23,7 @@ setup() {
 run_contract() {
     local action_repository="${CALLER_ACTION_REPOSITORY_OVERRIDE:-Arcanada-one/datarim}"
     local action_ref="${CALLER_ACTION_REF_OVERRIDE:-$ACTION_REF}"
-    local caller_repository="${CALLER_REPOSITORY_OVERRIDE:-Arcanada-one/muneral}"
+    local caller_repository="${CALLER_REPOSITORY_OVERRIDE:-example-org/example-service}"
     local vault_addr="${CALLER_VAULT_ADDR_OVERRIDE-https://vault.internal:8200}"
     local yq_bin="${CALLER_YQ_BIN_OVERRIDE:-$(command -v yq)}"
     local workflow_ref="${CALLER_WORKFLOW_REF_OVERRIDE:-$caller_repository/$WORKFLOW_REL@refs/pull/42/merge}"
@@ -99,11 +99,11 @@ assert_rejected() {
         assert_status_is 0 || return 1
     done
 
-    run yq -er '."schema-version" == 1 and .consumers."Arcanada-one/muneral"."service-name" == "muneral"' "$REGISTRY"
+    run yq -er '."schema-version" == 1 and .consumers."example-org/example-service"."service-name" == "example-service"' "$REGISTRY"
     assert_status_is 0
 }
 
-@test "valid registered Muneral workflow passes with list needs and multiline checks" {
+@test "valid registered example-service workflow passes with list needs and multiline checks" {
     run_contract
     assert_status_is 0 || return 1
     [ "$output" = "preflight caller contract: PASS" ]
@@ -304,7 +304,7 @@ assert_rejected() {
 
 @test "Ops Bot endpoint must be the explicit canonical URL" {
     local replacement
-    for replacement in '' 'https://ops.arcanada.one/events' '${{ vars.OPSBOT_URL }}'; do
+    for replacement in '' 'https://other-ops.example.invalid/events' '${{ vars.OPSBOT_URL }}'; do
         VALUE="$replacement" yq -i '.jobs.deploy.steps[0].with."ops-bot-url" = strenv(VALUE)' "$WORKFLOW"
         assert_rejected ".jobs.deploy.steps.with.ops-bot-url" || return 1
         restore_fixture
@@ -327,7 +327,7 @@ assert_rejected() {
     assert_status_is 1 || return 1
     assert_output_has "action_ref" || return 1
 
-    CALLER_WORKFLOW_REF_OVERRIDE="Arcanada-one/muneral/../../fixture.yml@refs/heads/main" run_contract
+    CALLER_WORKFLOW_REF_OVERRIDE="example-org/example-service/../../fixture.yml@refs/heads/main" run_contract
     assert_status_is 1 || return 1
     assert_output_has "workflow_ref"
 }

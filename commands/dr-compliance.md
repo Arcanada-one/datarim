@@ -130,7 +130,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
     - Runs on every verdict (COMPLIANT, COMPLIANT_WITH_NOTES, NON-COMPLIANT). On NON-COMPLIANT the «Что не получилось» sub-section carries the failure detail in plain language and «Что дальше» paraphrases the FAIL-Routing CTA without command syntax. <!-- allow-non-ascii: literal-russian-sub-section-name-tokens-from-human-summary-skill -->
     - The summary MUST honour the banlist + whitelist + per-paragraph escape-hatch contract from the skill (`<!-- gate:literal -->` … `<!-- /gate:literal -->` for verbatim quoted blocks only; max two fenced paragraphs per summary).
     - Output: chat. If `datarim/reports/compliance-report-{task_id}.md` exists, append the same section at the end of that file.
-    - Length budget: 150–400 words **total across the four sub-sections** (not per sub-section). Hard upper bound.
+    - Length policy: completeness before brevity; no hard word cap. Preserve all material conditions and limitations total across the four sub-sections. Follow `human-summary` for a clearly labelled short view and an authorized full report.
 
 8.5. **REFLECT ON A PASSING VERDICT** (runs only when the Step 7 verdict is COMPLIANT or COMPLIANT_WITH_NOTES; skipped on NON-COMPLIANT):
     - Reflection now happens here, at the point of a successful compliance pass, rather than being deferred to `/dr-archive`. This makes `/dr-compliance` the stage that captures lessons-learned + evolution proposals, so they are not lost when a task is hardened but the operator does not archive immediately.

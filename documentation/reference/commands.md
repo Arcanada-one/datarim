@@ -1,6 +1,8 @@
 # Commands Reference
 
-Datarim provides 26 slash commands in the `/dr-*` namespace for Claude Code (plus 2 standalone `/factcheck` and `/humanize` commands). Commands are grouped by category.
+The primary entry points are [autonomous execution with `/dr-auto`](../../commands/dr-auto.md), [agent orchestration with `/dr-orchestrate`](../../commands/dr-orchestrate.md), [the fast lane with `/dr-quick`](../../commands/dr-quick.md), and [JEV classification through the native launchers](../tutorials/initialize-datarim-with-jev.md). Human-facing output follows one reporting policy; exact machine handoffs retain their protocols.
+
+Datarim provides 27 slash commands in the `/dr-*` namespace for Claude Code (plus 2 standalone `/factcheck` and `/humanize` commands). Commands are grouped by category.
 
 ## Unified CTA Block (v1.16.0)
 
@@ -56,6 +58,14 @@ canonical-scope digest. The read-only
 record and returns advancing, normal-route, valid non-advancing, or malformed;
 it never classifies prose, invokes the strategist, writes files, or selects a
 route. Missing or malformed evidence returns the task to `/dr-prd`.
+
+## Explanation command
+
+| Command | Mode | Description |
+|---------|------|-------------|
+| `/dr-explain` | Read-only | Re-explain the outcome or one scoped term from authorized original sources. Do not modify code, run tests, deploy, close tasks or infer acceptance from understanding. |
+
+All human-facing commands apply [Human Outcome Reporting](../../skills/human-outcome-reporting/SKILL.md). Machine handoffs and artifact-only output retain their formats.
 
 ## Content Commands (3)
 

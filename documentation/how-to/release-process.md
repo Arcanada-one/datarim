@@ -4,6 +4,10 @@ This document describes how to cut a signed, attested release. The
 consumer-facing verification recipe lives in
 [`release-verification.md`](release-verification.md).
 
+The maintainer release gate needs Python 3 with PyYAML to inspect actual pinned
+attestation steps. Missing YAML support fails closed; comments or shell text do
+not establish an executable attestation pipeline.
+
 ## Roles
 
 - **Release engineer** — runs the release. By default this is a member
@@ -39,6 +43,35 @@ consumer-facing verification recipe lives in
 > `documentation/mandates/autonomous-agents.md` § Carve-out. The manual steps
 > below remain the operator path for major releases and for any release the agent
 > escalates.
+
+### Measured autonomous gate evidence
+
+`release-gate.sh` binds every observation to the exact clean source commit,
+manifest version, and registry. The remote release branch must point at that
+commit. Naked `GATE_*_STATUS` / verdict environment values are rejected.
+Configure executable `GATE_CI_PROBE`, `GATE_QA_PROBE`, `GATE_REGISTRY_PROBE`, and
+`GATE_SMOKE_PROBE` hooks. Each receives `gate repository source_sha version
+registry` and must perform the real check, returning `ReleaseGateEvidence/v1`
+JSON with `gate`, `source_commit`, `version`, `registry`, `verdict`, and a
+nonempty `evidence` description. Expected verdicts are `success` for CI/smoke,
+`ALL_PASS` for QA, and `not_published` for the registry. A static success value
+is not a measurement. Registry/QA/smoke have no portable guessed fallback.
+
+Without a CI hook, set `GATE_CI_WORKFLOWS` to the comma-separated required
+GitHub workflow names. The native probe requires the latest completed,
+successful run for every named workflow at the exact SHA; missing, failed,
+pending, or truncated observations refuse admission. The smoke hook must
+already exist before tagging and must wait for the exact published version
+before testing a clean installation. A dry run states that signing, push,
+and smoke have not executed.
+
+The gate creates a signed annotated tag, verifies its signature (using the
+repository SSH allowlist when present), pushes only the exact tag ref, and
+checks the remote tag object. Failed pushes return nonzero and preserve the
+local signed tag and audit; smoke failure after push returns exit 4. Audit JSON
+records source binding and the last observed phase under
+`documentation/release-audit/`. It never calls a local-only tag a published
+release or pushes unrelated local tags.
 
 > **One-time environment provisioning.** Datarim dispatches the trusted release
 > workflow from protected `main` and authenticates one signed tag. Both
@@ -220,3 +253,7 @@ The release pipeline runs the full security gate. Suppressions in
 shipped artefacts must include a reason of at least 10 characters
 explaining *why*. The pre-commit hook and CI both enforce this.
 Suppression sprawl triggers a quarterly review by the security team.
+
+## Portable reporting distribution
+
+The signed pipeline also builds `human-outcome-reporting.zip` and `datarim-human-reporting-integration.zip` from the allowlist in `dev-tools/package-human-reporting.py`. Each ZIP has its own SHA-256 file, keyless cosign bundle and native build attestation. The standalone package includes `install.py` and `INSTALL.md`; use it without installing the framework. The integration overlay is for inspection and reuse, not a substitute for the native project installer.

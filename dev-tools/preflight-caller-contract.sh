@@ -17,7 +17,7 @@ readonly CHECKOUT_ACTION="actions/checkout@3d3c42e5aac5ba805825da76410c181273ba9
 readonly VAULT_ADDR_EXPRESSION='${{ vars.VAULT_ADDR }}'
 # shellcheck disable=SC2016 # GitHub expressions are intentionally literal.
 readonly WORKFLOW_SHA_EXPRESSION='${{ github.workflow_sha }}'
-readonly OPS_BOT_URL="https://ops.arcanada.ai/events"
+readonly OPS_BOT_URL="https://ops.example.invalid/events"
 
 fail() {
     printf 'ERROR: %s\n' "$1" >&2

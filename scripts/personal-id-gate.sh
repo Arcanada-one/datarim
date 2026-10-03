@@ -235,7 +235,7 @@ whitelist_paths=("$regex_file" "$0" "$_regex_basename" "$_self_basename"
     "tests/datarim-doctor-execution-drift.bats"
     # Supreme Directive canonical Source-of-Truth URL — public canon, not a
     # personal data leak. The URL is the published identifier of the spec.
-    "templates/project-claude-md.md")
+    "templates/project-agents-md.md")
 
 # Load additional whitelist paths (one prefix per line, # comments ok).
 if [ -n "$whitelist_file" ] && [ -f "$whitelist_file" ]; then

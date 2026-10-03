@@ -8,7 +8,8 @@ Full text: <https://www.contributor-covenant.org/version/2/1/code_of_conduct/>
 
 Reports of unacceptable behavior should be sent to:
 
-**mail@veritasarcana.ai**
+[the repository maintainers](https://github.com/Arcanada-one/datarim/discussions).
+For confidential reports, use the repository's [private advisory channel](https://github.com/Arcanada-one/datarim/security/advisories/new).
 
 All complaints will be reviewed and investigated promptly and fairly.
 All maintainers are obligated to respect the privacy and security of

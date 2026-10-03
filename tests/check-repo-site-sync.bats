@@ -14,7 +14,7 @@ setup() {
     : > "$KB/repo/commands/a.md"; : > "$KB/repo/commands/b.md"     # 2 commands
     printf '# demo\nSee https://demo.example for the site.\n' > "$KB/repo/README.md"
     printf "<?php return ['version' => '1.0.0'];\n" > "$KB/site/config.php"
-    printf '2 commands\n<a href="https://arcanada.one/ecosystem">eco</a>\n' > "$KB/site/features.php"
+    printf '2 commands\n<a href="https://example.invalid/ecosystem">eco</a>\n' > "$KB/site/features.php"
     ( cd "$KB/repo" && git add -A && git commit -qm init )
     write_registry  # default: fully-synced
 }
@@ -31,7 +31,7 @@ products:
     domain: demo.example
     site_local: site
     deploy_path: deploy.sh
-    head_site: arcanada.one
+    head_site: example.invalid
     version_repo: VERSION
     version_site: config.php
     feature_count_repo: commands
@@ -125,7 +125,7 @@ EOF
 narrative_fixture() {
     printf '# run\nRuns things. Supports `--fast` and `--dry` flags.\n' > "$KB/repo/commands/dr-run.md"
     printf '# stop\nStops things.\n' > "$KB/repo/commands/dr-stop.md"
-    printf '4 commands\n<a href="https://arcanada.one/ecosystem">eco</a>\n' > "$KB/site/features.php"
+    printf '4 commands\n<a href="https://example.invalid/ecosystem">eco</a>\n' > "$KB/site/features.php"
     ( cd "$KB/repo" && git add -A && git commit -qm narrative-fixture )
     mkdir -p "$KB/site/data/commands"
     printf '<?php // page for /dr-run — use --fast for speed\n' > "$KB/site/data/commands/dr-run.php"

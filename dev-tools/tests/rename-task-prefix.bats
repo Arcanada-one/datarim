@@ -23,7 +23,7 @@ setup() {
     {
         printf -- '- OLD-0007 %s pending %s P3 %s L2 %s Some task -> tasks/OLD-0007-x.md\n' \
             "$MDOT" "$MDOT" "$MDOT" "$MDOT"
-        printf -- '- ADR-0001 %s pending %s P1 %s L2 %s Adsessor bootstrap -> tasks/ADR-0001-y.md\n' \
+        printf -- '- ADR-0001 %s pending %s P1 %s L2 %s Example service bootstrap -> tasks/ADR-0001-y.md\n' \
             "$MDOT" "$MDOT" "$MDOT" "$MDOT"
         printf 'See architecture/ADR-0001-file-sync-policy for the sync mandate.\n'
     } > datarim/backlog.md

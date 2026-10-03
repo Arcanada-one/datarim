@@ -133,3 +133,6 @@ Three artefact nodes were introduced in v2.8.0:
 - **`playwright-run`** — `datarim/qa/playwright-{TASK-ID}/run-<ISO-ts>/`. Browser pass artefacts (screenshot + trace + summary) written by `/dr-qa` Layer 4f when the task changes any frontend markup. Skipped silently for non-frontend tasks.
 
 Solid arrows = control flow. Brackets `(())` mark the new operator-facing artefacts; the orange-outlined `/dr-qa` node is the gate that consumes all three (init-task as input, expectations as the Layer 3b verifier, playwright-run as the Layer 4f side-effect).
+
+`/dr-explain` reads authorized sources to clarify an existing outcome or term.
+It is outside stage routing: no new execution, tests, task transition or acceptance.

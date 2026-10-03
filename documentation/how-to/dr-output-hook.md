@@ -15,7 +15,7 @@ The `dr-output-stop` Claude Code `Stop` hook adds programmatic enforcement on to
 | `/dr-archive` / `/dr-compliance` / `/dr-qa` response missing Operator summary section | `block` with `missing_section` | stderr advisory |
 | Operator summary present but malformed (missing preamble, missing or extra sub-heading, wrong order) | `block` with finding-codes | stderr advisory |
 
-Exception List (skipped by validator #1): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` before Step 4 (no TASK-ID in the response).
+Exception List (skipped by validator #1): `/dr-help`, `/dr-status`, `/dr-doctor`, `/dr-explain`, and `/dr-init` before Step 4 (no TASK-ID in the response).
 
 Trigger list for validator #2: `/dr-archive`, `/dr-compliance`, `/dr-qa`. Other `/dr-*` commands skip validator #2 silently.
 

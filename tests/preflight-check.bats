@@ -444,13 +444,13 @@ EOF
     mock_curl
     prepend_path
     export OPSBOT_KEY="testkey"
-    export PREFLIGHT_OPS_BOT_AGENT="muneral"
+    export PREFLIGHT_OPS_BOT_AGENT="example-service"
     source_script
     append_finding "disk" "warning" "used_pct" "85" "80"
     run emit_ops_bot "warn" "$REPORT_FILE"
     payload_line=$(grep "^PAYLOAD:" "$CURL_LOG" | head -1)
     payload="${payload_line#PAYLOAD: }"
-    [ "$(echo "$payload" | jq -r '.agent')" = "muneral" ]
+    [ "$(echo "$payload" | jq -r '.agent')" = "example-service" ]
 }
 
 @test "T19a emit_ops_bot: WARN logs HTTP code + body excerpt on 4xx" {
@@ -694,7 +694,7 @@ ACTION_YML="$BATS_TEST_DIRNAME/../.github/actions/preflight-check/action.yml"
 
 @test "T23a ops-bot-url allowlist: PROD + canonical accepts (exit 0)" {
     run env \
-        PREFLIGHT_OPS_BOT_URL=https://ops.arcanada.ai/events \
+        PREFLIGHT_OPS_BOT_URL=https://ops.example.invalid/events \
         PREFLIGHT_IS_PROD_CONTEXT=true \
         bash "$VAL_URL"
     [ "$status" -eq 0 ]
@@ -770,7 +770,7 @@ ACTION_YML="$BATS_TEST_DIRNAME/../.github/actions/preflight-check/action.yml"
     run env \
         PREFLIGHT_TARGET_HOST=prod-host \
         PREFLIGHT_SERVICE_NAME=opsbot \
-        PREFLIGHT_OPS_BOT_AGENT='Muneral;invalid' \
+        PREFLIGHT_OPS_BOT_AGENT='example-service;invalid' \
         PREFLIGHT_EXTRA_CHECKS="" \
         PREFLIGHT_OPS_BOT_EMIT=false \
         GITHUB_OUTPUT="$GITHUB_OUTPUT" \
