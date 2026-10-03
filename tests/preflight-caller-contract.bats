@@ -311,11 +311,11 @@ assert_rejected() {
     done
 }
 
-@test "unregistered legacy Legal wiring fails closed" {
+@test "unregistered legacy consumer wiring fails closed" {
     cp "$FIXTURES/legacy-legal.yml" "$WORKFLOW"
-    CALLER_REPOSITORY_OVERRIDE="Arcanada-one/legal-arcana" run_contract
+    CALLER_REPOSITORY_OVERRIDE="example-org/legacy-service" run_contract
     assert_status_is 1 || return 1
-    assert_output_has "registry.Arcanada-one/legal-arcana"
+    assert_output_has "registry.example-org/legacy-service"
 }
 
 @test "runtime provenance independently rejects repository, ref, and path substitution" {
