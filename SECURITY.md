@@ -9,8 +9,8 @@ consumer. Reports are treated accordingly.
 
 | Version | Supported |
 |---------|-----------|
-| `2.x`   | ✅ — latest minor receives all security fixes |
-| `1.18.x` and earlier | ❌ — please upgrade to 2.x |
+| `4.x`   | ✅ — latest minor receives all security fixes |
+| `1.18.x` and earlier | ❌ — please upgrade to 4.x |
 
 The framework follows semver. Patch releases are issued for any HIGH or
 CRITICAL finding affecting the latest minor.
@@ -22,10 +22,7 @@ CRITICAL finding affecting the latest minor.
 Preferred channel: **GitHub Private Security Advisory**
 (`Security` tab → `Report a vulnerability`).
 
-Alternative channel: **mail@veritasarcana.ai** with subject prefix
-`[security]`. Encrypt with our public PGP key on
-[keys.openpgp.org](https://keys.openpgp.org) if disclosing exploit
-details.
+Use the [private advisory form](https://github.com/Arcanada-one/datarim/security/advisories/new) for confidential disclosure.
 
 Include in the report:
 
@@ -55,8 +52,8 @@ they may publicly disclose without further coordination.
 ## Embargo Policy
 
 For pre-disclosure embargoes (e.g. enterprise consumers needing time
-to patch before public disclosure), email
-`mail@veritasarcana.ai` with proposed embargo window. Default
+to patch before public disclosure), include the proposed embargo window
+in the private advisory. Default
 embargo length is 30 days from coordinated patch release.
 
 ## Scope

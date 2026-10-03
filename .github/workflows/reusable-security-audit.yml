@@ -101,7 +101,7 @@ jobs:
       #   runner-G   y     y       y     N      y       N          y
       #
       # Consequences that were live before this change:
-      #   - typescript_pnpm exited 127 on runner-E (cubrim-api PR #21) while
+      #   - typescript_pnpm exited 127 on runner-E (example-api PR #21) while
       #     passing on runner-B (PR #16) — identical code, different verdict.
       #   - `python` is absent on EVERY host, so the python profile could never
       #     have run at all.

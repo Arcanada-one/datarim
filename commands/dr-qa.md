@@ -68,7 +68,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     - Runs on every overall verdict (ALL_PASS, CONDITIONAL_PASS, BLOCKED). On BLOCKED the «Что не получилось» sub-section carries the failure detail in plain language and «Что дальше» paraphrases the FAIL-Routing target layer name (without command syntax — the CTA below carries that verbatim). <!-- allow-non-ascii: literal-russian-section-name-token-from-human-summary-skill -->
     - The summary MUST honour the banlist + whitelist + per-paragraph escape-hatch contract from the skill (`<!-- gate:literal -->` … `<!-- /gate:literal -->` for verbatim quoted blocks only; max two fenced paragraphs per summary).
     - Output: chat. If `datarim/qa/qa-report-{task-id}.md` was written, append the same section at the end of that file under `## Plain-language summary`.
-    - Length budget: 150–400 words **total across the four sub-sections** (not per sub-section). Hard upper bound.
+    - Length policy: completeness before brevity; no hard word cap. Preserve all material conditions and limitations total across the four sub-sections. Follow `human-summary` for a clearly labelled short view and an authorized full report.
 
 ---
 

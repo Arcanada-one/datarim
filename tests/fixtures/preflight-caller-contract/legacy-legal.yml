@@ -31,4 +31,4 @@ jobs:
           service-name: legal
           extra-checks: vault
           ops-bot-emit: "true"
-          ops-bot-url: https://ops.arcanada.one/events
+          ops-bot-url: https://ops.example.invalid/events

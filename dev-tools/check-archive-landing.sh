@@ -51,9 +51,9 @@
 #     --ref        ref to verify against (default: origin/main, falls back to HEAD)
 #     --archives   archive dir. Point this at the subdir whose artefacts belong to
 #                  --root, NOT at the whole archive tree: archives are filed per
-#                  project (`framework/`, `adsessor/`, `agents/`, ...) and each
+#                  project (`framework/`, `sample-service/`, `agents/`, ...) and each
 #                  project's artefacts live in ITS OWN repo. Verifying an
-#                  `adsessor/` archive against the framework repo reports every
+#                  `sample-service/` archive against the framework repo reports every
 #                  path as missing — 2865 "violations" in one measured run, all
 #                  noise. A gate that cries wolf at that volume is not a gate.
 #     --backlog    backlog file for direction B (default: <root>/datarim/backlog.md)

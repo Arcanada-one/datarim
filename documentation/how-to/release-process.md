@@ -220,3 +220,7 @@ The release pipeline runs the full security gate. Suppressions in
 shipped artefacts must include a reason of at least 10 characters
 explaining *why*. The pre-commit hook and CI both enforce this.
 Suppression sprawl triggers a quarterly review by the security team.
+
+## Portable reporting distribution
+
+The signed pipeline also builds `human-outcome-reporting.zip` and `datarim-human-reporting-integration.zip` from the allowlist in `dev-tools/package-human-reporting.py`. Each ZIP has its own SHA-256 file, keyless cosign bundle and native build attestation. The standalone package includes `install.py` and `INSTALL.md`; use it without installing the framework. The integration overlay is for inspection and reuse, not a substitute for the native project installer.

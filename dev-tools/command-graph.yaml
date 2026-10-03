@@ -19,7 +19,18 @@ schema_version: 1
 #                in the generated maps. Prose remains authoritative in the command file;
 #                this is the one-line form that survives into the diagram.
 
+# Mandatory human-facing policy loaded through the native AGENTS.md preamble.
+# This declaration makes its command-to-skill edges visible to graph validation.
+always_load_skills: [human-outcome-reporting]
+
 commands:
+  dr-explain:
+    stage: utility
+    requires: []
+    precedes: []
+    optional_at: []
+    entry: true
+
   dr-init:
     stage: init
     requires: []

@@ -4,7 +4,7 @@
 # Provides status_get and status_update functions that integrate with:
 #   - Primary: fleet:task-events Redis Stream (XADD/XREVRANGE)
 #   - Fallback/secondary: datarim/tasks.md (atomic write via temp+mv + flock)
-#   - Future (stub): Munera billing API (DR_FLEET_MUNERA_ENABLE=1)
+#   - Future (stub): billing API (DR_FLEET_BILLING_ENABLE=1)
 #
 # Public functions:
 #   status_get    <task_id>                    → prints status string
@@ -20,7 +20,7 @@
 #   DR_ORCH_REDIS_URL       Redis URL (default redis://127.0.0.1:6379)
 #   DR_FLEET_BUS_BACKEND    "redis" or "mock" (default redis)
 #   DR_FLEET_TASKS_FILE     Path to tasks.md (default: auto-detected from cwd)
-#   DR_FLEET_MUNERA_ENABLE  Set to 1 to enable Munera stub (default 0)
+#   DR_FLEET_BILLING_ENABLE  Set to 1 to enable billing stub (default 0)
 #   DR_FLEET_LOCK_TIMEOUT   flock timeout in seconds (default 5)
 
 set -uo pipefail
@@ -32,7 +32,7 @@ AUDIT_SINK="$PLUGIN_DIR/scripts/audit_sink.sh"
 
 : "${DR_ORCH_REDIS_URL:=redis://127.0.0.1:6379}"
 : "${DR_FLEET_BUS_BACKEND:=redis}"
-: "${DR_FLEET_MUNERA_ENABLE:=0}"
+: "${DR_FLEET_BILLING_ENABLE:=0}"
 : "${DR_FLEET_LOCK_TIMEOUT:=5}"
 
 # ── tasks.md location ─────────────────────────────────────────────────────────
@@ -129,11 +129,11 @@ status_update() {
     reason      "$safe_reason" \
     >/dev/null
 
-  # Munera stub (future integration point)
-  if [[ "${DR_FLEET_MUNERA_ENABLE:-0}" == "1" ]]; then
-    # TODO(operator): call Munera billing API to sync task status
-    # DR_FLEET_MUNERA_HOST env required; stub returns success
-    printf 'STUB: Munera status_update not yet provisioned\n' >&2
+  # billing stub (future integration point)
+  if [[ "${DR_FLEET_BILLING_ENABLE:-0}" == "1" ]]; then
+    # TODO(operator): call billing API to sync task status
+    # DR_FLEET_BILLING_HOST env required; stub returns success
+    printf 'STUB: billing status_update not yet provisioned\n' >&2
   fi
 
   # Update tasks.md atomically
@@ -183,9 +183,9 @@ status_update() {
 _check() {
   local tasks_file
   tasks_file="$(_find_tasks_file)"
-  printf 'backend=%s\nredis_url=%s\ntasks_file=%s\nmunera_enable=%s\n' \
+  printf 'backend=%s\nredis_url=%s\ntasks_file=%s\nbilling_enable=%s\n' \
     "$DR_FLEET_BUS_BACKEND" "$DR_ORCH_REDIS_URL" \
-    "${tasks_file:-not-found}" "$DR_FLEET_MUNERA_ENABLE"
+    "${tasks_file:-not-found}" "$DR_FLEET_BILLING_ENABLE"
 }
 
 # ── CLI dispatch ──────────────────────────────────────────────────────────────

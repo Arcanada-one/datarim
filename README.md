@@ -2,15 +2,23 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 4.1.0](https://img.shields.io/badge/Version-4.1.0-green.svg)](VERSION)
+[![Version: 4.2.0](https://img.shields.io/badge/Version-4.2.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
 **Website:** [datarim.club](https://datarim.club) — releases, changelog, and the full command/skill/agent catalogue.
 
-Datarim installs into one project at a time and gives Claude Code, Codex and
-Cursor a structured `/dr-*` workflow. Jev, its optional companion, adds a
-command safety floor and model routing advice.
+Datarim coordinates AI agents, takes tasks through their required stages autonomously, and uses JEV classification to advise the model and reasoning effort. It works with Claude Code, Codex and Cursor.
+
+| Main capability | What it does for you | Start here |
+|-----------------|----------------------|------------|
+| **Agent orchestration** | Coordinates stage specialists, checkpoints and feedback instead of requiring you to run each step. The optional transport plugin also drives terminal sessions and keeps an audit trail. | [`/dr-orchestrate`](commands/dr-orchestrate.md) and [orchestration setup](plugins/dr-orchestrate/README.md) |
+| **Autonomous execution** | `/dr-auto` starts from your brief or resumes a task, selects the next stage, delegates work, checks results and continues through passing compliance and reflection. Final archive remains a separate step. | [`/dr-auto "Describe the outcome you need"`](commands/dr-auto.md) |
+| **JEV model classification** | Classifies the task and advises a model tier and reasoning effort; its separate deterministic safety floor checks commands. Routing advice needs a JEV key, while the safety floor works without one. | [`jevcodex`, `jevclaude`, `jevcursor`](documentation/tutorials/initialize-datarim-with-jev.md) |
+
+Autonomous execution keeps permission and irreversible-action boundaries. JEV advice is not permission or verification. Install Datarim in the projects where you want the workflow; JEV and the reporting skill can also operate independently.
+
+**New in 4.2:** human-readable progress and results explain what you can now do, what was checked and what remains open. [`/dr-explain`](commands/dr-explain.md) clarifies an outcome or term without restarting work. [Install the reporting skill alone](documentation/how-to/install-human-outcome-reporting.md).
 
 ---
 
@@ -65,6 +73,12 @@ installing: [what a project install does](documentation/tutorials/initialize-dat
 
 ---
 
+## Human-readable results
+
+Every human-facing command now explains what was requested, what the user can do, what was checked and what remains open. `/dr-explain` provides a clearer explanation or defines a term without restarting work. The same [reporting skill](skills/human-outcome-reporting/SKILL.md) works without Datarim: see [standalone installation](documentation/how-to/install-human-outcome-reporting.md).
+
+Reports preserve unmet conditions and distinguish implemented, verified, delivered and accepted results. Structured validation checks evidence consistency; it does not establish human understanding. See the [reporting guide](documentation/human-reporting/README.md) and [report template](templates/human-outcome-report-template.md).
+
 ## What is Datarim?
 
 Most work with AI assistants is unstructured. You give a prompt, get a result, move
@@ -73,7 +87,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 19 specialized agents, 79 reusable skills, and 28 commands that guide
+It includes 19 specialized agents, 80 reusable skills, and 29 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -152,11 +166,11 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   cross-Claude-family fallback). Each agent has a defined role, capabilities,
   and the stages where it operates.
 
-- **79 reusable skills** — modular knowledge units that agents load on demand,
+- **80 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
-- **28 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone + /dr-quick fast-lane + /dr-wizard interactive task-spec wizard, 3 content (write, edit, publish), 5 framework
+- **29 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone + /dr-quick fast-lane + /dr-wizard interactive task-spec wizard, 3 content (write, edit, publish), 5 framework
   and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), utilities (status, next,
   help), and 2 standalone tools (factcheck, humanize).
 
@@ -405,7 +419,7 @@ involve most of the nineteen agents across different stages.
 | **reflecting** | Post-task reflection: lessons learned, evolution proposals, Class A/B gate | /dr-archive (Step 0.5) |
 
 The table above is a representative sample, not the full catalogue — the
-complete list of all 79 skills is in
+complete list of all 80 skills is in
 [`documentation/reference/skills.md`](documentation/reference/skills.md).
 
 Skills are modular. Each one is a directory containing a `SKILL.md` (plus any
@@ -918,9 +932,9 @@ and why it exists.
 ```
 datarim/
   agents/            # Agent personas (19 agents)
-  skills/            # Knowledge modules (79 skills)
-  commands/          # Slash commands (28 commands)
-  templates/         # Task and document templates (28 templates)
+  skills/            # Knowledge modules (80 skills)
+  commands/          # Slash commands (29 commands)
+  templates/         # Task and document templates (29 templates)
   documentation/              # Extended documentation and use cases
   AGENTS.md          # Framework rules (commands read it from .datarim-runtime/)
   install.sh         # Project installer (see INSTALL.md)

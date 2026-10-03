@@ -58,10 +58,11 @@ Not every task goes through every stage. Datarim routes tasks based on complexit
 | `/dr-plugin` | Manage opt-in plugins: `list`, `enable`, `disable`, `sync`, `doctor`. |
 | `/dr-dream` | Knowledge base maintenance. Organize files, build index, cross-reference documents, flag contradictions, archive stale content. Run periodically or when the knowledge base feels messy. |
 
-### Utility Commands (5)
+### Utility Commands (6)
 
 | Command | Description |
 |---------|-------------|
+| `/dr-explain` | Explain a result or term again in clear Russian by default. Read-only: no tests, code changes, publication, automatic continuation or acceptance. |
 | `/dr-status` | Check current task status, pipeline progress, and backlog summary. Read-only. |
 | `/dr-next` | Resume work from the last checkpoint. Restores context and picks up where you left off. |
 | `/dr-save` | Save the current session state to a handoff file before the context window is lost. |

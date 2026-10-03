@@ -15,7 +15,7 @@
 #      a public-surface prohibition.
 #   2. templates/project-docs-stubs.md ships a secrecy-aware architecture.md
 #      variant whose mechanism sections are [REDACTED — see AGENTS.md § Secrecy].
-#   3. templates/project-claude-md.md carries a conditional ## Secrecy block with a
+#   3. templates/project-agents-md.md carries a conditional ## Secrecy block with a
 #      README-tolerant grep gate (find -name 'README*', NOT a bare grep glob that
 #      errors on absent README — reflection minor-lesson #1).
 #   4. commands/dr-init.md mentions the secrecy signal at the project-init load.
@@ -27,7 +27,7 @@
 REPO_ROOT="${BATS_TEST_DIRNAME}/.."
 SKILL="${REPO_ROOT}/skills/project-init/SKILL.md"
 STUBS="${REPO_ROOT}/templates/project-docs-stubs.md"
-CLAUDE_TMPL="${REPO_ROOT}/templates/project-claude-md.md"
+CLAUDE_TMPL="${REPO_ROOT}/templates/project-agents-md.md"
 DR_INIT="${REPO_ROOT}/commands/dr-init.md"
 
 setup() {
@@ -71,7 +71,7 @@ setup() {
     [ "$status" -eq 0 ]
 }
 
-# ---------- 3. project-claude-md.md — conditional Secrecy block + gate ----------
+# ---------- 3. project-agents-md.md — conditional Secrecy block + gate ----------
 
 @test "project CLAUDE template carries a Secrecy section" {
     run grep -qF '## Secrecy' "${CLAUDE_TMPL}"

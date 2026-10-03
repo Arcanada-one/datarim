@@ -55,7 +55,7 @@ Create the following structure following the **Diátaxis Documentation Taxonomy 
 
 ```
 <project-root>/
-├── AGENTS.md                    # From template: ${DATARIM_RUNTIME:?}/templates/project-claude-md.md
+├── AGENTS.md                    # From template: ${DATARIM_RUNTIME:?}/templates/project-agents-md.md
 ├── .gitignore                   # Standard for detected stack
 │
 ├── documentation/                        # Diátaxis 4-category split (mandate per skills/diataxis-docs/SKILL.md)
@@ -105,7 +105,7 @@ If neither is present, skip this step — the scaffold is unchanged (byte-identi
 
 ### Step 5: Fill AGENTS.md Template
 
-Read `${DATARIM_RUNTIME:?}/templates/project-claude-md.md` and replace placeholders:
+Read `${DATARIM_RUNTIME:?}/templates/project-agents-md.md` and replace placeholders:
 
 | Placeholder | Source |
 |-------------|--------|

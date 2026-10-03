@@ -514,3 +514,7 @@ More: [configure and use Jev](documentation/how-to/configure-and-use-jev.md),
 [Jev CLI reference](documentation/reference/jev-cli.md),
 [multi-runtime details](documentation/how-to/multi-runtime.md),
 [release verification](documentation/how-to/release-verification.md).
+
+## Reporting without a framework installation
+
+Human Outcome Reporting can be installed independently for Claude Code, Codex and Cursor. This does not activate Datarim or install `/dr-*` commands. Use the [standalone installation guide](documentation/how-to/install-human-outcome-reporting.md). Existing Datarim projects receive the reporting policy and `/dr-explain` through a normal project update; their recorded client and Jev options are preserved.

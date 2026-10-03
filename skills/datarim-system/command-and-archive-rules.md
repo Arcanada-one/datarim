@@ -74,7 +74,7 @@ When `/dr-init` detects project-creation intent (English keywords "create projec
 
 1. Load `${DATARIM_RUNTIME:?}/skills/project-init/SKILL.md`.
 2. Create full project structure: `AGENTS.md`, `documentation/`, `documentation/ephemeral/`, `datarim/`, `documentation/archive/`, `.gitignore`.
-3. Fill `AGENTS.md` from template `${DATARIM_RUNTIME:?}/templates/project-claude-md.md` with project-specific placeholders.
+3. Fill `AGENTS.md` from template `${DATARIM_RUNTIME:?}/templates/project-agents-md.md` with project-specific placeholders.
 4. Create doc stubs from template `${DATARIM_RUNTIME:?}/templates/project-docs-stubs.md`.
 5. Detect tech stack via `${DATARIM_RUNTIME:?}/skills/tech-stack/SKILL.md` and apply to templates.
 6. Idempotent: skip existing files, create only what is missing.

@@ -12,6 +12,7 @@ inventory:
   - dr-doctor
   - dr-dream
   - dr-edit
+  - dr-explain
   - dr-help
   - dr-init
   - dr-next
@@ -86,6 +87,7 @@ inventory:
   - fleet/l5-autonomous
   - frontend-ui
   - health-controller-stub-detector
+  - human-outcome-reporting
   - human-summary
   - humanize
   - image-prompting
@@ -147,6 +149,11 @@ inventory:
   - skills/evolution/file-relocation-checklist.md
   - skills/evolution/history-agnostic-gate.md
   - skills/evolution/stack-agnostic-gate.md
+  - skills/human-outcome-reporting/references/data-and-trust.md
+  - skills/human-outcome-reporting/references/datarim.md
+  - skills/human-outcome-reporting/references/domain-language.md
+  - skills/human-outcome-reporting/references/profiles.md
+  - skills/human-outcome-reporting/references/re-explain.md
   - skills/image-prompting/prompt-templates.md
   - skills/publishing/pre-publish-checklist.md
   - skills/publishing/website-publishing.md
@@ -189,12 +196,60 @@ inventory:
   - skills/visual-maps/stage-process-flows.md
   - skills/visual-maps/utility-and-dependencies.md
   - skills/writing-plans/plan-document-reviewer-prompt.md
+  templates:
+  - SECURITY.md
+  - accepted-risk.yml
+  - activeContext-template.md
+  - archive-template.md
+  - backlog-template.md
+  - build-rs-version.rs
+  - classifier-script-template.sh
+  - cli-conflict-resolver-prompt.md
+  - cloudflare-nginx-setup.sh
+  - compliance-report-template.md
+  - coverage-deferral-clause.md
+  - cta-template.md
+  - customer-delivery-receipt-template.yaml
+  - customer-requirements-template.yaml
+  - cutover-runbook-template.md
+  - datarim-config.yaml
+  - deploy-script.md
+  - docker-smoke-checklist.md
+  - documentation-diataxis/explanation/README.md
+  - documentation-diataxis/how-to/README.md
+  - documentation-diataxis/reference/README.md
+  - documentation-diataxis/tutorials/README.md
+  - enabled-plugins.md.template
+  - expectations-template.md
+  - human-outcome-report-template.md
+  - infra-artifact-checklist.md
+  - infra-cost-reduction-checklist.md
+  - insights-template.md
+  - integration-checklist.md
+  - legacy-hardware-probe-checklist.md
+  - module.yaml
+  - plugin.yaml.template
+  - prd-template.md
+  - probe-self-hosted-runner-workflow.yml
+  - project-agents-md.md
+  - project-docs-stubs.md
+  - reflection-template.md
+  - review-evolution-template.yaml
+  - security-deps-upgrade-plan.md
+  - security-workflow.yml
+  - shell-helper-template.sh
+  - task-template.md
+  - version-consistency-fanout-checklist.md
 edges:
 - condition: L3-4 or reductive/ambiguous scope
   from: command:dr-plan
   relation: delegates_to
   source: commands/dr-plan.md
   to: agent:strategist
+- from: agent:architect
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: agent:architect
   relation: loads
   source: agents/architect.md
@@ -221,8 +276,16 @@ edges:
   to: skill:tech-stack
 - from: agent:code-simplifier
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: agent:code-simplifier
+  relation: loads
   source: agents/code-simplifier.md
   to: skill:security
+- from: agent:compliance
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: agent:compliance
   relation: loads
   source: agents/compliance.md
@@ -239,6 +302,10 @@ edges:
   relation: loads
   source: agents/compliance.md
   to: skill:security
+- from: agent:developer
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: agent:developer
   relation: loads
   source: agents/developer.md
@@ -265,6 +332,10 @@ edges:
   to: skill:testing
 - from: agent:devops
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: agent:devops
+  relation: loads
   source: agents/devops.md
   to: skill:datarim-system
 - from: agent:devops
@@ -283,6 +354,14 @@ edges:
   relation: loads
   source: agents/devops.md
   to: skill:testing
+- from: agent:dr-orchestrate-resolver
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: agent:editor
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: agent:editor
   relation: loads
   source: agents/editor.md
@@ -305,12 +384,20 @@ edges:
   to: skill:immutability
 - from: agent:librarian
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: agent:librarian
+  relation: loads
   source: agents/librarian.md
   to: skill:datarim-system
 - from: agent:librarian
   relation: loads
   source: agents/librarian.md
   to: skill:dream
+- from: agent:optimizer
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: agent:optimizer
   relation: loads
   source: agents/optimizer.md
@@ -321,12 +408,20 @@ edges:
   to: skill:evolution
 - from: agent:peer-reviewer
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: agent:peer-reviewer
+  relation: loads
   source: agents/peer-reviewer.md
   to: skill:security
 - from: agent:peer-reviewer
   relation: loads
   source: agents/peer-reviewer.md
   to: skill:self-verification
+- from: agent:planner
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: agent:planner
   relation: loads
   source: agents/planner.md
@@ -349,6 +444,10 @@ edges:
   to: skill:tech-stack
 - from: agent:researcher
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: agent:researcher
+  relation: loads
   source: agents/researcher.md
   to: skill:datarim-system
 - from: agent:researcher
@@ -363,6 +462,14 @@ edges:
   relation: loads
   source: agents/researcher.md
   to: skill:tech-stack
+- from: agent:researcher
+  relation: uses_template
+  source: agents/researcher.md
+  to: template:insights-template.md
+- from: agent:reviewer
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: agent:reviewer
   relation: loads
   source: agents/reviewer.md
@@ -385,6 +492,10 @@ edges:
   to: skill:testing
 - from: agent:security
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: agent:security
+  relation: loads
   source: agents/security.md
   to: skill:compliance
 - from: agent:security
@@ -397,6 +508,10 @@ edges:
   to: skill:security
 - from: agent:skill-creator
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: agent:skill-creator
+  relation: loads
   source: agents/skill-creator.md
   to: skill:datarim-system
 - from: agent:skill-creator
@@ -407,6 +522,10 @@ edges:
   relation: loads
   source: agents/skill-creator.md
   to: skill:writing
+- from: agent:sre
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: agent:sre
   relation: loads
   source: agents/sre.md
@@ -425,8 +544,16 @@ edges:
   to: skill:security
 - from: agent:strategist
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: agent:strategist
+  relation: loads
   source: agents/strategist.md
   to: skill:datarim-system
+- from: agent:tester
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: agent:tester
   relation: loads
   source: agents/tester.md
@@ -447,6 +574,10 @@ edges:
   relation: loads
   source: agents/tester.md
   to: skill:testing
+- from: agent:writer
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: agent:writer
   relation: loads
   source: agents/writer.md
@@ -477,6 +608,10 @@ edges:
   to: agent:skill-creator
 - from: command:dr-addskill
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: command:dr-addskill
+  relation: loads
   source: commands/dr-addskill.md
   to: skill:cta-format
 - from: command:dr-addskill
@@ -487,6 +622,10 @@ edges:
   relation: loads
   source: commands/dr-addskill.md
   to: skill:evolution
+- from: command:dr-archive
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-archive
   relation: loads
   source: commands/dr-archive.md
@@ -539,6 +678,14 @@ edges:
   relation: requires
   source: dev-tools/command-graph.yaml
   to: command:dr-do
+- from: command:dr-archive
+  relation: uses_template
+  source: commands/dr-archive.md
+  to: template:archive-template.md
+- from: command:dr-auto
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-auto
   relation: loads
   source: commands/dr-auto.md
@@ -563,6 +710,10 @@ edges:
   relation: delegates_to
   source: commands/dr-compliance.md
   to: agent:compliance
+- from: command:dr-compliance
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-compliance
   relation: loads
   source: commands/dr-compliance.md
@@ -619,6 +770,14 @@ edges:
   relation: requires
   source: dev-tools/command-graph.yaml
   to: command:dr-qa
+- from: command:dr-compliance
+  relation: uses_template
+  source: commands/dr-compliance.md
+  to: template:compliance-report-template.md
+- from: command:dr-continue
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-continue
   relation: loads
   source: commands/dr-continue.md
@@ -639,6 +798,10 @@ edges:
   relation: delegates_to
   source: commands/dr-design.md
   to: agent:architect
+- from: command:dr-design
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-design
   relation: loads
   source: commands/dr-design.md
@@ -683,6 +846,10 @@ edges:
   relation: delegates_to
   source: commands/dr-do.md
   to: agent:researcher
+- from: command:dr-do
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-do
   relation: loads
   source: commands/dr-do.md
@@ -745,6 +912,10 @@ edges:
   to: agent:planner
 - from: command:dr-doctor
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: command:dr-doctor
+  relation: loads
   source: commands/dr-doctor.md
   to: skill:cta-format
 - from: command:dr-doctor
@@ -765,6 +936,10 @@ edges:
   to: agent:librarian
 - from: command:dr-dream
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: command:dr-dream
+  relation: loads
   source: commands/dr-dream.md
   to: skill:cta-format
 - from: command:dr-dream
@@ -779,6 +954,10 @@ edges:
   relation: delegates_to
   source: commands/dr-edit.md
   to: agent:editor
+- from: command:dr-edit
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-edit
   relation: loads
   source: commands/dr-edit.md
@@ -815,6 +994,22 @@ edges:
   relation: requires
   source: dev-tools/command-graph.yaml
   to: command:dr-write
+- from: command:dr-explain
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: command:dr-explain
+  relation: loads
+  source: commands/dr-explain.md
+  to: skill:datarim-system
+- from: command:dr-explain
+  relation: loads
+  source: commands/dr-explain.md
+  to: skill:human-outcome-reporting
+- from: command:dr-help
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-help
   relation: loads
   source: commands/dr-help.md
@@ -827,6 +1022,10 @@ edges:
   relation: delegates_to
   source: commands/dr-init.md
   to: agent:planner
+- from: command:dr-init
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-init
   relation: loads
   source: commands/dr-init.md
@@ -883,6 +1082,22 @@ edges:
   relation: precedes
   source: dev-tools/command-graph.yaml
   to: command:dr-prd
+- from: command:dr-init
+  relation: uses_template
+  source: commands/dr-init.md
+  to: template:backlog-template.md
+- from: command:dr-init
+  relation: uses_template
+  source: commands/dr-init.md
+  to: template:expectations-template.md
+- from: command:dr-init
+  relation: uses_template
+  source: commands/dr-init.md
+  to: template:task-template.md
+- from: command:dr-next
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-next
   relation: loads
   source: commands/dr-next.md
@@ -905,6 +1120,10 @@ edges:
   to: agent:optimizer
 - from: command:dr-optimize
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: command:dr-optimize
+  relation: loads
   source: commands/dr-optimize.md
   to: skill:cta-format
 - from: command:dr-optimize
@@ -925,6 +1144,10 @@ edges:
   to: agent:dr-orchestrate-resolver
 - from: command:dr-orchestrate
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: command:dr-orchestrate
+  relation: loads
   source: commands/dr-orchestrate.md
   to: skill:context-window-self-clearing
 - from: command:dr-orchestrate
@@ -935,6 +1158,10 @@ edges:
   relation: delegates_to
   source: commands/dr-plan.md
   to: agent:peer-reviewer
+- from: command:dr-plan
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-plan
   relation: loads
   source: commands/dr-plan.md
@@ -1011,14 +1238,38 @@ edges:
   relation: requires
   source: dev-tools/command-graph.yaml
   to: command:dr-init
+- from: command:dr-plan
+  relation: uses_template
+  source: commands/dr-plan.md
+  to: template:infra-cost-reduction-checklist.md
+- from: command:dr-plan
+  relation: uses_template
+  source: commands/dr-plan.md
+  to: template:integration-checklist.md
+- from: command:dr-plan
+  relation: uses_template
+  source: commands/dr-plan.md
+  to: template:security-deps-upgrade-plan.md
 - from: command:dr-plugin
   relation: delegates_to
   source: commands/dr-plugin.md
   to: agent:developer
 - from: command:dr-plugin
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: command:dr-plugin
+  relation: loads
   source: commands/dr-plugin.md
   to: skill:cta-format
+- from: command:dr-plugin
+  relation: uses_template
+  source: commands/dr-plugin.md
+  to: template:enabled-plugins.md.template
+- from: command:dr-plugin
+  relation: uses_template
+  source: commands/dr-plugin.md
+  to: template:plugin.yaml.template
 - from: command:dr-prd
   relation: delegates_to
   source: commands/dr-prd.md
@@ -1027,6 +1278,10 @@ edges:
   relation: delegates_to
   source: commands/dr-prd.md
   to: agent:researcher
+- from: command:dr-prd
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-prd
   relation: loads
   source: commands/dr-prd.md
@@ -1091,10 +1346,22 @@ edges:
   relation: requires
   source: dev-tools/command-graph.yaml
   to: command:dr-init
+- from: command:dr-prd
+  relation: uses_template
+  source: commands/dr-prd.md
+  to: template:insights-template.md
+- from: command:dr-prd
+  relation: uses_template
+  source: commands/dr-prd.md
+  to: template:prd-template.md
 - from: command:dr-publish
   relation: delegates_to
   source: commands/dr-publish.md
   to: agent:writer
+- from: command:dr-publish
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-publish
   relation: loads
   source: commands/dr-publish.md
@@ -1123,6 +1390,10 @@ edges:
   relation: delegates_to
   source: commands/dr-qa.md
   to: agent:reviewer
+- from: command:dr-qa
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-qa
   relation: loads
   source: commands/dr-qa.md
@@ -1197,6 +1468,10 @@ edges:
   to: agent:developer
 - from: command:dr-quick
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: command:dr-quick
+  relation: loads
   source: commands/dr-quick.md
   to: skill:cta-format
 - from: command:dr-quick
@@ -1207,6 +1482,14 @@ edges:
   relation: requires
   source: dev-tools/command-graph.yaml
   to: command:dr-init
+- from: command:dr-quick
+  relation: uses_template
+  source: commands/dr-quick.md
+  to: template:task-template.md
+- from: command:dr-save
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-save
   relation: loads
   source: commands/dr-save.md
@@ -1219,6 +1502,10 @@ edges:
   relation: precedes
   source: dev-tools/command-graph.yaml
   to: command:dr-continue
+- from: command:dr-status
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-status
   relation: loads
   source: commands/dr-status.md
@@ -1237,6 +1524,10 @@ edges:
   to: agent:peer-reviewer
 - from: command:dr-verify
   relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: command:dr-verify
+  relation: loads
   source: commands/dr-verify.md
   to: skill:cta-format
 - from: command:dr-verify
@@ -1247,6 +1538,10 @@ edges:
   relation: requires
   source: dev-tools/command-graph.yaml
   to: command:dr-do
+- from: command:dr-wizard
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-wizard
   relation: loads
   source: commands/dr-wizard.md
@@ -1275,6 +1570,10 @@ edges:
   relation: delegates_to
   source: commands/dr-write.md
   to: agent:writer
+- from: command:dr-write
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-write
   relation: loads
   source: commands/dr-write.md
@@ -1315,6 +1614,14 @@ edges:
   relation: requires
   source: dev-tools/command-graph.yaml
   to: command:dr-init
+- from: command:factcheck
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: command:humanize
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: fragment:skills/datarim-system/backlog-and-routing.md
   relation: loads
   source: skills/datarim-system/backlog-and-routing.md
@@ -1331,6 +1638,14 @@ edges:
   relation: loads
   source: skills/datarim-system/command-and-archive-rules.md
   to: skill:tech-stack
+- from: fragment:skills/datarim-system/command-and-archive-rules.md
+  relation: uses_template
+  source: skills/datarim-system/command-and-archive-rules.md
+  to: template:project-agents-md.md
+- from: fragment:skills/datarim-system/command-and-archive-rules.md
+  relation: uses_template
+  source: skills/datarim-system/command-and-archive-rules.md
+  to: template:project-docs-stubs.md
 - from: fragment:skills/datarim-system/model-assignment.md
   relation: loads
   source: skills/datarim-system/model-assignment.md
@@ -1355,6 +1670,10 @@ edges:
   relation: loads
   source: skills/datarim-system/task-identity-and-context.md
   to: skill:ai-quality
+- from: fragment:skills/datarim-system/task-identity-and-context.md
+  relation: uses_template
+  source: skills/datarim-system/task-identity-and-context.md
+  to: template:activeContext-template.md
 - from: fragment:skills/evolution/dev-tools-pattern.md
   relation: loads
   source: skills/evolution/dev-tools-pattern.md
@@ -1427,6 +1746,18 @@ edges:
   relation: loads
   source: skills/evolution/stack-agnostic-gate.md
   to: skill:tech-stack
+- from: fragment:skills/evolution/stack-agnostic-gate.md
+  relation: uses_template
+  source: skills/evolution/stack-agnostic-gate.md
+  to: template:docker-smoke-checklist.md
+- from: fragment:skills/human-outcome-reporting/references/datarim.md
+  relation: loads
+  source: skills/human-outcome-reporting/references/datarim.md
+  to: skill:human-outcome-reporting
+- from: fragment:skills/human-outcome-reporting/references/datarim.md
+  relation: uses_template
+  source: skills/human-outcome-reporting/references/datarim.md
+  to: template:human-outcome-report-template.md
 - from: fragment:skills/testing/tdd-discipline.md
   relation: loads
   source: skills/testing/tdd-discipline.md
@@ -1447,6 +1778,30 @@ edges:
   relation: loads
   source: skills/utilities/recovery.md
   to: skill:evolution
+- from: fragment:skills/utilities/shell-conventions.md
+  relation: uses_template
+  source: skills/utilities/shell-conventions.md
+  to: template:shell-helper-template.sh
+- from: fragment:skills/visual-maps/framework-architecture.md
+  relation: loads
+  source: skills/visual-maps/framework-architecture.md
+  to: fragment:skills/datarim-system/command-and-archive-rules.md
+- from: fragment:skills/visual-maps/framework-architecture.md
+  relation: loads
+  source: skills/visual-maps/framework-architecture.md
+  to: fragment:skills/datarim-system/task-identity-and-context.md
+- from: fragment:skills/visual-maps/framework-architecture.md
+  relation: loads
+  source: skills/visual-maps/framework-architecture.md
+  to: fragment:skills/evolution/stack-agnostic-gate.md
+- from: fragment:skills/visual-maps/framework-architecture.md
+  relation: loads
+  source: skills/visual-maps/framework-architecture.md
+  to: fragment:skills/human-outcome-reporting/references/datarim.md
+- from: fragment:skills/visual-maps/framework-architecture.md
+  relation: loads
+  source: skills/visual-maps/framework-architecture.md
+  to: fragment:skills/utilities/shell-conventions.md
 - from: fragment:skills/visual-maps/pipeline-routing.md
   relation: loads
   source: skills/visual-maps/pipeline-routing.md
@@ -1483,6 +1838,14 @@ edges:
   relation: loads
   source: skills/compliance/SKILL.md
   to: skill:testing
+- from: skill:compliance
+  relation: uses_template
+  source: skills/compliance/SKILL.md
+  to: template:compliance-report-template.md
+- from: skill:compliance
+  relation: uses_template
+  source: skills/compliance/SKILL.md
+  to: template:coverage-deferral-clause.md
 - from: skill:context-window-self-clearing
   relation: loads
   source: skills/context-window-self-clearing/SKILL.md
@@ -1499,6 +1862,10 @@ edges:
   relation: loads
   source: skills/cta-format/SKILL.md
   to: skill:stage-snapshot-writer
+- from: skill:cta-format
+  relation: uses_template
+  source: skills/cta-format/SKILL.md
+  to: template:cta-template.md
 - from: skill:customer-delivery
   relation: loads
   source: skills/customer-delivery/SKILL.md
@@ -1543,6 +1910,10 @@ edges:
   relation: loads
   source: skills/datarim-system/SKILL.md
   to: skill:evolution
+- from: skill:datarim-system
+  relation: loads
+  source: skills/datarim-system/SKILL.md
+  to: skill:human-outcome-reporting
 - from: skill:datarim-system
   relation: loads
   source: skills/datarim-system/SKILL.md
@@ -1595,6 +1966,10 @@ edges:
   relation: loads
   source: skills/expectations-checklist/SKILL.md
   to: skill:v-ac-axis-split
+- from: skill:file-sync-config
+  relation: uses_template
+  source: skills/file-sync-config/SKILL.md
+  to: template:cli-conflict-resolver-prompt.md
 - from: skill:frontend-ui
   relation: loads
   source: skills/frontend-ui/SKILL.md
@@ -1607,6 +1982,38 @@ edges:
   relation: loads
   source: skills/health-controller-stub-detector/SKILL.md
   to: skill:expectations-checklist
+- from: skill:human-outcome-reporting
+  relation: loads
+  source: skills/human-outcome-reporting/SKILL.md
+  to: fragment:skills/human-outcome-reporting/references/data-and-trust.md
+- from: skill:human-outcome-reporting
+  relation: loads
+  source: skills/human-outcome-reporting/SKILL.md
+  to: fragment:skills/human-outcome-reporting/references/datarim.md
+- from: skill:human-outcome-reporting
+  relation: loads
+  source: skills/human-outcome-reporting/SKILL.md
+  to: fragment:skills/human-outcome-reporting/references/domain-language.md
+- from: skill:human-outcome-reporting
+  relation: loads
+  source: skills/human-outcome-reporting/SKILL.md
+  to: fragment:skills/human-outcome-reporting/references/profiles.md
+- from: skill:human-outcome-reporting
+  relation: loads
+  source: skills/human-outcome-reporting/SKILL.md
+  to: fragment:skills/human-outcome-reporting/references/re-explain.md
+- from: skill:human-summary
+  relation: loads
+  source: skills/human-summary/SKILL.md
+  to: skill:human-outcome-reporting
+- from: skill:human-summary
+  relation: uses_template
+  source: skills/human-summary/SKILL.md
+  to: template:archive-template.md
+- from: skill:human-summary
+  relation: uses_template
+  source: skills/human-summary/SKILL.md
+  to: template:compliance-report-template.md
 - from: skill:immutability
   relation: loads
   source: skills/immutability/SKILL.md
@@ -1619,6 +2026,14 @@ edges:
   relation: loads
   source: skills/immutability/SKILL.md
   to: skill:customer-delivery
+- from: skill:infra-automation
+  relation: uses_template
+  source: skills/infra-automation/SKILL.md
+  to: template:infra-artifact-checklist.md
+- from: skill:infra-automation
+  relation: uses_template
+  source: skills/infra-automation/SKILL.md
+  to: template:infra-cost-reduction-checklist.md
 - from: skill:init-task-persistence
   relation: loads
   source: skills/init-task-persistence/SKILL.md
@@ -1631,6 +2046,10 @@ edges:
   relation: loads
   source: skills/init-task-persistence/SKILL.md
   to: skill:stage-snapshot-writer
+- from: skill:init-task-persistence
+  relation: uses_template
+  source: skills/init-task-persistence/SKILL.md
+  to: template:archive-template.md
 - from: skill:playwright-qa
   relation: loads
   source: skills/playwright-qa/SKILL.md
@@ -1647,6 +2066,34 @@ edges:
   relation: loads
   source: skills/project-init/SKILL.md
   to: skill:tech-stack
+- from: skill:project-init
+  relation: uses_template
+  source: skills/project-init/SKILL.md
+  to: template:backlog-template.md
+- from: skill:project-init
+  relation: uses_template
+  source: skills/project-init/SKILL.md
+  to: template:documentation-diataxis/explanation/README.md
+- from: skill:project-init
+  relation: uses_template
+  source: skills/project-init/SKILL.md
+  to: template:documentation-diataxis/how-to/README.md
+- from: skill:project-init
+  relation: uses_template
+  source: skills/project-init/SKILL.md
+  to: template:documentation-diataxis/reference/README.md
+- from: skill:project-init
+  relation: uses_template
+  source: skills/project-init/SKILL.md
+  to: template:documentation-diataxis/tutorials/README.md
+- from: skill:project-init
+  relation: uses_template
+  source: skills/project-init/SKILL.md
+  to: template:project-agents-md.md
+- from: skill:project-init
+  relation: uses_template
+  source: skills/project-init/SKILL.md
+  to: template:project-docs-stubs.md
 - from: skill:reflecting
   relation: loads
   source: skills/reflecting/SKILL.md
@@ -1671,6 +2118,14 @@ edges:
   relation: loads
   source: skills/reflecting/SKILL.md
   to: skill:testing
+- from: skill:reflecting
+  relation: uses_template
+  source: skills/reflecting/SKILL.md
+  to: template:reflection-template.md
+- from: skill:research-workflow
+  relation: uses_template
+  source: skills/research-workflow/SKILL.md
+  to: template:insights-template.md
 - from: skill:security
   relation: loads
   source: skills/security/SKILL.md
@@ -1683,6 +2138,14 @@ edges:
   relation: loads
   source: skills/security/SKILL.md
   to: skill:security-baseline
+- from: skill:security
+  relation: uses_template
+  source: skills/security/SKILL.md
+  to: template:cutover-runbook-template.md
+- from: skill:security
+  relation: uses_template
+  source: skills/security/SKILL.md
+  to: template:security-deps-upgrade-plan.md
 - from: skill:security-baseline
   relation: loads
   source: skills/security-baseline/SKILL.md
@@ -1711,6 +2174,18 @@ edges:
   relation: loads
   source: skills/security-baseline/SKILL.md
   to: skill:self-verification
+- from: skill:security-baseline
+  relation: uses_template
+  source: skills/security-baseline/SKILL.md
+  to: template:cloudflare-nginx-setup.sh
+- from: skill:security-baseline
+  relation: uses_template
+  source: skills/security-baseline/SKILL.md
+  to: template:security-deps-upgrade-plan.md
+- from: skill:security-baseline
+  relation: uses_template
+  source: skills/security-baseline/SKILL.md
+  to: template:security-workflow.yml
 - from: skill:self-verification
   relation: loads
   source: skills/self-verification/SKILL.md
@@ -1759,6 +2234,14 @@ edges:
   relation: loads
   source: skills/tech-stack/SKILL.md
   to: skill:security-baseline
+- from: skill:testing
+  relation: uses_template
+  source: skills/testing/SKILL.md
+  to: template:docker-smoke-checklist.md
+- from: skill:utilities
+  relation: uses_template
+  source: skills/utilities/SKILL.md
+  to: template:shell-helper-template.sh
 - from: skill:verification-before-completion
   relation: loads
   source: skills/verification-before-completion/SKILL.md

@@ -23,15 +23,22 @@ def refs(text, kind):
     return sorted(set(re.findall(pat,text)))
 def load():
     commands=names('commands/*.md'); agents=names('agents/*.md'); skills=skill_names()
-    cg=yaml.safe_load((ROOT/'dev-tools/command-graph.yaml').read_text())['commands']
+    templates=sorted(str(p.relative_to(ROOT/'templates')) for p in (ROOT/'templates').rglob('*') if p.is_file())
+    declarations=yaml.safe_load((ROOT/'dev-tools/command-graph.yaml').read_text())
+    cg=declarations['commands']
+    always=declarations.get('always_load_skills', [])
     edges=[]; broken=[]
     for c in commands:
+        for s in always:
+            (edges if s in skills else broken).append({'from':f'command:{c}','relation':'loads','to':f'skill:{s}','source':'AGENTS.md'})
         text=(ROOT/'commands'/f'{c}.md').read_text(errors='replace')
         for a in refs(text,'agent'):
             (edges if a in agents else broken).append({'from':f'command:{c}','relation':'delegates_to','to':f'agent:{a}','source':f'commands/{c}.md'})
         for s in refs(text,'skill'):
             (edges if s in skills else broken).append({'from':f'command:{c}','relation':'loads','to':f'skill:{s}','source':f'commands/{c}.md'})
     for a in agents:
+        for s in always:
+            (edges if s in skills else broken).append({'from':f'agent:{a}','relation':'loads','to':f'skill:{s}','source':'AGENTS.md'})
         text=(ROOT/'agents'/f'{a}.md').read_text(errors='replace')
         for s in refs(text,'skill'):
             (edges if s in skills else broken).append({'from':f'agent:{a}','relation':'loads','to':f'skill:{s}','source':f'agents/{a}.md'})
@@ -48,6 +55,18 @@ def load():
             edge = {'from': 'skill:'+str(path.parent.relative_to(ROOT/'skills')) if path.name == 'SKILL.md' else 'fragment:'+source,
                     'relation': 'loads', 'to': node, 'source': source}
             (edges if full.is_file() and full.resolve().is_relative_to(ROOT.resolve()) else broken).append(edge)
+    # Templates are real runtime dependencies, not a separate decorative catalog.
+    # Extract references from all instruction sources and connect the full asset
+    # inventory. Match known names so punctuation/prose cannot become a path.
+    sources = [(ROOT/'commands'/f'{c}.md', 'command:'+c) for c in commands]
+    sources += [(ROOT/'agents'/f'{a}.md', 'agent:'+a) for a in agents]
+    sources += [(p, 'skill:'+str(p.parent.relative_to(ROOT/'skills')) if p.name=='SKILL.md' else 'fragment:'+str(p.relative_to(ROOT))) for p in (ROOT/'skills').rglob('*.md') if p not in (MAP,CMDMAP)]
+    sources += [(ROOT/'templates'/n, 'template:'+n) for n in templates if n.endswith(('.md','.sh','.yml','.yaml','.template'))]
+    for path, node in sources:
+        text=path.read_text(errors='replace')
+        for target in templates:
+            if re.search(r'(?<!datarim/)templates/'+re.escape(target)+r'(?![A-Za-z0-9._/-])', text):
+                edges.append({'from':node,'relation':'uses_template','to':'template:'+target,'source':str(path.relative_to(ROOT))})
     # Declared delegation conditions annotate the derived command->agent edge.
     # The edge itself comes from the explicit reference in the command file; the
     # condition cannot be derived from a reference, so it is declared.
@@ -61,12 +80,22 @@ def load():
         for p in meta.get('precedes',[]): edges.append({'from':f'command:{c}','relation':'precedes','to':f'command:{p}','source':'dev-tools/command-graph.yaml'})
     edges=sorted({(e['from'],e['relation'],e['to'],e['source']):json.dumps(e,sort_keys=True) for e in edges}.values())
     edges=[json.loads(e) for e in edges]
-    return {'schema_version':2,'generated':True,'inventory':{'commands':commands,'agents':agents,'skills':skills,'fragments':fragments},'edges':edges,'broken_references':broken}
+    return {'schema_version':2,'generated':True,'inventory':{'commands':commands,'agents':agents,'skills':skills,'fragments':fragments,'templates':templates},'edges':edges,'broken_references':broken}
 def validate(g):
     errs=[]; inv=g['inventory']; cg=yaml.safe_load((ROOT/'dev-tools/command-graph.yaml').read_text())['commands']
+    declarations=yaml.safe_load((ROOT/'dev-tools/command-graph.yaml').read_text())
+    global_path=ROOT/'AGENTS.md'
+    global_rules=global_path.read_text() if global_path.is_file() else ''
+    for skill in declarations.get('always_load_skills', []):
+        if f'skills/{skill}/SKILL.md' not in global_rules:
+            errs.append(f'always-loaded skill is not declared in AGENTS.md: {skill}')
     disk=set(inv['commands']); declared=set(cg)
     if disk!=declared: errs.append(f'command inventory drift: files-only={sorted(disk-declared)} graph-only={sorted(declared-disk)}')
     if g['broken_references']: errs += ['broken reference: '+str(x) for x in g['broken_references']]
+    nodes={kind+':'+name for kind,items in [('command',inv['commands']),('agent',inv['agents']),('skill',inv['skills']),('fragment',inv['fragments']),('template',inv['templates'])] for name in items}
+    for edge in g['edges']:
+        if edge['from'] not in nodes or edge['to'] not in nodes:
+            errs.append('edge references unknown node: '+str(edge))
     for skill in inv['skills']:
         text=(ROOT/'skills'/skill/'SKILL.md').read_text()
         parts=text.split('---',2)
@@ -86,7 +115,7 @@ def render(g):
     inv=g['inventory']; edges=g['edges']
     ca=[e for e in edges if e['relation']=='delegates_to']; ask=[e for e in edges if e['from'].startswith('agent:') and e['relation']=='loads']
     def id_(x): return re.sub(r'[^A-Za-z0-9_]','_',x)
-    out=['# Framework Architecture — Generated Map','', '> **GENERATED FILE. DO NOT EDIT.** Source: repository inventory + `dev-tools/command-graph.yaml` + explicit references in commands/agents. Regenerate with `python3 dev-tools/framework-graph.py --write`.','',f"Inventory: **{len(inv['commands'])} commands · {len(inv['agents'])} agents · {len(inv['skills'])} skills**.",'','## Command → Agent graph','','```mermaid','graph LR']
+    out=['# Framework Architecture — Generated Map','', '> **GENERATED FILE. DO NOT EDIT.** Source: repository inventory + `dev-tools/command-graph.yaml` + explicit references in commands/agents. Regenerate with `python3 dev-tools/framework-graph.py --write`.','',f"Inventory: **{len(inv['commands'])} commands · {len(inv['agents'])} agents · {len(inv['skills'])} skills · {len(inv['templates'])} template assets**.",'','## Command → Agent graph','','```mermaid','graph LR']
     for e in ca:
         arrow = f'-.->|"{e["condition"]}"|' if e.get('condition') else '-->'
         out.append(f"    C_{id_(e['from'][8:])}[\"/{e['from'][8:]}\"] {arrow} A_{id_(e['to'][6:])}[\"{e['to'][6:]}\"]")
@@ -94,6 +123,9 @@ def render(g):
     out += ['```','','## Agent → Skill graph','','```mermaid','graph LR']
     for e in ask: out.append(f"    A_{id_(e['from'][6:])}[\"{e['from'][6:]}\"] --> S_{id_(e['to'][6:])}[\"{e['to'][6:]}\"]")
     out += ['```','','## Complete inventory','','### Commands','',', '.join(f'`/{x}`' for x in inv['commands']),'','### Agents','',', '.join(f'`{x}`' for x in inv['agents']),'','### Skills','',', '.join(f'`{x}`' for x in inv['skills']),'']
+    out += ['## Template dependencies', '', '| Consumer | Template |', '|----------|----------|']
+    out += [f"| `{e['from']}` | `{e['to'][9:]}` |" for e in edges if e['relation']=='uses_template']
+    out += ['', '### Template assets', '', ', '.join(f'`{x}`' for x in inv['templates']), '']
     return '\n'.join(out)
 def render_cmd(g):
     cg=yaml.safe_load((ROOT/'dev-tools/command-graph.yaml').read_text())['commands']

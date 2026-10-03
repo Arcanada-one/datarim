@@ -183,7 +183,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
         On `hard_block` the verifier failure is non-overridable; on
         `advisory_warn` the operator MAY override with `--skip-exposure-gate`,
         which MUST emit an Ops Bot event:
-        `POST https://ops.arcanada.ai/events` with
+        `POST https://ops.example.invalid/events` with
         `{category: warning, agent: dr-do, task: {TASK-ID}, body: "network-exposure-gate skipped"}`
         and a one-line note in
         `datarim/tasks/{TASK-ID}-task-description.md` § Decisions explaining

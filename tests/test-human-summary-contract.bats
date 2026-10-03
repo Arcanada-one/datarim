@@ -92,16 +92,20 @@ CMD_ARCHIVE="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
 }
 
 # 13
-@test "skill declares length budget 150-400 words" {
-    run grep -E "150.{0,3}400" "$SKILL"
+@test "skill preserves completeness without a hard word cap" {
+    run grep -F "no hard word cap" "$SKILL"
     [ "$status" -eq 0 ]
+    run grep -E "Hard upper bound|compress aggressively|drop detail; never extend" "$SKILL"
+    [ "$status" -ne 0 ]
 }
 
 # 14
-@test "all three commands carry the exact total-budget wording" {
-    # Parity guard: skill says "total across the four sub-sections" — every
-    # consumer command must restate the same scope so operators do not read
-    # 150-400 as per-sub-section.
+@test "all three commands carry the completeness-first policy" {
+    # Each consumer must retain the no-cap policy across all four sections.
+    for command in "$CMD_QA" "$CMD_COMPLIANCE" "$CMD_ARCHIVE"; do
+        run grep -F "no hard word cap" "$command"
+        [ "$status" -eq 0 ]
+    done
     run grep -F "total across the four sub-sections" "$CMD_QA"
     [ "$status" -eq 0 ]
     run grep -F "total across the four sub-sections" "$CMD_COMPLIANCE"
