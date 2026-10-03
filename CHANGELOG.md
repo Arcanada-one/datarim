@@ -4,6 +4,12 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.2.1] — 2026-10-03
+
+### Fixed
+
+- Replace a remaining private consumer identity in a negative preflight test with a generic unregistered example. The reporting skill, command semantics and artifact inventory are unchanged. This corrects the current release source; historical Git objects and older uploaded archives require a separate migration.
+
 ## [4.2.0] — 2026-10-03
 
 ### Added

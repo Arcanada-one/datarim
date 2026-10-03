@@ -40,9 +40,10 @@ not establish an executable attestation pipeline.
 > re-verifies in CI and routes a `major` bump to the `release-manual` environment
 > (operator approval). `major` and any `0.x` breaking change always escalate. See
 > `documentation/how-to/version-0x-policy.md` and the consumer mandate
-> `documentation/mandates/autonomous-agents.md` § Carve-out. The manual steps
-> below remain the operator path for major releases and for any release the agent
-> escalates.
+> `documentation/mandates/autonomous-agents.md` § Carve-out. When a new VERSION is waiting for main tag parity, the measured tag-admission
+> sequence below may also run autonomously for patch/minor releases. Do not claim
+> native release-gate CI admission or fabricate an evidence hook while main CI is
+> pending. Major releases and any escalation retain their existing authority gates.
 
 ### Measured autonomous gate evidence
 
@@ -82,10 +83,17 @@ release or pushes unrelated local tags.
 
 ## Pre-flight (manual, fail-closed)
 
-1. `main` is green on all required checks.
+1. The release PR is green on all required checks at its exact head. After merge,
+   the clean resulting `main` tree must exactly match that tested tree. A new
+   signed source tag can then be prepared; package publication separately requires
+   all latest resulting-main checks, including VERSION/tag parity, to be green.
 2. `pre-commit run --all-files` is clean locally.
 3. `bats tests/` is fully green.
-4. `gitleaks detect --redact` finds nothing new.
+4. `gitleaks detect --redact` finds nothing new. Independently check current source,
+   fixtures, prepared archives and website content against the complete protected
+   identifier inventory, plus a semantic review of unrelated names. A narrow pattern
+   scan does not replace this review; never commit or publish the private match list.
+   Current-source privacy does not establish clean historical Git objects or uploads.
 5. The release branch / commit has independent review evidence; any configured
    `CODEOWNERS` approval requirement is satisfied.
 6. The `VERSION` file matches the intended tag (without the leading
@@ -115,7 +123,13 @@ Wait for required checks and code-owner approval, then merge.
 
 ### 2. Tag
 
-After merge, on a clean `main`:
+After merge, verify the exact tested-PR/resulting-main tree match and use a clean
+`main`. Pushing the signed tag publishes a source ref and generated archives; it
+does not publish the signed package release. Record pending main CI truthfully.
+The parity check needs this tag within its documented wait window. If subsequent
+main checks fail, do not dispatch release publication or move the prepared tag.
+
+On that admitted source:
 
 ```bash
 git checkout main
@@ -161,7 +175,10 @@ Accepted suffixes: `-rc<N>`, `-alpha<N>`, `-beta<N>`, `-test<N>`.
 
 ### 3. Dispatch the trusted-main pipeline
 
-Pushing the tag alone does not publish. Dispatch `.github/workflows/release.yml`
+Pushing the tag alone does not publish signed release packages. Before dispatch,
+require every latest required workflow at the exact resulting-main SHA to finish
+successfully, including VERSION/tag parity. Reconfirm the remote main identity,
+tag signature and peeled SHA. Then dispatch `.github/workflows/release.yml`
 from protected `main` and pass the signed tag as data:
 
 ```bash
