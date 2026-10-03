@@ -118,7 +118,28 @@ main() {
     [ "$(resolve_manifest_version "$repo")" = "$version" ] || die_gate 'G0 manifest version mismatch; bump manifest and CHANGELOG before tagging'
     [ "$(git -C "$repo" branch --show-current)" = "$allow_branch" ] || die_gate 'G4 release branch mismatch'
     [ "$(git -C "$repo" ls-remote origin "refs/heads/$allow_branch" | awk '{print $1}')" = "$source_sha" ] || die_gate 'Remote release branch does not match exact source SHA'
-    grep -rq 'attest-build-provenance' "$repo/.github/workflows/" || die_gate 'G3 attested release pipeline absent'
+    python3 - "$repo/.github/workflows" <<'PYG3' || die_gate 'G3 executable pinned attestation step absent or workflow validation unavailable'
+from pathlib import Path
+import re,sys
+try:
+    import yaml
+    found=False
+    for p in Path(sys.argv[1]).glob('*.y*ml'):
+        value=yaml.safe_load(p.read_text())
+        if not isinstance(value,dict):continue
+        jobs=value.get('jobs',{})
+        if not isinstance(jobs,dict):continue
+        for job in jobs.values():
+            if not isinstance(job,dict):continue
+            steps=job.get('steps',[])
+            if not isinstance(steps,list):continue
+            for step in steps:
+                if isinstance(step,dict) and isinstance(step.get('uses'),str):
+                    found |= bool(re.fullmatch(r'actions/attest-build-provenance@[0-9a-f]{40}',step['uses']))
+    sys.exit(0 if found else 1)
+except (ImportError,OSError,ValueError,yaml.YAMLError if 'yaml' in globals() else ValueError):
+    sys.exit(1)
+PYG3
     [ -f "${GATE_SMOKE_PROBE:-}" ] && [ -x "$GATE_SMOKE_PROBE" ] || die_gate 'G7 measured smoke hook required before publication'
     [ -n "$(git -C "$repo" config user.signingkey || true)" ] || die_gate 'Signed release tag requires a configured signing key'
     scratch="$(mktemp -d)";trap 'rm -rf -- "${scratch:?}"' EXIT

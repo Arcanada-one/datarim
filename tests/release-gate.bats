@@ -2,6 +2,7 @@
 # Synthetic gate observations test admission logic. Tag signatures and remote
 # pushes are real: ephemeral SSH signer, allowed signers, and local bare origin.
 setup() {
+    export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
     SCRIPT="${BATS_TEST_DIRNAME}/../dev-tools/release-gate.sh"
     TEST_ROOT="$(mktemp -d)";REPO="$TEST_ROOT/repo";ORIGIN="$TEST_ROOT/origin.git"
     git init -q -b main "$REPO";git init -q --bare "$ORIGIN"
@@ -11,7 +12,7 @@ setup() {
     git -C "$REPO" config tag.gpgsign false
     printf '0.6.4\n' > "$REPO/VERSION"
     mkdir -p "$REPO/.github/workflows"
-    printf 'jobs:\n  release:\n    steps:\n      - uses: actions/attest-build-provenance@fixture\n' > "$REPO/.github/workflows/release.yml"
+    printf 'jobs:\n  release:\n    steps:\n      - uses: actions/attest-build-provenance@1111111111111111111111111111111111111111\n' > "$REPO/.github/workflows/release.yml"
     git -C "$REPO" add VERSION .github;git -C "$REPO" commit -q -m 'fix: fixture baseline'
     git -C "$REPO" tag v0.6.3
     git -C "$REPO" commit -q --allow-empty -m 'fix: release fixture'
@@ -178,4 +179,11 @@ PY
     _run_gate;[ "$status" -eq 1 ];! _tag_exists 0.6.4
     unset TEST_CI_WRONG_SHA
     _run_gate 0.6.4 --dry-run;[ "$status" -eq 0 ]
+}
+
+@test 'comment or shell text naming attestation never substitutes for an executable action' {
+    printf 'jobs:\n  release:\n    steps:\n      - run: |\n          # actions/attest-build-provenance@1111111111111111111111111111111111111111\n          uses: actions/attest-build-provenance@1111111111111111111111111111111111111111\n' > "$REPO/.github/workflows/release.yml"
+    _commit
+    _run_gate
+    [ "$status" -ne 0 ];! _tag_exists 0.6.4;! _remote_tag 0.6.4
 }

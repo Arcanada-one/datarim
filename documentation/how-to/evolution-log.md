@@ -2328,3 +2328,16 @@ run — see PR body for the pass/fail count captured at PR-open time.
 **Superseded on main (deliberately NOT re-landed):** batch-A task-id-gate rules/-segment yaml scan + T18-T21 (main scans *.yaml/*.sh/*.template everywhere — broader; T20 would contradict it) and fb-rules shim-test slimming (shim deleted, `test-fb-rules-core-resolution.bats` replaced it); batch-C TUNE-0355 milestone-regex tightening + its two lint cases (main dropped `Phase` from the pattern entirely — the batch's `Phase2 → exit 1` case would redden main's design) and the `/dr-qa` Deferred-Items table (already on main); batch-D release.yml env-drop + `check-release-env-gate.bats` (main kept `release-auto` and made its policy settings-as-code: `.github/environments-policy.yml` + `provision-release-env.sh` + drift check), `rename-task-prefix.sh` + bats (main ships the evolved TUNE-0368 homograph-protecting tool, #305 — the batch's older contract fails against it), dr-doctor Step-2.4 citations, dr-edit source-count restatement (main defers to factcheck by pointer), fragment fact-verified-creative exemption (main carries the richer vetted-creative-docs text), and the `security` short-form type (already in gate + skill).
 
 **Verification:** targeted bats suites green (see PR); task-id-gate + stack-agnostic gate on touched shipped files; actionlint/yaml parse on touched workflows.
+
+### 2026-10-03 — Human-readable outcomes and standalone distribution (4.2.0)
+
+One reporting policy now connects native commands, agents, schemas and templates.
+The standalone installer uses native client discovery without enabling the workflow
+in unrelated projects. `/dr-explain` reads existing evidence without resuming work.
+The introductory surfaces expose orchestration, autonomous execution, the quick
+task path and JEV advice together. Graph and template checks cover those links.
+Release admission now binds evidence to exact source, verifies a signed tag and
+confirms the one remote tag; publication and install smoke still require actual
+observations. See [the reporting guide](../human-reporting/README.md),
+[standalone installation](install-human-outcome-reporting.md), and
+[the release playbook](release-process.md).

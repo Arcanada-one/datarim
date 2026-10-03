@@ -4,6 +4,10 @@ This document describes how to cut a signed, attested release. The
 consumer-facing verification recipe lives in
 [`release-verification.md`](release-verification.md).
 
+The maintainer release gate needs Python 3 with PyYAML to inspect actual pinned
+attestation steps. Missing YAML support fails closed; comments or shell text do
+not establish an executable attestation pipeline.
+
 ## Roles
 
 - **Release engineer** — runs the release. By default this is a member
