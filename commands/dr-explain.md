@@ -1,10 +1,12 @@
 ---
 name: dr-explain
 description: Re-explain a task outcome or term in clear language without executing work, changing facts, or accepting the result.
-disable-model-invocation: true
 ---
 
 # /dr-explain - Explain the result again
+
+Use this command when the user requests a clearer explanation. It preserves facts
+and reads existing evidence; it never resumes task execution.
 
 Load `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` and
 `${DATARIM_RUNTIME:?}/skills/human-outcome-reporting/SKILL.md`.

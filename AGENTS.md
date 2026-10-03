@@ -5,6 +5,15 @@
 > **Multi-runtime:** `AGENTS.md` is the sole project-instruction format. Install this framework only inside an explicitly enabled project. Codex, Claude Code, and Cursor use their native AGENTS loaders; no alternate instruction files or import adapters are installed. See `documentation/reference/jev-cli.md` for client requirements.
 > **Installing Datarim?** This file holds the framework's runtime rules, which the `/dr-*` commands load after installation; it is not an install guide. To install Datarim (and optionally Jev) into a project, follow `INSTALL.md` at the root of the source repository (https://github.com/Arcanada-one/datarim/blob/main/INSTALL.md), including its section for AI agents. Do not install into, or start task work in, the Datarim source checkout.
 
+## Primary entry points
+
+Use `/dr-auto` for autonomous stage selection and execution, `/dr-orchestrate` to
+coordinate agents (terminal transport is an optional plugin), and `/dr-quick` for
+tiny edits or lookups without the full lifecycle. Quick edits keep acceptance
+evidence and closure checks. JEV advises model tier and reasoning effort; it does
+not switch a running model or grant permission. The full autonomous route ends
+after passing compliance and reflection; final archive remains separate.
+
 ## CLI-Agent Models and Versions
 
 The canonical model, effort, and CLI-version policy is

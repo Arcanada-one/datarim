@@ -20,6 +20,9 @@ It exists because free-form Next-Step prose forces operators to mentally map tas
 
 If a command intentionally produces no actionable next step (for example `/dr-help`, `/dr-status` in read-only mode), it MUST still emit a CTA block listing pipeline-entry commands.
 
+`/dr-explain` is a presentation-only exception: answer the requested question and
+preserve machine formats; do not append an execution CTA or invent a task header.
+
 ## Stage Header (canonical for /dr-* responses)
 
 Every task-scoped `/dr-*` command and CTA-emitting agent MUST begin its operator-visible response with a one-line **Stage Header** (the `**{TASK-ID} · {title}**` banner emitted at the start of every pipeline command) so the operator can immediately tell which task the output belongs to. The header sits at the *opposite* end of the response from the CTA block: CTA = footer (what to do next), Stage Header = banner (what we are working on right now). Operators may run 40+ concurrent tasks; without the header, multi-task context is ambiguous.
@@ -52,6 +55,7 @@ The following commands and contexts MUST NOT emit a Stage Header:
 | Command | Rationale | Handling |
 |---------|-----------|----------|
 | `/dr-help` | No single-task context. | Skip the header entirely. |
+| `/dr-explain` | Read-only re-explanation, potentially no task context. | Skip the header entirely. |
 | `/dr-status` | Multi-task list; the command itself prints every ID. | Skip the header entirely. |
 | `/dr-doctor` | Framework operation, not task-scoped. | Skip the header entirely. |
 | `/dr-init` (Steps 1-3, pre-ID) | TASK-ID is not yet assigned. | Emit the header on the first line *after* Step 4 completes (once the TASK-ID has been determined). |

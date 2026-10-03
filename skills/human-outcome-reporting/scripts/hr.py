@@ -430,10 +430,11 @@ def analyse(contract: dict, report: dict, evidence_root: Path | None = None,
     return result
 
 # Heuristic language checks are not a security boundary or grammar parser.
-SECRET_PATTERNS = [
+# These constants are match rules and replacement labels, never credential values.
+REDACTION_RULES = [
     (r'-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----', '[СЕКРЕТ УДАЛЁН]'),
     (r'(?i)\b(authorization\s*:\s*bearer)\s+[^\s,;]+', r'\1 [СЕКРЕТ УДАЛЁН]'),
-    (r'(?i)\b((?:api[_-]?key|access[_-]?token|password|secret|codexpro_token)\s*[=:]\s*)[^\s,;&]+', r'\1[СЕКРЕТ УДАЛЁН]'),
+    (r'(?i)\b((?:api[_-]?key|access[_-]?token|password|secret|[a-z][a-z0-9_]*_token)\s*[=:]\s*)[^\s,;&]+', r'\1[СЕКРЕТ УДАЛЁН]'),
     (r'\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,})\b', '[СЕКРЕТ УДАЛЁН]'),
 ]
 POINTER_PATTERNS = [
@@ -445,7 +446,7 @@ POINTER_PATTERNS = [
 ]
 
 def redact(text: str) -> str:
-    for pattern, replacement in SECRET_PATTERNS:
+    for pattern, replacement in REDACTION_RULES:
         text = re.sub(pattern, replacement, text, flags=re.DOTALL)
     return text
 

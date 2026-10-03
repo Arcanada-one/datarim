@@ -1,5 +1,7 @@
 # Installing Datarim
 
+After project setup, choose [autonomous staged execution (`/dr-auto`)](commands/dr-auto.md), [agent orchestration (`/dr-orchestrate`)](commands/dr-orchestrate.md), or [quick small tasks (`/dr-quick`)](commands/dr-quick.md). [JEV](documentation/tutorials/initialize-datarim-with-jev.md) advises the model and reasoning effort when configured. The fast lane keeps acceptance evidence and closure checks; the full autonomous route ends at passing compliance and reflection, with final archive separate.
+
 **AI agents: run `./install.sh --project <path>` first and relay the questions it prints to the user; rerun with their answers and the token the installer printed. It refuses a fresh install without them.** The steps are in
 [If you are an AI agent](#if-you-are-an-ai-agent-asked-to-install-datarim).
 

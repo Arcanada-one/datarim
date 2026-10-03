@@ -1,6 +1,6 @@
 ---
 name: human-outcome-reporting
-description: Explain task progress and product outcomes for a new human reader, with requirement-to-plan-to-evidence traceability, honest acceptance status, scoped terminology, and read-only re-explanation. Apply to every human-facing Datarim response, not machine protocols.
+description: Explain human-facing task outcomes with requirements, evidence, honest acceptance status and read-only re-explanation, inside or outside Datarim.
 current_aal: 1
 target_aal: 2
 license: MIT

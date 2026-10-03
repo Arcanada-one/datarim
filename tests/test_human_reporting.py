@@ -210,7 +210,8 @@ def test_native_policy_and_manual_explanation():
     assert 'skills/human-outcome-reporting/SKILL.md' in (ROOT/'AGENTS.md').read_text()
     assert 'human-outcome-reporting/SKILL.md' in (ROOT/'skills/datarim-system/SKILL.md').read_text()
     command=(ROOT/'commands/dr-explain.md').read_text()
-    assert 'Read-only:' in command and 'disable-model-invocation: true' in command
+    assert 'Read-only:' in command and 'it never resumes task execution' in command
+    assert 'disable-model-invocation: true' not in command  # Native framework autonomy contract.
     for phrase in ('no code edits','tests','glossary','acceptance','machine formats'):
         assert phrase in command
     assert 'human-outcome-reporting/SKILL.md' in (ROOT/'skills/human-summary/SKILL.md').read_text()

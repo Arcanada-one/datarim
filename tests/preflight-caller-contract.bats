@@ -304,7 +304,7 @@ assert_rejected() {
 
 @test "Ops Bot endpoint must be the explicit canonical URL" {
     local replacement
-    for replacement in '' 'https://ops.example.invalid/events' '${{ vars.OPSBOT_URL }}'; do
+    for replacement in '' 'https://other-ops.example.invalid/events' '${{ vars.OPSBOT_URL }}'; do
         VALUE="$replacement" yq -i '.jobs.deploy.steps[0].with."ops-bot-url" = strenv(VALUE)' "$WORKFLOW"
         assert_rejected ".jobs.deploy.steps.with.ops-bot-url" || return 1
         restore_fixture

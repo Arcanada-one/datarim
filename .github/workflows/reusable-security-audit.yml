@@ -114,7 +114,7 @@ jobs:
       # INFRA-0364.
       - name: Setup Rust toolchain (rust_cargo profile only)
         if: inputs.stack == 'rust_cargo'
-        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
 
       # Brings node AND corepack into the runner tool cache, so the corepack
       # shim trick below works on a host that ships neither.

@@ -8,12 +8,13 @@
 
 **Website:** [datarim.club](https://datarim.club) — releases, changelog, and the full command/skill/agent catalogue.
 
-Datarim coordinates AI agents, takes tasks through their required stages autonomously, and uses JEV classification to advise the model and reasoning effort. It works with Claude Code, Codex and Cursor.
+Datarim coordinates AI agents, takes tasks through their required stages autonomously, offers a fast lane for small tasks, and uses JEV classification to advise the model and reasoning effort. It works with Claude Code, Codex and Cursor.
 
 | Main capability | What it does for you | Start here |
 |-----------------|----------------------|------------|
 | **Agent orchestration** | Coordinates stage specialists, checkpoints and feedback instead of requiring you to run each step. The optional transport plugin also drives terminal sessions and keeps an audit trail. | [`/dr-orchestrate`](commands/dr-orchestrate.md) and [orchestration setup](plugins/dr-orchestrate/README.md) |
 | **Autonomous execution** | `/dr-auto` starts from your brief or resumes a task, selects the next stage, delegates work, checks results and continues through passing compliance and reflection. Final archive remains a separate step. | [`/dr-auto "Describe the outcome you need"`](commands/dr-auto.md) |
+| **Quick task execution** | `/dr-quick` handles tiny edits and lookups without the full requirements, planning, design, QA and compliance cycle. Changes still require acceptance evidence and confirmation that they reached the shared main branch; larger work returns to the full workflow. | [`/dr-quick "Describe the small task"`](commands/dr-quick.md) |
 | **JEV model classification** | Classifies the task and advises a model tier and reasoning effort; its separate deterministic safety floor checks commands. Routing advice needs a JEV key, while the safety floor works without one. | [`jevcodex`, `jevclaude`, `jevcursor`](documentation/tutorials/initialize-datarim-with-jev.md) |
 
 Autonomous execution keeps permission and irreversible-action boundaries. JEV advice is not permission or verification. Install Datarim in the projects where you want the workflow; JEV and the reporting skill can also operate independently.

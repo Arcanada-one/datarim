@@ -145,3 +145,9 @@ _invoke() {
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }
+
+@test "stage-header: read-only /dr-explain allows an explanation without a task header" {
+    run _invoke "exception-explain.jsonl"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
