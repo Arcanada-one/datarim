@@ -110,11 +110,11 @@ class PortableReportingTests(unittest.TestCase):
                      '```text\nиюль2022\n```', '~~~text\n2jobs/host\n~~~',
                      '    доклад218\n',
                      '<!-- gate:literal -->\nверсия4.2.2\n<!-- /gate:literal -->',
-                     '/tmp/доклад218', './роль1', '~/июль2022',
+                     '/example/доклад218', './роль1', '~/июль2022',
                      'reports/доклад218.md', 'отчёт218.md',
                      'https://example.test/доклад218',
                      '[Report](https://example.test/доклад218)',
-                     '[Report](/tmp/доклад218)', 'schema_поле2'):
+                     '[Report](/example/доклад218)', 'schema_поле2'):
             with self.subTest(text=text):
                 self.assertFalse(any(x['code']=='prose-spacing' for x in hr.lint(text)))
         self.assertTrue(any(x['code']=='prose-spacing' for x in hr.lint('[доклад218](https://example.test/report)')))
@@ -122,6 +122,24 @@ class PortableReportingTests(unittest.TestCase):
     def test_spacing_lint_catches_prose_after_closed_code_fence(self):
         text='```\nиюль2022\n```\nПо докладу218 проверено 2jobs/host.'
         self.assertTrue(any(x['code']=='prose-spacing' for x in hr.lint(text)))
+
+    def test_repeated_schema_separators_finish_and_preserve_surrounding_prose(self):
+        import subprocess
+        import sys
+        for token in (('0_' * 20000) + '0', ('field\\_' * 10000) + 'field'):
+            with self.subTest(escaped='\\' in token):
+                path=self.root/'long-human.txt'
+                path.write_text(token + ' роль1', encoding='utf-8')
+                before=path.read_bytes()
+                result=subprocess.run([sys.executable,str(SKILL/'scripts/hr.py'),
+                                       'lint','--text-file',str(path)],capture_output=True,
+                                      text=True,timeout=5,check=False)
+                self.assertEqual(result.returncode,0,result.stderr)
+                findings=json.loads(result.stdout)
+                self.assertEqual([f['code'] for f in findings],['prose-spacing'])
+                self.assertEqual(path.read_bytes(),before)
+        for field in ('schema_поле2','schema\\_поле2','0_0_0'):
+            self.assertFalse(any(f['code']=='prose-spacing' for f in hr.lint(field)))
 
     def test_spacing_warning_is_advisory_in_lint_cli(self):
         from contextlib import redirect_stdout

@@ -489,7 +489,8 @@ def spacing_prose(text: str) -> str:
     text = re.sub(r'(?<!\w)[\w.~:-]*[/\\][\w./\\~:-]+',
                   lambda m: m[0] if COUNT_UNIT_JOIN.fullmatch(m[0]) else ' ', text)
     text = re.sub(r'\b[\w-]+\.[a-zA-Z][\w.-]*\b', ' ', text)
-    text = re.sub(r'\b\w+(?:\\?_\w+)+\b|\b[A-Z\u0400-\u04ff]+-\d+\b', ' ', text)
+    # Components exclude their separator, preventing ambiguous nested repetition.
+    text = re.sub(r'\b[^\W_]+(?:\\?_[^\W_]+)+\b|\b[A-Z\u0400-\u04ff]+-\d+\b', ' ', text)
     return text
 
 def lint(text: str) -> list[dict[str, str]]:
