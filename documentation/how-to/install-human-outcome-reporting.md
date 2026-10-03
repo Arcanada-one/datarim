@@ -9,7 +9,7 @@ rules. [Datarim project installation](../../INSTALL.md) remains a separate choic
 
 Download the `human-outcome-reporting` standalone ZIP and its SHA-256 checksum
 from the [latest GitHub release](https://github.com/Arcanada-one/datarim/releases/latest).
-Verify the checksum before extracting. The extracted directory contains
+Verify the checksum, cosign signature bundle and GitHub build provenance before extracting, following the [portable asset verification recipe](https://github.com/Arcanada-one/datarim/blob/main/documentation/how-to/release-verification.md#portable-reporting-assets). The extracted directory contains
 `install.py`, `human-outcome-reporting/`, and this guide as `INSTALL.md`.
 
 ```bash
