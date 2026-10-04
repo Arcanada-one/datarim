@@ -258,7 +258,9 @@ parse_items() {
     local file="$1"
     local schema="${2:-1}"
     local task_id="${3:-}"
-    awk -v f="$file" -v schema="$schema" -v task="$task_id" '
+    local labels
+    labels="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib" && pwd)/expectations_labels.py"
+    python3 "$labels" "$file" | awk -v f="$file" -v schema="$schema" -v task="$task_id" '
         BEGIN {
             in_section = 0; current_item = 0; total_items = 0; errors = 0
             expectations_heading_count = 0
@@ -315,6 +317,16 @@ parse_items() {
                     errors++
                 }
                 in_section = 1
+                next
+            }
+            # Known amendment containers can add wishes to an existing
+            # checklist. Do not silently skip their statuses at verify time.
+            if (expectations_heading_count == 1 && fence_line ~ /^##[ \t]+(Append-log \(operator amendments\)|PRD append-merge)[ \t]*$/) {
+                if (current_item) emit_item()
+                current_item = 0
+                in_section = 1
+                in_history = 0
+                in_status = 0
                 next
             }
             if (fence_line ~ /^##[ \t]+/ && in_section) {
@@ -728,7 +740,7 @@ parse_items() {
                 current_item, wish_id, status, ovr_len, override_by, override_class, override_artifact, \
                 verification_mode, evidence_artifact, evidence_type, sc
         }
-    ' "$file"
+    '
 }
 
 # ---------------------------------------------------------------------------
