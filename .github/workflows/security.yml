@@ -118,11 +118,13 @@ jobs:
           python-version: "3.12"
       - name: Install bandit
         run: pipx install 'bandit==1.9.4'
+      - name: Verify Bandit unsafe and clean controls
+        run: python3 tests/security/check-bandit-controls.py
       - name: Run bandit on .py files
         run: |
           set -euo pipefail
-          if find . -name '*.py' -not -path './.git/*' -not -path './_extracted/*' -not -path './tests/security/fixtures/*' | head -1 | grep -q .; then
-            bandit -r . -ll -ii -x ./_extracted,./.git,./tests/security/fixtures
+          if find . -name '*.py' -not -path './.git/*' -not -path './_extracted/*' -not -path './tests/security/fixtures/sast-unsafe.py' | head -1 | grep -q .; then
+            bandit -r . -ll -ii -x ./_extracted,./.git,./tests/security/fixtures/sast-unsafe.py
           else
             echo "no python sources"
           fi

@@ -11,13 +11,13 @@
 #   exit 2  → usage error
 #
 # API:
-#   check-banlist-on-prose.sh --file <path.md> [--banlist <path>] [--whitelist <path>]
+#   check-banlist-on-prose.sh --file <path.md> [--banlist <path>] [--whitelist <path>] [--language <tag>]
 
 set -euo pipefail
 
 usage() {
     cat >&2 <<'USAGE'
-usage: check-banlist-on-prose.sh --file <path.md> [--banlist <path>] [--whitelist <path>]
+usage: check-banlist-on-prose.sh --file <path.md> [--banlist <path>] [--whitelist <path>] [--language <tag>]
   --file       markdown file to scan (required; must match ^[A-Za-z0-9._/-]+\.md$)
   --banlist    banlist source (default: <script-dir>/../skills/human-summary/banlist.txt)
   --whitelist  whitelist source (default: <script-dir>/../skills/human-summary/whitelist.txt)
@@ -30,6 +30,7 @@ USAGE
 FILE=""
 BANLIST=""
 WHITELIST=""
+LANGUAGE="ru"  # Preserve legacy callers; new callers pass resolved artifact language.
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -46,6 +47,11 @@ while [ $# -gt 0 ]; do
         --whitelist)
             [ $# -ge 2 ] || usage
             WHITELIST="$2"
+            shift 2
+            ;;
+        --language)
+            [ $# -ge 2 ] || usage
+            LANGUAGE="$2"
             shift 2
             ;;
         -h|--help)
@@ -69,6 +75,13 @@ if [ ! -f "$FILE" ]; then
     echo "ERROR: file not found: $FILE" >&2
     exit 2
 fi
+
+if (( ${#LANGUAGE} > 63 )) || ! [[ "$LANGUAGE" =~ ^([A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*|[ixIX](-[A-Za-z0-9]{1,8})+)$ ]]; then
+    echo "ERROR: invalid language tag" >&2
+    exit 2
+fi
+# This vocabulary is a Russian prose rule, not an English or universal rule.
+case "$LANGUAGE" in [rR][uU]|[rR][uU]-*) ;; *) exit 0 ;; esac
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEFAULT_BANLIST="$SCRIPT_DIR/../skills/human-summary/banlist.txt"

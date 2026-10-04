@@ -11,11 +11,11 @@ VALIDATOR="$BATS_TEST_DIRNAME/../dev-tools/check-banlist-on-prose.sh"
 @test "T1 compliance-report-template exists with four top sections + audit addendum" {
     [ -f "$TEMPLATE" ]
     local nach reshili artefakty steps addendum
-    nach=$(grep -n '^## Начальная задача$' "$TEMPLATE" | cut -d: -f1)
-    reshili=$(grep -n '^## Как решили$' "$TEMPLATE" | cut -d: -f1)
-    artefakty=$(grep -n '^## Артефакты задачи$' "$TEMPLATE" | cut -d: -f1)
-    steps=$(grep -n '^## Следующие шаги$' "$TEMPLATE" | cut -d: -f1)
-    addendum=$(grep -n '^## Дополнительно для аудита$' "$TEMPLATE" | cut -d: -f1)
+    nach=$(grep -n '^## .*<!-- datarim:original-request -->$' "$TEMPLATE" | cut -d: -f1)
+    reshili=$(grep -n '^## .*<!-- datarim:resolution -->$' "$TEMPLATE" | cut -d: -f1)
+    artefakty=$(grep -n '^## .*<!-- datarim:artifacts -->$' "$TEMPLATE" | cut -d: -f1)
+    steps=$(grep -n '^## .*<!-- datarim:next-steps -->$' "$TEMPLATE" | cut -d: -f1)
+    addendum=$(grep -n '^## .*<!-- datarim:audit -->$' "$TEMPLATE" | cut -d: -f1)
     [ -n "$nach" ] && [ -n "$reshili" ] && [ -n "$artefakty" ] && [ -n "$steps" ] && [ -n "$addendum" ]
     [ "$nach" -lt "$reshili" ]
     [ "$reshili" -lt "$artefakty" ]
@@ -34,7 +34,7 @@ VALIDATOR="$BATS_TEST_DIRNAME/../dev-tools/check-banlist-on-prose.sh"
 
 @test "T3 check-banlist-on-prose.sh exits 0 on compliance-report-template.md" {
     [ -x "$VALIDATOR" ]
-    run "$VALIDATOR" --file "$TEMPLATE"
+    run "$VALIDATOR" --file "$TEMPLATE" --language en
     [ "$status" -eq 0 ]
 }
 

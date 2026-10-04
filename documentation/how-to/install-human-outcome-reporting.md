@@ -60,6 +60,26 @@ to cloud workers or another SSH account. Use an authorized installation in each
 remote account, or project/team configuration on a worker. User preferences are
 instructions, not a deterministic semantic gate.
 
+## Choose languages
+
+Replies and generated artifact prose default to English. The standalone helper
+reads the same user preferences as project Datarim without enabling its workflow:
+
+```bash
+python3 human-outcome-reporting/scripts/language.py configure --scope user --replies fr --artifacts en
+python3 human-outcome-reporting/scripts/language.py resolve
+```
+
+These paths work from the extracted archive. After installation use the helper
+inside your client's skill directory. User settings live at
+`$XDG_CONFIG_HOME/datarim/config.yaml`, falling back to
+`~/.config/datarim/config.yaml`. Run `resolve --project /path/to/project` to
+include shared and private project preferences. Existing native personal choices
+and managed/security rules retain authority. Preferences are read on resolution;
+new native sessions avoid retaining earlier context. Cursor refreshes its context
+when a new conversation starts. See [configure languages](configure-languages.md)
+and [precedence and catalogs](../reference/language-preferences.md).
+
 ## Check a real session
 
 `check` verifies installed file hashes and reports behavior as `not_measured`.

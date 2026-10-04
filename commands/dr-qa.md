@@ -3,6 +3,8 @@ name: dr-qa
 description: Multi-layer quality verification — checks PRD alignment, design conformance, plan completeness, and code quality
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-qa - Multi-Layer Quality Verification
 
 **Mandatory evidence loop:** apply `skills/immutability/SKILL.md` § Acceptance
@@ -63,11 +65,11 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 7.  **OUTPUT**: Write `datarim/qa/qa-report-{task-id}.md` with results, including the § Deferred Items (session-scoped) table below (empty/`None` by default; populate whenever a layer identifies a gap that this pass is knowingly not fixing).
 8.  **HUMAN SUMMARY**:
     - Load `${DATARIM_RUNTIME:?}/skills/human-summary/SKILL.md`.
-    - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the QA-report write and the CTA block ([definition](../skills/cta-format/SKILL.md)). Language follows the most recent operator message. <!-- allow-non-ascii: literal-russian-section-name-token-from-human-summary-skill -->
+    - Emit the localized operator-summary section with the four semantic sub-sections and markers from `skills/human-summary/SKILL.md`, before the CTA. Use the resolved reply preference.
     - Source material: § Overview of the task description, per-layer verdicts, expectations checklist statuses (if Layer 3b ran), and the overall verdict.
-    - Runs on every overall verdict (ALL_PASS, CONDITIONAL_PASS, BLOCKED). On BLOCKED the «Что не получилось» sub-section carries the failure detail in plain language and «Что дальше» paraphrases the FAIL-Routing target layer name (without command syntax — the CTA below carries that verbatim). <!-- allow-non-ascii: literal-russian-section-name-token-from-human-summary-skill -->
+    - Runs on every overall verdict (ALL_PASS, CONDITIONAL_PASS, BLOCKED). On BLOCKED the open-conditions sub-section carries the failure detail in plain language and the next-actions section paraphrases the FAIL-Routing target layer name (without command syntax — the CTA below carries that verbatim).
     - The summary MUST honour the banlist + whitelist + per-paragraph escape-hatch contract from the skill (`<!-- gate:literal -->` … `<!-- /gate:literal -->` for verbatim quoted blocks only; max two fenced paragraphs per summary).
-    - Output: chat. If `datarim/qa/qa-report-{task-id}.md` was written, append the same section at the end of that file under `## Plain-language summary`.
+    - Output: chat. If `datarim/qa/qa-report-{task-id}.md` was written, append the same facts rendered in the resolved artifact language at the end of that file under `## Plain-language summary`.
     - Length policy: completeness before brevity; no hard word cap. Preserve all material conditions and limitations total across the four sub-sections. Follow `human-summary` for a clearly labelled short view and an authorized full report.
 
 ---
@@ -159,11 +161,11 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 
 **Checks:**
 
-- Read the file. For each item under `## Ожидания`: <!-- allow-non-ascii: literal-russian-section-name-tokens-from-expectations-template -->
-  - read `wish_id`, `Что хочу проверить`, `Как проверить (success criterion)`, `evidence_type` (v2 schema, required: `empirical | static | measurement`), current `#### Текущий статус`, and any existing `override:` line; <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
+- Read the file. For each item under `## Expectations`:
+  - read `wish_id`, `wish`, `success_criterion`, `evidence_type` (v2 schema, required: `empirical | static | measurement`), current `#### current_status`, and any existing `override:` line;
   - run the success criterion against the implementation and decide one of `met` / `partial` / `missed` / `n-a`;
-  - append one line to that item's `#### История статусов` with the canonical format `<ISO> / <local> · /dr-qa · <prior> → <new> · reason: <one-sentence plain ru>`; <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
-  - update the item's `#### Текущий статус` to the new value; <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
+  - append one line to that item's `#### status_history` with the canonical format `<ISO> / <local> · /dr-qa · <prior> → <new> · reason: <one-sentence explanation in the resolved artifact language>`;
+  - update the item's `#### current_status` to the new value;
   - **(Per-wish report contract, mandatory for schema_version=2)** write a detailed per-wish block to `datarim/qa/qa-report-{TASK-ID}.md` per the **Per-Wish Detailed Block Template** below. The block records what was tested + what command was run + what was measured, so the operator can audit how the task was implemented, which tests and measurements were run, and what result came back — without re-running QA. Evidence_type rules:
     - `empirical` — block MUST contain a runtime command invocation <!-- gate:example-only -->(curl, bats, pytest, docker exec, sample-tool execution)<!-- /gate:example-only --> + actual stdout/stderr/exit code. Static grep alone does NOT satisfy `empirical`.
     - `measurement` — block MUST contain a numeric value + comparison to expected (e.g. «latency p95 = 87ms < budget 100ms»). Plain prose alone does NOT satisfy `measurement`.
@@ -193,9 +195,9 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 ### Layer 3b: Expectations Verification — {VERDICT}
 
 **Items verified:** {N}
-**Status transitions written:** {N} (one История статусов line per item) <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
+**Status transitions written:** {N} (one status_history line per item)
 
-| # | wish_id | Текущий статус | Override present? | Notes | <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
+| # | wish_id | current_status | Override present? | Notes |
 |---|---------|----------------|-------------------|-------|
 | 1 | {slug}  | met            | n/a               | — |
 | 2 | {slug}  | partial        | yes (≥10 chars)   | conditional pass |
@@ -208,37 +210,43 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 
 ### Per-Wish Detailed Block Template (schema_version=2)
 
-For every wish item in `## Ожидания`, append one block to the QA report under a top-level `## Layer 3b — Per-Wish Detailed Report` section. The order of blocks matches the order of items in `expectations.md`. <!-- allow-non-ascii: literal-russian-section-name-token-from-expectations-template -->
+For every wish item in `## Expectations`, append one block to the QA report under a top-level `## Layer 3b — Per-Wish Detailed Report` section. The order of blocks matches the order of items in `expectations.md`.
 
-<!-- allow-non-ascii-block: russian-per-wish-qa-template-fixture-required-by-contract -->
-```markdown
+Localize the following presentation labels and prose in the resolved artifact
+language. Keep wish identifiers, evidence enums, exact commands, stdout/stderr,
+exit codes and measured values unchanged.
+
+````markdown
 #### Wish {N} — {wish_id}: {title verbatim from expectations.md}
 
 **Evidence type:** {empirical | static | measurement}
 
-**Что было сделано для проверки:**
-{Одно-два предложения plain ru: какой test/probe/measurement выполнен, против какого артефакта/окружения, на каком SHA / commit / environment snapshot.}
+**How it was verified:**
+{One or two plain-language sentences describing the actual test/probe/measurement,
+its artifact/environment and tested revision or environment snapshot.}
 
-**Команда + результат:**
+**Command and observed result:**
 ```
-$ {actual command — exact invocation, copy-pasteable}
-{stdout/stderr — abbreviate to first/last 10 lines when longer; full output goes to run.log when applicable;
- for measurement — the numeric value on its own line;
- for static — grep output / file existence check;
- for empirical — runtime test invocation output + exit code}
+$ {actual command — exact copy-pasteable invocation}
+{stdout/stderr; abbreviate long output only with full output available in run.log}
+{measurement: actual numeric value; static: file/grep result;
+ empirical: runtime invocation output and exit code}
 Exit code: {N}
 ```
 
-**Verdict:** {met | partial | missed | n-a} — {one-sentence reason citing the measured value vs expected; для measurement — формат «X = {value} {comparison-op} {expected}», e.g. «latency p95 = 87ms < budget 100ms»; для static — «{file-path}:{line} contains {token}»; для empirical — «exit 0 + stdout contains «{marker}»»}.
-```
+**Verdict:** {met | partial | missed | n-a} — {reason comparing observed and
+expected values, with exact measurements or evidence markers preserved}.
+````
 
-**Rationale (operator goal per the original wish-list brief):** «по каждому пункту отчёт о том что было сделано для тестирования и какой получен результат». Each wish gets its own report block — a 1-to-1 mapping from operator goal to per-goal evidence. Without this block the Layer 3b verdict downgrades to **PASS_WITH_NOTES** with finding `per-wish-block-missing: <wish_id>`.
-<!-- /allow-non-ascii-block -->
+**Rationale:** Each operator wish needs its own record of what was checked and
+what result was observed: a one-to-one link between intent and evidence. Without
+this block the Layer 3b verdict downgrades to **PASS_WITH_NOTES** with finding
+`per-wish-block-missing: <wish_id>`.
 
 **Evidence-type contract enforcement (advisory at Layer 3b, hard gate at /dr-compliance):**
 
-- `empirical` без runtime command → finding `evidence-type-mismatch: <wish_id> declared empirical but block contains only grep`. <!-- allow-non-ascii: literal-russian-mixed-prose-with-evidence-type-mismatch-finding-token -->
-- `measurement` без numeric value → finding `evidence-type-mismatch: <wish_id> declared measurement but block lacks numeric value`. <!-- allow-non-ascii: literal-russian-mixed-prose-with-evidence-type-mismatch-finding-token -->
+- `empirical` without runtime command → finding `evidence-type-mismatch: <wish_id> declared empirical but block contains only grep`.
+- `measurement` without numeric value → finding `evidence-type-mismatch: <wish_id> declared measurement but block lacks numeric value`.
 - `static` accepted as-is (lowest tier).
 
 **Verification-mode enforcement (advisory at Layer 3b, hard at /dr-compliance):**

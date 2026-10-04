@@ -138,6 +138,7 @@ inventory:
   - skills/ai-quality/incident-patterns.md
   - skills/datarim-system/backlog-and-routing.md
   - skills/datarim-system/command-and-archive-rules.md
+  - skills/datarim-system/language-preferences.md
   - skills/datarim-system/model-assignment.md
   - skills/datarim-system/path-and-storage.md
   - skills/datarim-system/routing-invariants.md
@@ -152,6 +153,8 @@ inventory:
   - skills/human-outcome-reporting/references/data-and-trust.md
   - skills/human-outcome-reporting/references/datarim.md
   - skills/human-outcome-reporting/references/domain-language.md
+  - skills/human-outcome-reporting/references/language-preferences.md
+  - skills/human-outcome-reporting/references/presentation.md
   - skills/human-outcome-reporting/references/profiles.md
   - skills/human-outcome-reporting/references/re-explain.md
   - skills/image-prompting/prompt-templates.md
@@ -1846,6 +1849,10 @@ edges:
   relation: uses_template
   source: skills/compliance/SKILL.md
   to: template:coverage-deferral-clause.md
+- from: skill:consilium
+  relation: loads
+  source: skills/consilium/SKILL.md
+  to: fragment:skills/datarim-system/language-preferences.md
 - from: skill:context-window-self-clearing
   relation: loads
   source: skills/context-window-self-clearing/SKILL.md
@@ -1854,6 +1861,10 @@ edges:
   relation: loads
   source: skills/cta-format/SKILL.md
   to: fragment:skills/datarim-system/backlog-and-routing.md
+- from: skill:cta-format
+  relation: loads
+  source: skills/cta-format/SKILL.md
+  to: fragment:skills/datarim-system/language-preferences.md
 - from: skill:cta-format
   relation: loads
   source: skills/cta-format/SKILL.md
@@ -1890,6 +1901,10 @@ edges:
   relation: loads
   source: skills/datarim-doctor/SKILL.md
   to: skill:datarim-system
+- from: skill:datarim-system
+  relation: loads
+  source: skills/datarim-system/SKILL.md
+  to: fragment:skills/datarim-system/language-preferences.md
 - from: skill:datarim-system
   relation: loads
   source: skills/datarim-system/SKILL.md
@@ -1930,6 +1945,10 @@ edges:
   relation: loads
   source: skills/diataxis-docs/SKILL.md
   to: skill:project-init
+- from: skill:dispatching-parallel-agents
+  relation: loads
+  source: skills/dispatching-parallel-agents/SKILL.md
+  to: fragment:skills/datarim-system/language-preferences.md
 - from: skill:dr-next-snapshot-replay
   relation: loads
   source: skills/dr-next-snapshot-replay/SKILL.md
@@ -2002,6 +2021,10 @@ edges:
   relation: loads
   source: skills/human-outcome-reporting/SKILL.md
   to: fragment:skills/human-outcome-reporting/references/re-explain.md
+- from: skill:human-summary
+  relation: loads
+  source: skills/human-summary/SKILL.md
+  to: fragment:skills/datarim-system/language-preferences.md
 - from: skill:human-summary
   relation: loads
   source: skills/human-summary/SKILL.md
@@ -2094,6 +2117,10 @@ edges:
   relation: uses_template
   source: skills/project-init/SKILL.md
   to: template:project-docs-stubs.md
+- from: skill:publishing
+  relation: loads
+  source: skills/publishing/SKILL.md
+  to: fragment:skills/datarim-system/language-preferences.md
 - from: skill:reflecting
   relation: loads
   source: skills/reflecting/SKILL.md
@@ -2189,6 +2216,10 @@ edges:
 - from: skill:self-verification
   relation: loads
   source: skills/self-verification/SKILL.md
+  to: fragment:skills/datarim-system/language-preferences.md
+- from: skill:self-verification
+  relation: loads
+  source: skills/self-verification/SKILL.md
   to: skill:security-baseline
 - from: skill:session-handoff-replay
   relation: loads
@@ -2222,6 +2253,10 @@ edges:
   relation: loads
   source: skills/stage-snapshot-writer/SKILL.md
   to: skill:dr-next-snapshot-replay
+- from: skill:subagent-driven-development
+  relation: loads
+  source: skills/subagent-driven-development/SKILL.md
+  to: fragment:skills/datarim-system/language-preferences.md
 - from: skill:tech-stack
   relation: loads
   source: skills/tech-stack/SKILL.md

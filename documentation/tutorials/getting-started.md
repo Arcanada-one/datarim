@@ -364,3 +364,9 @@ The active set is recorded in `datarim/enabled-plugins.md` — manual edits are 
 **Health checks** (`/dr-plugin doctor`): manifest-syntax, inventory-consistency, broken-symlinks, orphan-files, override-integrity, dependency-graph (DFS cycle/dangling), git-state, snapshot-cleanup (>30d), skill-registry (frontmatter `name:` ↔ basename). Exit codes: `0` clean, `1` warnings only, `2` errors found, `64` usage error.
 
 For full reference see `commands/dr-plugin.md` and `templates/plugin.yaml.template`. Authoring third-party plugins: [plugin-author-guide.md](../explanation/plugin-author-guide.md).
+
+## Choose your languages
+
+[Try separate reply and document languages](language-preferences.md) or
+[save a preference](../how-to/configure-languages.md). Both default to English;
+project document policy, native rules and verbatim source text are preserved.

@@ -508,9 +508,14 @@ class InstallationLifecycleTests(unittest.TestCase):
             self.assertIn(needle, text)
         self.assertIn('a new token replaces any earlier one', text)
         lines = text.splitlines()
-        self.assertEqual(lines[1], 'Relay the questions below word for word, with their defaults, and do not '
-                                   'recommend an answer. If you already asked the user something, still ask every '
-                                   "question below that they have not answered. Reply in the user's language.")
+        self.assertIn('preserving all choices and defaults; do not recommend an answer', lines[1])
+        self.assertIn('still ask every question below that they have not answered', lines[1])
+        self.assertIn('explicit reply-language request or the resolved reply preference', lines[1])
+        self.assertIn('English (en) fallback', lines[1])
+        self.assertIn('do not infer language from the latest message', lines[1])
+        self.assertIn('preserving each installation question, choice and default', lines[1])
+        self.assertNotIn("Reply in the user's language", lines[1])
+        self.assertIn(project_install.CHOICE_QUESTIONS.strip(), text)
         self.assertIn("The user's answers must cover all six questions.", lines)
         self.assertGreater(lines.index("The user's answers must cover all six questions."),
                            next(i for i, l in enumerate(lines) if l.startswith('6. ')))

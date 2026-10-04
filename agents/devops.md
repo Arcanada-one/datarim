@@ -6,6 +6,8 @@ metadata:
   model_tier: balanced
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 You are the **DevOps Engineer**.
 Your goal is to own the build-ship-run pipeline -- from code commit to running in production.
 

@@ -76,62 +76,60 @@ Programmatic enforcement is opt-in via the Claude Code Stop hook at `dev-tools/h
 
 ## Canonical Block — Single Active Task
 
-The literal rendered shape (Russian header words are part of the canonical operator-visible output — the operator sees this exact text in production):
+Resolve replies via `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md`. Labels below are examples, never a fixed Russian/English language requirement.
 
-<!-- allow-non-ascii-block: canonical-russian-cta-block-rendered-verbatim-in-operator-output -->
+The English example shape below defines structure. Translate presentation labels and purposes to the resolved reply language; command tokens, task IDs and lifecycle enums stay unchanged.
+
 
 ```markdown
 ---
 
-**Следующий шаг — {TASK-ID}** (L{N}, {status})
+**Next step — {TASK-ID}** (L{N}, {status})
 
-1. `/dr-{command} {TASK-ID}` — **рекомендуется** — {one-line purpose}
-2. `/dr-{command} {TASK-ID}` — альтернатива — {one-line purpose}
+1. `/dr-{command} {TASK-ID}` — **recommended** — {one-line purpose}
+2. `/dr-{command} {TASK-ID}` — alternative — {one-line purpose}
 3. `/dr-{command}` — {one-line purpose}
 
 ---
 ```
 
-<!-- /allow-non-ascii-block -->
 
 ### Field rules
 
 | Field | Rule |
 |-------|------|
 | Top/bottom separator | Markdown HR `---` (CommonMark, confirmed working in the Claude Code renderer). |
-| Header | Exactly `**Следующий шаг — {TASK-ID}** (L{N}, {status})`. `{TASK-ID}` MUST resolve to one currently-active task. | <!-- allow-non-ascii: literal-russian-cta-header-token-required-by-canonical-format -->
+| Header | English example: `**Next step — {TASK-ID}** (L{N}, {status})`. `{TASK-ID}` MUST resolve to one currently-active task. |
 | Number of options | Min 1, recommended 3, hard ceiling 5 (Miller / Hick / Chernev 2015). |
-| Option syntax | `N. \`{command + args}\` — **рекомендуется** / альтернатива / {plain text} — {purpose}`. | <!-- allow-non-ascii: literal-russian-cta-marker-tokens-required-by-canonical-format -->
-| Primary marker | Exactly one `**рекомендуется**` per block. Never zero, never two. | <!-- allow-non-ascii: literal-russian-cta-marker-token-required-by-canonical-format -->
+| Option syntax | `N. \`{command + args}\` — **recommended** / alternative / {plain text} — {purpose}`. |
+| Primary marker | Exactly one localized primary recommendation marker per block (`**recommended**` in English). Never zero, never two. |
 | Purpose clause | One sentence, ≤80 chars. Describe outcome, not mechanics. |
 | Task ID inclusion | Every command that operates on a specific task MUST include the `{TASK-ID}` argument inline. Pipeline-entry commands (`/dr-status`, `/dr-help`, `/dr-init`) MAY omit it. |
 
 ## Canonical Block — Multiple Active Tasks (Variant B)
 
-When `## Active Tasks` in `datarim/activeContext.md` lists more than one task, append an "Другие активные задачи" (other active tasks) section: <!-- allow-non-ascii: literal-russian-section-name-token-required-by-canonical-format -->
+When `## Active Tasks` in `datarim/activeContext.md` lists more than one task, append an "Other active tasks" (other active tasks) section:
 
-<!-- allow-non-ascii-block: canonical-russian-cta-block-variant-b-rendered-verbatim-in-operator-output -->
 
 ```markdown
 ---
 
-**Следующий шаг — {CURRENT-TASK-ID}** (L{N}, {status})
+**Next step — {CURRENT-TASK-ID}** (L{N}, {status})
 
-1. `/dr-{command} {CURRENT-TASK-ID}` — **рекомендуется** — {purpose}
-2. `/dr-{command} {CURRENT-TASK-ID}` — альтернатива — {purpose}
-3. `/dr-status` — посмотреть весь backlog
+1. `/dr-{command} {CURRENT-TASK-ID}` — **recommended** — {purpose}
+2. `/dr-{command} {CURRENT-TASK-ID}` — alternative — {purpose}
+3. `/dr-status` — view the full backlog
 
-**Другие активные задачи:**
+**Other active tasks:**
 - {OTHER-TASK-ID-1} (L{N}) — `/dr-{recommended-command} {OTHER-TASK-ID-1}` — {1-3 word context}
 - {OTHER-TASK-ID-2} (L{N}) — `/dr-{recommended-command} {OTHER-TASK-ID-2}` — {1-3 word context}
 
 ---
 ```
 
-<!-- /allow-non-ascii-block -->
 
 Rules:
-- "Другие активные задачи" appears only when more than one task is active. Skip the section entirely with 0 or 1 active tasks. <!-- allow-non-ascii: literal-russian-section-name-token-required-by-canonical-format -->
+- "Other active tasks" appears only when more than one task is active. Skip the section entirely with 0 or 1 active tasks.
 - Each "other" entry shows the recommended next command for that task (deduced from its own pipeline state), not a menu of alternatives.
 - Order entries by priority then complexity (P0 first; ties broken by L4 > L3 > L2 > L1).
 
@@ -139,21 +137,19 @@ Rules:
 
 When `/dr-qa` returns BLOCKED or `/dr-compliance` returns NON-COMPLIANT, emit a FAIL-routing CTA. The header changes; the structure stays:
 
-<!-- allow-non-ascii-block: canonical-russian-fail-routing-cta-rendered-verbatim-in-operator-output -->
 
 ```markdown
 ---
 
-**QA failed для {TASK-ID} — earliest failed layer: Layer {N} ({Layer name})**
+**QA failed for {TASK-ID} — earliest failed layer: Layer {N} ({Layer name})**
 
-1. `/dr-{return-command} {TASK-ID}` — **рекомендуется** — {what to fix}
-2. `/dr-{alternative-command} {TASK-ID}` — если {condition}
-3. Эскалация — после 3 same-layer fails (loop guard)
+1. `/dr-{return-command} {TASK-ID}` — **recommended** — {what to fix}
+2. `/dr-{alternative-command} {TASK-ID}` — if {condition}
+3. Escalate — after 3 same-layer fails (loop guard)
 
 ---
 ```
 
-<!-- /allow-non-ascii-block -->
 
 Layer-to-command map (mirrors `skills/datarim-system/backlog-and-routing.md` § FAIL Return Routing):
 
@@ -168,31 +164,29 @@ Layer-to-command map (mirrors `skills/datarim-system/backlog-and-routing.md` § 
 
 ### Expectations-FAIL CTA shape
 
-When `/dr-qa` Layer 3b or `/dr-compliance` reports `BLOCKED` against the expectations checklist (the operator wishlist at `tasks/{TASK-ID}-expectations.md`, verified at `/dr-qa` and `/dr-compliance`), the FAIL-Routing CTA's primary line MUST carry the `--focus-items` argument verbatim from the validator's `Next step:` line. The header changes to `**Expectations BLOCKED для {TASK-ID} — N wish-item(s) missed/partial без override**` and the primary option shows the focus list inline: <!-- allow-non-ascii: literal-russian-paraphrase-warnings-required-by-canonical-format -->
+When `/dr-qa` Layer 3b or `/dr-compliance` reports `BLOCKED` against the expectations checklist (the operator wishlist at `tasks/{TASK-ID}-expectations.md`, verified at `/dr-qa` and `/dr-compliance`), the FAIL-Routing CTA's primary line MUST carry the `--focus-items` argument verbatim from the validator's `Next step:` line. The header changes to `**Expectations BLOCKED for {TASK-ID} — N wish-item(s) missed/partial without override**` and the primary option shows the focus list inline:
 
-<!-- allow-non-ascii-block: canonical-russian-expectations-fail-cta-rendered-verbatim-in-operator-output -->
 
 ```markdown
 ---
 
-**Expectations BLOCKED для {TASK-ID} — 2 wish-item(s) missed/partial без override**
+**Expectations BLOCKED for {TASK-ID} — 2 wish-item(s) missed/partial without override**
 
-1. `/dr-do {TASK-ID} --focus-items item-two,item-three` — **рекомендуется** — закрыть ожидания оператора (см. § Expectations в QA-отчёте)
-2. Дописать `override:` в `tasks/{TASK-ID}-expectations.md` если оператор принял частичное выполнение — затем повторить `/dr-qa {TASK-ID}`
-3. Эскалация — после 3 same-layer fails (loop guard)
+1. `/dr-do {TASK-ID} --focus-items item-two,item-three` — **recommended** — fulfill operator expectations (see QA Expectations section)
+2. Add `override:` in `tasks/{TASK-ID}-expectations.md` if the operator accepted partial fulfillment, then repeat `/dr-qa {TASK-ID}`
+3. Escalate — after 3 same-layer fails (loop guard)
 
 ---
 ```
 
-<!-- /allow-non-ascii-block -->
 
-The header digit "N" MUST match the count of blocking wish-ids in the focus list — never paraphrase as "несколько" or "some". The order of wish-ids in the focus argument matches the validator's emission order (file order). Authors MUST NOT regroup or rename wish-ids in the CTA — the operator needs to be able to copy-paste the primary line directly into the shell. <!-- allow-non-ascii: literal-russian-paraphrase-warnings-required-by-canonical-format -->
+The header digit "N" MUST match the count of blocking wish-ids in the focus list — never paraphrase as "some". The order of wish-ids in the focus argument matches the validator's emission order (file order). Authors MUST NOT regroup or rename wish-ids in the CTA — the operator needs to be able to copy-paste the primary line directly into the shell.
 
 ## Authoring Rules for Agents
 
 When an agent generates the CTA block:
 
-1. **Resolve the task ID first.** Read `## Active Tasks` from `datarim/activeContext.md`. If 0 → suggest `/dr-init`. If 1 → use it. If more than one → use the task explicitly being worked on; surface the rest in the "Другие активные задачи" section. <!-- allow-non-ascii: literal-russian-section-name-token-required-by-canonical-format -->
+1. **Resolve the task ID first.** Read `## Active Tasks` from `datarim/activeContext.md`. If 0 → suggest `/dr-init`. If 1 → use it. If more than one → use the task explicitly being worked on; surface the rest in the "Other active tasks" section.
 2. **Choose the primary by complexity rules.** Per `backlog-and-routing.md`:
    - L1 after `/dr-do` → primary is `/dr-archive {ID}` (docs / deploy / maintenance tasks: in-loop verification — curl smoke / diff check / unit-level test — already ran in `/dr-do`; a separate QA pass adds no evidence).
    - L2 after `/dr-do` → primary is `/dr-archive {ID}`.
@@ -207,12 +201,12 @@ When an agent generates the CTA block:
 
 | Anti-pattern | Why bad | Correct form |
 |--------------|---------|--------------|
-| `Run /dr-prd or maybe /dr-plan, depends on what you want` | No primary, no task ID, prose burying the action. | Numbered list with one `**рекомендуется**` plus the task ID. | <!-- allow-non-ascii: literal-russian-paraphrase-required-as-anti-pattern-example -->
+| `Run /dr-prd or maybe /dr-plan, depends on what you want` | No primary, no task ID, prose burying the action. | Numbered list with one `**recommended**` plus the task ID. |
 | `Next steps: → continue implementation` | Generic, not actionable. | `/dr-do {TASK-ID}` with an explicit ID. |
 | 7+ numbered options | Choice paralysis (Miller / Chernev 2015). | Cap at 5; sweet spot 3. |
-| `─── Следующий шаг ───` (box-drawing) | Mojibake on Windows (Claude Code issue #34247). | `---` Markdown HR. | <!-- allow-non-ascii: literal-russian-anti-pattern-example-from-rendered-output -->
-| `## Следующий шаг` (header) | All headers render identical bold in the CC terminal — no hierarchy distinction. | Bold inline `**Следующий шаг — {ID}**`. | <!-- allow-non-ascii: literal-russian-anti-pattern-example-from-rendered-output -->
-| Two `**рекомендуется**` markers | Defeats the primary-CTA hierarchy. | Exactly one. | <!-- allow-non-ascii: literal-russian-cta-marker-token-required-by-canonical-format -->
+| `─── Next step ───` (box-drawing) | Mojibake on Windows (Claude Code issue #34247). | `---` Markdown HR. |
+| `## Next step` (header) | All headers render identical bold in the CC terminal — no hierarchy distinction. | Bold inline `**Next step — {ID}**`. |
+| Two `**recommended**` markers | Defeats the primary-CTA hierarchy. | Exactly one. |
 | Missing task ID in an actionable command | Re-introduces the original bug this format is designed to prevent. | Always include `{TASK-ID}` for task-scoped commands. |
 
 ## Examples
@@ -220,18 +214,17 @@ When an agent generates the CTA block:
 <!-- gate:history-allowed -->
 The illustrative task IDs in the examples below (`ARCA-0001`, `TUNE-0031`, `TUNE-0032`, `AUTH-0001`, etc.) are placeholders for the rendered shape — substitute with the actual current task ID when emitting a real CTA block.
 
-<!-- allow-non-ascii-block: canonical-russian-cta-block-examples-rendered-verbatim-in-operator-output -->
 
 ### Example 1 — `/dr-init` for a new L4 task (single active task)
 
 ```markdown
 ---
 
-**Следующий шаг — ARCA-0001** (L4, in_progress)
+**Next step — ARCA-0001** (L4, in_progress)
 
-1. `/dr-prd ARCA-0001` — **рекомендуется** — PRD обязателен для L4 (10 подзадач в backlog)
-2. `/dr-design ARCA-0001` — если предпочитаешь начать с архитектуры
-3. `/dr-status` — посмотреть подзадачи (ARCA-0004…ARCA-0013)
+1. `/dr-prd ARCA-0001` — **recommended** — PRD required for L4 (10 subtasks in backlog)
+2. `/dr-design ARCA-0001` — if starting with architecture is preferable
+3. `/dr-status` — view subtasks (ARCA-0004…ARCA-0013)
 
 ---
 ```
@@ -241,13 +234,13 @@ The illustrative task IDs in the examples below (`ARCA-0001`, `TUNE-0031`, `TUNE
 ```markdown
 ---
 
-**Следующий шаг — TUNE-0032** (L3, in_progress)
+**Next step — TUNE-0032** (L3, in_progress)
 
-1. `/dr-design TUNE-0032` — **рекомендуется** — auto-transition после plan для L3
-2. `/dr-do TUNE-0032` — если creative-phase не нужен
+1. `/dr-design TUNE-0032` — **recommended** — auto-transition after plan for L3
+2. `/dr-do TUNE-0032` — if creative phase is unnecessary
 3. `/dr-status` — backlog overview
 
-**Другие активные задачи:**
+**Other active tasks:**
 - TUNE-0031 (L1) — `/dr-do TUNE-0031` — update.sh implementation
 - AUTH-0001 (L4) — `/dr-plan AUTH-0001` — PRD approved, 36 backlog items
 
@@ -259,16 +252,15 @@ The illustrative task IDs in the examples below (`ARCA-0001`, `TUNE-0031`, `TUNE
 ```markdown
 ---
 
-**QA failed для TUNE-0032 — earliest failed layer: Layer 3 (Plan)**
+**QA failed for TUNE-0032 — earliest failed layer: Layer 3 (Plan)**
 
-1. `/dr-plan TUNE-0032` — **рекомендуется** — пересмотреть план (missing rollback strategy)
-2. `/dr-prd TUNE-0032` — если нужно ревизовать scope
-3. Эскалация — после 3 same-layer fails (loop guard)
+1. `/dr-plan TUNE-0032` — **recommended** — revise the plan (missing rollback strategy)
+2. `/dr-prd TUNE-0032` — if scope needs revision
+3. Escalate — after 3 same-layer fails (loop guard)
 
 ---
 ```
 
-<!-- /allow-non-ascii-block -->
 
 <!-- /gate:history-allowed -->
 

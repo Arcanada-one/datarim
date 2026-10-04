@@ -1,13 +1,26 @@
-# Datarim project configuration template.
+# Datarim configuration template.
 #
-# Copy this file to one or both of:
-#   ./datarim/config.yaml           — per-project (team-shared, git-tracked)
-#   ~/.config/datarim/config.yaml   — per-user (XDG, gitignored)
-#
-# Per-project wins on conflict.
-#
-# Reference: skills/self-verification/SKILL.md § Peer Review Provider Resolution
+# Locations:
+#   ./datarim/config.yaml           - shared project defaults
+#   ./datarim/config.local.yaml     - private project overrides; keep ignored
+#   $XDG_CONFIG_HOME/datarim/config.yaml (fallback ~/.config/datarim/config.yaml)
+#                                 - personal user preferences
+# Project installation excludes datarim/ from git; sharing config.yaml requires
+# a reviewed, explicit tracking choice. Do not share private overrides/task data.
+# Language and peer-review provider have separate resolution rules.
+# Reference: documentation/reference/language-preferences.md
 
+language:
+  # Independent safe language tags; English is the fallback for both.
+  # Replies: local project > user > shared project > en.
+  # Artifacts: local project > shared project/legacy AGENTS directive > user > en.
+  # Explicit task/CLI overrides and delegated environment come first.
+  # Conflicting YAML and legacy Artifact language directives are errors.
+  replies: en
+  artifacts: en
+
+# Peer review: project config wins over user config.
+# Reference: skills/self-verification/SKILL.md - Peer Review Provider Resolution
 peer_review:
   # Provider for Layer 2 peer-review in /dr-verify.
   #

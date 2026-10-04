@@ -27,6 +27,7 @@ Kebab-case `.md` filenames named after the task, for example
 
 | File | Task it solves |
 |------|----------------|
+| [`configure-languages.md`](configure-languages.md) | Set independent reply and artifact languages. |
 | [`backlog-workflow.md`](backlog-workflow.md) | Manage tasks, priorities, and the backlog. |
 | [`codex-cli-coworker-hooks.md`](codex-cli-coworker-hooks.md) | Wire the coworker delegation hooks into Codex CLI. |
 | [`cross-kb-evolution-digest.md`](cross-kb-evolution-digest.md) | Produce a cross-knowledge-base evolution digest. |

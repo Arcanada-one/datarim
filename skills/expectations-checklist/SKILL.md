@@ -15,8 +15,7 @@ target_aal: 2
 > `/dr-qa` checks against PRD acceptance criteria, which are an agent's
 > paraphrase of operator intent and can drift silently.
 >
-> Expectations are written in plain Russian (or the operator's most recent
-> message language), one bullet per wish, with a verifiable success
+> Expectations are written in the resolved artifact language, one bullet per wish, with a verifiable success
 > criterion and an advisory cross-link to a PRD acceptance criterion when
 > one exists. `/dr-qa` and `/dr-compliance` assign each item a status
 > (`met` / `partial` / `missed` / `n-a` / `deleted`); `partial` or `missed`
@@ -104,17 +103,23 @@ migration in the append-log. Only then append the new wish. v1 keeps its
 
 ## Body shape
 
-```markdown
-# {TASK-ID} — Ожидания оператора
+English presentation is the template default. Localize prose/title/section labels
+in the resolved artifact language. Keep field keys and status enums below stable.
+Use `<!-- datarim:expectations -->` on a translated Expectations H2. Legacy
+Russian field/heading aliases remain readable without rewriting history.
 
-## Ожидания
+
+```markdown
+# {TASK-ID} — Operator expectations
+
+## Expectations <!-- datarim:expectations -->
 
 - **<N>. <Plain-language title ending with a period>**
-  - wish_id: <kebab-slug; cyrillic letters allowed>
-  - Что хочу проверить: <one or two sentences>
-  - Как проверить (success criterion): <one concrete signal — file path,
+  - wish_id: <stable ASCII kebab-slug; preserve existing legacy IDs>
+  - wish: <one or two sentences>
+  - success_criterion: <one concrete signal — file path,
     command output, visible behaviour>
-  - Связанный AC из PRD: V-AC-<N> или «—»
+  - linked_ac: V-AC-<N> or `—`
   - customer_derived: <true | false>  # v4 — required on every wish
   - requirement_id: <req-NNNN>
   - surface_class: <VISITOR_VISIBLE | ENABLING>
@@ -126,9 +131,9 @@ migration in the append-log. Only then append the new wish. v1 keeps its
   - override_by: <agent | operator>            # who authored the override
   - override_class: <time-dependent | external-blocker | operator-authorized | plan-scope-boundary>
   - override_artifact: <follow-up ID or blocked_by reference verifiable in the KB>
-  - #### История статусов
-    - <ISO 8601> / <local time> · <stage> · <prior> → <new> · reason: <plain ru>
-  - #### Текущий статус
+  - #### status_history
+    - <ISO 8601> / <local time> · <stage> · <prior> → <new> · reason: <plain artifact-language explanation>
+  - #### current_status
     - <pending | met | partial | missed | n-a | deleted>
 
 ## Append-log (operator amendments)
@@ -179,8 +184,8 @@ of old wish blocks while adding v4 metadata to every one.
 
 `dev-tools/check-expectations-checklist.sh` matches the override line with the
 exact regex `^  - override:` — 2 spaces, same indent level as `wish_id` /
-`Что хочу проверить` / `Связанный AC из PRD`. A misplaced `override` nested at <!-- allow-non-ascii: canonical-expectations-field-names-cited-verbatim-for-validator-string-equal-match -->
-the 4-space level (the indent used by `#### Текущий статус` sub-items) is <!-- allow-non-ascii: canonical-current-status-section-name-cited-verbatim-for-validator-string-equal-match -->
+`wish` / `linked_ac`. A misplaced `override` nested at
+the 4-space level (the indent used by `#### current_status` sub-items) is
 invisible to the regex: the validator finds no override and silently returns
 `BLOCKED` for a partial/missed wish, with no diagnostic pointing at the indent.
 
@@ -199,16 +204,19 @@ Incorrect (4-space, silently ignored by the validator):
 ### Item rules
 
 - **`wish_id`** occurs exactly once per item and is unique across the file. It
-  is a kebab-slug derived from the title: non-empty segments of Cyrillic
-  letters, ASCII letters, or digits, separated by single hyphens. Used as the focus key in
+  uses stable ASCII letter/digit segments separated by single hyphens for new
+  records, independently of the display language. Never translate or rename an
+  existing ID when presentation language changes. Legacy Cyrillic IDs remain
+  valid for reads, verification and append-merge; preserve them byte-for-byte.
+  Used as the focus key in
   FAIL-Routing CTA (`/dr-do <ID> --focus-items <wish_id_1,...,N>`).
 - Inline code spans use exact matching backtick-run delimiters. An unmatched
   delimiter fails structural validation instead of suppressing later wishes.
-- **`Связанный AC из PRD`** is advisory for L1-L2. For L3-L4 current, <!-- allow-non-ascii: canonical-russian-expectations-field-name -->
+- **`linked_ac`** is advisory for L1-L2. For L3-L4 current,
   non-overridden wishes it is required when spec-graph hard mode is active:
   the value MUST be `V-AC-N`, not «—». Deleted, superseded, or operator-overridden
   wishes retain the advisory form. Renames in the PRD are recorded in the item's
-  История статусов with `stage: append-merge`. <!-- allow-non-ascii: russian-status-history-section-name-from-canonical-schema -->
+  status_history with `stage: append-merge`.
 - **`override`** is plain prose, optional. When the current status is
   `partial` or `missed`, an override of fewer than 10 characters is treated
   as absent and the verify mode emits `BLOCKED`.
@@ -243,11 +251,11 @@ Incorrect (4-space, silently ignored by the validator):
   no longer exists. With a collector, anyone (or any later session) closes
   the wish mechanically at the trigger event. Verifiers treat a missing
   collector on such an override as an advisory note, not a block.
-- **`#### История статусов`** is append-only by convention. One line per <!-- allow-non-ascii: russian-status-history-section-name-from-canonical-schema -->
+- **`#### status_history`** is append-only by convention. One line per
   status transition. Canonical line format:
-  `<ISO> / <local> · <stage> · <prior> → <new> · reason: <plain ru>`. The
+  `<ISO> / <local> · <stage> · <prior> → <new> · reason: <plain artifact-language explanation>`. The
   three `·` separators and the literal `reason:` token are required.
-- **`#### Текущий статус`** carries the current enum value. Allowed values: <!-- allow-non-ascii: russian-current-status-section-name-from-canonical-schema -->
+- **`#### current_status`** carries the current enum value. Allowed values:
   `pending`, `met`, `partial`, `missed`, `n-a`, `deleted`.
 - **`evidence_type`** (schema v2+, required) declares what kind of evidence
   `/dr-qa` must produce for this wish at Layer 3b. Allowed enum:
@@ -307,7 +315,7 @@ Incorrect (4-space, silently ignored by the validator):
   **Heuristic advisory (sub-v3 and v3+, NEVER hard):** for schema v3 or v4
   wishes where `verification_mode` is ABSENT and `evidence_type:
   empirical`, the validator runs a narrow deterministic case-insensitive
-  regex over the "Как проверить (success criterion)" text for world-state <!-- allow-non-ascii: russian-expectations-field-name-cited-verbatim-as-validator-regex-target -->
+  regex over the "success_criterion" text for world-state
   predicates: `https?://`, `\bHTTP\b`, `\bcurl\b`, `redirect`, `\bprod\b`,
   `production`, `статус`, `status`, `перед тем как`, `/app/`-style endpoint <!-- allow-non-ascii: russian-schema-token-literals-cited-as-validator-regex-target -->
   paths, `deploy`. On match → advisory warning
@@ -342,7 +350,7 @@ Prefer one of two formulations:
   inline comparison, which stays correct under scope revisions.
 - **Re-derive at /dr-do time.** When the literal is genuinely required
   (e.g. user-visible counter on a landing page), record the actual
-  implementation count in the expectations item's История статусов as a <!-- allow-non-ascii: russian-status-history-section-name-from-canonical-schema -->
+  implementation count in the expectations item's status_history as a
   one-line `stage: implementation-count` entry, and treat that line as
   the authoritative target. PRD-side AC remains an estimate.
 
@@ -379,9 +387,9 @@ reconcile any divergence in its own output document:
 |--------|---------------|------------------------------|
 | `/dr-design` | wish bodies | design doc § Decisions |
 | `/dr-do` | wish bodies; `--focus-items` ⇒ those wish-ids first | task-description § Implementation Notes |
-| `/dr-qa` | wish bodies; writes per-item Текущий статус | QA report § Expectations + History entries | <!-- allow-non-ascii: russian-current-status-field-cited-in-table-row -->
-| `/dr-compliance` | wish bodies; writes per-item Текущий статус | compliance report § Expectations + History entries | <!-- allow-non-ascii: russian-current-status-field-cited-in-table-row -->
-| `/dr-archive` | wish bodies; writes final per-item summary | archive doc § Выполнение ожиданий оператора | <!-- allow-non-ascii: russian-archive-section-name-cited-in-table-row -->
+| `/dr-qa` | wish bodies; writes per-item current_status | QA report § Expectations + History entries |
+| `/dr-compliance` | wish bodies; writes per-item current_status | compliance report § Expectations + History entries |
+| `/dr-archive` | wish bodies; writes final per-item summary | archive resolution section, with all expectations folded in |
 
 ## Append-merge contract
 
@@ -395,7 +403,7 @@ an expectations file:
    - **Match** → leave the item body untouched; record a History line
      `stage: append-merge` only if the linked AC reference changed.
 3. Do not rewrite, reorder, or delete existing items. Operators control
-   pruning via explicit `Текущий статус: deleted`. <!-- allow-non-ascii: russian-current-status-enum-value-cited-from-canonical-schema -->
+   pruning via explicit `current_status: deleted`.
 
 ## Multi-phase umbrellas (phase-level verify)
 
@@ -404,20 +412,20 @@ expectations file lives at the **umbrella** task ID (no separate
 `{PHASE-ID}-expectations.md` exists), `/dr-qa` and `/dr-compliance` invoked
 on the phase ID MAY legitimately:
 
-- Update `#### Текущий статус` only for wish-ids that fall in the phase's <!-- allow-non-ascii: russian-current-status-field-cited-in-bullet -->
+- Update `#### current_status` only for wish-ids that fall in the phase's
   scope (e.g. flip from `pending` to `met` when the phase delivers the
   underlying success criterion).
 - Leave umbrella close-gate wish-ids and later-phase wish-ids as
   `pending`. These are not `n-a` (the wish remains in scope; it is just
   not yet verifiable) and not `partial`/`missed` (no failure to record at
   this point in the pipeline).
-- Append one `История статусов` line per touched item with `reason:` text <!-- allow-non-ascii: russian-status-history-section-name-cited-in-bullet -->
+- Append one `status_history` line per touched item with `reason:` text
   that names the phase scope explicitly (e.g. "this wish belongs to phase 3
   (audit coverage); it is not implemented in phase 1"). The phase mention
   in the reason is what lets the umbrella close-gate auditor distinguish
   «pending because phase X hasn't run» from «pending because no one looked».
 
-The validator still PASSes when `Текущий статус` is `pending` for these <!-- allow-non-ascii: russian-current-status-field-cited-in-prose -->
+The validator still PASSes when `current_status` is `pending` for these
 items; the audit clarity comes from the History entry, not the status enum.
 On umbrella close (the last phase's `/dr-archive` or a follow-up umbrella
 QA pass), the remaining `pending` items are reconciled to `met` /
@@ -458,16 +466,16 @@ validator's stdout markers):
 
 ## Recap obligation (one-off wishes in /dr-archive)
 
-When `/dr-archive` writes the `## Как решили` section, it MUST list every <!-- allow-non-ascii: russian-canonical-section-name-kak-reshili-cited-verbatim -->
+When `/dr-archive` writes the the resolution section (marker `datarim:resolution`) section, it MUST list every
 wish closed as `verification_mode: one-off` (or whose `verification_mode` is
 absent on a world-state-class wish identified by the heuristic) so the
 operator consciously accepts regression risk. The listing format mirrors the
-existing expectations fold contract (see § Body shape → `## Как решили` <!-- allow-non-ascii: russian-canonical-section-name-kak-reshili-cited-verbatim -->
-bullet with `(уточнение брифа)` marker): <!-- allow-non-ascii: russian-operator-output-marker-utochnenie-brifa-cited-verbatim -->
+existing expectations fold contract (see § Body shape → the resolution section (marker `datarim:resolution`)
+bullet with a localized `(brief clarification)` label marker):
 
-- Append `(проверено вручную)` after the wish title when <!-- allow-non-ascii: russian-operator-output-marker-provereno-vruchnuyu-cited-verbatim -->
+- Append a localized `(checked manually)` label after the wish title when
   `verification_mode: one-off` is explicit.
-- Append `(нет воспроизводимой проверки)` when verification_mode is absent <!-- allow-non-ascii: russian-operator-output-marker-net-vosproizvodimoy-proverki-cited-verbatim -->
+- Append a localized `(no reproducible verification)` label when verification_mode is absent
   on a world-state-class wish.
 - No new override enforcement beyond existing `override_class`; the
   obligation is editorial (human-in-loop boundary).
@@ -516,7 +524,7 @@ rest of the framework adopts it.
 
 The pipeline builds the requirement graph without an operator command:
 
-- `wish_id → V-AC` comes from `Связанный AC из PRD`; <!-- allow-non-ascii: canonical-russian-expectations-field-name -->
+- `wish_id → V-AC` comes from `linked_ac`;
 - `V-AC → D-REQ` comes from the PRD `Covers:` line;
 - `V-AC → plan-step` comes from an explicit `Verifies: V-AC-N[, ...]` marker;
 - `V-AC → evidence` comes from `Evidence: V-AC-N — <command/test/artifact>`.

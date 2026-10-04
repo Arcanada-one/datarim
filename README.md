@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 4.2.3](https://img.shields.io/badge/Version-4.2.3-green.svg)](VERSION)
+[![Version: 4.3.0](https://img.shields.io/badge/Version-4.3.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -18,6 +18,11 @@ Datarim coordinates AI agents, takes tasks through their required stages autonom
 | **JEV model classification** | Classifies the task and advises a model tier and reasoning effort; its separate deterministic safety floor checks commands. Routing advice needs a JEV key, while the safety floor works without one. | [`jevcodex`, `jevclaude`, `jevcursor`](documentation/tutorials/initialize-datarim-with-jev.md) |
 
 Autonomous execution keeps permission and irreversible-action boundaries. JEV advice is not permission or verification. Install Datarim in the projects where you want the workflow; JEV and the reporting skill can also operate independently.
+
+**New in 4.3.0:** choose your reply language independently from generated document
+language, with English defaults and shared settings for standalone reporting.
+[Configure languages](documentation/how-to/configure-languages.md). Fixed report
+labels disclose English fallback when a requested catalog is unavailable.
 
 **New in 4.2.3:** human reports keep natural spaces between words, dates, counts and units while preserving literal identifiers. Targeted delivery tests now run independently of unrelated fixture startup, and the source excludes private project provenance. The final history transition retains one signed root commit on `main`; see [update instructions](documentation/how-to/history-transition.md).
 
@@ -75,6 +80,17 @@ installing: [what a project install does](documentation/tutorials/initialize-dat
 [first task](documentation/tutorials/getting-started.md).
 
 ---
+
+## Your language, your document policy
+
+Reply in your preferred language while keeping project documents in another.
+Both default to English. Save `language.replies` and `language.artifacts` in your
+personal or project configuration; standalone reporting uses the same settings
+without enabling Datarim. Native rules, verbatim input and machine identifiers
+are preserved. See [configure languages](documentation/how-to/configure-languages.md)
+and the [precedence reference](documentation/reference/language-preferences.md).
+Fixed report labels use available catalogs, with a disclosed English fallback
+when a requested catalog is missing.
 
 ## Human-readable results
 

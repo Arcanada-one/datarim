@@ -265,9 +265,9 @@ When an expectation's success criterion or an acceptance criterion names two or 
 Render the compliance report via the canonical structure declared in `${DATARIM_RUNTIME:?}/templates/compliance-report-template.md`. The report carries:
 
 - Frontmatter: `task_id`, `date`, `verdict` (COMPLIANT / COMPLIANT_WITH_NOTES / NON-COMPLIANT), optional `scope`.
-- Four operator-facing top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги». <!-- allow-non-ascii: russian-archive-template-section-names-cited-from-template -->
+- Four operator-facing top sections in strict order — «Original request», «How it was resolved», «Task artifacts», «Next steps». <!-- allow-non-ascii: russian-archive-template-section-names-cited-from-template -->
 - An audit addendum under a `---` horizontal rule carrying `### Step-by-step verdicts` (the 7-step per-step table), `### Remaining risks`, `### Related`.
 
-The four top sections answer "what the operator asked for" and "what was confirmed / what remains" in plain Russian — apply the banlist from `skills/human-summary/banlist.txt`. The audit addendum carries the technical surface (status table, risk list, cross-links) and MAY wrap ASCII-heavy lines in `<!-- gate:literal -->` fence.
+The four top sections answer "what the operator asked for" and "what was confirmed / what remains" in the resolved artifact language. Apply the Russian banlist only for Russian prose from `skills/human-summary/banlist.txt`. The audit addendum carries the technical surface (status table, risk list, cross-links) and MAY wrap ASCII-heavy lines in `<!-- gate:literal -->` fence.
 
 Save to `datarim/reports/compliance-report-{task_id}.md` if the directory exists, otherwise present in chat. Filename suffix on re-runs: `-v2`, `-v3`, … (one new file per `/dr-compliance` invocation).

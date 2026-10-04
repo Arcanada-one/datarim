@@ -34,33 +34,34 @@ Other pipeline commands MAY adopt the same contract later (`/dr-do`, `/dr-plan`)
 
 ## Output contract
 
-The summary is emitted in chat as a markdown section. The heading and sub-heading tokens are bilingual: pick the Russian column if the operator's language is Russian, the English column otherwise.
+The summary is emitted in chat in the resolved reply language. Do not choose
+English merely because the preference is neither Russian nor English. Localize
+all headings below and preserve each semantic marker on its heading line.
+The optional Stop hook recognizes these markers independently of language and
+continues accepting legacy bilingual headings.
 
-```
-## Отчёт оператору        # if operator language is Russian
-## Operator summary       # if operator language is English
+```markdown
+## Operator summary <!-- datarim:operator-summary -->
 
-**{TASK-ID} · {title}**     # MANDATORY self-identifier preamble (see § Self-identifier preamble)
+**{TASK-ID} · {title}**
 
-**Что было сделано / What was done**
-... operator brief (paraphrased from the verbatim operator brief — the
-verbatim operator brief stored at tasks/{TASK-ID}-init-task.md) plus which
-of those goals were achieved (1-3 sentences) ...
+**What was done** <!-- datarim:summary:done -->
+... faithful brief paraphrase and observed result ...
 
-**Что получилось / What worked**
-- bullet
-- bullet
+**What worked** <!-- datarim:summary:worked -->
+... confirmed conditions and evidence ...
 
-**Что не получилось / осталось открытым / What didn't work or is still open**
-- bullet
-- bullet
-(or a single line "всё закрыто" / "nothing outstanding" if there is nothing)
+**What did not work or remains open** <!-- datarim:summary:open -->
+... failed, unmeasured and outstanding conditions; say none only if confirmed ...
 
-**Что дальше / What's next**
-... 1-2 sentences ...
+**What is next** <!-- datarim:summary:next -->
+... authorized next action ...
 ```
 
-**Sub-section order is fixed and exhaustive.** The self-identifier preamble plus the four sub-headings are the entire shape. **Adding** a fifth sub-section (for example "References" / "Source files" / "Audit trail" / "Links") is a `block` finding — references go inside the technical block above the summary or as a single sentence inside "what's next", not as their own sub-section. **Dropping** any of the four sub-headings (most often the writer dives straight into results and silently skips "what was done") is also a `block` finding. An empty sub-section MUST emit a single-line placeholder ("всё закрыто" / "nothing outstanding") — never omit the heading itself. <!-- allow-non-ascii: bilingual-russian-placeholder-token-required-for-contract -->
+**Sub-section order is fixed and exhaustive.** Exactly four semantic sub-sections
+follow the self-identifier. Missing, duplicate, reordered or fifth sub-headings
+are block findings. References belong inside the relevant sub-section. When
+nothing remains open, state that in the resolved reply language; keep its heading.
 
 ### Self-identifier preamble
 
@@ -78,23 +79,23 @@ The preamble is **mandatory for all callers** (`/dr-qa`, `/dr-compliance`, `/dr-
 
 This sub-section is the operator-facing answer to "what did I ask for and what did you do to achieve it?". It MUST surface two facts in one to three sentences:
 
-1. **What the operator asked for** — paraphrase from `datarim/tasks/{TASK-ID}-init-task.md` § Operator brief (verbatim) (or the resolved § Source command if the init-task file is absent). For `/dr-archive` also cross-reference `archive-{ID}.md` § Начальная задача. Stay close to the operator's own words — this is not the place for technical jargon. <!-- allow-non-ascii: literal-russian-heading-identifier-from-archive-document -->
-2. **Which of those goals were achieved** — a one-sentence outcome summary keyed to the brief. For `/dr-archive`, cross-reference `archive-{ID}.md` § Как решили (extract, do not copy the entire list). <!-- allow-non-ascii: literal-russian-heading-identifier-from-archive-document -->
+1. **What the operator asked for** — paraphrase from `datarim/tasks/{TASK-ID}-init-task.md` § Operator brief (verbatim) (or the resolved § Source command if the init-task file is absent). For `/dr-archive` also cross-reference `archive-{ID}.md` § Original request (semantic marker `datarim:original-request`). Stay close to the operator's own words — this is not the place for technical jargon. <!-- allow-non-ascii: literal-russian-heading-identifier-from-archive-document -->
+2. **Which of those goals were achieved** — a one-sentence outcome summary keyed to the brief. For `/dr-archive`, cross-reference `archive-{ID}.md` § How it was resolved (semantic marker `datarim:resolution`) (extract, do not copy the entire list). <!-- allow-non-ascii: literal-russian-heading-identifier-from-archive-document -->
 
 Pure descriptions of the *artifact-mutation process* (for example "archive updated", "sections added", "cleanup PASS") are **insufficient** — they describe what was *written about* the task, not what was *done for* the task. The latter is what the operator needs to see. A summary whose "what was done" starts with "archive updated …" / "sections updated …" fails this rule and is a `block` finding (per § Severity ladder).
 
 When the init-task brief is unavailable (a legacy task predating the init-task contract): paraphrase from `tasks/{TASK-ID}-task-description.md` § Overview and label the result as "(brief reconstructed from § Overview — the original operator brief is missing)" so the operator sees the source explicitly.
 
-Language detection: choose the language of the most recent operator message. The default for Russian-speaking operators is Russian.
+Language selection: resolve the reply preference through `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md`. Explicit task requests retain authority; the most recent message language does not override configured preferences.
 
 Length policy: **completeness before brevity; no hard word cap and no minimum length**. Use the shortest explanation that preserves the goal, observed result, verification and every material open condition. A short chat view may abbreviate confirmed items only when clearly labelled and accompanied by an available complete report in an authorized location. Never omit failures, risks, exclusions, unanswered questions or missing verification to meet a length target. When no complete artifact can be provided, include the necessary detail in chat. This policy applies to the total across the four sub-sections, not separately to each section.
 
 ### Mutability per caller
 
-The chat emission is the canonical surface. Persistence beyond chat is caller-specific:
+The chat emission uses resolved replies. An authorized saved rendering uses resolved artifacts; when preferences differ, preserve the same facts and semantic markers while translating presentation. Persistence beyond chat is caller-specific:
 
-- `/dr-qa` MAY append the same section to `datarim/qa/qa-report-{task-id}.md` at the bottom under a `## Plain-language summary` heading. Always chat-only when that file does not exist.
-- `/dr-compliance` MAY append the same section to `datarim/reports/compliance-report-{task_id}.md` when that file exists.
+- `/dr-qa` MAY append the same facts rendered in the resolved artifact language to `datarim/qa/qa-report-{task-id}.md` at the bottom under a `## Plain-language summary` heading. Always chat-only when that file does not exist.
+- `/dr-compliance` MAY append the same facts rendered in the resolved artifact language to `datarim/reports/compliance-report-{task_id}.md` when that file exists.
 - `/dr-archive` is **chat-only** — the archive document and the reflection document MUST NOT be mutated by this skill (the archive document is the permanent record; the reflection document already exists from Step 0.5).
 - Other future callers default to chat-only unless their command file explicitly authorises a write target.
 
@@ -108,7 +109,7 @@ The file `skills/human-summary/banlist.txt` lists ASCII tokens that MUST NOT app
 
 Matching rule: case-insensitive full-word equality against ASCII tokens of length ≥3 found in the Russian sub-sections. Cyrillic transliterations (for example "пайплайн", "коммит") are NOT matched — they are tolerated even when the parent term is banned. <!-- allow-non-ascii: russian-cyrillic-transliteration-examples-required -->
 
-When the operator language is English, the banlist is informational only — the four sub-section headings remain bilingual but the prose may use the original English vocabulary.
+When the resolved presentation language is not Russian, the Russian banlist is informational only. Localize all four presentation headings in the resolved reply or saved-artifact language with their stable semantic markers intact.
 
 ### Whitelist
 
@@ -257,9 +258,9 @@ such wish, using plain language:
 
 This disclosure appears in the plain-language summary, not in the audit
 addendum (which is technical). The banlist applies; no anglicisms in the
-disclosure text when the operator language is Russian.
+disclosure text when the resolved presentation language is Russian.
 
 ## See also
 
-- Archive and compliance reports use the same banlist (`skills/human-summary/banlist.txt` + `skills/human-summary/whitelist.txt`). See `${DATARIM_RUNTIME:?}/templates/archive-template.md` § "Как решили" and `${DATARIM_RUNTIME:?}/templates/compliance-report-template.md` § "Как решили" — the banlist applies to the prose of the four top sub-sections; the audit addendum is wrapped in a `<!-- gate:literal -->` fence for technical tables. <!-- allow-non-ascii: literal-russian-heading-identifier-from-template-file -->
-- The canonical validator for template prose is `"${DATARIM_RUNTIME:?}/dev-tools/check-banlist-on-prose.sh"` (a single awk pass; supports YAML frontmatter skip plus `<!-- gate:literal -->` / `<!-- gate:example-only -->` fence blocks).
+- Archive and compliance reports use the same banlist (`skills/human-summary/banlist.txt` + `skills/human-summary/whitelist.txt`). See `${DATARIM_RUNTIME:?}/templates/archive-template.md` § "How it was resolved" and `${DATARIM_RUNTIME:?}/templates/compliance-report-template.md` § "How it was resolved" — the banlist applies to the prose of the four top sub-sections; the audit addendum is wrapped in a `<!-- gate:literal -->` fence for technical tables. <!-- allow-non-ascii: literal-russian-heading-identifier-from-template-file -->
+- For Russian prose only, the canonical validator is `"${DATARIM_RUNTIME:?}/dev-tools/check-banlist-on-prose.sh" --file <artifact.md> --language <resolved-artifact-tag>` (a single awk pass; supports YAML frontmatter skip plus `<!-- gate:literal -->` / `<!-- gate:example-only -->` fence blocks).

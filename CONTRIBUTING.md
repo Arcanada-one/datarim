@@ -14,7 +14,10 @@ A runtime flag is required — bare `./install.sh` prints usage and exits 0
 without installing anything. Use `--with-codex` / `--with-cursor` for the
 other runtimes, or `--dry-run` to see the planned mutations first.
 
-For a development checkout:
+For a development checkout, install the native `shellcheck` executable first
+(`brew install shellcheck` on macOS or `sudo apt-get install shellcheck` on
+Debian/Ubuntu). The local hook uses this executable and requires no Docker.
+Then:
 
 ```bash
 git clone https://github.com/Arcanada-one/datarim.git
@@ -43,12 +46,16 @@ pre-commit run --all-files
 bats tests/security/
 ```
 
-This mirrors the CI baseline. If `pre-commit` is not installed, run
+This mirrors the CI baseline. Bandit scans security fixtures except the exact
+intentional unsafe canary `tests/security/fixtures/sast-unsafe.py`; the separate
+control check requires its named findings and a passing clean canary. CI uses
+repository `.semgrep.yml` for Semgrep, not an external rule-pack recipe. If `pre-commit` is not installed, run
 the individual tools:
 
 ```bash
 shellcheck -S warning $(find . -name '*.sh' -not -path './node_modules/*')
-bandit -r . -ll -ii -x ./node_modules
+bandit -r . -ll -ii -x ./_extracted,./.git,./tests/security/fixtures/sast-unsafe.py
+python3 tests/security/check-bandit-controls.py
 gitleaks detect --redact --no-banner
 actionlint
 ```

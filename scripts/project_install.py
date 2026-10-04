@@ -582,9 +582,9 @@ def refusal_text(root, token, args=None):
     return '\n'.join([
         'STOP. Nothing was installed. Ask the user these questions and wait for the answers. '
         'Do not choose for them.',
-        'Relay the questions below word for word, with their defaults, and do not recommend an answer. '
+        'Relay every question below faithfully, preserving all choices and defaults; do not recommend an answer. '
         'If you already asked the user something, still ask every question below that they have not '
-        "answered. Reply in the user's language.",
+        "answered. Use the explicit reply-language request or the resolved reply preference, with English (en) fallback; do not infer language from the latest message. Translate presentation while preserving each installation question, choice and default.",
         *ignored,
         '',
         questions,

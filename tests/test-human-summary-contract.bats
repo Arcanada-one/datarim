@@ -68,14 +68,12 @@ CMD_ARCHIVE="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
 }
 
 # 10
-@test "skill contains the four mandated RU sub-headings" {
-    run grep -F "Что было сделано" "$SKILL"
-    [ "$status" -eq 0 ]
-    run grep -F "Что получилось" "$SKILL"
-    [ "$status" -eq 0 ]
-    run grep -F "Что не получилось" "$SKILL"
-    [ "$status" -eq 0 ]
-    run grep -F "Что дальше" "$SKILL"
+@test "skill contains the four language-neutral semantic sub-section markers" {
+    for key in done worked open next; do
+        run grep -F "datarim:summary:${key}" "$SKILL"
+        [ "$status" -eq 0 ]
+    done
+    run grep -F 'datarim:operator-summary' "$SKILL"
     [ "$status" -eq 0 ]
 }
 

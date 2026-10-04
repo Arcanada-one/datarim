@@ -17,34 +17,42 @@ Require receipts only for the selected route; canonical L3/L4 compliance stays
 mandatory, including content. Pending publication is not an accepted publish. -->
 <!-- /gate:literal -->
 
-<!-- allow-non-ascii-block: canonical operator-facing compliance-report section names and their Russian placeholder prose — a hard exclusion under AGENTS.md § Artifact Language Policy, which keeps these sections in the operator's language by deliberate decision -->
+# Compliance report: {TASK-ID} — {Title}
 
-# Compliance-отчёт: {TASK-ID} — {Title}
+<!-- Generate prose and display headings in the resolved artifact language.
+     Preserve markers, frontmatter, enum values, evidence and verbatim quotes.
+     Chat uses the independent reply preference. -->
 
-## Начальная задача
+## Original request <!-- datarim:original-request -->
 
-{Одно предложение обычным языком, что требовалось проверить и закрепить. Источник — `tasks/{TASK-ID}-init-task.md` § Operator brief (verbatim), сжатое до одной фразы.}
+{One plain-language sentence describing the operator's request. Source:
+`tasks/{TASK-ID}-init-task.md` Operator brief (verbatim), paraphrased faithfully.}
 
-## Как решили
+## How it was resolved <!-- datarim:resolution -->
 
-{Маркированный список, по одному пункту на каждый bullet операторского брифа из `tasks/{TASK-ID}-init-task.md` в исходном порядке. Если есть `tasks/{TASK-ID}-expectations.md` — каждый пункт § Ожидания добавляется в тот же список с пометкой «(уточнение брифа)». Без таблиц, без вложенных bullet. Банлист `skills/human-summary/banlist.txt` применяется к комментариям.}
+{Single-level bullet list, one item for each operator-brief bullet in its
+original order. Fold expectations into the same list with a localized
+"brief clarification" marker. No tables or nested bullets. Translate status
+presentation (fulfilled, partly fulfilled, unfulfilled, not applicable) while
+preserving exact schema enums in technical records. Explain evidence and limits.
+Apply the Russian banlist only when this artifact's prose is Russian.}
 
-- **«{цитата пункта 1 из брифа}».** {выполнено / частично / не выполнено / неприменимо.} {Одно-два предложения обычным языком: что подтверждено, какие доказательства, что осталось.}
-- **«{цитата пункта 2 из брифа}».** {статус.} {комментарий.}
-- **«{цитата пункта из expectations (уточнение брифа)}».** {статус.} {комментарий.}
-- _(и так по каждому пункту в исходном порядке)_
+- **"{verbatim brief item 1}".** {human-readable status}. {Outcome, evidence and remaining limitation.}
+- **"{verbatim brief item 2}".** {human-readable status}. {Explanation.}
+- **"{expectations item}" (brief clarification).** {human-readable status}. {Explanation.}
 
-## Артефакты задачи
+## Task artifacts <!-- datarim:artifacts -->
 
-{Что подтверждено или закреплено по итогам прохода: ссылки на отчёты, изменённые файлы, обновлённые контракты. Свободная проза + bullet.}
+{What was created, changed or confirmed; relative paths and evidence links.}
 
-## Следующие шаги
+## Next steps <!-- datarim:next-steps -->
 
-{Либо «всё закрыто», либо bullet/проза. Указывать конкретные команды `/dr-*` или операторские действия (включая `/dr-archive`).}
+{State that all authorized work is complete only when supported; otherwise
+list specific remaining conditions and authorized next actions.}
 
 ---
 
-## Дополнительно для аудита
+## Audit addendum <!-- datarim:audit -->
 
 ### Step-by-step verdicts
 
@@ -62,9 +70,8 @@ mandatory, including content. Pending publication is not an accepted publish. --
 
 ### Remaining risks
 
-{Список рисков, которые остались открытыми после compliance-прохода. Если пусто — одна строка «нет открытых рисков».}
+{Risks still open after compliance; state none only when confirmed.}
 
-<!-- /allow-non-ascii-block -->
 
 ### Related
 

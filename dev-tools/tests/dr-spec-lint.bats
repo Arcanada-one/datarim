@@ -337,3 +337,34 @@ EOF
     [ "$status" -ne 0 ]
     [[ "$output" == *"no linked V-AC"* ]]
 }
+
+@test "language-neutral expectation fields retain their complete spec-graph edges" {
+    write_clean_fixture
+    python3 - "$WORK/datarim/tasks/EX-0001-expectations.md" <<'PY_FIELDS'
+import sys
+from pathlib import Path
+path = Path(sys.argv[1])
+body = path.read_text()
+body = body.replace("Связанный AC из PRD:", "linked_ac:")
+body = body.replace("Текущий статус", "current_status")
+path.write_text("## Attentes <!-- datarim:expectations -->\n" + body)
+PY_FIELDS
+    run "$SCRIPT" --task EX-0001 --root "$WORK" --stage qa --format json
+    [ "$status" -eq 0 ] && [ -z "$output" ]
+}
+
+@test "language-neutral expectation fields cannot hide an unlinked wish" {
+    write_clean_fixture
+    python3 - "$WORK/datarim/tasks/EX-0001-expectations.md" <<'PY_FIELDS'
+import sys
+from pathlib import Path
+path = Path(sys.argv[1])
+body = path.read_text()
+body = body.replace("Связанный AC из PRD:", "linked_ac:")
+body = body.replace("Текущий статус", "current_status")
+body = body.replace("linked_ac: V-AC-2", "linked_ac: —")
+path.write_text(body)
+PY_FIELDS
+    run "$SCRIPT" --task EX-0001 --root "$WORK" --stage qa --format json
+    [ "$status" -eq 1 ] && [[ "$output" == *"no linked V-AC"* ]]
+}

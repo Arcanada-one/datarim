@@ -17,7 +17,7 @@ def test_unmapped_requirement_explains_why_result_is_incomplete(case):
     c['requirements'].append({'id': 'req2', 'text': 'Separate tenant records.', 'source': 'user'})
     rebind(case)
     result = assess(case)
-    text = hr.render(c, r, result)
+    text = hr.render(c, r, result, language='ru')
     assert not result['ready']
     assert result['unmapped_requirements'] == ['req2']
     assert 'Separate tenant records.' in text
@@ -34,7 +34,7 @@ def test_unplanned_condition_has_a_human_explanation(case):
     result = assess(case)
     assert result['valid'] and not result['ready']
     assert result['unplanned_criteria'] == ['ac1']
-    assert 'не указан шаг плана' in hr.render(c, r, result)
+    assert 'не указан шаг плана' in hr.render(c, r, result, language='ru')
 
 
 def test_unchanged_negative_condition_survives_delta(case):
@@ -44,7 +44,7 @@ def test_unchanged_negative_condition_survives_delta(case):
     r['kind'] = 'progress'
     previous = deepcopy(assess(case))
     current = assess(case)
-    text = hr.render(c, r, current, brief=True, previous=previous)
+    text = hr.render(c, r, current, brief=True, previous=previous, language='ru')
     assert c['criteria'][0]['text'].rstrip('.') in text
     assert r['checks'][0]['summary'] in text
     assert 'Проверка выявила ошибку' in text
@@ -57,7 +57,7 @@ def test_delta_rejects_a_different_baseline_or_product(case, field):
     current = assess(case)
     previous = deepcopy(current)
     previous[field] = 'a-different-identity'
-    text = hr.render(c, r, current, previous=previous)
+    text = hr.render(c, r, current, previous=previous, language='ru')
     assert 'показана полная проверка' in text
     assert c['criteria'][0]['text'].rstrip('.') in text
 
@@ -66,7 +66,7 @@ def test_positive_unchanged_delta_does_not_claim_open_conditions(case):
     c, r, _ = case
     r['kind'] = 'progress'
     result = assess(case)
-    text = hr.render(c, r, result, previous=deepcopy(result))
+    text = hr.render(c, r, result, previous=deepcopy(result), language='ru')
     assert 'Состояния критериев не изменились.' in text
     assert 'Открытые условия перечислены ниже.' not in text
 

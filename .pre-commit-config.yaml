@@ -3,6 +3,7 @@
 # catches issues before push, not after CI runtime.
 #
 # Setup:
+#   Install native shellcheck first (brew install shellcheck / apt-get install shellcheck).
 #   pipx install pre-commit
 #   pre-commit install                          # registers .git/hooks/pre-commit
 #   pre-commit run --all-files                  # one-time full sweep (expects baseline-clean)
@@ -10,7 +11,7 @@
 #
 # Hooks:
 #   - shellcheck       (staged .sh)
-#   - bandit           (staged .py, severity HIGH only to match CI -ll -ii)
+#   - bandit           (staged .py, severity/confidence MEDIUM+ to match CI -ll -ii)
 #   - gitleaks         (staged diff secret scan)
 #   - security-bats    (full regression suite, manual stage so it does not run on every commit)
 
@@ -18,19 +19,22 @@ minimum_pre_commit_version: "3.7.0"
 
 repos:
   # shellcheck — staged .sh files (mirrors CI scope: .sh only, not .bats)
-  - repo: https://github.com/koalaman/shellcheck-precommit
-    rev: v0.10.0
+  - repo: local
     hooks:
       - id: shellcheck
+        name: shellcheck (native executable required)
+        entry: shellcheck
+        language: system
         args: ["--severity=warning"]
         files: '\.sh$'
 
   # bandit — staged .py files
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.10
+    rev: 1.9.4
     hooks:
       - id: bandit
         args: ["-ll", "-ii"]
+        exclude: '^tests/security/fixtures/sast-unsafe\.py$'
 
   # gitleaks — staged diff secret scan
   - repo: https://github.com/gitleaks/gitleaks

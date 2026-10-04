@@ -6,6 +6,8 @@ globs:
   - datarim/prd/*.md
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # PLAN Command
 
 **Acceptance baseline:** bind every task criterion to falsifiable cases before
@@ -161,17 +163,17 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     -   Skip this step when a PRD exists — `/dr-prd` Step 5.5b already handled the PRD-driven append-merge.
     -   For L2 tasks without a PRD, the planner MUST load existing `datarim/tasks/{TASK-ID}-expectations.md` (already seeded at `/dr-init`) and append any plan-derived wishes the init-task skeleton did not cover.
     -   **Source of new items (append candidates).** Each plan § Validation Checklist row that asserts an operator-observable outcome → one candidate wish. Compare candidate's semantic content with existing items by `wish_id`:
-        - **Match (semantic equivalence with existing wish):** do not append; add one `stage: append-merge` line to existing wish's `#### История статусов` (reason: "refined in the plan"). <!-- allow-non-ascii: literal-russian-status-history-section-name-from-expectations-template -->
+        - **Match (semantic equivalence with existing wish):** do not append; add one `stage: append-merge` line to existing wish's `#### status_history` (reason: "refined in the plan").
         - **No match (genuinely new operator-observable outcome):** append at the bottom as a new item:
-            - title in plain Russian ending with a period;
-            - `wish_id` = kebab-slug of the title (cyrillic allowed);
-            - `Что хочу проверить:` one or two sentences; <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
-            - `Как проверить (success criterion):` one concrete signal; <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
-            - `Связанный AC из PRD: «—»` (no PRD); <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
+            - title in the resolved artifact language ending with a period;
+            - `wish_id` = stable ASCII kebab-slug identifying the wish; do not translate existing IDs;
+            - `wish:` one or two sentences;
+            - `success_criterion:` one concrete signal;
+            - `linked_ac: «—»` (no PRD);
             - `evidence_type:` (default `empirical`; choose `static` or `measurement` per validation nature);
-            - `#### История статусов` with one initial line `<ISO> / <local> · /dr-plan · pending → pending · reason: пункт добавлен из плана § Validation Checklist`; <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
-            - `#### Текущий статус: pending`. <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
-    -   **Do not rewrite, reorder, or delete existing items.** Operator controls pruning via explicit `Текущий статус: deleted`. <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
+            - `#### status_history` with one initial line `<ISO> / <local> · /dr-plan · pending → pending · reason: wish added from the plan Validation Checklist`;
+            - `#### current_status: pending`.
+    -   **Do not rewrite, reorder, or delete existing items.** Operator controls pruning via explicit `current_status: deleted`.
     -   **Post-write validation gate.** Invoke:
         ```bash
         "${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}

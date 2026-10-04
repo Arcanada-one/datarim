@@ -1,3 +1,5 @@
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-save — Save Session Handoff
 
 **Stage:** Session Handoff (producer)

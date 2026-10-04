@@ -453,14 +453,14 @@ with open(path, encoding="utf-8") as fh:
         # the shared V_AC_REF_RE grammar so an axis id is no longer silently
         # dropped into a false `no linked V-AC` / `undeclared` grade-F.
         # Source: TUNE-0473.
-        if "Связанный AC из PRD:" in line:
+        if re.match(r"\s*-\s*(?:linked_ac|Связанный AC из PRD):", line):
             vm = re.search(r"V-AC-[A-Z]?\d+(?:\.\d+)?", line)
             cur["vac"] = vm.group(0) if vm else ""
         elif re.match(r"\s*-\s*override:\s*", line):
             cur["override"] = line.split("override:", 1)[1].strip()
         elif re.match(r"\s*-\s*override_by:\s*", line):
             cur["override_by"] = line.split("override_by:", 1)[1].strip()
-        elif "Текущий статус" in line:
+        elif re.match(r"\s*-\s*####\s+(?:current_status|Текущий статус)(?:\s|$)", line):
             in_status = True
         elif in_status:
             sm = re.match(r"\s*-\s*(pending|met|partial|missed|n-a|deleted)\s*$", line)

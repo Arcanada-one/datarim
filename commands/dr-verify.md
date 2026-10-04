@@ -3,6 +3,8 @@ name: dr-verify
 description: Standalone self-verification of a Datarim artifact (PRD/plan/do output). Tri-layer architecture (v2): Layer 1 deterministic floor (shell pipeline, no LLM cost) + Layer 2 cross-model peer-review (native isolated agent context) + Layer 3 native runtime dispatch (Claude 3-agent parallel; Codex single-prompt retained as [experimental] fallback). Findings-only mode.
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-verify - Standalone Self-Verification (Tri-Layer)
 
 **Role**: Verifier (orchestrated via self-verification skill)

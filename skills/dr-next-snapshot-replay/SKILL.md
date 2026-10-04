@@ -28,7 +28,6 @@ When the snapshot is valid, emit exactly this shape, with no improvisation:
 ```
 <recommended-CTA>
 
-ищи способ исследовать все проблемы и ответить на все вопросы самостоятельно. выполняй за оператора все необходимые шаги и требования, которые можешь сделать сам. не создавай FU подзадачи, если они уровня 1, а решай их в этом же цикле до полного решения.
 Find a way to investigate all problems and answer all questions yourself. Perform on behalf of the operator every step and requirement you can do yourself. Do not spawn FU sub-tasks for Level-1 work — resolve them in the same cycle to completion.
 
 done before:
@@ -38,7 +37,7 @@ done before:
 <!-- /allow-non-ascii-block -->
 
 - `<recommended-CTA>` — the `recommended_next` value from the snapshot frontmatter plus one purpose line, expanded by the CTA heuristic below.
-- The bilingual block (Russian primary + English duplicate) is mandatory in **every** replay prompt — it guarantees execution regardless of the runtime's locale (Claude Code / Codex CLI / English-locale agents).
+- The English autonomy instruction is stable model-facing context. Carry both resolved language tags separately; localize human explanation using replies and preserve the snapshot body verbatim.
 - The `done before:` header is a literal; the exact snapshot body content follows underneath.
 
 ## CTA Selection heuristic (V-AC-12, natural-language guidance)
@@ -101,9 +100,9 @@ section by name.
 
 The renderer contract:
 1. Consume a `recommended_next` value from the artefact frontmatter.
-2. Emit the bilingual block verbatim (see § Replay-prompt template).
+2. Emit the autonomy block verbatim (see § Replay-prompt template).
 3. Append the `done before:` header followed by the artefact body content.
-4. Any changes to wording or structure of the bilingual block MUST be made
+4. Any changes to wording or structure of the autonomy block MUST be made
    here first; all consumers pick them up automatically.
 
 `/dr-continue` uses this renderer for session-scoped handoff artefacts; the

@@ -57,7 +57,7 @@ class PortableReportingTests(unittest.TestCase):
         result=self.assess()
         self.assertTrue(result['valid'] and result['ready'])
         self.assertEqual(result['readiness'],'checks_complete')
-        self.assertIn('Решение о приёмке остаётся',hr.render(self.c,self.r,result))
+        self.assertIn('Acceptance remains with the task owner.',hr.render(self.c,self.r,result,language='en'))
 
     def test_negative_checks_do_not_pass(self):
         for status in ('failed','blocked','not_run','skipped'):
@@ -270,7 +270,7 @@ class PortableReportingTests(unittest.TestCase):
             code=native.main(['finalize','--project',str(self.root),'--contract','contract.json',
                               '--snapshot','snapshot.json','--report','report.json'])
         self.assertEqual(code,3)
-        self.assertIn('Не проверено',out.getvalue())
+        self.assertIn('Not verified',out.getvalue())
         self.assertEqual(before,{p.name:p.read_bytes() for p in self.root.iterdir()})
 
 if __name__=='__main__':

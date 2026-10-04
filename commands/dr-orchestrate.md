@@ -14,6 +14,8 @@ autonomy: L4
 phase: 3
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-orchestrate
 
 CLI-agent model, effort, and permission-aware version guidance is canonical in

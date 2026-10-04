@@ -10,39 +10,36 @@ from collections import Counter, deque
 from datetime import datetime, timezone, timedelta
 import hashlib
 import html
+import importlib.util
 import json
 import math
 from pathlib import Path
 import re
 import sys
 from typing import Any
+import unicodedata
 
-VERSION = '0.2.3'
+
+def _sibling(name):
+    spec = importlib.util.spec_from_file_location('human_reporting_' + name, Path(__file__).with_name(name + '.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+presentation = _sibling('presentation')
+
+
+def preferences(*, language=None, project=None):
+    return _sibling('language').resolve_preferences(project=project, replies=language)
+
+VERSION = '0.3.0'
 BASE = Path(__file__).resolve().parents[1]
 MAX_JSON = 2 * 1024 * 1024
 MAX_EVIDENCE = 16 * 1024 * 1024
 # Terminal commands and invisible direction controls can hide or reorder verdicts.
 # Preserve normal whitespace and natural-language ZWNJ/ZWJ (U+200C/U+200D).
 UNSAFE_CONTROLS = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u061c\u200b\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]')
-STATUSES = {
-    'met': 'Проверено', 'failed': 'Проверка выявила ошибку',
-    'blocked': 'Проверка заблокирована', 'partial': 'Проверено частично',
-    'not_verified': 'Не проверено', 'conflict': 'Проверки противоречат друг другу',
-    'not_applicable': 'Не применяется по зафиксированному решению',
-}
-PROFILE_HEADINGS = {
-    'feature': 'Что изменилось для пользователя',
-    'bugfix': 'Что исправлено и как это проявляется',
-    'refactor': 'Что изменено и какое поведение сохранено',
-    'research': 'Что удалось установить',
-    'review': 'Замечания и их последствия',
-    'planning': 'Предлагаемое решение',
-    'operations': 'Что изменилось в работе системы',
-    'documentation': 'Что теперь объясняет документ',
-    'security': 'Что обнаружено и какой риск остаётся',
-    'release': 'Что входит в поставку',
-    'utility': 'Ответ',
-}
 
 class ReportError(ValueError):
     pass
@@ -432,10 +429,10 @@ def analyse(contract: dict, report: dict, evidence_root: Path | None = None,
 # Heuristic language checks are not a security boundary or grammar parser.
 # These constants are match rules and replacement labels, never credential values.
 REDACTION_RULES = [
-    (r'-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----', '[СЕКРЕТ УДАЛЁН]'),
-    (r'(?i)\b(authorization\s*:\s*bearer)\s+[^\s,;]+', r'\1 [СЕКРЕТ УДАЛЁН]'),
-    (r'(?i)\b((?:api[_-]?key|access[_-]?token|password|secret|[a-z][a-z0-9_]*_token)\s*[=:]\s*)[^\s,;&]+', r'\1[СЕКРЕТ УДАЛЁН]'),
-    (r'\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,})\b', '[СЕКРЕТ УДАЛЁН]'),
+    (r'-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----', '[REDACTED SECRET]'),
+    (r'(?i)\b(authorization\s*:\s*bearer)\s+[^\s,;]+', r'\1 [REDACTED SECRET]'),
+    (r'(?i)\b((?:api[_-]?key|access[_-]?token|password|secret|[a-z][a-z0-9_]*_token)\s*[=:]\s*)[^\s,;&]+', r'\1[REDACTED SECRET]'),
+    (r'\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,})\b', '[REDACTED SECRET]'),
 ]
 POINTER_PATTERNS = [
     r'как\s+(?:мы\s+)?(?:обсуждали|договорились)',
@@ -461,8 +458,30 @@ COUNT_UNIT_JOIN = re.compile(r'(?i)\d+(?:fitdays?|fits?|days?|jobs?|hosts?|files
 SPACING_JOINS = re.compile(
     r'[\u0410-\u044f\u0401\u0451][0-9]|[0-9][\u0410-\u044f\u0401\u0451]|'
     r'(?i:\b\d+(?:fitdays?|fits?|days?|jobs?|hosts?|files?|roles?|reports?)(?:/host)?\b)|'
+    r'(?i:\b(?:version|report|role|chapter|section|rapport|rôle)\d)|'
     r'(?i:\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|'
     r'jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\d{4}\b)')
+
+def prose_spacing_join(text: str) -> bool:
+    if SPACING_JOINS.search(text):
+        return True
+    spaced_scripts = ('CYRILLIC', 'GREEK', 'ARABIC', 'HEBREW', 'DEVANAGARI', 'BENGALI',
+                      'GURMUKHI', 'GUJARATI', 'ORIYA', 'TAMIL', 'TELUGU', 'KANNADA', 'MALAYALAM')
+    # Combining vowel/accent signs belong to the preceding letter, not a gap.
+    letters = ''.join(char for char in text if not unicodedata.category(char).startswith('M'))
+    for left, right in zip(letters, letters[1:]):
+        letter = right if left.isdecimal() else left if right.isdecimal() else ''
+        if letter.isalpha() and unicodedata.name(letter, '').startswith(spaced_scripts):
+            return True
+    # A lowercase Latin word with diacritics is prose; keep opaque Product2-style
+    # names and existing ASCII identifier exemptions unchanged.
+    for token in re.findall(r'[^\W_]+', text):
+        if token[0].islower() and any(char.isdecimal() for char in token) and any(
+            ord(char) > 127 and unicodedata.name(char, '').startswith('LATIN')
+            for char in token
+        ):
+            return True
+    return False
 
 def spacing_prose(text: str) -> str:
     """Mask recognizable literal surfaces for advisory lint, never for rendering."""
@@ -493,23 +512,24 @@ def spacing_prose(text: str) -> str:
     text = re.sub(r'\b[^\W_]+(?:\\?_[^\W_]+)+\b|\b[A-Z\u0400-\u04ff]+-\d+\b', ' ', text)
     return text
 
-def lint(text: str) -> list[dict[str, str]]:
+def lint(text: str, *, language: str = 'en') -> list[dict[str, str]]:
+    messages = presentation.Presentation(language)
     findings = []
     if UNSAFE_CONTROLS.search(text):
-        findings.append({'code': 'unsafe-control', 'severity': 'error', 'message': 'Текст содержит управляющий символ, который может скрыть или исказить результат.'})
+        findings.append({'code': 'unsafe-control', 'severity': 'error', 'message': messages.text('lint.unsafe-control')})
     if redact(text) != text:
-        findings.append({'code': 'secret-like', 'severity': 'error', 'message': 'Текст похож на содержащий секрет. Не публиковать до проверки.'})
+        findings.append({'code': 'secret-like', 'severity': 'error', 'message': messages.text('lint.secret-like')})
     for pattern in POINTER_PATTERNS:
         if re.search(pattern, text, re.IGNORECASE):
-            findings.append({'code': 'context-pointer', 'severity': 'warning', 'message': 'Есть ссылка на недоступный читателю контекст или внутренний путь.'})
+            findings.append({'code': 'context-pointer', 'severity': 'warning', 'message': messages.text('lint.context-pointer')})
     if re.search(r'\b(?:AC|REQ|STEP|EVIDENCE|RUN)[-_]\d+\b', text):
-        findings.append({'code': 'naked-id', 'severity': 'warning', 'message': 'Вместо внутреннего идентификатора нужно название требования или результата.'})
+        findings.append({'code': 'naked-id', 'severity': 'warning', 'message': messages.text('lint.naked-id')})
     if re.search(r'(?i)\b(?:всё готово|все готово|полностью завершено|100\s*%\s*готов)', text):
-        findings.append({'code': 'absolute-completion', 'severity': 'warning', 'message': 'Утверждение о готовности нужно сверить с критериями и ограничениями.'})
+        findings.append({'code': 'absolute-completion', 'severity': 'warning', 'message': messages.text('lint.absolute-completion')})
     if re.search(r'(?i)\b(?:в рамках|на текущий момент|следует отметить)\b', text):
-        findings.append({'code': 'bureaucratic', 'severity': 'warning', 'message': 'Есть канцелярская конструкция без продуктового смысла.'})
-    if SPACING_JOINS.search(spacing_prose(text)):
-        findings.append({'code': 'prose-spacing', 'severity': 'warning', 'message': 'В обычном тексте проверьте пробелы между словами и числами; точные идентификаторы и цитаты сохраняйте.'})
+        findings.append({'code': 'bureaucratic', 'severity': 'warning', 'message': messages.text('lint.bureaucratic')})
+    if prose_spacing_join(spacing_prose(text)):
+        findings.append({'code': 'prose-spacing', 'severity': 'warning', 'message': messages.text('lint.prose-spacing')})
     return findings
 
 def has_blocking_lint(findings: list[dict[str, str]]) -> bool:
@@ -549,45 +569,60 @@ def trace_graph(contract: dict, report: dict) -> dict:
         for e in o['evidence_ids']: edge('outcome:' + o['id'], 'supported_by', 'evidence:' + e)
     return {'schema': 'human-reporting-task-graph/1', 'task_id': tid, 'nodes': nodes, 'edges': edges}
 
-def render(contract: dict, report: dict, result: dict, *, brief: bool = False, previous: dict | None = None) -> str:
+def check_summary(detail: dict, source: dict, catalog) -> str:
+    """Translate generated safety explanations, preserving submitted check prose."""
+    summary = detail['summary']
+    if summary == source['summary']:
+        return human(summary)
+    # The assessment JSON retains its historical messages and machine statuses.
+    original = presentation.Presentation('ru')
+    for key in ('stale', 'unsupported_success', 'receipt'):
+        if summary == original.text('reason.' + key):
+            return catalog.text('reason.' + key)
+    for key in ('not_run', 'skipped'):
+        if summary == original.text('reason.' + key) + source['summary']:
+            return catalog.text('reason.' + key) + human(source['summary'])
+    return human(summary)
+
+def render(contract: dict, report: dict, result: dict, *, brief: bool = False, previous: dict | None = None,
+           language: str | None = None, project: str | Path | None = None) -> str:
     if not result['valid']:
         raise ReportError('Cannot render a normal report with invalid bindings or structure; run validate.')
+    resolved = preferences(language=language, project=project)
+    catalog = presentation.Presentation(resolved['replies'])
+    t = catalog.text
+    checks = {check['id']: check for check in report['checks']}
+    statuses = {key: t('status.' + key) for key in
+                ('met', 'failed', 'blocked', 'partial', 'not_verified', 'conflict', 'not_applicable')}
     profile = report['profile'] if report['profile'] != 'auto' else contract['task']['type']
     coverage = result['coverage']
-    headlines = {
-        'checks_complete': 'Запланированные проверки выполнены. Решение о приёмке остаётся за владельцем задачи.',
-        'blocked': 'Задача заблокирована: подтвердить весь требуемый результат пока нельзя.',
-        'incomplete': 'Результат подготовлен не полностью или не полностью проверен.',
-        'proposed': 'Результат оценивается по предварительным критериям; они ещё не согласованы.',
-        'no_criteria': 'Ответ подготовлен; соответствие продукта критериям приёмки не оценивалось.',
-    }
-    first = headlines[result['readiness']]
+    first = t('headline.' + result['readiness'])
     if report['kind'] == 'progress':
-        first = 'Работа продолжается. Текущий этап: ' + human(report['stage']) + '.'
+        first = t('progress', stage=human(report['stage']))
     elif report['kind'] == 'blocked':
-        first = 'Продолжение работы остановлено. ' + first
-    lines = [f'**{human(contract["task"]["title"])}.** {first}', '', '## Что требовалось', '',
+        first = t('stopped', headline=first)
+    lines = [f'**{human(contract["task"]["title"])}.** {first}', '', '## ' + t('requirements'), '',
              human(contract['task']['context']), '', human(contract['task']['goal'])]
     if report['outcomes']:
-        lines += ['', '## ' + PROFILE_HEADINGS[profile], '']
+        lines += ['', '## ' + t('profile.' + profile), '']
         outcomes = report['outcomes']
         if brief:
             priority = {o['id'] for o in outcomes if o['kind'] != 'observed' or o['id'] in result['unproven_outcomes']}
             priority.update(o['id'] for o in outcomes[:5])
             outcomes = [o for o in outcomes if o['id'] in priority]
         for o in outcomes:
-            label = {'proposal': 'Предложение: ', 'hypothesis': 'Гипотеза, не установленный факт: ', 'limitation': 'Ограничение: ', 'observed': ''}[o['kind']]
+            label = '' if o['kind'] == 'observed' else t(o['kind'])
             if o['id'] in result['unproven_outcomes']:
-                label = 'Заявлено исполнителем, но не подтверждено: '
+                label = t('unproven')
             lines += [human(label + o['text']) + ' ' + human(o['impact']), '']
         if len(outcomes) < len(report['outcomes']):
-            lines += [f'В полном отчёте описано ещё {len(report["outcomes"]) - len(outcomes)} результатов. Эта версия не заменяет полный отчёт.', '']
+            lines += [t('more_outcomes', count=len(report['outcomes']) - len(outcomes)), '']
     if contract['criteria']:
-        lines += ['', '## Проверка требований', '', f'Подтверждено **{coverage["required_met"]} из {coverage["required_total"]}** обязательных применимых критериев.']
+        lines += ['', '## ' + t('checks'), '', t('coverage', met=coverage['required_met'], total=coverage['required_total'])]
         if coverage['excluded']:
-            lines += ['', f'Отдельно исключено по зафиксированным решениям: {coverage["excluded"]}. Они не скрыты в числе успешных проверок.']
+            lines += ['', t('excluded', count=coverage['excluded'])]
         if coverage['optional_total']:
-            lines += ['', f'Дополнительных, необязательных критериев: {coverage["optional_total"]}; они показаны отдельно от обязательного счётчика.']
+            lines += ['', t('optional', count=coverage['optional_total'])]
         chosen = contract['criteria']
         if report['kind'] == 'progress' and previous and previous.get('valid'):
             compatible = (previous.get('contract_sha256') == result['contract_sha256'] and
@@ -597,9 +632,9 @@ def render(contract: dict, report: dict, result: dict, *, brief: bool = False, p
                 # Unchanged negative conditions must remain visible in a delta update.
                 chosen = [x for x in chosen if x['id'] in changed or result['criteria'][x['id']] not in {'met', 'not_applicable'}]
                 if not changed:
-                    lines += ['', 'Состояния критериев не изменились.' + (' Открытые условия перечислены ниже.' if chosen else '')]
+                    lines += ['', t('unchanged') + (t('open_below') if chosen else '')]
             else:
-                lines += ['', 'Версия задания или продукта изменилась; показана полная проверка без сравнения с прежним отчётом.']
+                lines += ['', t('changed_identity')]
         selected = chosen
         if brief and len(chosen) > 8:
             priority = [c for c in chosen if result['criteria'][c['id']] not in {'met', 'not_applicable'}]
@@ -607,79 +642,85 @@ def render(contract: dict, report: dict, result: dict, *, brief: bool = False, p
             selected = priority + positive[:max(0, 8-len(priority))]
         for criterion in selected:
             state = result['criteria'][criterion['id']]
-            suffix = '' if criterion['required'] else ' (необязательный критерий)'
-            lines += ['', '**' + human(criterion['text'].rstrip('.!? ')) + suffix + ' — ' + STATUSES[state] + '.**']
+            suffix = '' if criterion['required'] else t('optional_suffix')
+            lines += ['', '**' + human(criterion['text'].rstrip('.!? ')) + suffix + ' — ' + statuses[state] + '.**']
             if state == 'not_applicable':
-                lines += [human(criterion['exclusion']['reason']) + ' Решение зафиксировал: ' + human(criterion['exclusion']['approved_by']) + '.']
+                lines += [human(criterion['exclusion']['reason']) + t('decision_owner', owner=human(criterion['exclusion']['approved_by']))]
                 continue
             for v in criterion['verification']:
                 detail = result['verification'][v['id']]
                 expectation = v['expectation'].strip().rstrip('.!?')
                 if expectation != criterion['text'].strip().rstrip('.!?'):
-                    lines += ['Проверяли: ' + human(expectation) + '.']
-                lines += ['Среда: ' + human(v['environment'].rstrip('.!? ')) + '.']
+                    lines += [t('checked', expectation=human(expectation))]
+                lines += [t('environment', environment=human(v['environment'].rstrip('.!? ')))]
                 if detail['details']:
-                    lines += [human(d['summary']) for d in detail['details']]
+                    lines += [check_summary(d, checks[d['check_id']], catalog) for d in detail['details']]
                 else:
-                    lines += ['Результат этой проверки не представлен.']
+                    lines += [t('missing_check')]
             if not criterion['verification']:
-                lines += ['Способ проверки этого критерия ещё не определён.']
+                lines += [t('missing_method')]
         if len(selected) < len(chosen):
-            lines += ['', f'Ещё {len(chosen) - len(selected)} критериев остаются в полном отчёте; сокращение текста не исключает их из проверки.']
+            lines += ['', t('more_criteria', count=len(chosen) - len(selected))]
             visible = {x['id'] for x in selected}
             omitted = Counter(result['criteria'][x['id']] for x in chosen if x['id'] not in visible)
-            lines += ['Среди не показанных здесь: ' + '; '.join(STATUSES[k] + ' — ' + str(v) for k, v in sorted(omitted.items())) + '.']
+            lines += [t('omitted', states='; '.join(statuses[k] + ' — ' + str(v) for k, v in sorted(omitted.items())))]
     if report['kind'] in {'progress', 'handoff'} and contract['plan_steps']:
         names = {s['id']: s['title'] for s in contract['plan_steps']}
-        labels = {'not_started': 'не начато', 'in_progress': 'в работе', 'done': 'работа выполнена; проверки учитываются отдельно', 'blocked': 'заблокировано', 'cancelled': 'остановлено'}
-        lines += ['', '## Связь с планом', '']
+        lines += ['', '## ' + t('plan'), '']
         for p in report['plan_progress']:
-            lines += [human(names[p['step_id']]) + ' — ' + labels[p['status']] + '. ' + human(p['note']), '']
+            lines += [human(names[p['step_id']]) + ' — ' + t('plan.' + p['status']) + '. ' + human(p['note']), '']
     if contract['questions']:
         answers = {x['question_id']: x for x in report['answers']}
-        lines += ['', '## Ответы на вопросы', '']
+        lines += ['', '## ' + t('questions'), '']
         for q in contract['questions']:
             answer = answers.get(q['id'])
-            answer_text = answer['text'] if answer else 'Ответ пока не получен.'
-            label = 'Ответ неизвестен. ' if answer and answer['status'] == 'unknown' else ''
-            if answer and answer['status'] == 'not_applicable': label = 'Не применяется: '
+            answer_text = answer['text'] if answer else t('missing_answer')
+            label = t('unknown_answer') if answer and answer['status'] == 'unknown' else ''
+            if answer and answer['status'] == 'not_applicable': label = t('not_applicable_answer')
             lines += ['**' + human(q['text']) + '** ' + human(label + answer_text), '']
     delivery = result['delivery_state']
     if delivery != 'not_applicable':
-        labels = {'not_deployed': 'В рабочую среду не установлено.', 'staging': 'Доступно в тестовой среде.', 'production': 'По приложенным данным установлено в рабочую среду.', 'unknown': 'Доступность в рабочей среде не подтверждена.'}
-        lines += ['', '## Где доступен результат', '', labels[delivery]]
+        lines += ['', '## ' + t('delivery'), '', t('delivery.' + delivery)]
         if delivery == report['delivery']['state']:
             lines += [human(report['delivery']['text'])]
     if (report['blockers'] or report['risks'] or result['unproven_outcomes'] or result['unfinished_steps']
             or result.get('unmapped_requirements') or result.get('unplanned_criteria')):
-        lines += ['', '## Что мешает завершению и какие ограничения остаются', '']
+        lines += ['', '## ' + t('limitations'), '']
         requirements = {r['id']: r['text'] for r in contract['requirements']}
         criteria = {c['id']: c['text'] for c in contract['criteria']}
         for rid in result.get('unmapped_requirements', []):
-            lines += ['Для требования «' + human(requirements[rid]) + '» ещё не определены критерии приёмки. Его выполнение не подтверждено.', '']
+            lines += [t('unmapped_requirement', requirement=human(requirements[rid])), '']
         for cid in result.get('unplanned_criteria', []):
-            lines += ['Для условия «' + human(criteria[cid]) + '» не указан шаг плана. Связь результата с выполненной работой неполна.', '']
+            lines += [t('unplanned_criterion', criterion=human(criteria[cid])), '']
         for b in report['blockers']:
-            lines += [human(b['text']) + ' ' + human(b['impact']) + ' Для продолжения: ' + human(b['next_action']) + ' Ответственный: ' + human(b['owner']) + '.', '']
+            lines += [human(b['text']) + ' ' + human(b['impact']) + t('continue', action=human(b['next_action']), owner=human(b['owner'])), '']
         for r in report['risks']:
             lines += [human(r['text']) + ' ' + human(r['impact']), '']
         if result['unproven_outcomes']:
-            lines += [f'Для {len(result["unproven_outcomes"])} заявленных результатов нет проверенного подтверждения.', '']
+            lines += [t('unproven_count', count=len(result['unproven_outcomes'])), '']
         if result['unfinished_steps']:
             names = {s['id']: s['title'] for s in contract['plan_steps']}
-            lines += ['По плану не закрыты: ' + '; '.join(human(names[s].rstrip('.!? ')) for s in result['unfinished_steps']) + '.', '']
+            lines += [t('unfinished', steps='; '.join(human(names[s].rstrip('.!? ')) for s in result['unfinished_steps'])), '']
     if report['usage']:
-        lines += ['', '## Как воспользоваться результатом или проверить его', '']
+        lines += ['', '## ' + t('usage'), '']
         lines += [str(n) + '. ' + human(step) for n, step in enumerate(report['usage'], 1)]
     if report['next_actions']:
-        lines += ['', '## Что осталось сделать', '']
+        lines += ['', '## ' + t('next_actions'), '']
         for action in report['next_actions']:
-            lines += [human(action['text']) + ' Ответственный: ' + human(action['owner']) + '.', '']
+            lines += [human(action['text']) + t('owner', owner=human(action['owner'])), '']
+    metadata = (f'<!-- human-reporting-presentation requested={catalog.requested} '
+                f'catalog={catalog.language} direction={catalog.direction} '
+                f'source={resolved["sources"]["replies"]} -->')
+    lines += ['', metadata]
+    if catalog.notice:
+        lines += ['', catalog.notice]
+    if resolved['warnings']:
+        lines += ['', t('preference_warning', warning=human('; '.join(resolved['warnings'])))]
     return re.sub(r'\n{3,}', '\n\n', '\n'.join(lines)).strip() + '\n'
 
 def main(argv=None):
     """Read-only CLI; execution and artifact persistence belong to the caller."""
-    ap = argparse.ArgumentParser(description='Read-only, traceable Russian product reports')
+    ap = argparse.ArgumentParser(description='Read-only, traceable multilingual product reports')
     ap.add_argument('--version', action='version', version=VERSION)
     ap.add_argument('command', choices=('validate', 'gate', 'render', 'graph', 'hash', 'lint'))
     ap.add_argument('--contract')
@@ -688,6 +729,8 @@ def main(argv=None):
     ap.add_argument('--expected-contract-sha256')
     ap.add_argument('--max-age-hours', type=float)
     ap.add_argument('--brief', action='store_true')
+    ap.add_argument('--language', help='Reply language tag; overrides language preferences')
+    ap.add_argument('--project', help='Project root for language preferences')
     ap.add_argument('--strict-human', action='store_true')
     ap.add_argument('--text-file')
     args = ap.parse_args(argv)
@@ -698,7 +741,8 @@ def main(argv=None):
             path = Path(args.text_file)
             if path.stat().st_size > MAX_JSON:
                 raise ReportError('Text input exceeds the configured size limit')
-            findings = lint(path.read_text(encoding='utf-8'))
+            resolved = preferences(language=args.language, project=args.project)
+            findings = lint(path.read_text(encoding='utf-8'), language=resolved['replies'])
             print(json.dumps(findings, ensure_ascii=False, indent=2))
             return 2 if has_blocking_lint(findings) else 0
         if not args.contract:
@@ -718,8 +762,9 @@ def main(argv=None):
             print(json.dumps(assessment, ensure_ascii=False, indent=2))
             return 2
         if args.command == 'render':
-            text = render(contract, report, assessment, brief=args.brief)
-            findings = lint(text) if args.strict_human else []
+            text = render(contract, report, assessment, brief=args.brief, language=args.language, project=args.project)
+            resolved = preferences(language=args.language, project=args.project)
+            findings = lint(text, language=resolved['replies']) if args.strict_human else []
             if findings:
                 print(json.dumps({'language_findings': findings}, ensure_ascii=False), file=sys.stderr)
                 if has_blocking_lint(findings):

@@ -3,6 +3,8 @@ name: dr-init
 description: Initialize a new Datarim task or scaffold a new project. Auto-detects intent from prompt context.
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-init — Initialize New Task or Project
 
 **Acceptance baseline:** after task creation and path resolution, define the
@@ -19,7 +21,7 @@ receipt. A TBD acceptance skeleton does not authorize implementation.
 
 ## Instructions
 0.  **INTENT DETECTION** — Determine whether the user wants to create a **project** or a **task**:
-    - Scan the user's input for project creation signals:
+    - Recognize project creation intent semantically in any language; the following literal signals are examples, not a language whitelist:
       - English keywords: "create project", "new project", "init project", "scaffold project", "setup project"
       - Russian keywords: "создай проект", "новый проект", "инициализируй проект", "создать проект" <!-- allow-non-ascii: russian-trigger-phrases-detected-by-the-intent-classifier -->
       - Pattern: `/dr-init create project "Name"`
@@ -241,10 +243,10 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
       - Hallucination mitigation: wish title MUST trace back to a phrase or paraphrasable concept in the brief; do NOT invent goals the operator did not state. Vague brief → use the fallback skeleton below.
     - Write the file from `${DATARIM_RUNTIME:?}/templates/expectations-template.md` with:
       - **Frontmatter (canonical):** `task_id`, `artifact: expectations`, `schema_version: 2`, `captured_at`, `captured_by: /dr-init`, `agent: planner`, `status: canonical`, `parent_init_task: {TASK-ID}-init-task.md`.
-      - **Per-wish item:** title (plain Russian, ending with «.»), `wish_id` (kebab-slug, cyrillic allowed), `Что хочу проверить:` (1-2 sentences), `Как проверить (success criterion):` (concrete signal — file path, command, visible behaviour), `Связанный AC из PRD: «—»` (no PRD yet), `evidence_type: empirical` (default), `#### История статусов` one initial line `<ISO> / <local> · /dr-init · pending → pending · reason: пункт создан при инициализации задачи`, `#### Текущий статус` followed by a single bullet line carrying the value (`pending` on first write). <!-- allow-non-ascii: russian-expectations-field-names-and-status-history-cited-from-canonical-schema -->
-      - **Schema (mandatory).** Items MUST use the canonical bullet-list shape from `skills/expectations-checklist/SKILL.md` § Body shape — i.e. one top-level bullet per wish (`- **<N>. <Title>**`) with **nested bullets** (`  - wish_id:`, `  - Что хочу проверить:`, …) and a two-line `Текущий статус` block (`  - #### Текущий статус` followed by `    - <value>`). Do **NOT** use heading-style items (`### N. Title`) or single-line «inline» status (`#### Текущий статус: pending`) — the validator parses only the bullet-list shape, and heading-style files are rejected on the very next pipeline step (see `"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID} --report` for the exact errors emitted on schema drift). <!-- allow-non-ascii: russian-expectations-field-names-cited-from-canonical-schema -->
+      - **Per-wish item:** title (the resolved artifact language, ending with «.»), `wish_id` (stable ASCII kebab-slug; preserve legacy IDs), `wish:` (1-2 sentences), `success_criterion:` (concrete signal — file path, command, visible behaviour), `linked_ac: «—»` (no PRD yet), `evidence_type: empirical` (default), `#### status_history` one initial line `<ISO> / <local> · /dr-init · pending → pending · reason: wish captured during task initialization`, `#### current_status` followed by a single bullet line carrying the value (`pending` on first write).
+      - **Schema (mandatory).** Items MUST use the canonical bullet-list shape from `skills/expectations-checklist/SKILL.md` § Body shape — i.e. one top-level bullet per wish (`- **<N>. <Title>**`) with **nested bullets** (`  - wish_id:`, `  - wish:`, …) and a two-line `current_status` block (`  - #### current_status` followed by `    - <value>`). Do **NOT** use heading-style items (`### N. Title`) or single-line «inline» status (`#### current_status: pending`) — the validator parses only the bullet-list shape, and heading-style files are rejected on the very next pipeline step (see `"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID} --report` for the exact errors emitted on schema drift).
     - Probe: `bash "${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID} --root "$DATARIM_ROOT"`. Exit 0 = OK; non-zero = print warning + continue (fail-soft — operator may amend manually).
-    - **Fallback (empty / diffuse brief or LLM extraction failure):** write 1-wish skeleton with title «Цель задачи — TBD (оператор уточняет).», `wish_id: tsel-zadachi-tbd`, `evidence_type: empirical`, and an inline HTML comment `<!-- TODO: operator fills concrete wish at next /dr-prd or /dr-plan amendment -->`. This satisfies the L1+ mandate floor and surfaces the gap to the operator at the next pipeline step. <!-- allow-non-ascii: russian-fallback-skeleton-title-cited-from-template -->
+    - **Fallback (empty / diffuse brief or LLM extraction failure):** write 1-wish skeleton with title «Task goal — TBD (to be clarified).», `wish_id: tsel-zadachi-tbd`, `evidence_type: empirical`, and an inline HTML comment `<!-- TODO: operator fills concrete wish at next /dr-prd or /dr-plan amendment -->`. This satisfies the L1+ mandate floor and surfaces the gap to the operator at the next pipeline step.
     - This step applies to **all complexity levels L1-L4** (mandate scope — the operator set this as a hard requirement with no exceptions).
 
 5.  **SUBTASK BACKLOG** (Level 3-4 only):

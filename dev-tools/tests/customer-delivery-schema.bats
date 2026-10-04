@@ -3034,57 +3034,15 @@ PY
         && [ "$status" -eq 1 ]
 }
 
-@test "applicable live evidence requires the complete RU EN painted matrix" {
-    local nine_cells="$BATS_TEST_TMPDIR/nine-painted-cells.yaml"
-    local duplicate_combination="$BATS_TEST_TMPDIR/duplicate-painted-combination.yaml"
-    local schema_mutant="$BATS_TEST_TMPDIR/receipt-schema-without-en-desktop-dark.json"
-    "$PYTHON" - "$RECEIPT_SCHEMA" <<'PY' || return 1
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as handle:
-    schema = json.load(handle)
-
-matrix_rules = schema["$defs"]["liveEvidence"]["allOf"][1]["then"]["properties"]["painted_matrix"]["allOf"]
-actual = [rule["contains"]["$ref"] for rule in matrix_rules]
-expected = [
-    "#/$defs/ruMobileLight",
-    "#/$defs/ruMobileDark",
-    "#/$defs/ruDesktopLight",
-    "#/$defs/ruDesktopDark",
-    "#/$defs/enMobileLight",
-    "#/$defs/enMobileDark",
-    "#/$defs/enDesktopLight",
-    "#/$defs/enDesktopDark",
-]
-if actual != expected:
-    raise SystemExit(f"painted matrix contains drift: {actual!r}")
-PY
-    cp "$RECEIPT_TEMPLATE" "$nine_cells" || return 1
-    cp "$RECEIPT_TEMPLATE" "$duplicate_combination" || return 1
-    cp "$RECEIPT_SCHEMA" "$schema_mutant" || return 1
-    yq -i '.requirements.req-0001.coverage_chain.live_evidence.painted_matrix += [{
-          "locale": "ru",
-          "viewport": "mobile",
-          "theme": "light",
-          "evidence_ref": "artifacts/live/extra-ru-mobile-light.png",
-          "observed_at": "2026-01-02T13:28:00Z"
-        }]' "$nine_cells" || return 1
-    yq -i '.requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7].locale = "ru" |
-        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7].viewport = "mobile" |
-        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7].theme = "light"' "$duplicate_combination" || return 1
-    # $defs is the literal JSON Schema key.
-    # shellcheck disable=SC2016
-    yq -i 'del(."$defs".liveEvidence.allOf[1].then.properties.painted_matrix.allOf[7])' "$schema_mutant" || return 1
-
+@test "applicable matrices stay nonempty and the semantic gate enforces full declared locale products" {
+    # JSON Schema checks cell shape. Cross-field locale x viewport x theme
+    # completeness belongs to the production semantic validator, including
+    # missing/extra/duplicate/reduced matrices for generic and legacy locales.
     run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
-        'del(.requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7])'
-    [ "$status" -eq 1 ] \
-        && run validate_yaml "$RECEIPT_SCHEMA" "$nine_cells" \
-        && [ "$status" -eq 1 ] \
-        && run validate_yaml "$RECEIPT_SCHEMA" "$duplicate_combination" \
-        && [ "$status" -eq 1 ] \
-        && validate_yaml "$schema_mutant" "$duplicate_combination"
+        '.requirements.req-0001.coverage_chain.live_evidence.painted_matrix = []'
+    [ "$status" -eq 1 ] || return 1
+    run "$PYTHON" "$ROOT/tests/test_language_framework.py" CustomerLocaleMatrixTests
+    [ "$status" -eq 0 ]
 }
 
 @test "delivery receipt preserves parent links without authored parent state" {
@@ -4609,4 +4567,46 @@ PY
 
     run "$PYTHON" "$CRYPTO_HELPER" sign <<<"${corrupted_secret}"$'\n'"sha256:1db5a9f44ae08c4e46660ca5c1f9012e3b2f804b8f1ff5c80661c2b507b65db8"
     [ "$status" -eq 2 ] && [[ "$output" == *"invalid private key"* ]]
+}
+
+@test "locale scopes and painted cells accept explicit script region and non RU EN tags" {
+    run "$PYTHON" - "$RECEIPT_SCHEMA" "$REQUIREMENTS_SCHEMA" <<'PY_SCHEMA'
+import json
+import sys
+import jsonschema
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    receipt = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    requirement = json.load(handle)
+for tag in ("fr", "ar", "de", "zh-Hant-TW", "pt-BR"):
+    scope = {"locales": [tag], "viewports": ["mobile", "desktop"],
+             "themes": ["light", "dark"], "painted_matrix_applicable": True}
+    for schema in (receipt, requirement):
+        scope_schema = {"$ref": "#/$defs/identityApplicability", "$defs": schema["$defs"]}
+        # Requirement schema names its shared applicability type differently.
+        if "identityApplicability" not in schema["$defs"]:
+            scope_schema["$ref"] = "#/$defs/applicability"
+        jsonschema.Draft202012Validator(scope_schema).validate(scope)
+    cell = {"locale": tag, "viewport": "mobile", "theme": "light",
+            "evidence_ref": "image.png", "observed_at": "2026-01-02T12:30:00Z"}
+    cell_schema = {"$ref": "#/$defs/paintedMatrixCell", "$defs": receipt["$defs"]}
+    jsonschema.Draft202012Validator(cell_schema).validate(cell)
+for tag in ("", "../../fr", "fr;true", "fr_FR", "fr\n"):
+    cell = {"locale": tag, "viewport": "mobile", "theme": "light",
+            "evidence_ref": "image.png", "observed_at": "2026-01-02T12:30:00Z"}
+    assert list(jsonschema.Draft202012Validator(cell_schema).iter_errors(cell)), tag
+PY_SCHEMA
+    [ "$status" -eq 0 ]
+}
+
+@test "legacy RU EN direct schema consumers still reject omitted and duplicate identities" {
+    run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+        'del(.requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7])'
+    [ "$status" -eq 1 ] || return 1
+    run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+        '.requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7].locale = "ru" |
+         .requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7].viewport = "mobile" |
+         .requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7].theme = "light"'
+    [ "$status" -eq 1 ]
 }

@@ -4,6 +4,8 @@ description: Create written content — articles, blog posts, docs, research pap
 argument-hint: [topic or file path]
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-write — Create Content
 
 **Acceptance before authoring:** apply `skills/immutability/SKILL.md`
