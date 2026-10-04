@@ -11,6 +11,7 @@ All notable changes to the Datarim framework are documented here. Format follows
 - Targeted post-Popen delivery tests dispatch before unrelated OpenSSL fixture startup. Each callsite proves a passing positive baseline before applying an independently attributed mutation. The regression adds a controlled delay to the unrelated fixture; missing markers, invalid setup, timeouts and syntax errors cannot count as a successful mutant kill. Full readiness and stale-PID controls remain separate, with unchanged production deadlines and test inventory.
 - Source comments, historical examples and changelog entries now describe reusable lessons without actual private project, infrastructure or personal provenance. The unused consumer-specific projection checker and its always-skipped job are removed; all required branch-protection checks remain unchanged.
 - History-bootstrap release notes link to the current tagged changelog instead of generating comparison links to tags scheduled for retirement. Ordinary releases retain automatic notes.
+- Consolidate the duplicated historical changelog entry without removing its release information.
 
 ### Changed
 
@@ -1972,11 +1973,6 @@ A new skill defines a 4-sub-section recap (what was done / what worked / what di
 - **No breaking changes for existing Claude installs.** Refresh via `./install.sh --with-claude` — symlink layout preserved.
 - Sub-tasks unblocked: TUNE-0115 (Adversarial Review skill split), TUNE-0117 (Diátaxis reorg), TUNE-0118 (`/dr-status` pull-mode), TUNE-0119 (Party Mode → Consilium-lite).
 - Follow-ups spawned: TUNE-0125 (project-local evolution learning routing), TUNE-0116 (Module Manifest — separate task).
-
-## [1.24.0] — 2026-05-07
-
-### Added
-- _(TUNE-0109)_ Secure-by-default Network Exposure Gate (tiered model, reusable CI workflow)
 
 ## [1.24.0] — 2026-05-07
 
