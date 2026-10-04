@@ -1,0 +1,129 @@
+---
+name: dr-publish
+description: Prepare ready-to-publish, platform-adapted payloads for approved content — does NOT dispatch them. Loads publishing rules, adapts text per platform, runs pre-publish checks. Actual sending is hard-gated and happens only via Publisher under operator approval.
+argument-hint: [file path to approved content]
+---
+
+# /dr-publish — Prepare Publish Payloads (does NOT dispatch)
+
+**Acceptance and preparation evidence:** apply `skills/immutability/SKILL.md`
+§ Acceptance and Evidence Loop before adapting content, including consilium.
+Task-bound content pins its selected route and preparation cases and captures
+`check-live-evidence.sh --root <repo-root> --contract <acceptance.json>
+--evidence <evidence.json> --stage preflight` only for a new/migrated baseline.
+Before presenting payloads, append publish-stage case evidence and run the
+strict command with `--stage publish`. Failed checks return to preparation,
+then fresh verification and later selected reviews. Publish STAGE_PASS means
+payload preparation only; public sending stays hard-gated through Publisher.
+Required live publication/operator-approval cases remain pending until the
+authorized action occurs and are all required at archive. Never mark them green
+from payload-only evidence. Standalone preparation retains a pre-work checklist
+and actual evidence but reports **UNCERTIFIED** for the structured task gate.
+
+> **This command PREPARES ready-to-publish payloads (platform-adapted text, `sendMessage`/`sendPhoto` JSON bodies, curl recipes, Playwright steps) — it does NOT send anything.** Publishing to a channel, site, or social network is a **hard-gated action** under `documentation/mandates/autonomous-agents.md` § Hard-gated actions (NEVER auto-execute): public communications (Telegram posts, blog posts, social media) never auto-execute and stay operator-approved per Supreme Directive Law 2. The actual dispatch runs **only through Publisher** (your publishing tool — the sole channel for all external publishing), never as an ad-hoc script from this command. `/dr-publish` stops at the payload; the operator gates the send.
+
+**Role**: Writer Agent
+**Source**: `${DATARIM_RUNTIME:?}/agents/writer.md`
+
+## Instructions
+
+
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
+1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/writer.md` and adopt that persona.
+2.  **LOAD SKILLS**:
+    - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always)
+    - `${DATARIM_RUNTIME:?}/skills/publishing/SKILL.md` (Platform rules, limits, formatting, workflow)
+    - **Voice-bearing content:** the assigned model performs writing, editing, translation, and factual review directly. Preserve the operator's authorship and publication constraints.
+3.  **READ THE CONTENT**: Read the file at the path provided in `$ARGUMENTS`. If no path given, ask the user.
+4.  **CONFIRM READINESS**:
+    - Has the content been through `/dr-edit`? If not, warn: "This content hasn't been editorially reviewed. Proceed anyway or run `/dr-edit` first?"
+    - Identify the content type and length.
+5.  **DETERMINE TARGETS**: Ask the user which platforms to publish to:
+    - Telegram channel
+    - LinkedIn
+    - Facebook
+    - X / Twitter
+    - VK
+    - Instagram
+    - Website / blog
+    - Or: "all" / "social" / specific list
+6.  **ADAPT PER PLATFORM**:
+    - **FIXED PUBLISHING ORDER (mandatory):** when publishing to several social platforms, publish in this exact sequence — **(1) site (RU+EN) → (2) Telegram (canonical, RU) → (3) X/Twitter (EN premium full-article) → (4) Facebook / LinkedIn / VK**. X is published **before** FB/LI/VK on purpose: the FB/LI/VK first comments must cross-link **both** the canonical Telegram (RU) post **and** the X (EN) post, and those URLs only exist once TG and X are already live. Publishing FB/LI/VK before X forces a back-fill pass to add the X link to their comments (a recurring "missing X link" regression). Do not reorder. Canonical rule: `skills/publishing/SKILL.md` § Multi-Platform Workflow.
+    - **First-comment cross-link contract:** every FB / LinkedIn / VK first comment carries the blog link (platform language) **+ Telegram (RU) link + X (EN) link** (and the product site link for product/framework articles). X's first comment carries the EN blog link **+ Telegram (RU) link**. Telegram's own link lives at the end of its long-read, not in a comment.
+    For each target platform:
+    - Check text length against platform limits. If over limit → trim or split.
+    - Convert formatting (HTML for Telegram, plain text for LinkedIn/FB/X, etc.).
+    - Prepare images/media in platform-optimal dimensions if applicable.
+    - For websites: verify OG tags, meta description, canonical URL, heading hierarchy.
+    - For Telegram: use UTF-16 unit counter from `publishing.md` § Character counting. For photo + text >1024 → photo+reply Pattern A (≤5096 total) or Pattern C (>5096 → photo + N text parts, each `[i/N]`-prefixed). For comments on channel posts → use `forward_origin.message_id` polling recipe.
+    - **Telegram post structure — canonical two-message shape:** a TG channel post for an article is TWO messages — (1) video + caption *teaser* (article title + ~3 short summary paragraphs + "full text below 👇"), then (2) a self-contained *long-read retelling* (~2000 chars, 4 micro-headed sense-blocks) ending with the article link as an **embedded hyperlink** (`parse_mode=HTML`, `<a href="https://example.com/<lang>/blog/<slug>">Read the full article on example.com</a>` — visible anchor phrase, hidden URL, channel-language article), in the channel language. The long-read link is at the END of message 2, NOT a separate first comment (TG-specific exception). Before publishing, `forwardMessage` the previous cycle post into the test channel and copy its structure verbatim — do not improvise from memory. See `${DATARIM_RUNTIME:?}/skills/publishing/SKILL.md` § Telegram post structure.
+    - Present each platform version to the user for approval.
+    - **Video attachment — animated-cover cycle (house style):** when the post has a cover + narration, attach the animated screensaver video (cover ~2 s → new effect every ~3 s, shuffled pool, smooth crossfades, full narration length) generated by your publishing tool's cycle-video script (e.g. `make-cycle-video.sh <cover> <audio> <out.mp4>`) — NOT a static cover or a plain cover+audio clip, and NOT a full-frame audio-waveform visualizer (a bottom audio-amplitude STRIP over the cycle is the default and allowed — see § Video standard for social posts). Order is re-shuffled each run; the intro frame is always the post cover; no audio → ~30 s cover-only cycle. FB feed → use static cover (Reels-forced); X long-form + LinkedIn → take the MP4. See `${DATARIM_RUNTIME:?}/skills/publishing/SKILL.md` § Video standard for social posts.
+    - **Manual browser publishing (no script):** if posting by hand through Claude-in-Chrome, follow `${DATARIM_RUNTIME:?}/skills/publishing/SKILL.md` § Manual browser publishing — paste media first (clipboard), then text, then read-back the field before the irreversible click; FB forces video into Reels (use a photo cover for FB feed posts, keep video for X/LinkedIn); X is Premium (full long-form + video); one tab per platform, close when done.
+7.  **PRE-PUBLISH CHECKLIST**:
+    - [ ] Text within platform limits
+    - [ ] Formatting renders correctly (no raw HTML/Markdown)
+    - [ ] Links are valid and clickable
+    - [ ] Images sized correctly for platform
+    - [ ] OG tags present (for website/blog)
+    - [ ] Test sent to private chat / staging (for Telegram, recommend testing first)
+8.  **PREPARE PAYLOADS (does NOT dispatch)**: After user approves each version, produce — but do not send — the ready-to-publish artefacts. Dispatching is hard-gated and happens only through Publisher under operator approval (see the STOP indicator in Step 9 and the header note above).
+    - For Telegram Bot API: provide ready `sendMessage`/`sendPhoto` payloads (do not call the API).
+    - For social networks (X / Facebook / LinkedIn / VK / Instagram): provide the formatted text plus the Publisher invocation (your publishing tool's CLI or its localhost HTTP API) — do not post directly and do not write one-off Playwright/curl scripts.
+    - For websites: applying content to the source file and committing on a feature branch is preparation; the site only goes live via push to `main` → CI/CD (never edit on servers, never `rsync` by hand).
+9.  **POST-PUBLISH**:
+    - Verify link previews render correctly (suggest debugger URLs per platform)
+    - Note the publication date for the content record
+    - **Back-link the article to its social posts (CLOSING GATE — task does not close without it):** after the social posts exist, add the `social` block (telegram/x/linkedin/facebook real permalinks) to the blog article source and redeploy, so the article page links out to the posts on **both** RU and EN. Verify live (HTTP 200, every social link renders on each language version). A published article with social posts but no/incomplete `social` block is an **incomplete publish** — the publish task is NOT done (no `/dr-archive`) until this block is present on RU+EN, points at the real permalinks, and is verified live. Treat a missing block with the same severity as a missing first comment.
+
+## Output
+- Per-platform formatted versions of the content
+- Pre-publish checklist (passed/failed)
+- Publication instructions / payloads (NOT a completed publish)
+
+**STOP indicator (mandatory — emit verbatim as the last line before the CTA block):**
+
+> ⛔ STOP — /dr-publish PREPARED the payloads above but did NOT send them. Nothing has been published yet. Sending is hard-gated (public communications never auto-execute — `documentation/mandates/autonomous-agents.md` § Hard-gated actions) and runs only via Publisher under operator approval. Run the Publisher invocation in CTA option 1 to actually publish.
+
+This indicator MUST appear whether or not `--consilium` mode ran, and regardless of platform. Do not omit it because the payload "looks done" — the whole point is to stop the operator-UX trap where seeing the recipes reads as a completed publish.
+
+## Multi-Vendor Consilium Mode
+
+When `--consilium` is passed as an argument (or `DATARIM_CONSILIUM=1` is set),
+`/dr-publish` activates the multi-vendor publish-adaptation path before the
+standard pre-publish checklist.
+
+**Activation:** `dr-publish --consilium [file-path]`
+
+**What changes:**
+1. Before Step 6 (ADAPT PER PLATFORM), the `dr-orchestrate` plugin fan-out
+   script is invoked with stage label `"publish"`.
+2. Each vendor independently produces platform-adapted versions of the content.
+3. The judge scores adaptations on publish-stage criteria: platform compliance,
+   formatting accuracy, and hook strength.
+4. The best adaptation set is forwarded to Step 7 (PRE-PUBLISH CHECKLIST).
+
+**Hard gate:** regardless of consilium mode, Step 7 (PRE-PUBLISH CHECKLIST)
+is always performed and Step 8 (PUBLISH) is always dry-run-default. An explicit
+`--publish` flag plus operator confirmation is required to execute a real post.
+This gate is enforced by the `dr-orchestrate` plugin FB-rules hard-gate entry
+(`content_consilium_publish`) and cannot be bypassed in consilium mode.
+
+**Degradation:** same rules as `/dr-write --consilium`.
+
+See `${DATARIM_RUNTIME:?}/skills/consilium/SKILL.md` § Real Multi-Vendor Mode for the full protocol.
+See `${DATARIM_RUNTIME:?}/skills/publishing/SKILL.md` § Recurring-mistakes pre-publish checklist before every publish.
+
+## Next Steps (CTA)
+
+After publish, the writer/editor agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
+
+**Routing logic for `/dr-publish`:**
+
+- **CTA option 1 (primary) is ALWAYS the manual dispatch, not next-stage routing.** Because sending is hard-gated, the first numbered option MUST be the concrete operator action that actually publishes — the Publisher invocation for the prepared payload (your publishing tool's CLI / localhost HTTP API for social + external sites; `git push` to `main` → CI/CD for our own sites). Spell out the exact command/step, not a `/dr-*` route. The pipeline continues only **after** the operator has published.
+- Only after the content is actually live: content task in Datarim pipeline → `/dr-archive {TASK-ID}` (final archive)
+- Need to write more content → `/dr-write {TASK-ID}`
+- Need to edit before re-publishing → `/dr-edit {TASK-ID}`
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format defined in `skills/cta-format/SKILL.md` (numbered options, exactly one primary marker, `---` HR). Variant B menu when >1 active tasks.

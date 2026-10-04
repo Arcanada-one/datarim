@@ -1,0 +1,160 @@
+---
+name: dr-optimize
+description: Audit and optimize the Datarim framework — detect bloat, duplicates, oversized files, selective-loading candidates, and stale references.
+allowed-tools: Read Write Edit Grep Glob Bash WebSearch WebFetch Agent
+effort: high
+---
+
+# /dr-optimize — Framework Optimization
+
+**Role**: Optimizer Agent
+**Source**: `${DATARIM_RUNTIME:?}/agents/optimizer.md`
+
+## When to Run
+
+- **Periodically** — after every 5-10 completed tasks, or when `/dr-help` output feels overwhelming
+- **After `/dr-addskill`** — to check if the new skill overlaps with existing ones
+- **When context issues appear** — if skills stop triggering or Claude seems to forget instructions
+- **On user request** — when the user asks to clean up, simplify, or reorganize
+- **Auto-suggested by `/dr-archive` Step 0.5 (reflecting skill)** — when the reflection health-check detects framework inefficiencies
+
+## Instructions
+
+
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
+1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/optimizer.md` and adopt that persona.
+2.  **LOAD SKILLS**:
+    - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always)
+    - `${DATARIM_RUNTIME:?}/skills/evolution/SKILL.md` (Evolution proposal format and approval gate)
+3.  **DETERMINE SCOPE**: Audit the initialized project's `.agents/`, `.claude/`,
+    `.cursor/` discovery directories and `.datarim-runtime/`, reporting ownership
+    separately. For an explicit framework audit, inspect the source repository
+    and propose changes through a pull request. Global Datarim scope is unsupported.
+4.  **FULL AUDIT**: For the target scope, build a complete inventory:
+
+    ```
+    === SKILLS (N files, M total lines) ===
+    | # | Name | Lines | Description | Loaded By |
+    |---|------|-------|-------------|-----------|
+
+    === AGENTS (N files, M total lines) ===
+    | # | Name | Lines | Description | Invoked By |
+    |---|------|-------|-------------|------------|
+
+    === COMMANDS (N files, M total lines) ===
+    | # | Name | Lines | Description | Uses Agent |
+    |---|------|-------|-------------|------------|
+
+    === TEMPLATES (N files) ===
+    | # | Name | Description |
+    |---|------|-------------|
+    ```
+
+5.  **BUILD DEPENDENCY GRAPH**: Map all cross-references:
+    - Commands → Agents (which command loads which agent)
+    - Agents → Skills (which agent loads which skills)
+    - Skills → Skills (cross-references between skills)
+    - Identify orphans (unreferenced components)
+
+6.  **DETECT ISSUES**: Check each category:
+
+    | Check | Threshold | Action |
+    |-------|-----------|--------|
+    | Unused skill | No agent references it | Propose `prune-skill` |
+    | Unused agent | No command invokes it | Propose `prune-agent` |
+    | Oversized skill | Warn `>300`, split `>400` lines | Propose `split-skill` |
+    | Oversized agent | Warn `>120`, split `>180` lines | Propose `split-agent` or `rewrite-agent` |
+    | Duplicate coverage | >70% overlap or repeated instruction blocks | Propose `merge-skills` / rewrite |
+    | Stale description | Description != content | Propose `fix-description` |
+    | Broken reference | Referenced but missing | Propose `fix-references` |
+    | Doc count mismatch | AGENTS.md / README.md / help docs != disk | Propose `sync-docs` |
+    | Description budget | Any description `>160` chars or total `>8K` chars | Propose `fix-description` |
+    | Selective-loading candidate | Monolithic file with mixed subdomains | Propose split into entry + supporting files |
+    | Low-value provenance comments | Task-origin or migration notes that do not affect usage/policy | Propose rewrite cleanup |
+    | Diátaxis docs drift | repo with ≥3 `documentation/*.md` files but missing the 4-category split (`documentation/{tutorials,how-to,reference,explanation}/`) per `skills/diataxis-docs/SKILL.md` | Propose `spawn-diataxis-reorg` (creates `INFRA-* — Diátaxis docs reorg for <repo>` in backlog, soft warning only) |
+
+6a. **DIÁTAXIS DOCS DRIFT DETECTOR** (filesystem-presence + threshold, soft warning):
+    - Run for the audited repo root (or for each consumer repo when scanning ecosystem-wide).
+    - Skip if path matches exemption pattern from `skills/diataxis-docs/SKILL.md` § Exemption List (research-only, archive, vault, inbox, daily-notes, templates, scratch).
+    - Filesystem check (Bash):
+      ```bash
+      diataxis_drift_check() {
+        local repo="$1"
+        # Canon (framework 2.49.0+): documentation/ is the single docs root.
+        # HARD-FLIP — a repo still on legacy docs/ is treated as DRIFT (it must migrate;
+        # run /dr-doctor --scope=docs-migration to self-heal).
+        local docroot="$repo/documentation"
+        # Legacy docs/ present without documentation/ → drift (downstream not yet migrated).
+        if [ -d "$repo/docs" ] && [ ! -d "$docroot" ]; then
+          echo "drift: $repo (legacy docs/ — migrate to documentation/ via /dr-doctor)"
+          return 0
+        fi
+        [ ! -d "$docroot" ] && return 1
+        # Exemption pattern (mirrors skills/diataxis-docs/SKILL.md § Exemption List)
+        echo "$repo" | grep -qE '(research-only|archive|vault|inbox|daily-notes|templates|scratch)' && return 1
+        # Threshold: ≥3 .md files anywhere under documentation/ (categories may be populated;
+        # reserved siblings archive/ evolution/ release-audit/ ephemeral/ are NOT categories).
+        local doc_count
+        doc_count=$(find "$docroot" -name '*.md' 2>/dev/null | wc -l)
+        [ "$doc_count" -lt 3 ] && return 1
+        # Presence: all 4 canonical category dirs?
+        test -d "$docroot/tutorials" && test -d "$docroot/how-to" \
+          && test -d "$docroot/reference" && test -d "$docroot/explanation" \
+          && return 1
+        echo "drift: $repo ($doc_count documentation files, missing 4-dir split)"
+        return 0
+      }
+      ```
+    - On drift: propose `spawn-diataxis-reorg` — adds `INFRA-<next-num> · pending · P4 · L2 · Diátaxis docs reorg for <repo-name>` to `datarim/backlog.md`, with `Source: TUNE-* (diataxis-drift-detector)` annotation.
+    - **Soft only** — never block build. Hard CI gate is deferred (separate backlog item: `INFRA-* — Diátaxis CI gate enforcement`, trigger: ≥3 live consumers post-mandate). When activated, the same detector flips to `exit 1` on drift.
+
+6b. **DATARIM STATE HYGIENE** (always run):
+    - Read `datarim/tasks.md`: extract all task IDs in `## Active Tasks` section AND all task IDs in `## Archived Tasks` table.
+    - If any task ID appears in BOTH sections → it was archived but not cleaned from Active Tasks. Propose `remove-orphaned-active-task` (auto-approve: safe, data preserved in archive).
+    - Read `datarim/activeContext.md`: if any task listed in `## Active Tasks` has a matching entry in the Archived Tasks table of tasks.md → propose removal from activeContext.
+    - This catches cases where archive ran before Steps 6-7 existed (e.g. pre-v1.10.0 archives).
+
+7.  **GENERATE REPORT**: Follow the **Structured Audit Report** template from `optimizer.md` (6 sections: Health Metrics Dashboard, Top-5 Oversized, Description Budget Violations, Merge Candidates, Orphan Analysis, Actionable Recommendations). Present all 6 sections with concrete data — no placeholders, no "TBD".
+
+8.  **APPROVAL GATE**: Follow the evolution.md approval process:
+    - List all proposals with numbers
+    - Ask: "Which proposals should I apply? (all / none / comma-separated numbers)"
+    - Wait for explicit response
+    - Apply ONLY approved changes
+    - **Stack-agnostic gate (MANDATORY before each write to `${DATARIM_RUNTIME:?}/{skills,agents,commands,templates}/`):** load `${DATARIM_RUNTIME:?}/skills/evolution/stack-agnostic-gate.md` and run gate over each proposal's text (script form: `scripts/stack-agnostic-gate.sh <target>`). FAIL → reject the proposal silently for now and surface to user as «stack-specific — relocate to project's AGENTS.md or reword stack-neutral».
+
+9.  **APPLY AND SYNC**: After applying changes:
+    - Update AGENTS.md if counts, behavior descriptions, or references became stale
+    - Update README.md if install flow, counts, or structure documentation became stale
+    - Update dr-help.md if command behavior or command lists changed
+    - Log all changes in `datarim/history/evolution-log.md`
+
+10. **VERIFY**: Run final check:
+    - All counts in docs match actual files
+    - No broken cross-references remain
+    - Entry files still point to valid supporting fragments
+    - All proposed changes applied correctly
+
+## Notes
+
+- Do not treat repo-vs-runtime drift as a permanent universal audit mode for the shared repo. That belongs to bootstrap migration work only.
+- When supporting directories exist, read the short entry file first and then only the fragments needed for the current issue.
+
+## Output
+- Full audit report with dependency graph
+- Optimization proposals with risk levels
+- Applied changes summary
+- Updated documentation
+
+## Next Steps (CTA)
+
+After optimize-pass, the optimizer agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
+
+**Routing logic for `/dr-optimize`:**
+
+- Applied structural changes → primary `/dr-help` (verify command list renders) + reminder to curate runtime → repo
+- Removed components → primary "verify no workflow broken" + alternative `/dr-status`
+- Need deeper restructuring → primary `/dr-design {TASK-ID}` (consilium panel)
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format (numbered, exactly one primary recommendation marker per `cta-format.md`, `---` HR). Variant B menu when >1 active tasks.

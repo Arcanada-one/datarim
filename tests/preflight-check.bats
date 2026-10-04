@@ -1,0 +1,825 @@
+#!/usr/bin/env bats
+# preflight-check.bats — INFRA-0122 / INFRA-0121 Phase 1
+#
+# Coverage:
+#   T01-T04 check_disk         (ok / warn-percent / fatal-percent / low-free-gb)
+#   T05-T06 check_tailscale    (ok / down)
+#   T07-T08 check_vault        (ok / sealed)
+#   T09-T10 check_docker       (ok / high reclaimable)
+#   T11-T12 check_ram          (ok / low free)
+#   T13-T14 check_loadavg      (ok / fatal)
+#   T15     check_time_skew    (chrony + timesyncd fallback; never blocks)
+#   T16-T17 check_health       (ok / down)
+#   T18     append_finding     (json mutation + counters)
+#   T19     emit_ops_bot       (canonical DTO payload shape)
+#   T20     emit_ops_bot       (fail-soft on missing OPSBOT_KEY)
+#   T21     per-host override  (PREFLIGHT_PROD_HOST_MIN_FREE_DISK_GB)
+#   T22     fail-closed missing target-host
+#   T23     input regex rejection
+#   T24     end-to-end OK exit 0
+#   T25     end-to-end FATAL exit 2
+#   T26     end-to-end MIXED status=warn exit 0
+
+SCRIPT="$BATS_TEST_DIRNAME/../dev-tools/preflight-check.sh"
+FIX="$BATS_TEST_DIRNAME/fixtures/preflight"
+
+setup() {
+    TMPROOT="$(mktemp -d)"
+    export TMPROOT
+    MOCK_BIN="$TMPROOT/mock-bin"
+    mkdir -p "$MOCK_BIN"
+    export MOCK_BIN
+    REPORT_FILE="$TMPROOT/report.json"
+    export REPORT_FILE
+    echo "[]" > "$REPORT_FILE"
+    CURL_LOG="$TMPROOT/curl.log"
+    export CURL_LOG
+
+    # Required env for sourcing the script without running main
+    export PREFLIGHT_TARGET_HOST="prod-host"
+    export PREFLIGHT_SERVICE_NAME="opsbot"
+    export PREFLIGHT_TEST_MODE=1
+    export GITHUB_OUTPUT="$TMPROOT/gha_output"
+    : > "$GITHUB_OUTPUT"
+}
+
+teardown() {
+    [ -n "${TMPROOT:-}" ] && rm -rf "$TMPROOT"
+}
+
+# Build a mock command on PATH that emits fixture file content.
+mock_cmd_file() {
+    local name="$1" fixture="$2"
+    cat > "$MOCK_BIN/$name" <<EOF
+#!/usr/bin/env bash
+cat "$fixture"
+EOF
+    chmod +x "$MOCK_BIN/$name"
+}
+
+# Build a mock that exits non-zero (simulate command-missing or hard fail).
+mock_cmd_fail() {
+    local name="$1" code="${2:-1}"
+    cat > "$MOCK_BIN/$name" <<EOF
+#!/usr/bin/env bash
+exit $code
+EOF
+    chmod +x "$MOCK_BIN/$name"
+}
+
+# Build a curl mock that logs args + payload and simulates HTTP responses.
+# Usage: mock_curl [http_code] [response_body]
+# Default: HTTP 200 + {"event_id":"<uuid-zero>"} body.
+# Honours `--output <file>` and `--write-out '%{http_code}'` semantics used by
+# emit_ops_bot's observability path (INFRA-0228).
+mock_curl() {
+    local code="${1:-200}"
+    local body="${2:-{\"event_id\":\"00000000-0000-0000-0000-000000000000\"}}"
+    cat > "$MOCK_BIN/curl" <<EOF
+#!/usr/bin/env bash
+echo "ARGS:" "\$@" >> "$CURL_LOG"
+prev=""
+output_file=""
+for a in "\$@"; do
+    if [[ "\$prev" == "-d" || "\$prev" == "--data" ]]; then
+        echo "PAYLOAD:" "\$a" >> "$CURL_LOG"
+    fi
+    if [[ "\$prev" == "--output" ]]; then
+        output_file="\$a"
+    fi
+    prev="\$a"
+done
+if [[ -n "\$output_file" ]]; then
+    printf '%s' '${body}' > "\$output_file"
+fi
+# Emit http_code via --write-out
+printf '%s' '${code}'
+exit 0
+EOF
+    chmod +x "$MOCK_BIN/curl"
+}
+
+prepend_path() {
+    export PATH="$MOCK_BIN:$PATH"
+}
+
+source_script() {
+    # shellcheck disable=SC1090
+    source "$SCRIPT"
+}
+
+# ---------- check_disk ----------
+
+@test "T01 check_disk: ok (disk usage 20%, 160 GB free)" {
+    mock_cmd_file df "$FIX/df-ok.txt"
+    prepend_path
+    source_script
+    run check_disk
+    [ "$status" -eq 0 ]
+    findings=$(jq 'length' "$REPORT_FILE")
+    [ "$findings" -gt 0 ]
+    fatal=$(jq '[.[] | select(.status=="fatal")] | length' "$REPORT_FILE")
+    warn=$(jq  '[.[] | select(.status=="warning")] | length' "$REPORT_FILE")
+    [ "$fatal" -eq 0 ]
+    [ "$warn" -eq 0 ]
+}
+
+@test "T02 check_disk: warn (usage 83-88%, above warn-percent 80)" {
+    mock_cmd_file df "$FIX/df-warn.txt"
+    prepend_path
+    source_script
+    run check_disk
+    [ "$status" -eq 0 ]
+    warn=$(jq '[.[] | select(.status=="warning")] | length' "$REPORT_FILE")
+    [ "$warn" -gt 0 ]
+}
+
+@test "T03 check_disk: fatal (usage 95%, above fail-percent 90)" {
+    mock_cmd_file df "$FIX/df-fatal.txt"
+    prepend_path
+    source_script
+    run check_disk
+    fatal=$(jq '[.[] | select(.status=="fatal")] | length' "$REPORT_FILE")
+    [ "$fatal" -gt 0 ]
+}
+
+@test "T04 check_disk: fatal on free-GB below min (usage 99%, free 1GB < 2GB)" {
+    mock_cmd_file df "$FIX/df-low-free.txt"
+    prepend_path
+    source_script
+    run check_disk
+    fatal=$(jq '[.[] | select(.status=="fatal" and .metric=="free_gb")] | length' "$REPORT_FILE")
+    [ "$fatal" -gt 0 ]
+}
+
+# ---------- check_tailscale ----------
+
+@test "T05 check_tailscale: ok (BackendState=Running, Self.Online=true)" {
+    mock_cmd_file tailscale "$FIX/tailscale-ok.json"
+    prepend_path
+    source_script
+    run check_tailscale
+    [ "$status" -eq 0 ]
+    fatal=$(jq '[.[] | select(.name=="tailscale" and .status=="fatal")] | length' "$REPORT_FILE")
+    [ "$fatal" -eq 0 ]
+}
+
+@test "T06 check_tailscale: fatal (BackendState=Stopped)" {
+    mock_cmd_file tailscale "$FIX/tailscale-down.json"
+    prepend_path
+    source_script
+    run check_tailscale
+    fatal=$(jq '[.[] | select(.name=="tailscale" and .status=="fatal")] | length' "$REPORT_FILE")
+    [ "$fatal" -gt 0 ]
+}
+
+# ---------- check_vault ----------
+
+@test "T07 check_vault: ok (initialized, sealed=false)" {
+    mock_cmd_file vault "$FIX/vault-ok.json"
+    prepend_path
+    source_script
+    run check_vault
+    fatal=$(jq '[.[] | select(.name=="vault" and .status=="fatal")] | length' "$REPORT_FILE")
+    [ "$fatal" -eq 0 ]
+}
+
+@test "T08 check_vault: fatal (sealed=true)" {
+    mock_cmd_file vault "$FIX/vault-sealed.json"
+    export PREFLIGHT_VAULT_RETRIES=1
+    export PREFLIGHT_VAULT_RETRY_DELAY=0
+    prepend_path
+    source_script
+    run check_vault
+    fatal=$(jq '[.[] | select(.name=="vault" and .status=="fatal")] | length' "$REPORT_FILE")
+    [ "$fatal" -gt 0 ]
+}
+
+# ---------- check_docker_pressure ----------
+
+@test "T09 check_docker_pressure: ok (reclaimable < 10GB)" {
+    mock_cmd_file docker "$FIX/docker-df-ok.json"
+    prepend_path
+    source_script
+    run check_docker_pressure
+    warn=$(jq '[.[] | select(.name=="docker_pressure" and .status=="warning")] | length' "$REPORT_FILE")
+    [ "$warn" -eq 0 ]
+}
+
+@test "T10 check_docker_pressure: warn (reclaimable > 10GB)" {
+    mock_cmd_file docker "$FIX/docker-df-high.json"
+    prepend_path
+    source_script
+    run check_docker_pressure
+    warn=$(jq '[.[] | select(.name=="docker_pressure" and .status=="warning")] | length' "$REPORT_FILE")
+    [ "$warn" -gt 0 ]
+}
+
+# ---------- check_ram_swap ----------
+
+@test "T11 check_ram_swap: ok (free 14GB > 500MB threshold)" {
+    mock_cmd_file free "$FIX/free-ok.txt"
+    prepend_path
+    source_script
+    run check_ram_swap
+    fatal=$(jq '[.[] | select(.name=="ram_swap" and .status=="fatal")] | length' "$REPORT_FILE")
+    [ "$fatal" -eq 0 ]
+}
+
+@test "T12 check_ram_swap: fatal (free 200MB < 500MB threshold)" {
+    mock_cmd_file free "$FIX/free-low.txt"
+    prepend_path
+    source_script
+    run check_ram_swap
+    fatal=$(jq '[.[] | select(.name=="ram_swap" and .status=="fatal")] | length' "$REPORT_FILE")
+    [ "$fatal" -gt 0 ]
+}
+
+# ---------- check_loadavg ----------
+
+@test "T13 check_loadavg: ok (5min 0.65 < nproc)" {
+    mock_cmd_file uptime "$FIX/uptime-ok.txt"
+    cat > "$MOCK_BIN/nproc" <<'EOF'
+#!/usr/bin/env bash
+echo 4
+EOF
+    chmod +x "$MOCK_BIN/nproc"
+    prepend_path
+    source_script
+    run check_loadavg
+    fatal=$(jq '[.[] | select(.name=="loadavg" and .status=="fatal")] | length' "$REPORT_FILE")
+    warn=$(jq  '[.[] | select(.name=="loadavg" and .status=="warning")] | length' "$REPORT_FILE")
+    [ "$fatal" -eq 0 ]
+    [ "$warn" -eq 0 ]
+}
+
+@test "T14 check_loadavg: fatal (5min 11.20 > 2x nproc=4)" {
+    mock_cmd_file uptime "$FIX/uptime-fatal.txt"
+    cat > "$MOCK_BIN/nproc" <<'EOF'
+#!/usr/bin/env bash
+echo 4
+EOF
+    chmod +x "$MOCK_BIN/nproc"
+    prepend_path
+    source_script
+    run check_loadavg
+    fatal=$(jq '[.[] | select(.name=="loadavg" and .status=="fatal")] | length' "$REPORT_FILE")
+    [ "$fatal" -gt 0 ]
+}
+
+# ---------- check_time_skew ----------
+
+@test "T15 check_time_skew: warn but never fatal (offset 1.234 > 0.5s)" {
+    mock_cmd_file chronyc "$FIX/chrony-skew.txt"
+    prepend_path
+    source_script
+    run check_time_skew
+    fatal=$(jq '[.[] | select(.name=="time_skew" and .status=="fatal")] | length' "$REPORT_FILE")
+    warn=$(jq  '[.[] | select(.name=="time_skew" and .status=="warning")] | length' "$REPORT_FILE")
+    [ "$fatal" -eq 0 ]
+    [ "$warn" -gt 0 ]
+}
+
+@test "T15e check_time_skew: preserves precision when offset is just above threshold" {
+    cat > "$MOCK_BIN/chronyc" <<'EOF'
+#!/usr/bin/env bash
+echo "System time     : 0.500000400 seconds fast of NTP time"
+EOF
+    chmod +x "$MOCK_BIN/chronyc"
+    prepend_path
+    source_script
+    run check_time_skew
+    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .actual=="0.5000004")] | length' "$REPORT_FILE")
+    [ "$warning" -eq 1 ]
+}
+
+@test "T15a check_time_skew: falls back to synchronized timesyncd state" {
+    mock_cmd_fail chronyc 127
+    cat > "$MOCK_BIN/timedatectl" <<'EOF'
+#!/usr/bin/env bash
+[[ "${LC_ALL:-}" == "C" ]] || exit 3
+case "$1" in
+    show) echo yes ;;
+    timesync-status) echo "       Offset: -613us" ;;
+    *) exit 2 ;;
+esac
+EOF
+    chmod +x "$MOCK_BIN/timedatectl"
+    prepend_path
+    source_script
+    run check_time_skew
+    [ "$status" -eq 0 ]
+    ok=$(jq '[.[] | select(.name=="time_skew" and .status=="ok" and .metric=="offset_seconds" and .actual=="0.000613")] | length' "$REPORT_FILE")
+    [ "$ok" -eq 1 ]
+}
+
+@test "T15b check_time_skew: warns when timesyncd reports unsynchronized" {
+    mock_cmd_fail chronyc 127
+    cat > "$MOCK_BIN/timedatectl" <<'EOF'
+#!/usr/bin/env bash
+echo no
+EOF
+    chmod +x "$MOCK_BIN/timedatectl"
+    prepend_path
+    source_script
+    run check_time_skew
+    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .metric=="ntp_synchronized" and .actual=="no")] | length' "$REPORT_FILE")
+    [ "$warning" -eq 1 ]
+}
+
+@test "T15c check_time_skew: reports unobservable when sources are unavailable or unparseable" {
+    mock_cmd_fail chronyc 127
+    cat > "$MOCK_BIN/timedatectl" <<'EOF'
+#!/usr/bin/env bash
+echo unknown
+EOF
+    chmod +x "$MOCK_BIN/timedatectl"
+    prepend_path
+    source_script
+    run check_time_skew
+    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .metric=="time_sync_unobservable" and .actual=="true")] | length' "$REPORT_FILE")
+    stable=$(jq '[.[] | select(.name=="time_skew" and .threshold=="stable")] | length' "$REPORT_FILE")
+    [ "$warning" -eq 1 ]
+    [ "$stable" -eq 0 ]
+}
+
+@test "T15d check_time_skew: synchronized timesyncd without parseable offset is unobservable" {
+    mock_cmd_fail chronyc 127
+    cat > "$MOCK_BIN/timedatectl" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+    show) echo yes ;;
+    timesync-status) echo "Offset: unknown" ;;
+    *) exit 2 ;;
+esac
+EOF
+    chmod +x "$MOCK_BIN/timedatectl"
+    prepend_path
+    source_script
+    run check_time_skew
+    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .metric=="time_sync_unobservable" and .actual=="true")] | length' "$REPORT_FILE")
+    ok=$(jq '[.[] | select(.name=="time_skew" and .status=="ok")] | length' "$REPORT_FILE")
+    [ "$warning" -eq 1 ]
+    [ "$ok" -eq 0 ]
+}
+
+# ---------- check_health_pre_probe ----------
+
+@test "T16 check_health_pre_probe: ok (curl returns status=ok)" {
+    cat > "$MOCK_BIN/curl" <<EOF
+#!/usr/bin/env bash
+cat "$FIX/health-ok.json"
+EOF
+    chmod +x "$MOCK_BIN/curl"
+    prepend_path
+    export PREFLIGHT_HEALTH_URL="http://localhost:9999/health"
+    source_script
+    run check_health_pre_probe
+    warn=$(jq '[.[] | select(.name=="health_pre_probe" and .status=="warning")] | length' "$REPORT_FILE")
+    [ "$warn" -eq 0 ]
+}
+
+@test "T17 check_health_pre_probe: warn (curl exits non-zero)" {
+    mock_cmd_fail curl 22
+    prepend_path
+    export PREFLIGHT_HEALTH_URL="http://localhost:9999/health"
+    source_script
+    run check_health_pre_probe
+    warn=$(jq '[.[] | select(.name=="health_pre_probe" and .status=="warning")] | length' "$REPORT_FILE")
+    [ "$warn" -gt 0 ]
+}
+
+# ---------- append_finding ----------
+
+@test "T18 append_finding: appends to JSON array, increments counters" {
+    source_script
+    WARN_COUNT=0
+    FATAL_COUNT=0
+    append_finding "disk" "warning" "used_pct" "85" "80"
+    append_finding "vault" "fatal" "sealed" "true" "false"
+    append_finding "tailscale" "ok" "online" "true" "true"
+    n=$(jq 'length' "$REPORT_FILE")
+    [ "$n" -eq 3 ]
+    [ "$WARN_COUNT" -eq 1 ]
+    [ "$FATAL_COUNT" -eq 1 ]
+    name=$(jq -r '.[1].name' "$REPORT_FILE")
+    [ "$name" = "vault" ]
+}
+
+# ---------- emit_ops_bot ----------
+
+@test "T19 emit_ops_bot: canonical DTO payload shape" {
+    mock_curl
+    prepend_path
+    export OPSBOT_KEY="testkey"
+    export PREFLIGHT_RUN_URL="https://example/run/1"
+    source_script
+    append_finding "disk" "fatal" "free_gb" "1.2" "2.0"
+    run emit_ops_bot "fail" "$REPORT_FILE"
+    [ "$status" -eq 0 ]
+    payload_line=$(grep "^PAYLOAD:" "$CURL_LOG" | head -1)
+    [ -n "$payload_line" ]
+    payload="${payload_line#PAYLOAD: }"
+    agent=$(echo "$payload" | jq -r '.agent')
+    title=$(echo "$payload" | jq -r '.title')
+    category=$(echo "$payload" | jq -r '.category')
+    dedup=$(echo "$payload" | jq -r '.dedup_key')
+    host=$(echo "$payload" | jq -r '.meta.host')
+    service=$(echo "$payload" | jq -r '.meta.service')
+    audit=$(echo "$payload" | jq -r '.meta.audit_ref')
+    checks_len=$(echo "$payload" | jq '.meta.checks | length')
+    [ "$agent" = "preflight-check" ]
+    [[ "$title" == *"opsbot"* ]]
+    [[ "$title" == *"prod-host"* ]]
+    [[ "$title" == *"FAIL"* ]]
+    [ "$category" = "fatal" ]
+    [[ "$dedup" == preflight-prod-host-opsbot-* ]]
+    [ "$host" = "prod-host" ]
+    [ "$service" = "opsbot" ]
+    [ "$audit" = "https://example/run/1" ]
+    [ "$checks_len" -ge 1 ]
+}
+
+@test "T19c emit_ops_bot: service-scoped agent reaches canonical DTO" {
+    mock_curl
+    prepend_path
+    export OPSBOT_KEY="testkey"
+    export PREFLIGHT_OPS_BOT_AGENT="example-service"
+    source_script
+    append_finding "disk" "warning" "used_pct" "85" "80"
+    run emit_ops_bot "warn" "$REPORT_FILE"
+    payload_line=$(grep "^PAYLOAD:" "$CURL_LOG" | head -1)
+    payload="${payload_line#PAYLOAD: }"
+    [ "$(echo "$payload" | jq -r '.agent')" = "example-service" ]
+}
+
+@test "T19a emit_ops_bot: WARN logs HTTP code + body excerpt on 4xx" {
+    mock_curl 401 '{"error":"invalid_api_key"}'
+    prepend_path
+    export OPSBOT_KEY="testkey"
+    export PREFLIGHT_RUN_URL="https://example/run/2"
+    source_script
+    append_finding "disk" "fatal" "free_gb" "1.2" "2.0"
+    run emit_ops_bot "fail" "$REPORT_FILE"
+    [ "$status" -eq 0 ]  # fail-soft preserved
+    [[ "$output" == *"HTTP 401"* ]]
+    [[ "$output" == *"invalid_api_key"* ]]
+    [[ "$output" == *"not blocking deploy"* ]]
+}
+
+@test "T19b emit_ops_bot: WARN logs HTTP 000 fallback on curl network failure" {
+    cat > "$MOCK_BIN/curl" <<'EOF'
+#!/usr/bin/env bash
+# Simulate curl exit 6 (DNS resolution failure); no http_code output
+exit 6
+EOF
+    chmod +x "$MOCK_BIN/curl"
+    prepend_path
+    export OPSBOT_KEY="testkey"
+    source_script
+    append_finding "disk" "fatal" "free_gb" "1.2" "2.0"
+    run emit_ops_bot "fail" "$REPORT_FILE"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"HTTP 000"* ]]
+    [[ "$output" == *"not blocking deploy"* ]]
+}
+
+@test "T20 emit_ops_bot: fail-soft when OPSBOT_KEY unset" {
+    mock_curl
+    prepend_path
+    unset OPSBOT_KEY
+    source_script
+    append_finding "disk" "fatal" "free_gb" "1.2" "2.0"
+    run emit_ops_bot "fail" "$REPORT_FILE"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"OPSBOT_KEY"* ]]
+    if [ -f "$CURL_LOG" ]; then
+        n=$(wc -l < "$CURL_LOG" | tr -d ' ')
+        [ "$n" -eq 0 ]
+    fi
+}
+
+# ---------- per-host override ----------
+
+@test "T21 per-host override: PREFLIGHT_PROD_HOST_MIN_FREE_DISK_GB=200" {
+    mock_cmd_file df "$FIX/df-ok.txt"
+    prepend_path
+    export PREFLIGHT_PROD_HOST_MIN_FREE_DISK_GB=200
+    export PREFLIGHT_TARGET_HOST=prod-host
+    source_script
+    run check_disk
+    fatal=$(jq '[.[] | select(.name=="disk" and .status=="fatal" and .metric=="free_gb")] | length' "$REPORT_FILE")
+    [ "$fatal" -gt 0 ]
+}
+
+# ---------- fail-closed ----------
+
+@test "T22 fail-closed: missing PREFLIGHT_TARGET_HOST aborts script" {
+    unset PREFLIGHT_TARGET_HOST
+    run env -i PATH="$PATH" PREFLIGHT_SERVICE_NAME=opsbot bash "$SCRIPT"
+    [ "$status" -ne 0 ]
+}
+
+# ---------- input regex ----------
+
+@test "T23 input validation: bad target-host (uppercase) rejected" {
+    run env PREFLIGHT_TARGET_HOST="ARCANA;rm -rf /" PREFLIGHT_SERVICE_NAME="opsbot" \
+        PREFLIGHT_EXTRA_CHECKS="" PREFLIGHT_OPS_BOT_EMIT=false \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"invalid"* || "$output" == *"target-host"* || "$output" == *"target_host"* ]]
+}
+
+# ---------- end-to-end ----------
+
+@test "T24 e2e: all-OK exit 0, status=ok" {
+    mock_cmd_file df "$FIX/df-ok.txt"
+    mock_cmd_file tailscale "$FIX/tailscale-ok.json"
+    mock_cmd_file vault "$FIX/vault-ok.json"
+    mock_cmd_file chronyc "$FIX/chrony-ok.txt"
+    cat > "$MOCK_BIN/nproc" <<'EOF'
+#!/usr/bin/env bash
+echo 4
+EOF
+    chmod +x "$MOCK_BIN/nproc"
+    prepend_path
+    run env PATH="$PATH" \
+        PREFLIGHT_TARGET_HOST=prod-host \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_EXTRA_CHECKS=$'vault\ntailscale\ntime-skew' \
+        PREFLIGHT_OPS_BOT_EMIT=false \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 0 ] &&
+        grep -q "^status=ok$" "$GITHUB_OUTPUT" &&
+        grep -q "^failures=0$" "$GITHUB_OUTPUT" &&
+        grep -q "^notification-outcome=disabled$" "$GITHUB_OUTPUT"
+}
+
+@test "T24a e2e: healthy preflight needs no notification" {
+    mock_cmd_file df "$FIX/df-ok.txt"
+    prepend_path
+    unset OPSBOT_KEY
+    run env PATH="$PATH" \
+        PREFLIGHT_TARGET_HOST=prod-host \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_EXTRA_CHECKS="" \
+        PREFLIGHT_OPS_BOT_EMIT=true \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 0 ] &&
+        grep -q "^status=ok$" "$GITHUB_OUTPUT" &&
+        grep -q "^notification-outcome=not-needed$" "$GITHUB_OUTPUT"
+}
+
+@test "T25 e2e: disk-fatal exits 2, status=fail" {
+    mock_cmd_file df "$FIX/df-fatal.txt"
+    mock_cmd_file tailscale "$FIX/tailscale-ok.json"
+    mock_cmd_file vault "$FIX/vault-ok.json"
+    mock_cmd_file chronyc "$FIX/chrony-ok.txt"
+    prepend_path
+    run env PATH="$PATH" \
+        PREFLIGHT_TARGET_HOST=prod-host \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_EXTRA_CHECKS=$'vault\ntailscale\ntime-skew' \
+        PREFLIGHT_OPS_BOT_EMIT=false \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 2 ]
+    grep -q "^status=fail$" "$GITHUB_OUTPUT"
+}
+
+@test "T34 e2e: warn-only exits 0, status=warn" {
+    mock_cmd_file df "$FIX/df-warn.txt"
+    mock_cmd_file tailscale "$FIX/tailscale-ok.json"
+    mock_cmd_file vault "$FIX/vault-ok.json"
+    mock_cmd_file chronyc "$FIX/chrony-ok.txt"
+    prepend_path
+    run env PATH="$PATH" \
+        PREFLIGHT_TARGET_HOST=prod-host \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_EXTRA_CHECKS=$'vault\ntailscale\ntime-skew' \
+        PREFLIGHT_OPS_BOT_EMIT=false \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 0 ]
+    grep -q "^status=warn$" "$GITHUB_OUTPUT"
+    grep -q "^failures=0$" "$GITHUB_OUTPUT"
+    warns=$(grep "^warnings=" "$GITHUB_OUTPUT" | cut -d= -f2)
+    [ "$warns" -gt 0 ]
+}
+
+@test "T35 e2e: warn with no key exposes skipped notification independently" {
+    mock_cmd_file df "$FIX/df-warn.txt"
+    prepend_path
+    unset OPSBOT_KEY
+    run env PATH="$PATH" \
+        PREFLIGHT_TARGET_HOST=prod-host \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_EXTRA_CHECKS="" \
+        PREFLIGHT_OPS_BOT_EMIT=true \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 0 ] &&
+        grep -q "^status=warn$" "$GITHUB_OUTPUT" &&
+        grep -q "^notification-outcome=skipped-no-key$" "$GITHUB_OUTPUT"
+}
+
+@test "T36 e2e: warn with HTTP 200 exposes delivered notification" {
+    mock_cmd_file df "$FIX/df-warn.txt"
+    mock_curl 200
+    prepend_path
+    run env PATH="$PATH" \
+        PREFLIGHT_TARGET_HOST=prod-host \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_EXTRA_CHECKS="" \
+        PREFLIGHT_OPS_BOT_EMIT=true \
+        OPSBOT_KEY=testkey \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 0 ] &&
+        grep -q "^status=warn$" "$GITHUB_OUTPUT" &&
+        grep -q "^notification-outcome=delivered$" "$GITHUB_OUTPUT"
+}
+
+@test "T37 e2e: fatal with HTTP 500 preserves health failure and exposes notification failure" {
+    mock_cmd_file df "$FIX/df-fatal.txt"
+    mock_curl 500 '{"error":"unavailable"}'
+    prepend_path
+    run env PATH="$PATH" \
+        PREFLIGHT_TARGET_HOST=prod-host \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_EXTRA_CHECKS="" \
+        PREFLIGHT_OPS_BOT_EMIT=true \
+        OPSBOT_KEY=testkey \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 2 ] &&
+        grep -q "^status=fail$" "$GITHUB_OUTPUT" &&
+        grep -q "^notification-outcome=failed$" "$GITHUB_OUTPUT"
+}
+
+@test "T38 e2e: curl network failure exposes failed notification" {
+    mock_cmd_file df "$FIX/df-warn.txt"
+    mock_cmd_fail curl 6
+    prepend_path
+    run env PATH="$PATH" \
+        PREFLIGHT_TARGET_HOST=prod-host \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_EXTRA_CHECKS="" \
+        PREFLIGHT_OPS_BOT_EMIT=true \
+        OPSBOT_KEY=testkey \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 0 ] &&
+        grep -q "^status=warn$" "$GITHUB_OUTPUT" &&
+        grep -q "^notification-outcome=failed$" "$GITHUB_OUTPUT"
+}
+
+# ---------- INFRA-0201: action.yml input-validation hardening ----------
+#
+# T23a/T23b — ops-bot-url allowlist guard (PROD strict, non-PROD WARN)
+# T26-T29   — severity-overrides jq schema gate
+# T30       — ops-bot-key → OPSBOT_KEY env propagation (action.yml literal)
+# T39-T41   — action threshold defaults preserve validated overrides
+#
+# Validation logic lives in dev-tools/preflight-validate-{url,overrides}.sh
+# (extracted from action.yml composite steps for testability).
+
+VAL_URL="$BATS_TEST_DIRNAME/../dev-tools/preflight-validate-url.sh"
+VAL_OVR="$BATS_TEST_DIRNAME/../dev-tools/preflight-validate-overrides.sh"
+RESOLVE_OVR="$BATS_TEST_DIRNAME/../dev-tools/preflight-resolve-thresholds.sh"
+ACTION_YML="$BATS_TEST_DIRNAME/../.github/actions/preflight-check/action.yml"
+
+@test "T23a ops-bot-url allowlist: PROD + canonical accepts (exit 0)" {
+    run env \
+        PREFLIGHT_OPS_BOT_URL=https://ops.example.invalid/events \
+        PREFLIGHT_IS_PROD_CONTEXT=true \
+        bash "$VAL_URL"
+    [ "$status" -eq 0 ]
+}
+
+@test "T23b ops-bot-url allowlist: PROD + non-canonical rejects (exit 1)" {
+    run env \
+        PREFLIGHT_OPS_BOT_URL=https://evil.example.com/events \
+        PREFLIGHT_IS_PROD_CONTEXT=true \
+        bash "$VAL_URL"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"must match canonical"* ]]
+}
+
+@test "T26 severity-overrides: valid JSON exports PREFLIGHT_<KEY>=val to GITHUB_ENV" {
+    GITHUB_ENV_FILE="$TMPROOT/github_env"
+    : > "$GITHUB_ENV_FILE"
+    run env \
+        PREFLIGHT_SEVERITY_OVERRIDES="$(cat "$FIX/severity-overrides-valid.json")" \
+        GITHUB_ENV="$GITHUB_ENV_FILE" \
+        bash "$VAL_OVR"
+    [ "$status" -eq 0 ]
+    grep -q '^PREFLIGHT_MIN_FREE_DISK_GB=5$' "$GITHUB_ENV_FILE"
+    grep -q '^PREFLIGHT_DISK_WARN_PERCENT=75$' "$GITHUB_ENV_FILE"
+    grep -q '^PREFLIGHT_DISK_FAIL_PERCENT=85$' "$GITHUB_ENV_FILE"
+}
+
+@test "T27 severity-overrides: non-object JSON rejects (exit 1)" {
+    run env \
+        PREFLIGHT_SEVERITY_OVERRIDES="$(cat "$FIX/severity-overrides-non-object.json")" \
+        GITHUB_ENV=/dev/null \
+        bash "$VAL_OVR"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"must be a JSON object"* ]]
+}
+
+@test "T28 severity-overrides: non-allowlisted key rejects (exit 1)" {
+    run env \
+        PREFLIGHT_SEVERITY_OVERRIDES="$(cat "$FIX/severity-overrides-invalid-key.json")" \
+        GITHUB_ENV=/dev/null \
+        bash "$VAL_OVR"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"not in allowlist"* ]]
+}
+
+@test "T29 severity-overrides: non-integer value rejects (exit 1)" {
+    run env \
+        PREFLIGHT_SEVERITY_OVERRIDES='{"min_free_disk_gb": 5.5}' \
+        GITHUB_ENV=/dev/null \
+        bash "$VAL_OVR"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"must be integer"* ]]
+}
+
+@test "T30 ops-bot-key: action.yml declares input + env-override expression" {
+    [ -f "$ACTION_YML" ]
+    grep -qE '^  ops-bot-key:' "$ACTION_YML"
+    grep -qE 'OPSBOT_KEY: \$\{\{ inputs\.ops-bot-key != .. && inputs\.ops-bot-key \|\| env\.OPSBOT_KEY \}\}' "$ACTION_YML"
+}
+
+@test "T31 ops-bot-agent: action declares default and run-step wiring" {
+    agent_block="$(grep -A3 -E '^  ops-bot-agent:$' "$ACTION_YML")"
+    [[ "$agent_block" == *"default: preflight-check"* ]] &&
+        grep -qE '^        PREFLIGHT_OPS_BOT_AGENT: \$\{\{ inputs\.ops-bot-agent \}\}$' "$ACTION_YML"
+}
+
+@test "T32 notification outcome: action exposes the run-step output" {
+    grep -A2 -qE '^  notification-outcome:$' "$ACTION_YML" &&
+        grep -qF 'value: ${{ steps.run.outputs.notification-outcome }}' "$ACTION_YML"
+}
+
+@test "T33 ops-bot-agent: invalid service identity exits 3 before checks" {
+    run env \
+        PREFLIGHT_TARGET_HOST=prod-host \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_OPS_BOT_AGENT='example-service;invalid' \
+        PREFLIGHT_EXTRA_CHECKS="" \
+        PREFLIGHT_OPS_BOT_EMIT=false \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 3 ] && [[ "$output" == *"invalid ops-bot-agent"* ]]
+}
+
+@test "T39 threshold resolver: action inputs provide defaults when no override exists" {
+    run env \
+        PREFLIGHT_DEFAULT_MIN_FREE_DISK_GB=2 \
+        PREFLIGHT_DEFAULT_DISK_WARN_PERCENT=80 \
+        PREFLIGHT_DEFAULT_DISK_FAIL_PERCENT=90 \
+        bash -c 'source "$1"; printf "%s,%s,%s" "$PREFLIGHT_MIN_FREE_DISK_GB" "$PREFLIGHT_DISK_WARN_PERCENT" "$PREFLIGHT_DISK_FAIL_PERCENT"' \
+        bash "$RESOLVE_OVR"
+    [ "$status" -eq 0 ]
+    [ "$output" = "2,80,90" ]
+}
+
+@test "T40 threshold resolver: validated GITHUB_ENV overrides win over action defaults" {
+    run env \
+        PREFLIGHT_DEFAULT_MIN_FREE_DISK_GB=2 \
+        PREFLIGHT_DEFAULT_DISK_WARN_PERCENT=80 \
+        PREFLIGHT_DEFAULT_DISK_FAIL_PERCENT=90 \
+        PREFLIGHT_MIN_FREE_DISK_GB=5 \
+        PREFLIGHT_DISK_WARN_PERCENT=75 \
+        PREFLIGHT_DISK_FAIL_PERCENT=85 \
+        bash -c 'source "$1"; printf "%s,%s,%s" "$PREFLIGHT_MIN_FREE_DISK_GB" "$PREFLIGHT_DISK_WARN_PERCENT" "$PREFLIGHT_DISK_FAIL_PERCENT"' \
+        bash "$RESOLVE_OVR"
+    [ "$status" -eq 0 ]
+    [ "$output" = "5,75,85" ]
+    ! grep -qE '^        PREFLIGHT_(MIN_FREE_DISK_GB|DISK_WARN_PERCENT|DISK_FAIL_PERCENT):' "$ACTION_YML"
+    grep -qF 'source "${{ github.action_path }}/../../../dev-tools/preflight-resolve-thresholds.sh"' "$ACTION_YML"
+}
+
+@test "T41 severity override reaches the resolved preflight environment end to end" {
+    GITHUB_ENV_FILE="$TMPROOT/github_env_e2e"
+    : > "$GITHUB_ENV_FILE"
+    run env \
+        PREFLIGHT_SEVERITY_OVERRIDES='{"min_free_disk_gb":5,"disk_warn_percent":75,"disk_fail_percent":85}' \
+        GITHUB_ENV="$GITHUB_ENV_FILE" \
+        bash "$VAL_OVR"
+    [ "$status" -eq 0 ]
+
+    run env \
+        PREFLIGHT_DEFAULT_MIN_FREE_DISK_GB=2 \
+        PREFLIGHT_DEFAULT_DISK_WARN_PERCENT=80 \
+        PREFLIGHT_DEFAULT_DISK_FAIL_PERCENT=90 \
+        bash -c 'set -a; source "$1"; set +a; source "$2"; printf "%s,%s,%s" "$PREFLIGHT_MIN_FREE_DISK_GB" "$PREFLIGHT_DISK_WARN_PERCENT" "$PREFLIGHT_DISK_FAIL_PERCENT"' \
+        bash "$GITHUB_ENV_FILE" "$RESOLVE_OVR"
+    [ "$status" -eq 0 ]
+    [ "$output" = "5,75,85" ]
+}

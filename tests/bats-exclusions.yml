@@ -1,0 +1,71 @@
+# bats exclusion registry — schema v1.
+#
+# Source of truth for every bats suite deliberately NOT executed by CI.
+# Consumed by: tests/run-bats-discovery.sh (--check-registry, --list, --shard)
+# Enforced by: .github/workflows/bats.yml (job `registry`)
+# Regression:  tests/bats-discovery-coverage.bats
+#
+# ---------------------------------------------------------------------------
+# POLICY — read before adding an entry
+# ---------------------------------------------------------------------------
+#
+# This registry is for suites that CANNOT run in CI. It is NOT a quarantine for
+# suites that currently FAIL.
+#
+# A failing suite must stay in the run set and turn CI red. Red is a signal an
+# operator can act on; excluded is invisible, and invisible is how 90+ suites
+# went dark in the first place. Moving a red suite in here converts a known
+# defect into an unknown one, which is strictly worse than the red build.
+#
+# Legitimate reasons to add an entry:
+#   - the suite requires infrastructure a CI runner cannot provide (a real
+#     broker, a privileged mount, a paid API, a physical host);
+#   - the suite is inherently interactive or requires a TTY;
+#   - the suite is destructive to the checkout it runs in.
+#
+# NOT legitimate reasons:
+#   - "it fails right now"            -> fix it, or leave it red and report it
+#   - "it is slow"                    -> it is sharded; slow is affordable
+#   - "it is flaky"                   -> fix the flake or quarantine upstream,
+#                                        and file the follow_up either way
+#
+# ---------------------------------------------------------------------------
+# SCHEMA (validated by run-bats-discovery.sh --check-registry)
+# ---------------------------------------------------------------------------
+#
+#   schema_version: 1              required, integer 1
+#   entries[].path:      required, repo-relative, must exist on disk
+#   entries[].reason:    required, non-empty — WHY CI cannot run it
+#   entries[].owner:     required, non-empty — who is accountable
+#   entries[].follow_up: required, non-empty — the task/issue that removes it
+#   entries[].added:     required, ISO 8601 date (YYYY-MM-DD)
+#
+# A path that no longer exists on disk is a hard failure: a renamed suite would
+# otherwise stay excluded forever under a path nobody re-reads.
+#
+# ---------------------------------------------------------------------------
+# CURRENT STATE
+# ---------------------------------------------------------------------------
+#
+# Zero exclusions. Every *.bats file in the repository is executed by
+# `.github/workflows/bats.yml`.
+#
+# This was a deliberate outcome, not a default. Twelve suites were candidates
+# during the wiring audit:
+#
+#   - Three suites (cli/tests/audit-purge.bats,
+#     plugins/dr-orchestrate/tests/test_learned_rules.bats,
+#     plugins/dr-orchestrate/tests/test_resolver_history.bats) first appeared to
+#     hang. They do not — they are slow (34 s / 194 s / 61 s standalone) and had
+#     merely exceeded a short probe timeout under parallel load. Sharding
+#     absorbs the cost, so none is excluded.
+#
+#   - Nine suites fail on the current tree. Per the policy above they are NOT
+#     excluded; they run, they are red, and they are reported to the operator
+#     rather than hidden.
+#
+# Keep this section current when the entry list changes.
+
+schema_version: 1
+
+entries: []

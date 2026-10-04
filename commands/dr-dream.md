@@ -1,0 +1,158 @@
+---
+name: dr-dream
+description: Knowledge base maintenance — organize, deduplicate, cross-reference the datarim/ directory. Run periodically or when it feels messy.
+argument-hint: [lint | index | full]
+allowed-tools: Read Write Edit Grep Glob Bash Agent
+effort: high
+---
+
+# /dr-dream — Knowledge Base Maintenance
+
+**Role**: Librarian Agent
+**Source**: `${DATARIM_RUNTIME:?}/agents/librarian.md`
+
+> Like sleep consolidates memory in the brain, Dream consolidates knowledge in the project.
+
+## When to Run
+
+- **After many tasks** — when `datarim/` has grown and feels disorganized
+- **After `/dr-archive`** — auto-suggested if >5 documents were created since last dream
+- **Before a new project phase** — clean up before starting fresh work
+- **When you can't find things** — if searching for a document takes too long
+- **Periodically** — every 10-15 completed tasks as routine maintenance
+
+## Modes
+
+| Invocation | What it does | Duration |
+|------------|-------------|----------|
+| `/dr-dream` | Full maintenance: ingest + lint + consolidate | 2-5 min |
+| `/dr-dream lint` | Health check only, no changes | 1 min |
+| `/dr-dream index` | Rebuild `datarim/index.md` only | 30 sec |
+
+## Instructions
+
+
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
+1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/librarian.md` and adopt that persona.
+2.  **LOAD SKILLS**:
+    - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always — file locations and naming rules)
+    - `${DATARIM_RUNTIME:?}/skills/dream/SKILL.md` (Knowledge base maintenance rules)
+3.  **RESOLVE PATH**: Find `datarim/` using standard path resolution. If not found, STOP.
+4.  **DETERMINE MODE**: Parse `$ARGUMENTS`:
+    - `lint` → Quick lint only (step 5)
+    - `index` → Rebuild index only (step 8)
+    - Empty or `full` → Full maintenance (steps 5-10)
+
+### Step 5: Inventory
+Scan **both** `datarim/` and `documentation/archive/` recursively. For every `.md` file, record:
+- Path, filename, size (lines)
+- Frontmatter (if present): title, task_id, type, status, tags, related
+- Directory it belongs to (prd/, tasks/, reflection/, archive/{area}/, etc.)
+- Inbound and outbound links (references to/from other files)
+
+`documentation/archive/` contains long-term task archives — implementation details, lessons learned, decision rationale. These are part of the knowledge base and must be cross-referenced with `datarim/reflection/`, `datarim/tasks.md`, and each other.
+
+Present summary:
+```
+=== KNOWLEDGE BASE INVENTORY ===
+Total documents: NN (datarim: X, archive: Y)
+By type: PRDs: N, Tasks: N, Reflections: N, Archives: N, QA: N, Other: N
+With frontmatter: N / NN (XX%)
+Orphans (no inbound links): N
+```
+
+### Step 6: Ingest Check
+Find structural problems:
+- Files in wrong directories (PRD not in `prd/`, reflection not in `reflection/`)
+- Files missing task ID in filename
+- Files with no frontmatter
+- Broken internal links (references to files that don't exist)
+- Inconsistent naming (not matching `[type]-[task_id]-[name].md` pattern)
+
+### Step 7: Lint
+Run all health checks from the dream skill:
+- Contradictions between documents
+- Stale references (completed tasks still marked active)
+- Orphan files (no inbound links)
+- Duplicate content (>70% overlap between two files)
+- Cross-reference symmetry (A→B but not B→A)
+- Empty directories
+- Oversized files (>500 lines)
+- **Terminal backlog entries still in `backlog.md`** — invoke `"${DATARIM_RUNTIME:?}/dev-tools/prune-backlog-terminal.sh" --root "$DATARIM_ROOT" --check` and record the `prunable` / `surfaced` counts. Report surfaced IDs (terminal with no archive doc) as `warn:` findings requiring a `MAINT-*` follow-up.
+
+### Step 8: Build/Update Index
+Create or update `datarim/index.md`:
+- Catalog all documents by type
+- Group by tags (if frontmatter has tags)
+- List recent activity (last 10 changes)
+- Show knowledge graph metrics (total docs, connections, orphans)
+
+### Step 9: Consolidate (full mode only)
+Propose structural improvements:
+- **Merge duplicates** — combine documents with >70% content overlap
+- **Extract patterns** — recurring themes across reflections → create `datarim/history/patterns.md`
+- **Archive stale** — move completed/obsolete docs to `archive/`
+- **Add cross-references** — bidirectional links between related documents
+- **Add frontmatter** — fill in missing metadata where inferable
+- **Fix naming** — rename files to match conventions
+- **[prune-backlog] Remove N terminal entries from `backlog.md`** (archive docs confirmed present for each) — if Step 7 found `prunable > 0`. Apply by invoking `prune-backlog-terminal.sh --root "$DATARIM_ROOT" --fix` on approval only. If Step 7 found `surfaced > 0`, include a separate `[maint] Create missing archive docs for M surfaced IDs` proposal (operator action — do NOT auto-apply).
+
+### Step 10: Report and Apply
+
+Present the Dream Report:
+```
+=== DREAM REPORT ===
+
+Health: HEALTHY / NEEDS ATTENTION / MESSY
+Documents scanned: NN
+Issues found: N (critical: X, warning: Y, info: Z)
+
+=== INGEST ===
+- N misplaced files
+- N naming inconsistencies
+- N missing frontmatter
+
+=== LINT ===
+- N contradictions
+- N orphan files
+- N broken links
+- N stale references
+- N duplicates
+- N terminal backlog entries (prunable: P / surfaced: S)
+
+=== CONSOLIDATION PROPOSALS ===
+1. [merge] Merge duplicate-a.md and duplicate-b.md → single-doc.md
+2. [archive] Move 3 completed task docs to archive/
+3. [cross-ref] Add 8 bidirectional links
+4. [frontmatter] Add metadata to 5 documents
+5. [rename] Fix naming for 2 files
+6. [prune-backlog] Remove N terminal entries from backlog.md (archive docs confirmed)
+7. [maint] Create missing archive docs for M surfaced IDs (operator action)
+
+Which proposals should I apply? (all / none / comma-separated numbers)
+```
+
+Wait for approval. Apply only approved changes.
+
+### Step 11: Log
+Append maintenance summary to `datarim/history/activity-log.md`.
+
+## Output
+- Knowledge base inventory
+- Lint report with all issues
+- Updated `datarim/index.md`
+- Consolidation proposals (if full mode)
+- Activity log entry
+
+## Next Steps (CTA)
+
+After dream-pass, the librarian agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
+
+**Routing logic for `/dr-dream`:**
+
+- Knowledge-base clean, no contradictions → primary `/dr-init` (resume normal workflow)
+- Contradictions found, need human resolution → primary "review-and-decide" prompt + alternative `/dr-status`
+- Framework drift detected → primary `/dr-optimize` (deeper restructuring)
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format. If active tasks present, primary CTA points to next pipeline step for the most urgent active task. Variant B menu when >1 active tasks.

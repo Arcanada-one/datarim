@@ -1,0 +1,174 @@
+---
+name: dr-help
+description: List all available Datarim commands with descriptions and usage guidance
+---
+
+# /dr-help — Datarim Command Reference
+
+Show the user a complete reference of all available Datarim commands, the pipeline flow, and complexity routing.
+
+## Pipeline Flow
+
+```
+init → prd → plan → design → do → qa → compliance → archive
+```
+
+Not every task goes through every stage. Datarim routes tasks based on complexity (see below). Research phase runs inside `/dr-prd` for L2+ tasks (Phase 1.3). Gap discovery runs inside `/dr-do` when unknowns are encountered. Reflection runs automatically as mandatory Step 0.5 inside `/dr-archive` (v1.10.0).
+
+## Commands
+
+### Pipeline Commands (8)
+
+| Command | Stage | Description |
+|---------|-------|-------------|
+| `/dr-init` | Initialize | Start a new task, pick from backlog, or **scaffold a new project**. Assigns complexity (L1-L4) for tasks; for projects use `/dr-init create project "Name"`. |
+| `/dr-prd` | Requirements | Generate a PRD. **Includes external context research** (Phase 1.3) for L2+ — versions, docs, best practices. Outputs insights document. |
+| `/dr-plan` | Planning | Create a detailed implementation plan. Break work into phases, estimate effort, identify risks. |
+| `/dr-design` | Design | Explore architectural and design decisions. Evaluate alternatives, run consilium panels for L3-L4. |
+| `/dr-do` | Execution | Execute the plan using TDD (for code) or structured iteration (for other work). **Gap discovery** spawns researcher subagent on unknowns. |
+| `/dr-qa` | Quality | Multi-layer quality verification: PRD alignment, design conformance, plan completeness, output quality. |
+| `/dr-compliance` | Hardening | Post-QA hardening. 7-step workflow: revalidate, simplify, check references, coverage, lint, tests, harden. |
+| `/dr-archive` | Archive | Archive the completed task. Performs reflection (Step 0.5) + evolution proposals, then stores context and updates backlog. |
+
+### Execution Modes (5)
+
+| Command | Description |
+|---------|-------------|
+| `/dr-auto` | Autonomous execution meta-command. Turns on the FB-1..8 mandate (eight feedback-rules — see autonomous-agents.md), the L1 Inline Resolution Rule (close small gaps in-line rather than asking), and the autonomous-ops scope by default. Two modes — Continue (resume an existing task) and Bootstrap (full pipeline starting from /dr-init). Suppresses clarification questions through the five-level Question Suppression Ladder ([definition](../skills/autonomous-mode/SKILL.md)). |
+| `/dr-quick` | Lightweight fast lane for trivial fixes or quick lookups — assigns a `QCK-` ID, applies the change and writes a short archive, skipping the heavy init→prd→plan pipeline. |
+| `/dr-verify` | Standalone self-verification of a PRD, plan or `/dr-do` output: deterministic floor, native isolated peer review, then adversarial review. |
+| `/dr-wizard` | Guided, one-question-at-a-time task-spec wizard that co-authors a PRD with you. |
+| `/dr-orchestrate` | Tmux-based pipeline runner. The command and autonomy policy are core; the runner itself is the opt-in `dr-orchestrate` plugin. |
+
+### Content Commands (3)
+
+| Command | Description |
+|---------|-------------|
+| `/dr-write` | Create written content — articles, blog posts, documentation, research papers, social media. Uses the **writer** agent with the writing workflow skill. |
+| `/dr-edit` | Editorial review — fact verification, AI pattern removal, style consistency, publication-ready quality. Uses the **editor** agent with factcheck and humanize skills. |
+| `/dr-publish` | Prepare ready-to-publish, platform-adapted payloads for approved content. It does not send anything; dispatch is a separate, gated step. |
+
+### Framework Management Commands (5)
+
+| Command | Description |
+|---------|-------------|
+| `/dr-addskill` | Create or update skills, agents, commands. Researches best practices, audits existing framework, generates artifacts in project or user scope. |
+| `/dr-optimize` | Audit and optimize the framework. Prune unused components, merge duplicates, fix broken references, sync documentation. Run periodically or when the framework feels bloated. |
+| `/dr-doctor` | Diagnose and repair Datarim operational files — thin one-liner schema, externalised task descriptions. |
+| `/dr-plugin` | Manage opt-in plugins: `list`, `enable`, `disable`, `sync`, `doctor`. |
+| `/dr-dream` | Knowledge base maintenance. Organize files, build index, cross-reference documents, flag contradictions, archive stale content. Run periodically or when the knowledge base feels messy. |
+
+### Utility Commands (6)
+
+| Command | Description |
+|---------|-------------|
+| `/dr-explain` | Explain a result or term again in clear Russian by default. Read-only: no tests, code changes, publication, automatic continuation or acceptance. |
+| `/dr-status` | Check current task status, pipeline progress, and backlog summary. Read-only. |
+| `/dr-next` | Resume work from the last checkpoint. Restores context and picks up where you left off. |
+| `/dr-save` | Save the current session state to a handoff file before the context window is lost. |
+| `/dr-continue` | Restore a saved session in a clean context window, re-verifying each claim before resuming. |
+| `/dr-help` | Show this command reference. |
+
+### Standalone Commands (2)
+
+| Command | Description |
+|---------|-------------|
+| `/factcheck` | Fact-check a specific file. Extracts claims, verifies against sources, corrects errors. Use for quick targeted checks outside the full editorial pipeline. |
+| `/humanize` | Remove AI writing patterns from a specific file. Fixes vocabulary, structure, and formatting artifacts. Use for quick targeted fixes outside the full editorial pipeline. |
+
+## Content Workflow
+
+For writing and editing tasks, use the content commands:
+
+```
+/dr-write → /dr-edit → [/dr-qa] → /dr-archive
+```
+
+Or within the standard pipeline:
+```
+/dr-init → /dr-prd → /dr-plan → /dr-write → /dr-edit → /dr-qa → /dr-archive
+```
+
+For quick one-off checks, use `/factcheck` or `/humanize` directly on any file.
+
+## Complexity Routing
+
+| Level | Name | Scope | Pipeline |
+|-------|------|-------|----------|
+| L1 | Quick Fix | 1 file, minor change | `init → do → archive` |
+| L2 | Enhancement | 2-5 files | `init → [prd] → plan → do → [qa] → archive` |
+| L3 | Feature | 5-15 files | `init → prd → plan → design → do → qa → [compliance] → archive` |
+| L4 | Major | 15+ files | `init → prd → plan → design → phased-do → qa → compliance → archive` |
+
+Stages in `[brackets]` are optional — included when the agent determines they add value. `archive` always runs reflection internally as mandatory Step 0.5 (v1.10.0).
+
+## Agents (19)
+
+| Agent | Role |
+|-------|------|
+| planner | Project management, task breakdown, complexity assessment |
+| architect | System design, trade-offs, interfaces |
+| researcher | External context research — versions, docs, best practices, CVE. Runs in /dr-prd Phase 1.3 and /dr-do gap discovery |
+| developer | TDD implementation, code quality |
+| tester | Platform QA, test runners, Docker-aware execution |
+| reviewer | QA, security compliance, DoD validation |
+| compliance | Post-QA hardening, PRD revalidation |
+| code-simplifier | Reduce complexity, improve readability |
+| strategist | Value/Risk/Cost evaluation |
+| devops | CI/CD, infrastructure, deployment |
+| writer | Content creation — articles, docs, research, posts |
+| editor | Editorial review — factcheck, humanize, style |
+| skill-creator | Create/update skills, agents, commands from descriptions |
+| optimizer | Audit, prune, merge, optimize framework components |
+| librarian | Organize knowledge base, build index, cross-reference |
+| security | Threat modeling, vulnerability audit |
+| sre | Reliability, observability, incident response |
+| peer-reviewer | Adversarial reviewer for `/dr-verify` Layer 2/3 in a clean isolated context; findings only |
+| dr-orchestrate-resolver | Classifies an unknown pane line into a slash-command for the `dr-orchestrate` plugin; non-functional without the plugin |
+
+## Backlog
+
+Datarim tracks tasks in `datarim/backlog.md` — live items only (pending + in progress).
+Completed and cancelled tasks are archived to `documentation/archive/{area|cancelled}/archive-{ID}.md`
+and their backlog line is removed (the separate completed/cancelled backlog index was retired in v1.19.1).
+
+Use `/dr-init` to pick a task from the backlog or create a new one.
+Use `/dr-status` to see the backlog summary.
+
+## Project Scaffolding
+
+`/dr-init` can also scaffold a new project structure:
+
+```
+/dr-init create project "My API Service"
+/dr-init новый проект "Мой сервис"
+```
+
+This creates: `AGENTS.md`, `documentation/` (architecture, testing, deployment, gotchas), `documentation/ephemeral/` (plans, research, reviews), `datarim/` (workflow state), and `documentation/archive/`. Tech stack is auto-detected from project description via `tech-stack.md`.
+
+Idempotent — safe to run on existing projects (skips existing files, creates only what is missing).
+
+## Tips
+
+- Start with `/dr-init <task description>` — the framework handles routing.
+- Use `/dr-init create project "Name"` to scaffold a new project with full structure.
+- Use `/dr-status` at any time to see where you are.
+- Use `/dr-next` after a break to resume with full context.
+- Datarim works for any project type: software, research, documentation, legal, project management.
+<!-- gate:history-allowed -->
+- Each task gets a unique ID (e.g., `TASK-0001`) for tracking across the pipeline.
+<!-- /gate:history-allowed -->
+- For content work, use `/dr-write` + `/dr-edit` instead of `/dr-do` + `/dr-qa`.
+
+## Next Steps (CTA)
+
+After showing the help reference, MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
+
+**Routing logic for `/dr-help`:**
+
+- Active tasks exist → primary `/dr-next` (resume work) + alternative `/dr-status` for overview
+- No active tasks, backlog has items → primary `/dr-init` (pick from backlog)
+- No active tasks, empty backlog → primary `/dr-init "<description>"` (start new task)
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format (numbered list, one primary recommendation marker, `---` HR). Variant-B menu of other active tasks when more than one is active. Exact marker tokens live in `cta-format.md`.

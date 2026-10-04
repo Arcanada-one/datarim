@@ -1,0 +1,25 @@
+# Datarim framework-internal jargon bank — manifest for check-jargon-gloss.sh
+#
+# Each line below is a framework term-of-art that, when used in a shipped
+# instruction file (commands/skills/agents/root), MUST carry an inline gloss
+# on its first occurrence in that file. Acceptable gloss forms:
+#   - parenthetical within 80 chars after the term: `FB-1..8 (the eight
+#     feedback rules — see autonomous-agents.md mandate)`
+#   - markdown link within 80 chars after the term pointing into the repo:
+#     `FB-1..8 ([autonomous-agents](mandates/autonomous-agents.md))`
+#
+# Lines starting with `#` are comments. Blank lines are ignored.
+# Order does not matter — every term is checked independently per file.
+#
+# Source: PRD-TUNE-0308 § V-AC-5.
+
+FB-1..8
+Question Suppression Ladder
+L1 Inline Resolution Rule
+autonomous-ops scope
+Coworker delegation
+Stage Header
+CTA block
+snapshot emission
+init-task persistence
+expectations checklist

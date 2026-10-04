@@ -1,0 +1,203 @@
+---
+name: session-handoff-writer
+description: Producer contract for session-handoff artefacts — /dr-save writes datarim/sessions/{SESSION-ID}.session.md before the session is destroyed.
+current_aal: 1
+target_aal: 2
+---
+
+# Session-Handoff Writer (producer side)
+
+`/dr-save` writes a self-contained session artefact while the live context is
+still in-window. The command is invoked when the operator signals the session
+will be destroyed — the agent must capture everything needed to resume from
+zero in a clean window.
+
+## Producer-Awareness Clause
+
+**The session will be destroyed.** When this skill is active, the agent must
+assume the current context window will not survive. Every claim, observation,
+and pending action must be captured in the artefact. The agent cannot rely on
+the operator typing a summary — the artefact IS the handoff.
+
+Corollary: every claim-keyword line (`pushed`, `merged`, `deployed`, `green`,
+`passing`) MUST carry a `verified:` or `assumed:` provenance tag on the same
+line. The writer rejects untagged claims with exit 1. This is the safety gate
+that prevents a stale snapshot from misleading a resume session.
+
+## Contract
+
+| Aspect | Value |
+|--------|-------|
+| Entry point | `bash "${DATARIM_RUNTIME:?}/dev-tools/session-handoff-writer-wrapper.sh"` (never `sh`) |
+| Artefact path | `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` |
+| Semantics | Append-only decision-log — a second `/dr-save` in the same session APPENDS a new dated block, never truncates prior blocks |
+| Lock | `datarim/sessions/.lock.{SESSION-ID}` (mkdir-based atomic, POSIX-portable) |
+| Cap | 32768 bytes total; Layer-1 (git state and sensitive-source bindings) and Layer-5 (failed approaches) blocks are protected from truncation; Layer-3/4 truncated first. If protected layers cannot fit, or an existing session has no capacity for a new block, the writer fails nonzero without publishing the new block. |
+| Permissions | artefact `chmod 600`, directory `chmod 700` |
+| Kill-switch | `DATARIM_DISABLE_SESSION_HANDOFF=1` — no-op, exit 0, no file written |
+| Security | T-1 session-id regex validation; T-2 `--body-file` (no shell expansion); T-3 mkdir lock; T-5 chmod 600 + gitignore; T-7 symlink pre-unlink; T-8 secret scan-and-redact |
+
+## Inputs (flags forwarded to the wrapper)
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--root <path>` | yes | Repo root (parent of `datarim/`) |
+| `--session <SESSION-YYYYMMDD-HHMMSS>` | yes | Session identifier — must match `^SESSION-[0-9]{8}-[0-9]{6}$` |
+| `--captured-by <agent\|operator>` | yes | Who triggered the save |
+| `--recommended-next <command>` | yes | CTA for the resume session (e.g. `/dr-next TASK-ID`) |
+| `--next-action <description>` | yes | Single-line summary of what to do on resume |
+| `--active-tasks-file <path>` | yes | File listing active tasks (one per line, `TASK-ID \| status`) |
+| `--body-file <path>` | yes | Path to the 5-layer body content (see § Body layers below) |
+| `--captured-at <ISO 8601 UTC>` | no | Override timestamp (defaults to `date -u`) |
+
+## Body layers (5-layer structure)
+
+The body passed via `--body-file` MUST follow the 5-layer structure:
+
+```
+## Layer 1 — Git State
+
+For every repo touched this session: HEAD SHA, branch, status --porcelain output.
+Non-truncatable — this layer is protected from cap truncation.
+For classified sensitive sources, include a compact "Sensitive source bindings" subsection carrying the classification, approved sanitized path, original source pin, sanitized digest and omission/redaction constraints from the task's existing Constraints record: metadata only, never original values. Follow ${DATARIM_RUNTIME:?}/skills/security/SKILL.md § Sensitive source context boundary. Keep each binding record on complete lines inside Layer 1; do not place layer headings inside metadata. Ordinary tasks need no binding subsection.
+
+## Layer 2 — Active Tasks
+
+Reuse the body from datarim/snapshots/{TASK-ID}.snapshot.md where present.
+One block per active task: current status, last stage completed, next step.
+
+## Layer 3 — Related Files
+
+Paths of every file read or modified this session, with a one-line status note.
+For classified sensitive sources, refer to the protected binding in Layer 1; never keep its only copy in this truncatable layer.
+
+## Layer 4 — Open Questions
+
+Cross-task questions not resolved this session. Tag each: verified: or assumed:.
+
+## Layer 5 — Failed Approaches
+
+Every approach tried and abandoned this session, with the reason it failed.
+Non-truncatable — this layer is protected from cap truncation.
+```
+
+Raw tool output (curl responses, full stack traces, git log dumps) MUST NOT
+appear in any layer — summarise instead. This keeps the artefact within the
+32 KB cap and readable on resume.
+
+## Fail-closed contract
+
+If the writer exits non-zero, the agent MUST emit a visible error message to
+the operator. Do NOT silently continue — the operator needs to know the
+handoff failed. Never hand-author the artefact to work around a writer error;
+instead, fix the underlying cause (claim-provenance tag, session-id format,
+root path) and re-run.
+
+## Security cross-link
+
+Apply `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` § Sensitive source context boundary before assembling the body; the final secret scan is defense in depth, not permission to read raw classified sources into model context.
+
+Full threat model in the task-description Appendix A (T-1 through T-8).
+Key points:
+- T-8 (secret scan-and-redact): the writer scans the body for common API key /
+  credential patterns (AWS `AKIA*`, PEM headers, `ghp_*`, `sk-*` prefixes,
+  `client_secret_*`) and replaces matches with `[REDACTED]`. This protects
+  against accidentally capturing a token pasted into a diff or error message.
+- T-7 (symlink): the writer pre-unlinks any symlink at the target path before
+  the atomic rename, preventing a symlink-swap attack between check and write.
+
+## Invocation example (literal — copy verbatim)
+
+```bash
+SESSION_ID="SESSION-$(date -u +%Y%m%d-%H%M%S)"
+BODY_FILE="$(mktemp)"
+# ... populate $BODY_FILE with the 5-layer body ...
+
+bash "${DATARIM_RUNTIME:?}/dev-tools/session-handoff-writer-wrapper.sh" \
+    --root "${REPO_ROOT:-$PWD}" \
+    --session "${SESSION_ID}" \
+    --captured-by agent \
+    --recommended-next "/dr-next ${TASK_ID}" \
+    --next-action "Continue Phase P2 — implement X." \
+    --active-tasks-file "${TASKS_FILE}" \
+    --body-file "${BODY_FILE}"
+rc=$?
+rm -f "${BODY_FILE}"
+if [ "$rc" -ne 0 ]; then
+    printf 'ERROR: session-handoff write failed (exit %d). Session not persisted.\n' "$rc"
+fi
+```
+
+## Resume block (emit after every successful /dr-save)
+
+After a successful write, the agent MUST print the following block visibly:
+
+```
+Session saved → datarim/sessions/{SESSION-ID}.session.md
+
+To resume in a fresh window, copy this line exactly:
+
+  /dr-continue {SESSION-ID}
+
+  ↳ {TASK-ID} — {title}   (saved {human-date-from-SESSION-ID} UTC)
+    Next: {next-action}
+    Also active this session: {other-task-ids}
+
+{SESSION-ID} is the only argument that selects this saved session — a bare
+/dr-continue may grab another agent's session in a shared workspace. The
+task name and date are labels for you, not command input.
+
+Do NOT use claude --continue / codex resume / Cursor chat history.
+A fresh session + /dr-continue is the only safe resume path.
+```
+
+Rendering rules (implemented in `_session_render_resume_block`,
+`scripts/lib/session-handoff-writer.sh`):
+
+- **`{title}`** is read live from `datarim/tasks.md` by the resolved TASK-ID (Active line
+  format: `- {TASK-ID} · {status} · {prio} · {level} · {TITLE} → tasks/...`; title is
+  the 5th `·`-delimited field). Sanitized via `_session_sanitize_title`: leading `/`
+  stripped, embedded newlines collapsed, truncated ≤ 55 chars on a word boundary + `…`.
+  Plain prose — never backticked. Missing or empty title → print `↳ {TASK-ID}` alone,
+  no em-dash, no invented title.
+- **`{human-date-from-SESSION-ID}`** is formatted as `YYYY-MM-DD HH:MM` from the embedded
+  SESSION-ID timestamp — **never a fresh `date` call** (that would create a second
+  identifier; R10 safety contract).
+- **`{other-task-ids}`** lists OTHER active task IDs only — the current TASK-ID (already
+  shown in `↳`) is excluded. The `Also active this session:` line is **suppressed** when
+  there are no other tasks.
+- The `↳` and `Next:` lines are **omitted** when no TASK-ID is resolvable from
+  `--recommended-next` — never invent a TASK-ID (R5).
+- Pass `"${REPO_ROOT}/datarim/tasks.md"` as the 5th arg to `_session_render_resume_block`
+  so title lookup can succeed. If the file is absent the function falls back silently to
+  bare `↳ TASK-ID`.
+
+Anti-pattern (do NOT hand-author the block): the render function is the single
+source of truth for all sanitization and fallback rules. Never substitute the
+template text manually — re-run the function instead.
+
+## Stale-runtime reminder (advisory)
+
+Before printing the resume block, run the shared stale-runtime detector against
+the session's framework-repo changes so a resumed session is reminded that a
+shipped script or skill edited this session is live only on the committing box:
+
+```bash
+bash "${DATARIM_RUNTIME:?}/dev-tools/check-stale-runtime.sh" --repo "$FRAMEWORK_REPO" --range "$BASE..HEAD"
+```
+
+When the range touched a shipped script (`scripts/lib/*.sh`) or skill
+(`skills/*/SKILL.md`) the script prints the generic, infra-agnostic «update your
+Datarim install(s) per your topology» advisory; otherwise it is silent. This is
+the same single-source-of-truth detector used by `/dr-archive` Step 0.48 and the
+`/dr-compliance` Software Checklist. Surface its output verbatim; it is advisory
+only and never blocks the handoff write.
+
+## Related
+
+- `skills/session-handoff-replay/SKILL.md` — the consumer side.
+- `skills/dr-next-snapshot-replay/SKILL.md` § Shared Replay Renderer — bilingual replay template cited by the consumer.
+- `dev-tools/check-session-handoff.sh` — the validator (run on consumer side before replay).
+- `dev-tools/session-handoff-writer-wrapper.sh` — the entry-point wrapper.
+- `scripts/lib/session-handoff-writer.sh` — the implementation.
+- `commands/dr-save.md` — the operator-facing command that invokes this skill.

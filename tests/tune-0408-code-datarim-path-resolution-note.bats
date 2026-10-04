@@ -1,0 +1,39 @@
+#!/usr/bin/env bats
+# TUNE-0408 — subagent path-resolution NOTE regression guard.
+# Prevents recurrence of the consumer review false BLOCKED ("expectations file
+# missing"), caused by a subagent probing `Projects/<name>/code/datarim/`
+# for a code-project task instead of the project's git-toplevel `datarim/`.
+# Source: consumer review Class B (consumer review).
+
+SKILL_DOC="$BATS_TEST_DIRNAME/../skills/datarim-system/path-and-storage.md"
+DR_QA="$BATS_TEST_DIRNAME/../commands/dr-qa.md"
+DR_COMPLIANCE="$BATS_TEST_DIRNAME/../commands/dr-compliance.md"
+
+@test "path-and-storage.md documents the code/datarim/ anti-pattern for code-projects" {
+    run grep -c 'code/datarim/. is NOT a general convention' "$SKILL_DOC"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 1 ]
+}
+
+@test "path-and-storage.md cites the code/datarim resolution precedent" {
+    # Matched against the document with newlines collapsed, so re-wrapping a
+    # paragraph cannot drop the guard. The earlier form grepped line by line
+    # and went red when "prior QA\n   incident" broke across a line during an
+    # unrelated reflow -- a false alarm about the prose, while the precedent it
+    # guards was still there and still correct.
+    run bash -c "tr '\n' ' ' < '$SKILL_DOC' | tr -s ' ' | grep -c 'prior QA incident'"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 1 ]
+}
+
+@test "dr-qa.md Step 2 warns against probing code/datarim/ for code-projects" {
+    run grep -c 'NEVER probe .Projects/<name>/code/datarim/.' "$DR_QA"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 1 ]
+}
+
+@test "dr-compliance.md Step 2 warns against probing code/datarim/ for code-projects" {
+    run grep -c 'NEVER probe .Projects/<name>/code/datarim/.' "$DR_COMPLIANCE"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 1 ]
+}

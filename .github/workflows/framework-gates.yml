@@ -1,0 +1,188 @@
+name: framework-gates
+
+# Blocking gates over the framework's own consistency invariants.
+#
+# Every script wired here already existed in `dev-tools/` and was already
+# documented as a gate — but no CI job invoked any of them, so each was
+# effectively a paragraph rather than a gate. Two of them (component-counts,
+# version-consistency) exit 1 on the tree as of wiring; that is the point. A
+# gate is only worth having if it is allowed to be red.
+#
+# No `paths:` filter: these gates guard README/AGENTS.md/VERSION/CHANGELOG
+# consistency, which is exactly what a release PR touches. Filtering by path is
+# how a release-time gate ends up never running at release time.
+#
+# All jobs are blocking. Nothing here uses `continue-on-error`.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: framework-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version-tag-parity:
+    name: VERSION has a matching release tag (blocking on main)
+    # A release that never shipped must not look shipped: a release PR that
+    # bumps VERSION+CHANGELOG and merges without the post-merge tag leaves the
+    # repo advertising a version with no tag, no release workflow, no artefacts.
+    # Runs ONLY on the main-push event — on a release PR the bumped VERSION
+    # legitimately precedes the tag, so a pull_request run would always fail.
+    # --wait-seconds tolerates the normal merge→tag window before going red.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # prove pinned preparation ancestry; roots never defer
+          persist-credentials: false
+
+      - name: VERSION ↔ remote tag parity (waits up to 15 min for the tag)
+        run: bash dev-tools/check-version-tag-parity.sh --check --wait-seconds 900 --report
+
+  component-counts:
+    name: component counts vs disk (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check documented component counts against the filesystem
+        run: bash dev-tools/check-component-counts.sh --report
+
+  version-consistency:
+    name: version consistency (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check version + component-count consistency
+        run: bash dev-tools/check-version-consistency.sh
+
+  body-english:
+    name: english-only shipped surface (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # `all` covers every scope token the script knows, not just the
+      # commands,skills,agents default. AGENTS.md § English-Only Shipped
+      # Instruction Surface describes this as fail-hard at the end of the
+      # rewrite; wiring it blocking here is that flip.
+      - name: Check shipped instruction surface is English-only
+        run: bash dev-tools/check-body-english.sh --scope all
+
+  release-ledger:
+    name: release ledger zero-orphan (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The ledger walks commit ranges and runs `git merge-base
+          # --is-ancestor`; a shallow clone makes every ancestry query wrong.
+          fetch-depth: 0
+
+      - name: Check every commit maps to a CHANGELOG version section
+        run: bash dev-tools/release-ledger-report.sh --check
+
+  frontmatter-schema:
+    name: skill + agent frontmatter schema (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check skill frontmatter schema
+        run: bash dev-tools/check-skill-frontmatter.sh
+
+      # Agents are runtime-agnostic by contract: `model: inherit` plus a
+      # canonical `metadata.model_tier` from config/model-tiers.yaml. A
+      # hardcoded model-generation name in an agent file silently pins every
+      # consumer to that vendor generation — this gate keeps the surface clean.
+      - name: Check agent frontmatter schema (model inherit + tier)
+        run: bash dev-tools/check-agent-frontmatter.sh
+
+  template-path-convention:
+    name: template path convention (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # TUNE-0548: this gate shipped in TUNE-0267 and was enforced by NO workflow.
+      # It sat RED on main (9 findings, 2 of them false positives from an
+      # over-narrow exclusion) for as long as it existed — coverage on paper,
+      # nothing in practice. Fixed and wired here; an unwired gate is worse than
+      # no gate, because it reads as protection.
+      - name: Check template refs in runtime markdown are absolute
+        run: bash dev-tools/check-template-path-convention.sh
+
+  archive-landing:
+    name: archive landing verifier (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The verifier resolves cited SHAs with `merge-base --is-ancestor` and
+          # asks the object store what exists; a shallow clone would report every
+          # older commit as unknown and every ancestry answer as wrong.
+          fetch-depth: 0
+
+      # Archives live in the CONSUMING workspace, not in this repo, so CI cannot
+      # run direction A here — there is nothing to scan. What CI can and must
+      # protect is the verifier itself: its own suite is the thing that keeps the
+      # gate honest, and an unwired suite is exactly the defect this gate exists
+      # to catch. Direction A over the workspace archives runs in the workspace,
+      # and as a pre-archive step in /dr-archive.
+      - name: Run the archive-landing verifier's own regression suite
+        run: |
+          if ! command -v bats >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq bats
+          fi
+          bats dev-tools/tests/check-archive-landing.bats
+
+      - name: Verifier is self-consistent (usage + refusal paths)
+        # `shell: bash -e` aborts on the first non-zero command, and these probes
+        # EXPECT non-zero — so the exit code must be captured inside a construct
+        # that -e tolerates, or the step dies before asserting anything.
+        run: |
+          rc=0; bash dev-tools/check-archive-landing.sh --direction sideways || rc=$?
+          [ "$rc" -eq 2 ] || { echo "expected usage error 2, got $rc"; exit 1; }
+          rc=0; bash dev-tools/check-archive-landing.sh --ref no/such/ref --direction a || rc=$?
+          [ "$rc" -eq 3 ] || { echo "expected refusal 3, got $rc"; exit 1; }
+
+  human-reporting:
+    name: Human reporting contracts and portable installation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned test dependencies
+        run: python3 -m pip install pytest==8.3.5 pyyaml==6.0.2
+      - name: Verify reporting and host installer contracts
+        run: |
+          python3 -m pytest -q tests/test_human_reporting*.py
+          python3 -m unittest discover -s skills/human-outcome-reporting/tests -v
+          python3 -m unittest discover -s tests -p 'test_framework_*.py' -v
+          python3 dev-tools/framework-graph.py --check
+          python3 dev-tools/check-template-targets.py

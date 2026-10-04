@@ -1,0 +1,156 @@
+---
+name: publishing-checklist
+description: Pre-publish hard-gate checklist — voice/authorship, factual accuracy, technical correctness, platform compliance, publish-order + back-link gate, consilium. Fragment of `publishing`; run before every publish action.
+---
+
+## Recurring-mistakes pre-publish checklist
+
+Run through this checklist before every publish action. Each item consolidates
+a recurring mistake identified across publishing tasks. This is a hard gate —
+if any item fails, fix it before publishing.
+
+### Voice and authorship
+
+- [ ] No phantom "we" — solo-founder content uses impersonal voice or
+  product-as-subject, never plural first-person (neither "we did X" nor
+  implicit plural past tense: "обнаружили / починили / повесили"). <!-- allow-non-ascii: russian-phantom-we-verb-form-example -->
+- [ ] Voice-bearing content is generated and reviewed directly by the assigned model. If it was delegated contrary to project policy, rewrite it natively before publication.
+- [ ] No moralizing or instructional tone — state facts and outcomes;
+  never prescribe how others should work.
+
+### Factual accuracy
+
+- [ ] All numeric claims (stats, counts, dates, prices, rates) verified from
+  primary sources or direct measurement — not estimated, not from memory.
+- [ ] Model/product names are current: if the content names an AI model or
+  product version, confirm it is still the canonical current version before
+  publishing (e.g. DeepSeek version, Claude model ID).
+- [ ] No private client or project names in public content (the operator
+  keeps that list) — replace with a neutral description such as "primary work",
+  or omit the reference entirely.
+
+### Technical correctness
+
+- [ ] Links are live and resolve correctly. Test each URL in a browser tab.
+- [ ] Code snippets are copy-paste safe — no invisible Unicode, no smart quotes
+  replacing ASCII quotes, no line-wrap artefacts.
+
+### Platform compliance
+
+- [ ] Text length within platform limit (check per-platform table in
+  `## Platform Limits` above).
+- [ ] No raw HTML visible in plain-text platforms (LinkedIn, Facebook, X).
+- [ ] Images sized for the target platform; no text unreadable at thumbnail.
+- [ ] For Telegram: length measured in UTF-16 code units, not characters.
+
+### Publish order + cross-links + back-link gate (multi-platform)
+
+- [ ] Published in the FIXED order — site → Telegram (RU canonical) → X (EN) →
+  Facebook / LinkedIn / VK. X goes BEFORE FB/LI/VK so its URL exists for their
+  comments (see § Publication Order). Reordering is a defect.
+- [ ] FB / LinkedIn / VK first comment carries BOTH the Telegram (RU) link AND
+  the X (EN) link (plus the blog link in the platform language, plus the product
+  site for product/framework articles), all in ONE comment.
+- [ ] CLOSING GATE — the blog article's `social` back-link block is present on
+  RU+EN, points at the real permalinks, and is verified live. An article live
+  with social posts but no/incomplete `social` block is an incomplete publish;
+  the task does not close without it.
+- [ ] Each back-link permalink in the `social` block was OPENED IN A BROWSER and
+  confirmed to render OUR post of THIS cycle (title/lead match, correct author,
+  publish date) BEFORE it was written into the article and deployed. Do not trust
+  a URL carried over from a prepared `*-parent-url.txt`, from memory, from a
+  `curl` HTTP 200 (FB/LI/X return 200 for a wrong/deleted/"not found" post too),
+  or from a first-line-of-file match. Do not hand-reconstruct FB `pfbid` or
+  LinkedIn share URLs — copy the working permalink verbatim from the post's own
+  "Copy link" (LinkedIn: `posts/<vanity>_<slug>-share-<id>-<code>/`, NOT
+  `feed/update/urn:li:activity:<id>/`; Facebook: strip the `?__cft__=…&__tn__=…`
+  tracking tail). After all links verify, deploy, then re-check the live RU+EN
+  pages that the hrefs shipped.
+- [ ] Post video uses the animated-cover cycle; when narration audio exists it
+  carries the bottom audio-amplitude strip (default-on). A bare full-frame
+  waveform as the whole video is forbidden (see § Video standard).
+
+### Post title / headline (every platform: X, FB, LinkedIn, VK, Telegram)
+
+The article's title MUST appear as the **first line of the post body** on every
+social platform, followed by a blank line, then the lead. A post that starts
+straight into the lead paragraph (no title line) loses the hook and forces the
+operator to hand-fix it. Cycle posts (A2/A3/...) always lead with the title
+line — match that shape.
+
+- [ ] The post body's first line is the article title (or a title-equivalent
+  headline in the post's language), then a blank line, then the lead.
+- [ ] Telegram post 1: title is the bold first line of the video caption.
+- [ ] Telegram post 2: title is first, the complete RU text follows, and the RU CTA link is the final line and the only link.
+- [ ] X / FB / LinkedIn / VK: title is the plain first line of the post body
+  (no `<b>` on FB/LI/VK/X — those flatten HTML; Telegram uses `<b>`).
+- [ ] The title is verified present in the read-back content (not just the
+  source file) before smoke is declared.
+
+### Publish via API  -  verify-after-publish (never trust the send call)
+
+Applies to every platform posted through an API/bot (Telegram Bot API first).
+The rule: **the word "published/verified/done" is earned only by reading the
+artifact back from the platform**  -  never from the local source file, the
+request code, structural metrics, or a bare HTTP 200. Source != result.
+
+- [ ] Caption/text passed via a safe multipart field (`--form-string`,
+  `--data-urlencode`), never a read-from-file operator (`-F caption="<file"`
+  silently corrupts the field).
+- [ ] A baseline `max(message_id)` was captured BEFORE publishing; any message
+  at or below it is foreign and cannot be this session's result.
+- [ ] The real `message_id` was captured from an `ok:true` response; an empty /
+  non-JSON / `ok:false` body is UNKNOWN  -  inspect, never treat as success,
+  never blind-retry (duplicate risk).
+- [ ] A Telegram article publish contains exactly two sequential ordinary channel posts in one `chat_id`: post 1 is media plus bold title; post 2 is title plus complete RU text plus the final linked RU CTA. Both ordered `message_id` values are captured. Neither request contains `reply_to_message_id`, `message_thread_id`, discussion-group, or comment fields. If either result is UNKNOWN, stop without blind retry.
+- [ ] Read both Telegram article messages back by their returned ordered IDs and verify CONTENT: post 1 media plus exact bold title; post 2 title, complete RU text, final hidden-link URL, and target `chat.id`. Verify no reply/thread linkage.
+- [ ] For a video post, the attached media is proven to be OUR freshly
+  generated file  -  `file_size` / `duration` / `width`x`height` / `file_name`
+  read from the platform match the file actually sent this cycle (guards against
+  a foreign/old video wearing the right caption).
+- [ ] Telegram message identity is established by each captured `message_id` plus either bot authorship or real channel identity (`sender_chat.id == chat_id`), never by caption-text match alone.
+- [ ] The test-channel baseline and both returned IDs are inspected. Pre-existing posts are not attributed to this run and are never deleted by a guessed ID; any unexpected new message after the baseline stops the smoke.
+- [ ] The smoke->prod gate presents the operator the actually read-back artifacts
+  (links + read-back content), not the agent's own summary; no prod publish
+  before an explicit operator "go" on those artifacts.
+- [ ] On comment-capable platforms only, the first-comment parent URL is verified to be the post just published this cycle before commenting. Telegram article publication has no comment, reply, discussion group, or thread.
+
+Publisher canonical reference (full 17-rule set + root-cause):
+`Projects/Publisher/.../docs/reference/telegram-bot-api-publish-safety.md`.
+
+### Multi-vendor consilium post-publish
+
+If content was produced via `--consilium` multi-vendor mode:
+
+- [ ] `judge-decision.md` exists in the run directory and records the selected slot.
+- [ ] `final.md` is the file being published — not one of the raw `draft-*.md` files.
+- [ ] If degradation occurred (`degradation_note.txt` present), the operator has
+  acknowledged the reduced vendor count before publishing.
+
+### Multi-vendor execution mode — interactive tmux only
+
+The multi-vendor fan-out runs each vendor as an **interactive tmux pane** and
+delivers the brief via the pane (the `run_vendor_tmux` path). It MUST NOT run
+the vendor CLIs in headless / print mode (`-p` / `exec` / `--print`).
+
+- [ ] Vendor agents run in interactive panes, not headless. Subscription-based
+  CLIs are authenticated in their interactive TUI; headless mode requires a
+  separate per-vendor API key (API-billing), which is out of scope for a
+  subscription-only setup — one vendor CLI rejects headless invocation outright
+  even where it is interactively signed in.
+- [ ] The brief is sent to each pane and the reply is captured after the pane
+  goes idle — never piped to a non-interactive subprocess.
+- [ ] Direct-subprocess / test-mode execution is reserved for the test suite
+  only; it is never the path for a live content run.
+
+The orchestrator pane and the vendor panes run with **different contexts**:
+
+- [ ] The **orchestrator** pane (the pane that drives the run, judges drafts,
+  and synthesises the final) runs as a full framework agent — it uses the
+  framework rules and the delegation tooling.
+- [ ] The **vendor** panes (the per-vendor draft authors) run as **bare agents**
+  with **no framework context**. The orchestrator/operator sends them the raw
+  content brief directly through the pane — no framework commands, no skills,
+  no project instruction file in their working context. The goal is each
+  vendor's **native voice** on the same brief; loading framework context into a
+  vendor pane contaminates the voice comparison and is a defect.

@@ -1,0 +1,113 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets
+.env
+.env.*
+*.credentials
+*.pem
+*.key
+
+# Node (if any tooling added later)
+node_modules/
+
+# Python bytecode caches from dev-tools/* debug sessions
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# documentation/ is TRACKED — the docs migration deliberately moved the public
+# Diátaxis tree (tutorials/how-to/reference/explanation) plus framework task
+# archives into this repo, and AGENTS.md § S4/S10 reference documentation/
+# paths as shipped surfaces. An earlier rule ignored the whole directory as a
+# "consumer-side artefact", which contradicted the tracked tree and forced
+# `git add -f` on every new doc. The tree is canon; do not re-add an ignore
+# rule for it (regression: tests/tune-0549-framework-hygiene.bats).
+
+# TUNE-0164: dr-orchestrate plugin operator config (mode-0600 secrets via secrets_backend.sh).
+# Template ships at plugins/dr-orchestrate/user-config.template.yaml.
+plugins/dr-orchestrate/user-config.yaml
+
+# TUNE-0254: stage-snapshot ephemeral state — overwritten per /dr-* run.
+# Snapshot at datarim/snapshots/{TASK-ID}.snapshot.md, gitignored; /dr-archive
+# Step 0.95 moves the final snapshot to documentation/archive/<subdir>/snapshots/.
+datarim/snapshots/
+
+# TUNE-0268 Phase 2: backlog.md.lock — flock guard для datarim backlog add.
+*.lock
+
+# TUNE-0296: Codex CLI auto-recreates bundled skills under skills/.system/ when
+# ~/.codex/skills → datarim/skills/ symlink is in place (--with-codex install
+# path). These are runtime artefacts owned by Codex CLI, not Datarim source.
+# Permanent integration design tracked in backlog (Source: TUNE-0296).
+skills/.system/
+
+# Session-handoff artefacts — cross-runtime, append-only, ephemeral.
+# Written by /dr-save, consumed by /dr-continue in a new window.
+# These are transient per-session files; not committed to git.
+datarim/sessions/
+
+# Autonomous-mode markers — per-task at datarim/.auto/<TASK-ID>.mode and the
+# legacy single file datarim/.auto-mode-active. Runtime authorisation signals,
+# never committed. The delegated-bootstrap contract REQUIRES the marker to be
+# untracked (a git-tracked marker is refused as a supply-chain vector — see
+# skills/autonomous-mode/SKILL.md § Delegated bootstrap).
+datarim/.auto/
+datarim/.auto-mode-active
+
+# ID-reservation markers (TUNE-0285 race-window hardening) — atomic mkdir mutex
+# written by dev-tools/next-free-id.sh under datarim/.id-reservations/<TASK-ID>
+# to close the /dr-init select→first-write TOCTOU window. Ephemeral runtime
+# state (TTL-expiring, releasable), never committed.
+datarim/.id-reservations/
+
+# Dispatch heartbeat status files — per-task at datarim/runtime/<TASK-ID>.status
+# (TUNE-0490 Phase 2). Runtime state written by a delegated agent and read by
+# the laptop monitor; ephemeral, host-local, never committed. The digest and
+# pane classifier operate on these; the .answer channel (Phase 2 relay) lands
+# here too.
+datarim/runtime/
+
+# Interactive task-spec wizard state — per-task append-only JSONL event log
+# datarim/wizard/<TASK-ID>.wizard.jsonl and the emitted knowledge/dependency
+# graph datarim/wizard/<TASK-ID>.graph.jsonl (TUNE-0390). Runtime interview
+# state; the local log may hold raw operator text and is never committed.
+datarim/wizard/
+
+# Init-task artefacts — datarim/tasks/<TASK-ID>-init-task.md holds, by contract,
+# the VERBATIM operator brief and append-log (skills/init-task-persistence).
+# Verbatim operator input is personal data by construction: the frontmatter
+# carries an `operator:` field and the body carries the operator's own wording,
+# paths and machine names. Ten such files were tracked in this public repo until
+# the 2.60.0 release audit; they are untracked now and must never be re-added.
+# The framework already documents datarim/ as local workflow state — this closes
+# the gap between that contract and the repo's actual tracked set.
+datarim/tasks/*-init-task.md
+
+# Insight artefacts — AGENTS.md § Critical Rules asserts these are "gitignored,
+# ephemeral runtime artefacts" and forbids shipped files from citing them by
+# filename. Nothing under insights/ was tracked, but without this rule the
+# assertion was unenforced and the next /dr-prd run could commit one.
+insights/
+
+# Bare *.env files. The patterns above cover `.env` and `.env.*`, but not a file
+# named e.g. `personal.env` — which is exactly the operator-overlay filename the
+# security baseline tells consumers to create.
+*.env
+
+# Throwaway fixture created and rm -rf'd by tests/test-role-registry.bats — must stay untracked
+skills/fleet/_test_no_budget/
+
+# Product source never carries live task state or project installations.
+/datarim/
+/.datarim-runtime/
+/config/credentials/

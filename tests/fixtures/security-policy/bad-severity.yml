@@ -1,0 +1,11 @@
+schema_version: 1
+
+entries:
+  - id: GHSA-aaaa-bbbb-cccc
+    pkg: "demo-package"
+    severity: extreme
+    scope: devdep
+    reason: "Severity value is outside the accepted enum so validator must reject."
+    last_review: 2026-05-01
+    re_review: 2026-05-31
+    reviewed_by: human

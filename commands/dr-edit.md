@@ -1,0 +1,110 @@
+---
+name: dr-edit
+description: Editorial review — fact verification, AI pattern removal, style consistency. Uses editor agent with factcheck and humanize skills.
+argument-hint: [file path to review]
+allowed-tools: Read Write Edit Grep Glob Bash WebSearch WebFetch Agent
+effort: high
+---
+
+# /dr-edit — Editorial Review
+
+**Acceptance and editorial evidence:** apply `skills/immutability/SKILL.md`
+§ Acceptance and Evidence Loop. Before reviewing or changing a task-bound
+content artifact, define the edit cases and selected content route; capture
+`check-live-evidence.sh --root <repo-root> --contract <acceptance.json>
+--evidence <evidence.json> --stage preflight` only for a new/migrated baseline.
+Preserve existing preflight. After review and authorized edits, append edit-stage
+case evidence and run the strict command with `--stage edit`. The editor is
+independent of the prior writer when both stages occur. Verify each assertion
+even when reusing a hashed log. Findings return to writing/editing, then repeat
+verification and later selected reviews. A standalone request uses a pre-work
+checklist and actual evidence and reports **UNCERTIFIED** for the structured
+gate, never pipeline PASS. Non-content pipeline editorial work retains its
+existing QA/archive routing and binds checks to that task's selected route.
+
+**Role**: Editor Agent
+**Source**: `${DATARIM_RUNTIME:?}/agents/editor.md`
+
+## Instructions
+
+
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
+1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/editor.md` and adopt that persona.
+2.  **LOAD SKILLS** (all mandatory for editorial work):
+    - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always)
+    - `${DATARIM_RUNTIME:?}/skills/factcheck/SKILL.md` (Fact verification methodology)
+    - `${DATARIM_RUNTIME:?}/skills/humanize/SKILL.md` (AI pattern detection and removal)
+    - `${DATARIM_RUNTIME:?}/skills/writing/SKILL.md` (Quality checklist and editorial standards)
+    - **Voice-bearing content:** the assigned model performs writing, editing, translation, and factual review directly. Preserve the operator's authorship and publication constraints.
+3.  **READ THE CONTENT**: Read the file at the path provided in `$ARGUMENTS`. If no path given, ask the user.
+4.  **SETUP**:
+    - Detect the primary language (English, Russian, or mixed).
+    - Identify the content type and target register.
+    - Create a backup next to the original: `{name}.backup-{timestamp}.{ext}`
+5.  **EDITORIAL REVIEW** (3 phases):
+
+    ### Phase 1: Fact Verification
+    - Extract all verifiable factual claims.
+    - Verify each claim against authoritative sources using WebSearch and WebFetch.
+    - Assign verdicts: ACCURATE, INACCURATE, OUTDATED, MISLEADING, UNVERIFIABLE, NEEDS_CONTEXT.
+    - Cross-reference source count per claim importance level — see `${DATARIM_RUNTIME:?}/skills/factcheck/SKILL.md` § Importance levels (do not restate the thresholds here; they drift independently otherwise).
+
+    ### Phase 2: AI Pattern Removal
+    - Scan for AI writing patterns: banned vocabulary, structural tells, formatting artifacts.
+    - Check communication tells (chatbot artifacts, sycophantic tone, knowledge cutoff disclaimers).
+    - Check linguistic patterns (copula avoidance, synonym cycling, significance inflation).
+    - For Russian text: check textbook tone, restated ideas, generic phrases, absurd metaphors.
+    - Apply fixes in 3 passes: vocabulary/formatting → structure/rhythm → anti-AI audit.
+
+    ### Phase 3: Editorial Polish
+    - Style consistency: terminology, tone, formatting across the entire document.
+    - Structural review: argument flow, section balance, logical coherence, transitions.
+    - Citation and reference audit: verify links, check source authority.
+    - Final naturalness check: does every paragraph sound like a human wrote it?
+
+6.  **REPORT**: Present a summary of all changes by category:
+    - Factual corrections (with sources)
+    - AI pattern fixes (with counts by category)
+    - Structural improvements
+    - Items that need the author's attention (meaning-altering changes)
+7.  **APPLY**: After user approval, apply changes to the original file. Confirm backup location.
+
+## Output
+- Editorial report with change summary
+- Corrected document (after approval)
+- Backup of the original
+
+## Multi-Vendor Consilium Mode
+
+When `--consilium` is passed as an argument (or `DATARIM_CONSILIUM=1` is set),
+`/dr-edit` activates the multi-vendor editorial path instead of the standard single-editor pipeline.
+
+**Activation:** `dr-edit --consilium [file-path]`
+
+**What changes:**
+1. Phases 1-3 above run for each vendor independently in parallel tmux sessions via
+   `content_consilium_fanout.sh` with stage label `"edit"`.
+2. Each vendor produces an independently edited version of the input content.
+3. The judge script scores edits on edit-stage criteria: factual accuracy, AI-pattern
+   removal completeness, and naturalness of the resulting prose.
+4. The best edit is selected; its diff summary becomes the editorial report.
+5. Run artefacts go to `datarim/pub-consilium/{RUN-ID}/`.
+
+**Degradation:** same rules as `/dr-write --consilium` — 2-of-3 proceeds with
+a `degradation_note`; fewer than 2 falls back to single-editor path with a warning.
+
+See `${DATARIM_RUNTIME:?}/skills/consilium/SKILL.md` § Real Multi-Vendor Mode for the full protocol.
+
+## Next Steps (CTA)
+
+After edit pass, the editor agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
+
+**Routing logic for `/dr-edit`:**
+
+- Content approved, publication ready → primary `/dr-publish {TASK-ID}` (multi-platform formatting)
+- Content needs more writing → primary `/dr-write {TASK-ID}` (continue authoring)
+- Pipeline task (non-content track) → primary `/dr-qa {TASK-ID}` or `/dr-archive {TASK-ID}` per complexity
+- Targeted micro-check only → alternative `/factcheck` or `/humanize`
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format defined in `skills/cta-format/SKILL.md` (numbered options, exactly one primary marker, `---` HR). Variant B menu when >1 active tasks.

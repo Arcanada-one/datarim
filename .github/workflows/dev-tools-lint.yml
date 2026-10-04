@@ -1,0 +1,150 @@
+name: dev-tools-lint
+# Dev-tools lint + fast-feedback bats subset.
+# - bats-self-tests: BLOCKING. Fast subset; see the note on that job.
+# - linter-run:      doc-fanout-lint ERRs block; cross-root WARNs advisory.
+# - dr-auto-reassert-wiring: BLOCKING prose-decay lint (own job, no continue-on-error).
+# - dr-auto-cross-runtime: BLOCKING activation-primitive smoke.
+#
+# This workflow has a `paths:` filter, so it can skip entirely on a PR that
+# touches only VERSION/CHANGELOG. Full repo-wide bats coverage therefore does
+# NOT live here — it lives in `bats.yml`, which is glob-discovery based and
+# carries no path filter.
+
+'on':
+  pull_request:
+    paths:
+      - 'commands/**'
+      - 'skills/**'
+      - 'agents/**'
+      - 'documentation/**'
+      - 'AGENTS.md'
+      - 'README.md'
+      - 'dev-tools/**'
+      - '.github/workflows/dev-tools-lint.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-tools-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bats-self-tests:
+    name: bats self-tests (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install bats
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bats
+
+      # DO NOT replace this explicit list with a glob.
+      #
+      # `dev-tools/tests/closure-gate.bats` contains an anti-decay assertion
+      # that greps THIS FILE for the literal string
+      # `bats dev-tools/tests/closure-gate.bats`. That assertion exists because
+      # deleting the closure gate outright once left every CI job green — a gate
+      # nothing runs is a paragraph, not a gate.
+      #
+      # Repo-wide coverage is handled by `bats.yml` (glob discovery, no path
+      # filter). This list is a fast-feedback subset plus that literal tripwire;
+      # it is intentionally redundant with discovery, not a substitute for it.
+      - name: Run dev-tools self-tests
+        run: |
+          bats dev-tools/tests/doc-fanout-lint.bats
+          bats dev-tools/tests/check-public-repository-boundary.bats
+          bats dev-tools/tests/check-github-actions-execution.bats
+          bats dev-tools/tests/rename-task-prefix.bats
+          bats dev-tools/tests/cross-kb-evolution-digest.bats
+          bats dev-tools/tests/closure-gate.bats
+          bats dev-tools/tests/orchestrate-phase3-acceptance.bats
+
+  linter-run:
+    name: doc-fanout-lint (errors blocking, cross-root advisory)
+    runs-on: ubuntu-latest
+    # NOTE: this job previously carried BOTH `continue-on-error: true` AND a
+    # trailing `|| echo "::warning::"`. Either alone neutralises the gate; both
+    # together made it impossible for doc-fanout-lint to fail CI under any
+    # circumstances, including genuine in-repo count drift.
+    #
+    # The severity split the script already implements is the right seam:
+    #   default mode  -> ERR exits 1, WARN exits 0
+    #   --strict      -> WARN also exits 1
+    # In-repo count-mismatch ERRs are real drift and now block. Cross-root WARNs
+    # ("consumer file missing") are expected in a single-repo CI checkout, since
+    # the sister site is not checked out, so they stay advisory.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: doc-fanout-lint — in-repo errors (blocking)
+        run: |
+          bash dev-tools/doc-fanout-lint.sh \
+               --root . \
+               --config dev-tools/.doc-fanout.yml \
+               --allow-cross-root
+
+      - name: doc-fanout-lint — cross-root warnings (advisory)
+        if: always()
+        continue-on-error: true
+        run: |
+          bash dev-tools/doc-fanout-lint.sh \
+               --root . \
+               --config dev-tools/.doc-fanout.yml \
+               --allow-cross-root --strict || \
+          echo "::warning::doc-fanout-lint reported warnings (cross-root surfaces are expected to be missing in a single-repo CI checkout)"
+
+  dr-auto-reassert-wiring:
+    name: dr-auto reassert-wiring lint (blocking)
+    # The lint's own header promises that "a deterministic CI lint FAILS
+    # (exit 1) the moment that call decays back to advisory prose only". That
+    # promise only holds when the lint runs in a job with no continue-on-error
+    # and no shared steps that can skip it. It previously ran as a trailing
+    # step of `linter-run` — a job that historically carried
+    # `continue-on-error: true`, which made the lint advisory in practice and
+    # contradicted its header. Own blocking job, mirroring the sibling
+    # `dr-auto-cross-runtime` job. Regression:
+    # tests/check-dr-auto-reassert-wiring.bats (workflow-wiring test).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run dr-auto reassert-wiring lint
+        run: bash dev-tools/check-dr-auto-reassert-wiring.sh --root .
+
+      # Advisory first (becomes a hard gate after adoption): cross-check the
+      # framework's own task-description corpus type:/priority: values against
+      # the network-exposure gate's recognised value-sets. Exits 0 on an
+      # absent/empty corpus (datarim/ is gitignored, so this is a no-op in a
+      # clean CI checkout and only flags when a real corpus is present).
+      - name: Run gate-token-registry-sync check (advisory)
+        run: |
+          bash dev-tools/check-gate-token-registry-sync.sh \
+               --gate dev-tools/network-exposure-gate.sh \
+               --corpus-dir datarim/tasks || \
+          echo "::warning::check-gate-token-registry-sync flagged an unhandled type:/priority: value (advisory — becomes a hard gate after adoption)"
+
+  dr-auto-cross-runtime:
+    name: dr-auto cross-runtime smoke (blocking)
+    # Exercises the /dr-auto activation PRIMITIVES rather than the command prose:
+    # marker write+resolve round-trip, `subagent-active` with DATARIM_AUTO_MODE
+    # unset, and a non-empty hard_gated_actions list. Those three properties are
+    # what make the activation contract hold on Codex CLI and Cursor, where a
+    # spawned subagent does not inherit the shell env var. Blocking: the checks are
+    # deterministic pure-bash assertions over committed files, with no corpus
+    # heuristics. Complements the reassert-wiring lint above, which checks the
+    # command spec's prose for a mandatory cue.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run the cross-runtime activation smoke
+        run: bash dev-tools/check-dr-auto-cross-runtime.sh --report

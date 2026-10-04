@@ -1,0 +1,903 @@
+#!/usr/bin/env bats
+#
+# Tests for scripts/pre-archive-check.sh
+#
+# Contract under test (from commands/dr-archive.md, step 0 — TUNE-0003 Proposal 1):
+#   For every git repository touched by a task, `/dr-archive` must block when
+#   `git status --porcelain` is non-empty, listing every dirty repo so the
+#   operator can choose commit / accept / abort.
+#
+# These tests verify the detection half of that contract (listing dirty repos,
+# exit codes, multi-repo support). The interactive 3-way prompt is tested by
+# archive-contract-lint.bats as a spec-regression assertion.
+#
+# Scenarios covered:
+#   - AC-2.1 clean git   → exit 0 (baseline)
+#   - AC-2.2 dirty primary repo → exit 1 + path listed
+#   - AC-2.3 dirty secondary repo (task touches 2+ repos) → exit 1 + path listed
+#   - edge  both repos dirty → exit 1 + both listed
+#   - edge  untracked files count as dirty
+#   - edge  staged-but-uncommitted counts as dirty
+#   - edge  path not a git repo → exit 2
+#   - edge  path does not exist → exit 2
+#   - edge  no arguments → exit 2
+#
+# Tmpdir isolation: every test creates its own fake repo(s) in BATS_TEST_TMPDIR.
+# No real repos are touched.
+
+SCRIPT="${BATS_TEST_DIRNAME}/../scripts/pre-archive-check.sh"
+
+# Helper: create an initialized git repo at PATH with an initial commit.
+make_clean_repo() {
+    local repo="$1"
+    mkdir -p "$repo"
+    git -C "$repo" init --quiet --initial-branch=main
+    git -C "$repo" config user.email "test@example.com"
+    git -C "$repo" config user.name "Test"
+    echo "seed" > "$repo/README.md"
+    git -C "$repo" add README.md
+    git -C "$repo" commit --quiet -m "initial"
+}
+
+# Helper: make repo dirty by adding an untracked file (unless mode overrides).
+make_dirty() {
+    local repo="$1"
+    local mode="${2:-untracked}"
+    case "$mode" in
+        untracked)  echo "scratch" > "$repo/scratch.txt" ;;
+        modified)   echo "changed" >> "$repo/README.md" ;;
+        staged)     echo "new" > "$repo/new.txt" && git -C "$repo" add new.txt ;;
+    esac
+}
+
+# ---------- AC-2.1 baseline ----------
+
+@test "clean git in single repo → exit 0 (baseline)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/repo1"
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/repo1"
+    [ "$status" -eq 0 ]
+}
+
+@test "clean git in two repos → exit 0" {
+    make_clean_repo "$BATS_TEST_TMPDIR/repo1"
+    make_clean_repo "$BATS_TEST_TMPDIR/repo2"
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/repo1" "$BATS_TEST_TMPDIR/repo2"
+    [ "$status" -eq 0 ]
+}
+
+# ---------- AC-2.2 dirty primary ----------
+
+@test "dirty primary repo → exit 1 and path listed on stdout" {
+    make_clean_repo "$BATS_TEST_TMPDIR/primary"
+    make_dirty "$BATS_TEST_TMPDIR/primary" untracked
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/primary"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"primary"* ]]
+}
+
+@test "dirty primary repo → stderr contains 3-way prompt language" {
+    make_clean_repo "$BATS_TEST_TMPDIR/primary"
+    make_dirty "$BATS_TEST_TMPDIR/primary" untracked
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/primary"
+    [ "$status" -eq 1 ]
+    # Stderr is merged into $output by bats; assert all three options are mentioned.
+    [[ "$output" == *"Commit now"* ]]
+    [[ "$output" == *"accept pending state"* ]] || [[ "$output" == *"Accept"* ]]
+    [[ "$output" == *"Abort"* ]]
+}
+
+# ---------- AC-2.3 dirty secondary (multi-repo) ----------
+
+@test "clean primary + dirty secondary → exit 1 and only secondary on stdout" {
+    make_clean_repo "$BATS_TEST_TMPDIR/primary"
+    make_clean_repo "$BATS_TEST_TMPDIR/secondary"
+    make_dirty "$BATS_TEST_TMPDIR/secondary" untracked
+    # Capture stdout only (stderr stripped) for exact assertion
+    run bash -c "'$SCRIPT' '$BATS_TEST_TMPDIR/primary' '$BATS_TEST_TMPDIR/secondary' 2>/dev/null"
+    [ "$status" -eq 1 ]
+    # Exactly one line on stdout: the dirty repo path
+    [ "$(echo "$output" | wc -l | tr -d ' ')" = "1" ]
+    [[ "$output" == *"secondary"* ]]
+    [[ "$output" != *"primary"* ]]
+}
+
+# ---------- multi-dirty edge ----------
+
+@test "both repos dirty → exit 1 and both paths listed" {
+    make_clean_repo "$BATS_TEST_TMPDIR/a"
+    make_clean_repo "$BATS_TEST_TMPDIR/b"
+    make_dirty "$BATS_TEST_TMPDIR/a" untracked
+    make_dirty "$BATS_TEST_TMPDIR/b" modified
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/a" "$BATS_TEST_TMPDIR/b"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"/a"* ]]
+    [[ "$output" == *"/b"* ]]
+}
+
+# ---------- dirty variants ----------
+
+@test "staged-but-uncommitted counts as dirty" {
+    make_clean_repo "$BATS_TEST_TMPDIR/repo"
+    make_dirty "$BATS_TEST_TMPDIR/repo" staged
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/repo"
+    [ "$status" -eq 1 ]
+}
+
+@test "modified tracked file counts as dirty" {
+    make_clean_repo "$BATS_TEST_TMPDIR/repo"
+    make_dirty "$BATS_TEST_TMPDIR/repo" modified
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/repo"
+    [ "$status" -eq 1 ]
+}
+
+# ---------- usage errors ----------
+
+@test "no arguments → exit 2 with usage message" {
+    run "$SCRIPT"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"Usage"* ]]
+}
+
+@test "non-existent path → exit 2" {
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/does-not-exist"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"not found"* ]] || [[ "$output" == *"does not exist"* ]]
+}
+
+@test "path exists but is not a git repo → exit 2" {
+    mkdir -p "$BATS_TEST_TMPDIR/plain"
+    echo "hello" > "$BATS_TEST_TMPDIR/plain/file.txt"
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/plain"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"not a git repo"* ]] || [[ "$output" == *"not a git repository"* ]]
+}
+
+# ---------- stdout/stderr separation ----------
+
+@test "stdout contains only dirty paths (machine-readable)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/clean"
+    make_clean_repo "$BATS_TEST_TMPDIR/dirty"
+    make_dirty "$BATS_TEST_TMPDIR/dirty" untracked
+    # Capture stdout only
+    run bash -c "'$SCRIPT' '$BATS_TEST_TMPDIR/clean' '$BATS_TEST_TMPDIR/dirty' 2>/dev/null"
+    [ "$status" -eq 1 ]
+    # stdout should be exactly one line with the dirty path
+    [ "$(echo "$output" | wc -l | tr -d ' ')" = "1" ]
+    [[ "$output" == *"dirty"* ]]
+    [[ "$output" != *"clean"* ]]
+}
+
+# ---------- TUNE-0044 shared-mode helpers ----------
+
+# Helper: seed a tracked file in a clean repo, then mutate without staging.
+make_workflow_file() {
+    local repo="$1"; local file="$2"; local content="$3"
+    mkdir -p "$(dirname "$repo/$file")"
+    echo "$content" > "$repo/$file"
+    git -C "$repo" add "$file"
+    git -C "$repo" commit --quiet -m "seed $file"
+}
+
+modify_with_task_id() {
+    local repo="$1"; local file="$2"; local task_id="$3"
+    echo "added by $task_id: workflow update" >> "$repo/$file"
+}
+
+# ---------- TUNE-0044 shared-mode tests ----------
+
+@test "shared mode: foreign hunks only → exit 0 (archive proceeds)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "# tasks"
+    modify_with_task_id "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "TRANS-0021"
+    run "$SCRIPT" --task-id TUNE-0044 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"foreign"* ]]
+}
+
+@test "shared mode: own-task-ID hunks → exit 1 (must commit)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "# tasks"
+    modify_with_task_id "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "TUNE-0044"
+    run "$SCRIPT" --task-id TUNE-0044 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"own"* ]]
+}
+
+@test "shared mode: mixed (own + foreign) hunks → exit 1 (must stage selectively)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/progress.md" "# progress"
+    {
+        echo "TRANS-0021: workflow update"
+        echo "TUNE-0044: workflow update"
+    } >> "$BATS_TEST_TMPDIR/ws/datarim/progress.md"
+    run "$SCRIPT" --task-id TUNE-0044 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"mixed"* ]]
+}
+
+@test "shared mode: unattributed hunks → exit 1 (default-deny)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/notes.md" "# notes"
+    echo "ad-hoc edit, no task id" >> "$BATS_TEST_TMPDIR/ws/datarim/notes.md"
+    run "$SCRIPT" --task-id TUNE-0044 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"unattributed"* ]]
+}
+
+@test "shared mode: own dirty hunk does not bypass schema-compliance gate" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "- TUNE-0044 malformed row"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/notes.md" "# notes"
+    echo "TUNE-0044 own dirty hunk" >> "$BATS_TEST_TMPDIR/ws/datarim/notes.md"
+    run "$SCRIPT" --task-id TUNE-0044 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"Schema-compliance gate failed."* ]] \
+        && [[ "$output" == *"datarim/tasks.md"* ]]
+}
+
+# ---------- TUNE-0291 --allow-foreign-untracked (shared multi-agent workspace) ----------
+#
+# Founding incident: TUNE-0286 /dr-archive hit 23 foreign untracked files
+# (scratch artefacts from parallel sessions carrying no task ID) that blocked
+# the gate as `unattributed`, forcing a manual override. The opt-in
+# --allow-foreign-untracked flag waves a truly foreign untracked file (`??`
+# with ZERO matching task IDs) through, while preserving strict default-deny
+# when the flag is absent and never touching tracked-but-modified files.
+
+# T-FU1: truly foreign untracked file (no task ID) + --allow-foreign-untracked
+# → klass=foreign-untracked, exit 0 (bypass).
+@test "shared mode: foreign untracked (no task id) + --allow-foreign-untracked → exit 0 (bypass)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    echo "scratch note from a parallel session, no task id" \
+        > "$BATS_TEST_TMPDIR/ws/datarim/parallel-scratch.md"
+    run "$SCRIPT" --task-id TUNE-0291 --allow-foreign-untracked \
+        --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"foreign-untracked"* ]]
+}
+
+# T-FU2: same foreign untracked file WITHOUT the flag → default-deny preserved
+# (klass=unattributed, exit 1).
+@test "shared mode: foreign untracked (no task id) without flag → exit 1 (default-deny preserved)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    echo "scratch note from a parallel session, no task id" \
+        > "$BATS_TEST_TMPDIR/ws/datarim/parallel-scratch.md"
+    run "$SCRIPT" --task-id TUNE-0291 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"unattributed"* ]]
+}
+
+# T-FU3: scoping guard — a tracked-but-modified file with no task ID must NOT
+# be bypassed even when --allow-foreign-untracked is set (still unattributed).
+@test "shared mode: tracked-modified no-id file + --allow-foreign-untracked → exit 1 (not bypassed)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/notes.md" "# notes"
+    echo "ad-hoc edit, no task id" >> "$BATS_TEST_TMPDIR/ws/datarim/notes.md"
+    run "$SCRIPT" --task-id TUNE-0291 --allow-foreign-untracked \
+        --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"unattributed"* ]]
+}
+
+@test "shared mode: invalid --task-id → exit 2" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    run "$SCRIPT" --task-id "not-an-id" --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 2 ]
+}
+
+@test "shared mode: missing --shared → exit 2" {
+    run "$SCRIPT" --task-id TUNE-0044
+    [ "$status" -eq 2 ]
+}
+
+@test "legacy mode (no --task-id) preserved: dirty repo still exit 1" {
+    make_clean_repo "$BATS_TEST_TMPDIR/repo"
+    make_dirty "$BATS_TEST_TMPDIR/repo" untracked
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/repo"
+    [ "$status" -eq 1 ]
+}
+
+# ---------- TUNE-0056 conditional-shared (marker auto-detect) ----------
+
+# Helper: install .datarim-shared marker file at repo root + commit.
+make_marker_repo() {
+    local repo="$1"
+    make_clean_repo "$repo"
+    cat > "$repo/.datarim-shared" <<'EOF'
+# Datarim shared-workspace marker (TUNE-0056)
+EOF
+    git -C "$repo" add .datarim-shared
+    git -C "$repo" commit --quiet -m "marker"
+}
+
+@test "conditional-shared: marker + --task-id + foreign hunks → exit 0 (auto-shared)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "skills/foo.md" "# foo"
+    modify_with_task_id "$BATS_TEST_TMPDIR/fw" "skills/foo.md" "DEV-0210"
+    run "$SCRIPT" --task-id TUNE-0056 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"foreign"* ]]
+}
+
+@test "conditional-shared: marker absent + --task-id + dirty repo → legacy STOP exit 1" {
+    make_clean_repo "$BATS_TEST_TMPDIR/proj"
+    make_dirty "$BATS_TEST_TMPDIR/proj" untracked
+    run "$SCRIPT" --task-id TUNE-0056 "$BATS_TEST_TMPDIR/proj"
+    [ "$status" -eq 1 ]
+}
+
+@test "conditional-shared: marker + --task-id + own hunks → exit 1 with own classification" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "skills/foo.md" "# foo"
+    modify_with_task_id "$BATS_TEST_TMPDIR/fw" "skills/foo.md" "TUNE-0056"
+    run "$SCRIPT" --task-id TUNE-0056 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"own"* ]]
+}
+
+# ---------- TUNE-0059 whitelist (version-bump basenames) ----------
+
+# T23: VERSION-only edit + --task-id → klass=whitelisted, exit 0
+@test "shared mode: whitelisted basename (VERSION) + --task-id → exit 0 (whitelisted)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "VERSION" "1.0.0"
+    echo "1.0.1" > "$BATS_TEST_TMPDIR/fw/VERSION"
+    run "$SCRIPT" --task-id TUNE-0059 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"whitelisted"* ]]
+}
+
+# T24: --no-whitelist escape → VERSION classified as unattributed → exit 1
+@test "shared mode: --no-whitelist escape + VERSION → exit 1 (unattributed restored)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "VERSION" "1.0.0"
+    echo "1.0.1" > "$BATS_TEST_TMPDIR/fw/VERSION"
+    run "$SCRIPT" --task-id TUNE-0059 --no-whitelist "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"unattributed"* ]]
+}
+
+# T25: non-whitelisted basename without task-id → still unattributed (default-deny preserved)
+@test "shared mode: non-whitelisted basename without task-id → exit 1 (default-deny preserved)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "random.txt" "seed"
+    echo "ad-hoc edit" >> "$BATS_TEST_TMPDIR/fw/random.txt"
+    run "$SCRIPT" --task-id TUNE-0059 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"unattributed"* ]]
+}
+
+# ---------- TUNE-0060 mine-by-elimination klass ----------
+#
+# Founding incident: TUNE-0059 archive — `code/datarim/AGENTS.md` and
+# `code/datarim/README.md` (committed body has many historical task IDs)
+# version-bump 1.18.0→1.18.2 misclassified as `foreign` despite diff lines
+# being clean. With `--task-id` set + actual diff-line IDs == ∅ + body IDs ≠ ∅,
+# attribute to current task (operator declared --task-id, diff has nothing
+# else to attribute it to). Untracked files (no diff at all) NOT eligible —
+# they fall through to existing classification per safety guard.
+
+# T26 hit: body has foreign IDs, diff lines clean (e.g., version bump on doc) → mine-by-elimination + exit 0
+@test "shared mode: body has foreign IDs + diff lines clean → mine-by-elimination (exit 0)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    # Seed AGENTS.md-shape file: body has foreign historical task IDs
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference DEV-0210 fix and LTM-0009 benchmark."
+    # Modify with content that contains NO task IDs (e.g., version-line bump)
+    echo "Updated for v1.18.3 release." >> "$BATS_TEST_TMPDIR/fw/doc.md"
+    run "$SCRIPT" --task-id TUNE-0060 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"mine-by-elimination"* ]]
+}
+
+# T27 escape: diff lines contain TASK_ID → own classification (TUNE-0068: body context no longer
+# taints; only +/- diff lines count toward mixed/own gate). NOT mine-by-elimination.
+@test "shared mode: diff lines contain only TASK_ID, body has foreign → own (not mixed; TUNE-0068)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference DEV-0210 fix."
+    # Diff line contains TUNE-0060 only; DEV-0210 lives in the unchanged body (hunk context).
+    echo "TUNE-0060: my edit on this line." >> "$BATS_TEST_TMPDIR/fw/doc.md"
+    run "$SCRIPT" --task-id TUNE-0060 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"own"* ]]
+    [[ "$output" != *"mine-by-elimination"* ]]
+}
+
+# T28 regression-guard: diff lines contain ONLY foreign IDs → genuine foreign (not mine-by-elimination)
+@test "shared mode: diff lines contain foreign IDs → foreign (not mine-by-elimination)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "# doc"
+    # Diff line itself contains TRANS-0021 — genuine foreign edit
+    echo "TRANS-0021: foreign edit on this line." >> "$BATS_TEST_TMPDIR/fw/doc.md"
+    run "$SCRIPT" --task-id TUNE-0060 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"foreign"* ]]
+    [[ "$output" != *"mine-by-elimination"* ]]
+}
+
+# ---------- TUNE-0061 env-var whitelist extension ----------
+#
+# Founding incident: TUNE-0060 self-dogfood — `Projects/Websites/datarim.club/
+# config.php` is a legitimate Datarim public-surface version-bump file, but the
+# basename `config.php` is project-specific and does not belong in the canonical
+# hardcoded list shipped to all consumers. `DATARIM_PRE_ARCHIVE_WHITELIST`
+# (colon-separated basenames) lets each consumer extend the whitelist for their
+# own version-bump files without modifying the framework.
+
+# T29: env-var hit (single basename) → klass=whitelisted, exit 0
+@test "shared mode: env-var DATARIM_PRE_ARCHIVE_WHITELIST=config.php → whitelisted (exit 0)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "config.php" "<?php \$version = '1.0.0';"
+    echo "<?php \$version = '1.0.1';" > "$BATS_TEST_TMPDIR/fw/config.php"
+    DATARIM_PRE_ARCHIVE_WHITELIST="config.php" run "$SCRIPT" --task-id TUNE-0061 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"whitelisted"* ]]
+}
+
+# T30: env-var colon-separated multi-basename split → all entries whitelisted
+@test "shared mode: env-var colon-separated 'foo:bar:config.php' → config.php whitelisted (exit 0)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "config.php" "seed"
+    echo "edit" > "$BATS_TEST_TMPDIR/fw/config.php"
+    DATARIM_PRE_ARCHIVE_WHITELIST="foo:bar:config.php" run "$SCRIPT" --task-id TUNE-0061 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"whitelisted"* ]]
+}
+
+# T31: --no-whitelist overrides env-var (strict default-deny preserved)
+@test "shared mode: --no-whitelist overrides env-var → unattributed (exit 1)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "config.php" "seed"
+    echo "edit" > "$BATS_TEST_TMPDIR/fw/config.php"
+    DATARIM_PRE_ARCHIVE_WHITELIST="config.php" run "$SCRIPT" --task-id TUNE-0061 --no-whitelist "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"unattributed"* ]]
+}
+
+# ---------- TUNE-0068 own/mixed gate uses diff lines only ----------
+#
+# Founding incident: TUNE-0055 + TUNE-0067 archives — workspace files
+# (`tasks.md` / `activeContext.md` / `backlog.md` / `progress.md`) reported
+# `mixed` with current TASK_ID listed, despite `git diff HEAD | grep -E
+# '^[+-][^+-]' | grep -c <TASK_ID>` returning 0 (own ID lived only in the
+# committed body or hunk-context, not in any actual diff line). Operator had
+# to manually re-verify per AGENTS.md rule 4. Fix: own/mixed gate considers
+# only `^[+-][^+-]` diff lines (`diff_line_ids`); body/context IDs no longer
+# trigger `mixed`.
+
+# T33 regression-guard: markdown-bullet diff line `+- TASK_ID …` must classify
+# as `own`. Founding incident: TUNE-0068 self-dogfood on workspace
+# `activeContext.md` — the regex `^[+-][^+-]` rejected `+- **TUNE-0068**`
+# because the second char (`-`) collided with the diff-marker filter, leaving
+# `diff_line_ids` empty and routing the file to `mine-by-elimination` despite
+# the diff clearly carrying the current TASK_ID.
+@test "shared mode: added markdown-bullet line `+- TASK_ID …` → own (TUNE-0068)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "ctx.md" "## Active Tasks"
+    # Append a markdown bullet whose content begins with `-` (the bullet dash).
+    echo "- TUNE-0068: my new active task entry." >> "$BATS_TEST_TMPDIR/fw/ctx.md"
+    run "$SCRIPT" --task-id TUNE-0068 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"own"* ]]
+    [[ "$output" != *"mine-by-elimination"* ]]
+}
+
+# T32 hit: foreign +/- line + own task ID only in unchanged body (hunk context) → foreign
+@test "shared mode: foreign diff line + own TASK_ID only in hunk context → foreign (TUNE-0068)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    # Seed: committed body carries the current TASK_ID + a foreign baseline ID.
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference TUNE-0068 fix and DEV-0210 baseline."
+    # Modify: append a line whose only ID is foreign (TRANS-0021). The current
+    # TASK_ID lives only on an unchanged context line.
+    echo "TRANS-0021: foreign edit on this line." >> "$BATS_TEST_TMPDIR/fw/doc.md"
+    run "$SCRIPT" --task-id TUNE-0068 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"foreign"* ]]
+    [[ "$output" != *"mixed"* ]]
+}
+
+# ---------- TUNE-0071 schema-compliance gate ----------
+
+# T34: compliant thin-index lines pass schema gate (clean repo + datarim/).
+@test "schema-check: compliant tasks.md/backlog.md → exit 0 (TUNE-0071)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0071 · in_progress · P1 · L3 · Index-Style Refactor → tasks/TUNE-0071-task-description.md
+EOF
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/backlog.md" <<'EOF'
+# Backlog
+
+## Pending
+
+- INFRA-0099 · pending · P2 · L2 · Sample Backlog Item → tasks/INFRA-0099-task-description.md
+EOF
+    git -C "$BATS_TEST_TMPDIR/ws" add datarim/
+    git -C "$BATS_TEST_TMPDIR/ws" commit --quiet -m "seed datarim"
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 0 ]
+}
+
+# T35: legacy block-style heading in tasks.md → schema-check blocks (exit 1).
+@test "schema-check: legacy ### TASK-ID: heading flagged → exit 1 (TUNE-0071)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/tasks.md" <<'EOF'
+# Tasks
+
+### TUNE-0071: Index-Style Refactor
+
+- Status: in_progress
+- Priority: P1
+EOF
+    git -C "$BATS_TEST_TMPDIR/ws" add datarim/
+    git -C "$BATS_TEST_TMPDIR/ws" commit --quiet -m "seed legacy"
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"non-compliant"* ]] || [[ "$output" == *"dr-doctor"* ]]
+}
+
+# T36: --no-schema-check overrides the gate (in-flight migration escape).
+@test "schema-check: --no-schema-check bypasses non-compliant lines → exit 0 (TUNE-0071)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    mkdir -p "$BATS_TEST_TMPDIR/fw/datarim"
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/tasks.md" <<'EOF'
+# Tasks
+
+### TUNE-0071: Legacy block-style entry
+
+Description body without thin-index format.
+EOF
+    git -C "$BATS_TEST_TMPDIR/fw" add datarim/
+    git -C "$BATS_TEST_TMPDIR/fw" commit --quiet -m "seed legacy in marker repo"
+    # Without override → blocks
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    # With override → passes
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw" --no-schema-check
+    [ "$status" -eq 0 ]
+}
+
+# ---------- TUNE-0071 v2 gates (1.19.1) ----------
+# T37: forbidden-file gate detects backlog-archive.md presence.
+@test "v2 gate: backlog-archive.md presence → exit 1 (TUNE-0071 v2)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    mkdir -p "$BATS_TEST_TMPDIR/fw/datarim"
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+EOF
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/backlog-archive.md" <<'EOF'
+# Backlog Archive (legacy aggregated)
+
+## Completed
+
+### TUNE-0001: Legacy entry
+EOF
+    git -C "$BATS_TEST_TMPDIR/fw" add datarim/
+    git -C "$BATS_TEST_TMPDIR/fw" commit --quiet -m "seed legacy backlog-archive"
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"backlog-archive.md"* ]] || [[ "$stderr_output" == *"backlog-archive.md"* ]] || true
+}
+
+# T38: forbidden-file gate detects progress.md presence.
+@test "v2 gate: progress.md presence → exit 1 (TUNE-0071 v2)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    mkdir -p "$BATS_TEST_TMPDIR/fw/datarim"
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+EOF
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/progress.md" <<'EOF'
+# Progress (abolished)
+EOF
+    git -C "$BATS_TEST_TMPDIR/fw" add datarim/
+    git -C "$BATS_TEST_TMPDIR/fw" commit --quiet -m "seed legacy progress.md"
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+}
+
+# T39: forbidden-section gate detects ## Последние завершённые.
+@test "v2 gate: activeContext.md last-completed-section forbidden -> exit 1 (TUNE-0071 v2)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    mkdir -p "$BATS_TEST_TMPDIR/fw/datarim"
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+EOF
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/activeContext.md" <<'EOF'
+# Active Context
+
+## Active Tasks
+
+## Последние завершённые
+
+- 2026-04-30 · TUNE-0001 · Legacy → archive/
+EOF
+    git -C "$BATS_TEST_TMPDIR/fw" add datarim/
+    git -C "$BATS_TEST_TMPDIR/fw" commit --quiet -m "seed legacy section"
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+}
+
+# T40: activeContext.md § Active Tasks paragraph form → exit 1 (line-format).
+@test "v2 gate: activeContext.md Active paragraph form → exit 1 (TUNE-0071 v2)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    mkdir -p "$BATS_TEST_TMPDIR/fw/datarim"
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TRANS-0001 · in_progress · P1 · L4 · Speech service → tasks/TRANS-0001-task-description.md
+EOF
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/activeContext.md" <<'EOF'
+# Active Context
+
+## Active Tasks
+
+- **TRANS-0001** (in_progress, 2026-04-21) — Long paragraph format that violates v2 contract.
+EOF
+    git -C "$BATS_TEST_TMPDIR/fw" add datarim/
+    git -C "$BATS_TEST_TMPDIR/fw" commit --quiet -m "seed paragraph active"
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+}
+
+# T41: thin-compliant activeContext.md Active section → exit 0.
+@test "v2 gate: activeContext.md Active thin → exit 0 (TUNE-0071 v2)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    mkdir -p "$BATS_TEST_TMPDIR/fw/datarim"
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TRANS-0001 · in_progress · P1 · L4 · Speech service → tasks/TRANS-0001-task-description.md
+EOF
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/activeContext.md" <<'EOF'
+# Active Context
+
+## Active Tasks
+
+- TRANS-0001 · in_progress · P1 · L4 · Speech service → tasks/TRANS-0001-task-description.md
+EOF
+    git -C "$BATS_TEST_TMPDIR/fw" add datarim/
+    git -C "$BATS_TEST_TMPDIR/fw" commit --quiet -m "seed thin active"
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+}
+
+# ---------- TUNE-0084 classify by uncommitted diff, not file body ----------
+#
+# Founding incident: TUNE-0083 archive — `tasks.md` / `activeContext.md` /
+# `backlog.md` (index files listing N active tasks ⇒ N task IDs in committed
+# body) classified as `mixed` because `diff_text` was composed from
+# `cat <file>` ∪ `git diff` ∪ `git diff --cached`. Body-cat injected every
+# committed-body ID into `found_ids` (column 3), polluting the displayed
+# attribution. Classification gate (`diff_line_ids`) was already correct
+# post-TUNE-0068; only the **display column** carried the pollution. AC-1
+# below pins the new contract: column 3 reflects diff-only IDs (or full body
+# only for untracked files where there is no HEAD blob to diff against).
+
+# T42 (AC-1): committed body lists many TASK-IDs + own diff line only →
+# column 3 contains TASK_ID only, not the body roster.
+@test "shared mode: index-file body has many TASK-IDs + own diff line → column 3 = own only (TUNE-0084)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "datarim/tasks.md" "# Tasks
+- TRANS-0021 · in_progress · P1 · L3 · Speech service → tasks/TRANS-0021-task-description.md
+- LTM-0017 · in_progress · P2 · L2 · Long-Term Memory → tasks/LTM-0017-task-description.md
+- VERD-0026 · in_progress · P1 · L3 · Review service → tasks/VERD-0026-task-description.md
+- DEV-0212 · in_progress · P2 · L2 · Dev tooling → tasks/DEV-0212-task-description.md
+- INFRA-0040 · in_progress · P1 · L3 · Infra → tasks/INFRA-0040-task-description.md"
+    echo "- TUNE-0084 · in_progress · P3 · L2 · diff-only classification → tasks/TUNE-0084-task-description.md" \
+        >> "$BATS_TEST_TMPDIR/fw/datarim/tasks.md"
+    run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"own"* ]]
+    # Column 3 (csv of ids) MUST contain TUNE-0084.
+    [[ "$output" == *"TUNE-0084"* ]]
+    # Column 3 MUST NOT carry the foreign body-roster IDs (this is the AC-1 fix).
+    [[ "$output" != *"TRANS-0021"* ]]
+    [[ "$output" != *"LTM-0017"* ]]
+    [[ "$output" != *"VERD-0026"* ]]
+    [[ "$output" != *"DEV-0212"* ]]
+    [[ "$output" != *"INFRA-0040"* ]]
+}
+
+# T43 (AC-3): foreign-only diff line on index file with multi-ID body →
+# column 3 = foreign-only, exit 0, no "mixed" leakage.
+@test "shared mode: foreign-only diff on index file → column 3 = foreign only (TUNE-0084)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "datarim/activeContext.md" "# Active Context
+- TUNE-0084 · in_progress · P3 · L2 · self
+- VERD-0026 · in_progress · P1 · L3 · Review service"
+    echo "- TRANS-0021 · in_progress · P1 · L3 · foreign edit" \
+        >> "$BATS_TEST_TMPDIR/fw/datarim/activeContext.md"
+    run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"foreign"* ]]
+    [[ "$output" == *"TRANS-0021"* ]]
+    # Column 3 must NOT contain own/body IDs that did not appear on diff lines.
+    [[ "$output" != *"TUNE-0084"* ]]
+    [[ "$output" != *"VERD-0026"* ]]
+}
+
+# T44 (AC-4): mixed diff (own + foreign on the same hunk) preserved.
+@test "shared mode: mixed diff (own + foreign on same hunk) → klass=mixed (TUNE-0084)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "datarim/backlog.md" "# Backlog"
+    {
+        echo "- TUNE-0084 · pending · P3 · L2 · own line"
+        echo "- TRANS-0021 · pending · P1 · L2 · foreign line"
+    } >> "$BATS_TEST_TMPDIR/fw/datarim/backlog.md"
+    run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"mixed"* ]]
+    [[ "$output" == *"TUNE-0084"* ]]
+    [[ "$output" == *"TRANS-0021"* ]]
+}
+
+# T45 (AC-6): foreign-only path → no "BLOCKED" token anywhere (exit-0
+# wording invariant). Pre-fix the script printed
+# "BLOCKED: shared repo has own / mixed / unattributed hunks" while exiting 0.
+@test "shared mode: foreign-only → no BLOCKED token while exit 0 (TUNE-0084)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "# tasks"
+    modify_with_task_id "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "TRANS-0021"
+    run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"BLOCKED"* ]]
+}
+
+# T46 (AC-6): BLOCKED message lists only hit categories.
+@test "shared mode: BLOCKED message lists only hit categories (TUNE-0084)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "# tasks"
+    modify_with_task_id "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "TUNE-0084"
+    run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"BLOCKED"* ]]
+    [[ "$output" == *"own"* ]]
+    # No mixed / unattributed actually occurred — wording must not lie.
+    [[ "$output" != *"mixed"* ]]
+    [[ "$output" != *"unattributed"* ]]
+}
+
+# T47 (AC-1 untracked-fallback): untracked file (no HEAD blob) keeps the
+# legacy body-scan behaviour because there is no diff to scan.
+@test "shared mode: untracked file body still scanned (TUNE-0084)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/notes.md" <<'EOF'
+# Notes
+- TUNE-0084 · ad-hoc note
+EOF
+    run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"own"* ]]
+    [[ "$output" == *"TUNE-0084"* ]]
+}
+
+# ---------- TUNE-0462 archive-removal + no-recreate contract ----------
+#
+# Founding incident: commands/dr-archive.md Step 3b/3c + Cancellation step 3
+# instructed writing the abolished datarim/backlog-archive.md, coupling the
+# "remove from backlog" step to a forbidden file. Completed tasks were marked
+# done in-place and never removed (68 terminal entries / ~107 KB accumulated).
+# These tests pin the post-archive-run state contract the fixed Step 3 produces:
+# (a) the archived ID line is removed from backlog.md, AND (b) backlog-archive.md
+# is never (re)created — the gate must pass exactly that state and block its
+# regression. The presence-half is also covered by T37; these tests add the
+# archive-OUTCOME half the brief requires.
+
+# T48 (AC-2): post-archive state — archived ID line removed from backlog.md +
+# no backlog-archive.md → gate exits 0 (archive may proceed).
+@test "post-archive: archived line removed + no backlog-archive.md → exit 0 (TUNE-0462)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    # Seed: backlog holds a soon-to-be-archived entry alongside a survivor.
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/backlog.md" <<'EOF'
+# Backlog
+
+## Pending
+
+- INFRA-0099 · pending · P2 · L2 · Survivor → tasks/INFRA-0099-task-description.md
+EOF
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+EOF
+    git -C "$BATS_TEST_TMPDIR/ws" add datarim/
+    git -C "$BATS_TEST_TMPDIR/ws" commit --quiet -m "seed post-archive state"
+    # Assert the contract Step 3 produces:
+    run grep -q "TUNE-0462" "$BATS_TEST_TMPDIR/ws/datarim/backlog.md"
+    [ "$status" -ne 0 ]                                   # archived line absent
+    [ ! -f "$BATS_TEST_TMPDIR/ws/datarim/backlog-archive.md" ]  # abolished file absent
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 0 ]                                   # gate clean
+}
+
+# T49 (AC-3): regression guard — if backlog-archive.md is (re)created, the
+# forbidden-file presence gate blocks (exit 1). Proves the enforcement
+# mechanism for clause (b) actually fires (companion to T37).
+@test "post-archive: re-created backlog-archive.md → exit 1 (TUNE-0462)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+EOF
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/backlog-archive.md" <<'EOF'
+# Backlog Archive (regression — must never exist)
+
+## Completed
+EOF
+    git -C "$BATS_TEST_TMPDIR/ws" add datarim/
+    git -C "$BATS_TEST_TMPDIR/ws" commit --quiet -m "seed regressed backlog-archive"
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"backlog-archive.md"* ]]
+}
+
+# ---------- schema gate reachability + indent anchor (reserved-prefix follow-up) ----
+
+# Two independent bypasses let non-compliant ledger rows accumulate unseen:
+#
+#  1. The schema gate lived INSIDE the clean-case branch, so any repo with
+#     uncommitted changes -- the normal state of a multi-repo workspace -- exited
+#     down the dirty path without ever calling it. The operator saw only
+#     "BLOCKED: N repo(s) have uncommitted changes", an unrelated message, and
+#     concluded the schema was fine.
+#  2. The violation scan anchored at `^-`, so an INDENTED bullet was exempt.
+#     That is a bypass, not a fix: nudging rows right turns the gate green while
+#     leaving them unvalidated.
+
+@test "schema gate runs even when the repo is dirty (gate reachability)" {
+    local repo="$BATS_TEST_TMPDIR/repo1"
+    make_clean_repo "$repo"
+    mkdir -p "$repo/datarim"
+    printf -- '- BADROW-9999 not a schema-compliant row\n' > "$repo/datarim/backlog.md"
+    git -C "$repo" add -A && git -C "$repo" commit --quiet -m ledger
+    make_dirty "$repo" untracked
+
+    run "$SCRIPT" "$repo"
+    [ "$status" -eq 1 ]
+    # The schema violation must surface, not be masked by the dirty-repo notice.
+    [[ "$output" == *"Schema-compliance gate failed"* ]]
+}
+
+@test "indented ledger row is held to the schema (no indent bypass)" {
+    local repo="$BATS_TEST_TMPDIR/repo1"
+    make_clean_repo "$repo"
+    mkdir -p "$repo/datarim"
+    printf -- '  - BADROW-8888 indented, still a ledger row\n' > "$repo/datarim/backlog.md"
+    git -C "$repo" add -A && git -C "$repo" commit --quiet -m ledger
+
+    run "$SCRIPT" "$repo"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Schema-compliance gate failed"* ]]
+}
+
+@test "valid indented ledger row still passes (no false positive)" {
+    local repo="$BATS_TEST_TMPDIR/repo1"
+    make_clean_repo "$repo"
+    mkdir -p "$repo/datarim"
+    printf -- '- DEV-0234 · pending · P2 · L1 · Flush-left row\n  - DEV-0678 · pending · P3 · L2 · Indented row\n' \
+        > "$repo/datarim/backlog.md"
+    git -C "$repo" add -A && git -C "$repo" commit --quiet -m ledger
+
+    run "$SCRIPT" "$repo"
+    [ "$status" -eq 0 ]
+}

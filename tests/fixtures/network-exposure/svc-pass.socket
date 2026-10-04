@@ -1,0 +1,8 @@
+[Unit]
+Description=Test socket pass
+
+[Socket]
+ListenStream=127.0.0.1:5432
+
+[Install]
+WantedBy=sockets.target

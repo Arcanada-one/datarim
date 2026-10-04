@@ -1,0 +1,131 @@
+# Reusable workflow — secure-by-default network-exposure lint for Datarim
+# consumers. See ~/.claude/skills/network-exposure-baseline/SKILL.md for the
+# decision contract; rationale lives in documentation/how-to/evolution-log.md.
+# Drop into Arcanada-one/<repo>/.github/workflows/network-exposure-lint.yml
+# Or call from another workflow:
+#
+#   jobs:
+#     network-exposure:
+#       uses: Arcanada-one/datarim/.github/workflows/network-exposure-lint.yml@<40-hex-commit>
+#       with:
+#         compose_paths: docker-compose.yml docker-compose.prod.yml
+#         datarim_ref: '<same-40-hex-commit>'
+#
+name: network-exposure-lint
+
+on:
+  workflow_call:
+    inputs:
+      compose_paths:
+        description: 'Space-separated list of docker-compose files (relative to repo root).'
+        type: string
+        required: false
+        default: 'docker-compose.yml'
+      redis_conf_paths:
+        description: 'Space-separated list of redis.conf files.'
+        type: string
+        required: false
+        default: ''
+      postgres_conf_paths:
+        description: 'Space-separated list of postgresql.conf files.'
+        type: string
+        required: false
+        default: ''
+      systemd_socket_paths:
+        description: 'Space-separated list of systemd .socket units.'
+        type: string
+        required: false
+        default: ''
+      strict:
+        description: 'Treat warnings as failures.'
+        type: boolean
+        required: false
+        default: true
+      datarim_ref:
+        description: 'Exact 40-hex Datarim commit containing the linter.'
+        type: string
+        required: true
+      runner_labels:
+        description: 'JSON array string of runner labels to pin the job (workflow_call inputs cannot be arrays; consumed via fromJSON in runs-on)'
+        type: string
+        required: false
+        default: '["self-hosted","linux","ci-general"]'
+  workflow_dispatch:
+    inputs:
+      compose_paths:
+        description: 'Compose paths'
+        type: string
+        default: 'docker-compose.yml'
+      datarim_ref:
+        description: 'Exact 40-hex Datarim commit containing the linter'
+        type: string
+        required: true
+      runner_labels:
+        description: 'JSON array string of runner labels'
+        type: string
+        required: false
+        default: '["self-hosted","linux","ci-general"]'
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: network-exposure-lint
+    runs-on: ${{ fromJSON(inputs.runner_labels) }}
+    steps:
+      - name: Validate immutable Datarim ref
+        env:
+          DATARIM_REF: ${{ inputs.datarim_ref }}
+        run: |
+          set -euo pipefail
+          [[ "$DATARIM_REF" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "datarim_ref must be an exact lowercase 40-hex commit" >&2
+            exit 1
+          }
+
+      - name: Checkout target repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Checkout Datarim linter
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Arcanada-one/datarim
+          ref: ${{ inputs.datarim_ref }}
+          path: .datarim
+          persist-credentials: false
+
+      - name: Install yq
+        run: |
+          set -euo pipefail
+          yq_dir="${RUNNER_TEMP}/datarim-bin"
+          mkdir -p "$yq_dir"
+          wget -qO "${yq_dir}/yq" \
+            https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          printf '%s  %s\n' \
+            'a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7' \
+            "${yq_dir}/yq" | sha256sum --check --strict
+          chmod 0755 "${yq_dir}/yq"
+          printf '%s\n' "$yq_dir" >>"$GITHUB_PATH"
+          export PATH="${yq_dir}:${PATH}"
+          yq --version
+
+      - name: Run lint
+        id: lint
+        env:
+          COMPOSE_PATHS: ${{ inputs.compose_paths }}
+          REDIS_PATHS: ${{ inputs.redis_conf_paths }}
+          POSTGRES_PATHS: ${{ inputs.postgres_conf_paths }}
+          SYSTEMD_PATHS: ${{ inputs.systemd_socket_paths }}
+          STRICT: ${{ inputs.strict }}
+        run: |
+          set -uo pipefail
+          args=()
+          for p in $COMPOSE_PATHS;  do [ -n "$p" ] && args+=(--compose "$p");        done
+          for p in $REDIS_PATHS;    do [ -n "$p" ] && args+=(--redis-conf "$p");     done
+          for p in $POSTGRES_PATHS; do [ -n "$p" ] && args+=(--postgres-conf "$p");  done
+          for p in $SYSTEMD_PATHS;  do [ -n "$p" ] && args+=(--systemd-socket "$p"); done
+          [ "$STRICT" = "false" ] && args+=(--no-strict)
+          ./.datarim/dev-tools/network-exposure-check.sh "${args[@]}"

@@ -1,0 +1,2 @@
+{"type":"user","message":{"content":"/dr-explain What was verified?"}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"The result is explained from existing evidence; nothing was executed."}]}}

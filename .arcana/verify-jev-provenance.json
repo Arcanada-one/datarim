@@ -1,0 +1,92 @@
+{
+  "schema": "VerifyProfile/v1",
+  "note": "Native no-network provenance controls. No mandatory verifier disabled; no exemptions.",
+  "deployables": {},
+  "property_checks": {
+    "code_unit:plugins/dr-jev-control/scripts/decision_evidence.py": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "plugins/dr-jev-control/tests",
+      "-p",
+      "test_consumer_provenance.py",
+      "-q"
+    ],
+    "code_unit:plugins/dr-jev-control/scripts/jev_client.py": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "plugins/dr-jev-control/tests",
+      "-p",
+      "test_consumer_provenance.py",
+      "-q"
+    ],
+    "code_unit:plugins/dr-jev-control/scripts/route.py": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "plugins/dr-jev-control/tests",
+      "-p",
+      "test_consumer_provenance.py",
+      "-q"
+    ],
+    "code_unit:plugins/dr-jev-control/scripts/live_supervisor.py": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "plugins/dr-jev-control/tests",
+      "-p",
+      "test_consumer_provenance.py",
+      "-q"
+    ],
+    "code_unit:plugins/dr-jev-control/scripts/ledger.py": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "plugins/dr-jev-control/tests",
+      "-p",
+      "test_consumer_provenance.py",
+      "-q"
+    ],
+    "code_unit:plugins/dr-jev-control/scripts/cli_report.py": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "plugins/dr-jev-control/tests",
+      "-p",
+      "test_consumer_provenance.py",
+      "-q"
+    ],
+    "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "plugins/dr-jev-control/tests",
+      "-p",
+      "test_consumer_provenance.py",
+      "-q"
+    ],
+    "code_unit:scripts/jev_hook.py": [
+      "python3",
+      "scripts/jev_provenance_canary.py"
+    ],
+    "code_unit:scripts/jev_provenance_canary.py": [
+      "python3",
+      "scripts/jev_provenance_canary.py"
+    ]
+  }
+}

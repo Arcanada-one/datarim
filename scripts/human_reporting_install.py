@@ -1,0 +1,357 @@
+#!/usr/bin/env python3
+"""Install only Human Outcome Reporting in native user scopes. Python 3.9+."""
+import argparse
+import base64
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import shlex
+import sys
+import tempfile
+
+NAME = 'human-outcome-reporting'
+BEGIN = '<!-- datarim-human-outcome-reporting:begin -->'
+END = '<!-- datarim-human-outcome-reporting:end -->'
+STYLE = 'Human Outcome Reporting'
+POLICY = '''Apply Human Outcome Reporting to human-facing task checkpoints, stage results,
+final answers, blockers and handoffs, independent of whether Datarim is enabled.
+Read the installed human-outcome-reporting/SKILL.md before a substantive report.
+Explain the observed user outcome, the meaning of the conditions checked, the
+verification and evidence, and material limitations. Keep ordinary answers direct.
+Default human text to Russian unless the user selects another language. Preserve
+requested document language, machine protocols, artifact-only output, permission
+boundaries, and native project instructions. Never invent acceptance criteria or
+turn missing, stale or wrong-revision checks into success. Re-explanation is
+read-only. This preference does not enable Datarim, change authority or install
+project rules. Use one report, not multiple competing summaries.
+'''
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def safe_path(home, path):
+    """Refuse following any symlink in an installation destination."""
+    path = Path(path)
+    if '..' in path.parts or '..' in home.parts or not path.is_relative_to(home):
+        raise ValueError('destination outside selected home')
+    for part in [path, *path.parents]:
+        if part == home.parent:
+            break
+        if part.is_symlink():
+            raise ValueError('symlink destination refused: ' + str(part))
+    return path
+
+
+def load_json(path):
+    if not path.exists():
+        return {}
+    value = json.loads(path.read_text())
+    if not isinstance(value, dict):
+        raise ValueError('JSON configuration must be an object: ' + str(path))
+    return value
+
+
+def encoded(data):
+    return base64.b64encode(data).decode() if data is not None else None
+
+
+def atomic_write(path, data, mode=0o600):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp = tempfile.mkstemp(prefix='.' + path.name + '.', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb') as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(temp, mode)
+        os.replace(temp, path)
+    finally:
+        if os.path.exists(temp):
+            os.unlink(temp)
+
+
+def block(text):
+    if text.count(BEGIN) != text.count(END) or text.count(BEGIN) > 1:
+        raise ValueError('malformed or duplicate managed reporting block')
+    if BEGIN not in text:
+        return None
+    a, b = text.index(BEGIN), text.index(END) + len(END)
+    if b < a:
+        raise ValueError('reversed managed reporting block')
+    return a, b
+
+
+def with_block(text, body):
+    span = block(text)
+    content = BEGIN + '\n' + body + END
+    if span:
+        return text[:span[0]] + content + text[span[1]:]
+    return text + ('\n\n' if text and not text.endswith('\n\n') else '') + content + '\n'
+
+
+def source_default():
+    parent = Path(__file__).resolve().parent
+    for p in [parent.parent / 'skills' / NAME, parent / NAME]:
+        if (p / 'SKILL.md').is_file():
+            return p
+    return None
+
+
+def plan_install(home, source, agents, state):
+    if source is not None and source.is_symlink():
+        raise ValueError('symlink source directory refused')
+    if source is None or not (source / 'SKILL.md').is_file():
+        raise ValueError('source must contain human-outcome-reporting/SKILL.md')
+    files = []
+    for p in sorted(source.rglob('*')):
+        if p.is_symlink():
+            raise ValueError('symlink source refused: ' + str(p))
+        if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc':
+            files.append((p.relative_to(source), p.read_bytes()))
+    plan = {}
+    configuration = {}
+    for agent in agents:
+        scope = home / ('.' + agent)
+        skill_scope = home / '.agents' if agent == 'codex' else scope
+        for relative, data in files:
+            plan[skill_scope / 'skills' / NAME / relative] = (data, 'skill', 0o644)
+        route = str(skill_scope / 'skills' / NAME / 'SKILL.md')
+        body = POLICY + '\nInstalled skill: ' + route + '\n'
+        if agent == 'codex':
+            # Codex gives a non-empty override precedence over AGENTS.md.
+            override = scope / 'AGENTS.override.md'
+            path = override if override.exists() and override.read_text().strip() else scope / 'AGENTS.md'
+            safe_path(home, path)
+            text = path.read_text() if path.exists() else ''
+            plan[path] = (with_block(text, body).encode(), 'block', 0o600)
+        if agent == 'claude':
+            style = '---\nname: ' + STYLE + '\ndescription: Human-readable task outcomes\nkeep-coding-instructions: true\n---\n\n' + body
+            plan[scope / 'output-styles' / (NAME + '.md')] = (style.encode(), 'style', 0o644)
+            path = scope / 'settings.json'
+            safe_path(home, path)
+            cfg = load_json(path)
+            original = cfg.get('outputStyle')
+            cfg['outputStyle'] = STYLE
+            plan[path] = ((json.dumps(cfg, indent=2, ensure_ascii=False) + '\n').encode(), 'claude-settings', 0o600)
+            configuration[str(path.relative_to(home))] = {'original_outputStyle': original, 'had_outputStyle': 'outputStyle' in load_json(path)}
+        if agent == 'cursor':
+            path = scope / 'hooks.json'
+            safe_path(home, path)
+            cfg = load_json(path)
+            if cfg.get('version', 1) != 1:
+                raise ValueError('unsupported Cursor hooks version')
+            cfg['version'] = 1
+            hooks = cfg.setdefault('hooks', {})
+            if not isinstance(hooks, dict):
+                raise ValueError('Cursor hooks must be an object')
+            entries = hooks.setdefault('sessionStart', [])
+            if not isinstance(entries, list):
+                raise ValueError('Cursor sessionStart must be an array')
+            hook = scope / 'hooks' / (NAME + '.py')
+            command = 'python3 ' + shlex.quote(str(hook))
+            entries[:] = [e for e in entries if not (isinstance(e, dict) and e.get('command') == command)]
+            entries.append({'command': command})
+            script = '#!/usr/bin/env python3\nimport json\nprint(json.dumps({"additional_context": ' + repr(body) + '}))\n'
+            plan[hook] = (script.encode(), 'hook-script', 0o644)
+            plan[path] = ((json.dumps(cfg, indent=2, ensure_ascii=False) + '\n').encode(), 'cursor-hooks', 0o600)
+            configuration[str(path.relative_to(home))] = {'command': command, 'had_hooks': 'hooks' in load_json(path), 'had_sessionStart': 'sessionStart' in load_json(path).get('hooks', {}), 'had_version': 'version' in load_json(path)}
+    for path in plan:
+        safe_path(home, path)
+        if path.exists() and not path.is_file():
+            raise ValueError('destination is not a file: ' + str(path))
+    for relative, item in state.get('files', {}).items():
+        path = safe_path(home, home / relative)
+        if path not in plan and item['kind'] == 'skill' and (relative.split('/')[0][1:] in agents or relative.split('/')[0] == '.agents' and 'codex' in agents):
+            if path.exists() and digest(path.read_bytes()) != item['installed_sha256']:
+                raise ValueError('modified stale owned file: ' + str(path))
+            previous_original = item.get('original')
+            restored = base64.b64decode(previous_original) if previous_original is not None else None
+            plan[path] = (restored, 'retired-skill', item.get('original_mode') or 0o644)
+    return plan, configuration
+
+
+def install(home, source, agents, state_path, state, dry_run):
+    plan, config = plan_install(home, source, agents, state)
+    original = dict(state.get('files', {}))
+    operations = []
+    # Preflight all owned files before any mutation. Shared configs merge foreign edits.
+    for path, (data, kind, mode) in plan.items():
+        rel = str(path.relative_to(home))
+        previous = path.read_bytes() if path.exists() else None
+        old = original.get(rel)
+        if old and kind in ('skill', 'style', 'hook-script') and previous is not None and digest(previous) != old['installed_sha256']:
+            raise ValueError('owned file changed; preserve and reconcile before updating: ' + str(path))
+        if old and kind == 'block':
+            current_span = block(previous.decode() if previous else '')
+            installed = base64.b64decode(old['installed_content']).decode()
+            expected_span = block(installed)
+            if not current_span or previous.decode()[current_span[0]:current_span[1]] != installed[expected_span[0]:expected_span[1]]:
+                raise ValueError('managed reporting block changed: ' + str(path))
+        if old and kind == 'claude-settings' and load_json(path).get('outputStyle') != STYLE:
+            raise ValueError('selected output style changed; refusing to overwrite user selection')
+        if data != previous:
+            operations.append({'path': rel, 'action': 'remove' if data is None else 'write', 'sha256': digest(data) if data is not None else None})
+        if kind == 'retired-skill':
+            original.pop(rel, None)
+        elif data is not None:
+            original[rel] = {'original': old['original'] if old else encoded(previous), 'original_mode': old.get('original_mode') if old else (path.stat().st_mode & 0o777 if path.exists() else None), 'installed_sha256': digest(data), 'installed_content': encoded(data) if kind in ('block',) else None, 'kind': kind}
+        else:
+            original.pop(rel, None)
+    if not dry_run:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        os.chmod(state_path.parent, 0o700)
+        # Before-images remain protected and make interrupted installation recoverable.
+        journal = [{'path': str(p.relative_to(home)), 'before': encoded(p.read_bytes() if p.exists() else None), 'mode': p.stat().st_mode & 0o777 if p.exists() else None} for p in plan]
+        pending = state_path.with_name('pending.json')
+        if pending.exists():
+            raise ValueError('unfinished installation journal exists: ' + str(pending))
+        atomic_write(pending, json.dumps(journal).encode())
+        try:
+            for path, (data, kind, mode) in plan.items():
+                previous = path.read_bytes() if path.exists() else None
+                if data == previous:
+                    continue
+                if data is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    atomic_write(path, data, path.stat().st_mode & 0o777 if path.exists() else mode)
+            merged = dict(state.get('configuration', {}))
+            for key, value in config.items():
+                merged.setdefault(key, value)
+            new_state = {'schema_version': 1, 'files': original, 'configuration': merged, 'agents': sorted(set(state.get('agents', []) + agents))}
+            atomic_write(state_path, (json.dumps(new_state, indent=2) + '\n').encode())
+            pending.unlink()
+        except Exception:
+            for item in reversed(journal):
+                path = home / item['path']
+                if item['before'] is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    atomic_write(path, base64.b64decode(item['before']), item['mode'])
+            pending.unlink(missing_ok=True)
+            raise
+    return {'verdict': 'planned' if dry_run else 'installed', 'agents': agents, 'operations': operations, 'state': str(state_path), 'runtime_behavior': 'not_measured'}
+
+
+def uninstall(home, state_path, state, dry_run):
+    if not state:
+        return {'verdict': 'absent', 'operations': []}
+    plan = {}
+    for rel, item in state['files'].items():
+        path = safe_path(home, home / rel)
+        current = path.read_bytes() if path.exists() else None
+        initial = base64.b64decode(item['original']) if item['original'] is not None else None
+        if current == initial:
+            continue
+        kind = item['kind']
+        if kind == 'block' and current:
+            text = current.decode(); span = block(text)
+            owned = base64.b64decode(item['installed_content']).decode(); own_span = block(owned)
+            if not span or text[span[0]:span[1]] != owned[own_span[0]:own_span[1]]:
+                raise ValueError('managed reporting block modified: ' + str(path))
+            before = initial.decode() if initial else ''
+            old_span = block(before)
+            replacement = before[old_span[0]:old_span[1]] if old_span else ''
+            data = (text[:span[0]] + replacement + text[span[1]:]).encode()
+            # Exact original bytes when there were no later foreign changes.
+            if digest(current) == item['installed_sha256']:
+                data = initial
+        elif kind == 'claude-settings':
+            cfg = load_json(path); meta = state['configuration'][rel]
+            if cfg.get('outputStyle') != STYLE:
+                raise ValueError('output style changed; preserve user selection')
+            if meta['had_outputStyle']:
+                cfg['outputStyle'] = meta['original_outputStyle']
+            else:
+                cfg.pop('outputStyle', None)
+            data = (json.dumps(cfg, indent=2, ensure_ascii=False) + '\n').encode()
+            if current and digest(current) == item['installed_sha256']:
+                data = initial
+        elif kind == 'cursor-hooks':
+            cfg = load_json(path); meta = state['configuration'][rel]
+            entries = cfg.get('hooks', {}).get('sessionStart', [])
+            cfg['hooks']['sessionStart'] = [e for e in entries if not (isinstance(e, dict) and e.get('command') == meta['command'])]
+            if not cfg['hooks']['sessionStart'] and not meta['had_sessionStart']:
+                cfg['hooks'].pop('sessionStart')
+            if not cfg['hooks'] and not meta['had_hooks']:
+                cfg.pop('hooks')
+            if not meta['had_version'] and cfg.get('version') == 1:
+                cfg.pop('version', None)
+            data = (json.dumps(cfg, indent=2, ensure_ascii=False) + '\n').encode()
+            if current and digest(current) == item['installed_sha256']:
+                data = initial
+        else:
+            if current is not None and digest(current) != item['installed_sha256']:
+                raise ValueError('owned file modified; uninstall refused: ' + str(path))
+            data = initial
+        plan[path] = (data, item.get('original_mode') or 0o600)
+    if not dry_run:
+        for path, (data, mode) in plan.items():
+            if data is None:
+                path.unlink(missing_ok=True)
+            else:
+                atomic_write(path, data, mode)
+        state_path.unlink()
+    return {'verdict': 'planned' if dry_run else 'uninstalled', 'operations': [str(p.relative_to(home)) for p in plan]}
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('action', choices=['install', 'check', 'uninstall'])
+    parser.add_argument('--source', type=Path, default=source_default())
+    parser.add_argument('--home', type=Path, default=Path.home())
+    parser.add_argument('--agents', default='claude,codex,cursor')
+    parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--receipt', type=Path)
+    args = parser.parse_args(argv)
+    home = args.home.expanduser().absolute()
+    agents = sorted(set(args.agents.split(',')))
+    if not agents or set(agents) - {'claude', 'codex', 'cursor'}:
+        parser.error('--agents must be a comma-separated subset of claude,codex,cursor')
+    lock_fd = None
+    try:
+        safe_path(home, home)
+        # Lock the account home itself: no lock-file writes in dry-run/check.
+        # This serializes state reads, config preflight, journal and mutation.
+        lock_fd = os.open(home, os.O_RDONLY)
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        state_path = safe_path(home, home / '.local/state/datarim-human-reporting/installation.json')
+        if state_path.with_name('pending.json').exists():
+            raise ValueError('unfinished installation journal exists; reconcile protected before-images first')
+        state = load_json(state_path)
+        for relative in state.get('files', {}):
+            if Path(relative).is_absolute() or '..' in Path(relative).parts:
+                raise ValueError('invalid relative installation state path')
+        if state and state.get('schema_version') != 1:
+            raise ValueError('unsupported installation state schema')
+        if args.action == 'install':
+            result = install(home, args.source.absolute() if args.source else None, agents, state_path, state, args.dry_run)
+        elif args.action == 'uninstall':
+            result = uninstall(home, state_path, state, args.dry_run)
+        else:
+            mismatches = []
+            for rel, item in state.get('files', {}).items():
+                path = safe_path(home, home / rel)
+                if not path.is_file() or digest(path.read_bytes()) != item['installed_sha256']:
+                    mismatches.append(rel)
+            result = {'verdict': 'verified' if state and not mismatches else 'not_measured' if not state else 'failed', 'mismatches': mismatches, 'agents': state.get('agents', []), 'runtime_behavior': 'not_measured'}
+        data = json.dumps(result, indent=2) + '\n'
+        if args.receipt:
+            # A receipt is caller-selected output, not an installation destination.
+            atomic_write(args.receipt, data.encode())
+        print(data, end='')
+        return 0 if result['verdict'] not in ('failed', 'not_measured') else 1
+    except (ValueError, OSError, json.JSONDecodeError) as error:
+        print(json.dumps({'verdict': 'refused', 'reason': str(error)}), file=sys.stderr)
+        return 2
+    finally:
+        if lock_fd is not None:
+            os.close(lock_fd)
+
+
+if __name__ == '__main__':
+    sys.exit(main())

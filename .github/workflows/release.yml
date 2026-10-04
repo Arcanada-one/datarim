@@ -1,0 +1,291 @@
+name: release
+
+# Datarim release workflow (TUNE-0050).
+# Dispatches trusted workflow code from protected main for one signed tag. Builds source via `git archive`,
+# generates CycloneDX SBOM via syft, signs both with cosign keyless OIDC,
+# attests build provenance (SLSA L2) via actions/attest-build-provenance,
+# publishes everything to GitHub Releases.
+#
+# Approach: Hybrid C — cosign sign-blob (portable verification) + GitHub
+# native attestations (SLSA L2). End-user verify recipe lives in
+# documentation/how-to/release-verification.md.
+#
+# Tools install pattern (mirrors security.yml):
+#   - cosign + syft → standalone binaries, sha256-verified.
+#   - actions/checkout, actions/attest-build-provenance, softprops/action-gh-release
+#     → SHA-pinned to commit.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Signed annotated SemVer tag to publish
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: release-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+env:
+  COSIGN_VERSION: v3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+  SYFT_VERSION: v1.43.0
+  SYFT_SHA256: 7b98251d2d08926bb5d4639b56b1f0996a58ef6667c5830e3fe3cd3ad5f4214a
+
+jobs:
+  # Major-gate backstop (TUNE-0351). Reads the bump level the agent stamped into
+  # the annotated tag, re-classifies in CI (authoritative API-diff surface), and
+  # takes max(stamped, ci) so the GitHub environment gate does not trust the
+  # agent's stamp. The release job selects its environment from this output.
+  classify:
+    name: classify-bump
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      bump_level: ${{ steps.read.outputs.bump_level }}
+      release_sha: ${{ steps.read.outputs.release_sha }}
+      release_tag: ${{ steps.read.outputs.release_tag }}
+      root_release: ${{ steps.read.outputs.root_release }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0           # full history — the CI re-classify walks a commit range
+          persist-credentials: false
+      - name: Authenticate signed tag on protected main and classify bump
+        id: read
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          EXPECTED_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          tag="$RELEASE_TAG"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|alpha|beta|test)[0-9]+)?$ ]]; then
+            echo "::error::invalid release tag: $tag" >&2
+            exit 1
+          fi
+          test "$EXPECTED_REF" = refs/heads/main
+          git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}"
+          test "$(git cat-file -t "$tag")" = tag
+          git -c gpg.ssh.allowedSignersFile=.github/ssh-signing-allowed-signers verify-tag "$tag"
+          release_sha="$(git rev-parse "${tag}^{}")"
+          main_sha="$(git rev-parse HEAD)"
+          test "$release_sha" = "$main_sha"
+          msg="$(git for-each-ref "refs/tags/${tag}" --format='%(contents)')"
+          stamped="$(printf '%s\n' "$msg" | sed -n 's/^bump_level=//p' | head -1)"
+          case "$stamped" in patch|minor|major) ;; *) echo "::error::missing/invalid bump_level stamp" >&2; exit 1 ;; esac
+          previous_tag=""
+          classification_sha="$release_sha"
+          root_release=false
+          if git rev-parse --verify "${release_sha}^" >/dev/null 2>&1; then
+            # Ordinary releases retain the existing ancestor-tag path.
+            while IFS= read -r candidate; do
+              if [[ "$candidate" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|alpha|beta|test)[0-9]+)?$ ]]; then
+                previous_tag="$candidate"
+                break
+              fi
+            done < <(git tag --merged "${release_sha}^" --list 'v*' --sort=-v:refname)
+          else
+            # An authorized history cutover must preserve the tree of a source
+            # prepared through the ordinary PR path. Its signed tag pins that
+            # source; classify the genuine commit range, not a rewritten message.
+            root_release=true
+            source_sha="$(printf '%s\n' "$msg" | sed -n 's/^history_bootstrap_source=//p')"
+            tree_sha="$(printf '%s\n' "$msg" | sed -n 's/^history_bootstrap_tree=//p')"
+            [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$tree_sha" =~ ^[0-9a-f]{40}$ ]]
+            git fetch --no-tags origin "$source_sha"
+            bootstrap="$(python3 dev-tools/check-history-bootstrap.py --repo . --mode release \
+              --source-sha "$source_sha" --release-sha "$release_sha" --tree-sha "$tree_sha")"
+            previous_tag="$(printf '%s\n' "$bootstrap" | sed -n 's/^baseline_tag=//p')"
+            classification_sha="$source_sha"
+            test "$tag" = "v$(printf '%s\n' "$bootstrap" | sed -n 's/^version=//p')"
+          fi
+          test -n "$previous_tag"
+          ci_output="$(dev-tools/release-classify.sh --repo . --from "$previous_tag" --to "$classification_sha" --api-diff auto)"
+          ci="$(printf '%s\n' "$ci_output" | sed -n 's/^bump_level=//p' | head -1)"
+          api_diff="$(printf '%s\n' "$ci_output" | sed -n 's/^api_diff=//p' | head -1)"
+          rationale="$(printf '%s\n' "$ci_output" | sed -n 's/^rationale=//p' | head -1)"
+          case "$ci" in patch|minor|major) ;; *) echo "::error::invalid classifier bump" >&2; exit 1 ;; esac
+          if [ "$root_release" = true ]; then
+            # The explicit bootstrap contract permits only its next patch.
+            if [ "$ci" != patch ] || [ "$stamped" != patch ]; then
+              echo "::error::bootstrap source range and signed tag must both classify as patch" >&2
+              exit 1
+            fi
+          fi
+          case "$api_diff" in clean|unavailable) ;; *) echo "::error::invalid API-diff result" >&2; exit 1 ;; esac
+          test -n "$rationale"
+          rank() { case "$1" in patch) echo 1;; minor) echo 2;; major) echo 3;; *) echo 0;; esac; }
+          if [ "$(rank "$ci")" -ge "$(rank "$stamped")" ]; then final="$ci"; else final="$stamped"; fi
+          {
+            echo "bump_level=${final}"
+            echo "release_sha=${release_sha}"
+            echo "release_tag=${tag}"
+            echo "root_release=${root_release}"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$ci" = "major" ] && [ "$stamped" != "major" ]; then
+            echo "::error::CI classified MAJOR but the tag stamped '${stamped}' — aborting" >&2
+            exit 1
+          fi
+
+      # Advisory drift check on the declared release environment policy
+      # (.github/environments-policy.yml). Fail-soft by design: the script
+      # exits 0 on missing token/API access and on drift (advisory), so this
+      # step cannot block a release — it validates the declaration file and
+      # surfaces missing main/v* deployment policies BEFORE the release job
+      # hits the environment gate and dies with an opaque rejection.
+      - name: Release environment policy drift check (advisory)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash dev-tools/check-release-env-policy.sh --check --live \
+            --repo "$GITHUB_REPOSITORY"
+
+  release:
+    name: build-sign-attest-publish
+    needs: [classify]
+    runs-on: ubuntu-latest
+    # Conditional environment (TUNE-0351): a major bump routes to release-manual
+    # (required reviewer); patch/minor flows through release-auto (no reviewer).
+    #
+    # REQUIRED ENVIRONMENT POLICY: both `release-auto` and `release-manual`
+    # MUST allow deployments from the `main` branch used by workflow_dispatch.
+    # The retained `v*` tag policy keeps the provisioner compatible with
+    # tag-triggered consumers. The policy is declared in version control at
+    # `.github/environments-policy.yml` and drift-checked in the classify job.
+    # Apply it with `dev-tools/provision-release-env.sh --repo <owner/name>
+    # --env <name> --tag-policy 'v*' --branch-policy main --apply`
+    # (idempotent; add `--reviewers User:<id>` for release-manual).
+    environment:
+      name: ${{ (needs.classify.outputs.bump_level == 'major' && 'release-manual') || 'release-auto' }}
+    permissions:
+      contents: write       # required to create the GitHub Release
+      id-token: write       # required for cosign keyless OIDC + attestations
+      attestations: write   # required for actions/attest-build-provenance
+    steps:
+      - name: Validate tag format
+        env:
+          RELEASE_TAG: ${{ needs.classify.outputs.release_tag }}
+          RELEASE_SHA: ${{ needs.classify.outputs.release_sha }}
+        run: |
+          set -euo pipefail
+          tag="$RELEASE_TAG"
+          target_sha="$RELEASE_SHA"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|alpha|beta|test)[0-9]+)?$ ]]; then
+            echo "::error::tag '$tag' does not match release format ^v\\d+\\.\\d+\\.\\d+(-(rc|alpha|beta|test)\\d+)?$"
+            exit 1
+          fi
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          {
+            echo "TAG=$tag"
+            echo "VERSION=${tag#v}"
+            echo "RELEASE_SHA=$target_sha"
+          } >> "$GITHUB_ENV"
+          if [[ "$tag" =~ -(rc|alpha|beta|test)[0-9]+$ ]]; then
+            echo "IS_PRERELEASE=true" >> "$GITHUB_ENV"
+          else
+            echo "IS_PRERELEASE=false" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.classify.outputs.release_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm release tree identity
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+
+      - name: Install cosign (verified binary)
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64" -o /tmp/cosign
+          echo "${COSIGN_SHA256}  /tmp/cosign" | sha256sum -c -
+          sudo install -m 0755 /tmp/cosign /usr/local/bin/cosign
+          cosign version
+
+      - name: Install syft (verified binary)
+        run: |
+          set -euo pipefail
+          asset="syft_${SYFT_VERSION#v}_linux_amd64.tar.gz"
+          curl -fsSL "https://github.com/anchore/syft/releases/download/${SYFT_VERSION}/${asset}" -o "/tmp/${asset}"
+          echo "${SYFT_SHA256}  /tmp/${asset}" | sha256sum -c -
+          tar -xzf "/tmp/${asset}" -C /tmp syft
+          sudo install -m 0755 /tmp/syft /usr/local/bin/syft
+          syft version
+
+      - name: Build source tarball (deterministic)
+        run: |
+          set -euo pipefail
+          tarball="datarim-${TAG}-source.tar.gz"
+          # --no-name on gzip strips embedded timestamp; git archive uses commit date for mtimes.
+          git archive --format=tar --prefix="datarim-${TAG}/" HEAD | gzip --no-name -6 > "$tarball"
+          sha256sum "$tarball" > "${tarball}.sha256"
+          ls -la "$tarball"*
+          echo "TARBALL=$tarball" >> "$GITHUB_ENV"
+
+      - name: Build portable reporting archives
+        run: |
+          set -euo pipefail
+          python3 dev-tools/package-human-reporting.py --output human-outcome-reporting.zip
+          python3 dev-tools/package-human-reporting.py --kind integration --output datarim-human-reporting-integration.zip
+          sha256sum human-outcome-reporting.zip > human-outcome-reporting.zip.sha256
+          sha256sum datarim-human-reporting-integration.zip > datarim-human-reporting-integration.zip.sha256
+
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          set -euo pipefail
+          sbom="datarim-${TAG}-sbom.cdx.json"
+          syft scan dir:. -o "cyclonedx-json=${sbom}"
+          # Sanity: bomFormat must be CycloneDX, components array non-empty.
+          jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' "$sbom" > /dev/null
+          echo "SBOM=$sbom" >> "$GITHUB_ENV"
+
+      - name: Cosign sign-blob (tarball + SBOM)
+        run: |
+          set -euo pipefail
+          for f in "$TARBALL" "$SBOM" human-outcome-reporting.zip datarim-human-reporting-integration.zip; do
+            cosign sign-blob --bundle "${f}.cosign.bundle" --yes "$f"
+            test -s "${f}.cosign.bundle"
+          done
+
+      - name: Attest build provenance (SLSA L2)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ env.TARBALL }}
+            human-outcome-reporting.zip
+            datarim-human-reporting-integration.zip
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.TAG }}
+          prerelease: ${{ env.IS_PRERELEASE }}
+          # Retired baseline tags cannot support a bootstrap compare link.
+          generate_release_notes: ${{ needs.classify.outputs.root_release != 'true' }}
+          fail_on_unmatched_files: true
+          body: |
+            Verify this release before installing — see
+            [documentation/how-to/release-verification.md](https://github.com/Arcanada-one/datarim/blob/${{ env.TAG }}/documentation/how-to/release-verification.md).
+
+            Changes: [CHANGELOG.md](https://github.com/Arcanada-one/datarim/blob/${{ env.TAG }}/CHANGELOG.md).
+          files: |
+            ${{ env.TARBALL }}
+            ${{ env.TARBALL }}.sha256
+            ${{ env.TARBALL }}.cosign.bundle
+            ${{ env.SBOM }}
+            ${{ env.SBOM }}.cosign.bundle
+            human-outcome-reporting.zip
+            human-outcome-reporting.zip.sha256
+            human-outcome-reporting.zip.cosign.bundle
+            datarim-human-reporting-integration.zip
+            datarim-human-reporting-integration.zip.sha256
+            datarim-human-reporting-integration.zip.cosign.bundle

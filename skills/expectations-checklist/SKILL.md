@@ -1,0 +1,536 @@
+---
+name: expectations-checklist
+description: Operator wishlist checklist seeded at /dr-prd or /dr-plan; verified at /dr-qa and /dr-compliance with BLOCKED routing on missed/partial without override.
+current_aal: 1
+target_aal: 2
+---
+
+# Expectations Checklist
+
+> **Why this exists.** The init-task file (see `init-task-persistence.md`)
+> preserves the operator's *prompt*. The expectations file preserves the
+> operator's *acceptance test* — what the operator wants to verify when the
+> work comes back. Each item is one human-readable wish: "did this aspect of
+> the task come out the way I asked?" Without it, agents run their own
+> `/dr-qa` checks against PRD acceptance criteria, which are an agent's
+> paraphrase of operator intent and can drift silently.
+>
+> Expectations are written in plain Russian (or the operator's most recent
+> message language), one bullet per wish, with a verifiable success
+> criterion and an advisory cross-link to a PRD acceptance criterion when
+> one exists. `/dr-qa` and `/dr-compliance` assign each item a status
+> (`met` / `partial` / `missed` / `n-a` / `deleted`); `partial` or `missed`
+> without an operator-supplied override blocks the pipeline and routes work
+> back to `/dr-do` with the offending wish-ids in focus.
+
+## File location and naming
+
+```
+datarim/tasks/{TASK-ID}-expectations.md
+```
+
+One file per task. Same `{TASK-ID}` as the corresponding
+`{TASK-ID}-task-description.md` and `{TASK-ID}-init-task.md`. The three
+artefacts form a sibling triad:
+
+| File | Author | Purpose |
+|------|--------|---------|
+| `{ID}-init-task.md` | operator (verbatim) | the original prompt |
+| `{ID}-task-description.md` | planner | the agent's interpretation + implementation notes |
+| `{ID}-expectations.md` | architect (L3+) / planner (L2 no PRD) | the operator's acceptance test |
+
+## When the file is created
+
+| Complexity | Stage | Agent | Trigger |
+|-----------:|-------|-------|---------|
+| L3, L4 | `/dr-prd` | architect | after PRD acceptance criteria are finalised |
+| L2 (no PRD) | `/dr-plan` | planner | after plan acceptance is finalised |
+| L1 | — | — | not required (optional; soft window applies) |
+
+Expectations are **canonical first**, **append-merge after**. The first write
+creates the file from PRD/plan AC plus the operator's init-task brief. Later
+edits (operator amendments, new AC, scope changes) append new items at the
+bottom; existing items are not rewritten — instead a History entry records
+the transition.
+
+## Artifact schema
+
+Required YAML frontmatter (closed schema):
+
+```yaml
+---
+task_id: <TASK-ID>          # ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ — required
+artifact: expectations      # literal — required
+schema_version: 4           # integer — required (current: 4; legacy: 1-3)
+captured_at: <YYYY-MM-DD>   # date of first write — required
+captured_by: /dr-init       # /dr-init | /dr-prd | /dr-plan — required
+status: canonical           # canonical | amended — required (flips on first append)
+agent: planner              # architect | planner — recommended
+parent_init_task: <path>    # relative path to init-task file — recommended
+parent_prd: <path>          # relative path to PRD file when one exists
+---
+```
+
+**Schema v4 (current default):** requires exactly one
+`customer_derived: true | false` field on every wish. The obsolete
+`customer_binding_from` marker is rejected because a movable prefix can exempt
+previously governed wishes. See § Customer-requirement binding.
+
+**Schema v3 (legacy, accepted):** adds optional per-wish `verification_mode` and
+`evidence_artifact` fields distinguishing a one-off manual check from a
+reproducible/wired check. See § `verification_mode` axis. Only active when the
+file declares `schema_version: 3` or `4`; all sub-v3 files are unchanged.
+
+**Schema v2 (legacy, accepted):** adds required `evidence_type` field per wish item
+(enum: `empirical | static | measurement`). Validator
+(`"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh"`) rejects items without
+`evidence_type` in v2 mode.
+
+**Schema v1 (legacy):** accepted by validator until **2027-05-23** (12 months
+from the v1→v2 migration archive). Deprecation warning emitted on every validator
+invocation. Migration recipe: add `evidence_type: empirical` (or
+`static`/`measurement`) to each wish; bump `schema_version: 2`.
+
+**Migration note — author new files at v4.** `/dr-prd` (and `/dr-plan` for the
+L2-no-PRD path) MUST create new expectations files at `schema_version: 4`.
+v1-v3 remain accepted for read and verification without customer-binding
+fields, but MUST NOT receive new wishes. Before the first append, perform an
+explicit metadata-only migration: preserve every existing body, title, history,
+order, and `wish_id`; add `evidence_type` where v1 lacks it; add
+`customer_derived` to every wish and the conditional binding quartet to each
+`true` wish; then bump to schema v4, set `status: amended`, and record the
+migration in the append-log. Only then append the new wish. v1 keeps its
+**2027-05-23** sunset and deprecation warning.
+
+## Body shape
+
+```markdown
+# {TASK-ID} — Ожидания оператора
+
+## Ожидания
+
+- **<N>. <Plain-language title ending with a period>**
+  - wish_id: <kebab-slug; cyrillic letters allowed>
+  - Что хочу проверить: <one or two sentences>
+  - Как проверить (success criterion): <one concrete signal — file path,
+    command output, visible behaviour>
+  - Связанный AC из PRD: V-AC-<N> или «—»
+  - customer_derived: <true | false>  # v4 — required on every wish
+  - requirement_id: <req-NNNN>
+  - surface_class: <VISITOR_VISIBLE | ENABLING>
+  - visitor_visible: <true | false>
+  - delivery_receipt: <datarim/receipts/{TASK-ID}-customer-delivery.yaml>
+  - evidence_type: <empirical | static | measurement>  # v2+ — required
+  - override: <optional reason text, only used when status flips to
+    partial/missed and the deferral is genuinely legitimate>
+  - override_by: <agent | operator>            # who authored the override
+  - override_class: <time-dependent | external-blocker | operator-authorized | plan-scope-boundary>
+  - override_artifact: <follow-up ID or blocked_by reference verifiable in the KB>
+  - #### История статусов
+    - <ISO 8601> / <local time> · <stage> · <prior> → <new> · reason: <plain ru>
+  - #### Текущий статус
+    - <pending | met | partial | missed | n-a | deleted>
+
+## Append-log (operator amendments)
+
+_(empty on first write)_
+```
+
+### Customer-requirement binding
+
+Every schema-v4 wish MUST carry exactly one discriminator:
+
+```yaml
+  - customer_derived: <true | false>
+```
+
+When `customer_derived: true`, the wish MUST carry exactly one of each binding
+field:
+
+```yaml
+  - requirement_id: <req-NNNN>
+  - surface_class: <VISITOR_VISIBLE | ENABLING>
+  - visitor_visible: <true | false>
+  - delivery_receipt: <datarim/receipts/{TASK-ID}-customer-delivery.yaml>
+```
+
+`requirement_id` is the stable foreign key into the customer-requirement
+artifact; it is not interchangeable with `wish_id`. `surface_class` and
+`visitor_visible` MUST agree: `VISITOR_VISIBLE` requires `true`, and `ENABLING`
+requires `false`. `delivery_receipt` names the deterministic receipt that must
+eventually prove the complete delivery chain. A pointer may identify its
+planned canonical path before the receipt exists, but an absent or incomplete
+receipt can never satisfy closure.
+
+When `customer_derived: false`, all four binding fields MUST be absent. A later
+canonical requirements cross-check may reject a false classification; this
+local schema gate only makes the declaration explicit and non-ambiguous.
+
+For a visitor-visible wish, the success criterion MUST assert observable live
+production behaviour. Documentation, knowledge, tests, CI, ledgers, and other
+enabling outputs may support the evidence but cannot satisfy the wish.
+
+Legacy expectations files at v1-v3 remain valid without these fields for read
+and verification. They are frozen against new wishes until the full metadata
+migration above is complete; the migration preserves the content and identity
+of old wish blocks while adding v4 metadata to every one.
+
+### `override` indent — concrete syntax
+
+`dev-tools/check-expectations-checklist.sh` matches the override line with the
+exact regex `^  - override:` — 2 spaces, same indent level as `wish_id` /
+`Что хочу проверить` / `Связанный AC из PRD`. A misplaced `override` nested at <!-- allow-non-ascii: canonical-expectations-field-names-cited-verbatim-for-validator-string-equal-match -->
+the 4-space level (the indent used by `#### Текущий статус` sub-items) is <!-- allow-non-ascii: canonical-current-status-section-name-cited-verbatim-for-validator-string-equal-match -->
+invisible to the regex: the validator finds no override and silently returns
+`BLOCKED` for a partial/missed wish, with no diagnostic pointing at the indent.
+
+Correct (2-space, matches the regex):
+
+```markdown
+  - override: soak period not yet complete, see follow-up TASK-XXXX
+```
+
+Incorrect (4-space, silently ignored by the validator):
+
+```markdown
+    - override: soak period not yet complete, see follow-up TASK-XXXX
+```
+
+### Item rules
+
+- **`wish_id`** occurs exactly once per item and is unique across the file. It
+  is a kebab-slug derived from the title: non-empty segments of Cyrillic
+  letters, ASCII letters, or digits, separated by single hyphens. Used as the focus key in
+  FAIL-Routing CTA (`/dr-do <ID> --focus-items <wish_id_1,...,N>`).
+- Inline code spans use exact matching backtick-run delimiters. An unmatched
+  delimiter fails structural validation instead of suppressing later wishes.
+- **`Связанный AC из PRD`** is advisory for L1-L2. For L3-L4 current, <!-- allow-non-ascii: canonical-russian-expectations-field-name -->
+  non-overridden wishes it is required when spec-graph hard mode is active:
+  the value MUST be `V-AC-N`, not «—». Deleted, superseded, or operator-overridden
+  wishes retain the advisory form. Renames in the PRD are recorded in the item's
+  История статусов with `stage: append-merge`. <!-- allow-non-ascii: russian-status-history-section-name-from-canonical-schema -->
+- **`override`** is plain prose, optional. When the current status is
+  `partial` or `missed`, an override of fewer than 10 characters is treated
+  as absent and the verify mode emits `BLOCKED`.
+- **`override_by`** records who authored the override (`agent` | `operator`).
+  This closes the self-certification loophole: an agent cannot wave its own
+  `partial`/`missed` wish through with prose alone.
+  - `operator` — accepted unconditionally (the operator may authorise any
+    deferral; the ≥10-char floor still applies).
+  - `agent` — accepted ONLY when the deferral is genuinely legitimate, proven
+    by `override_class` ∈ {`time-dependent`, `external-blocker`,
+    `operator-authorized`, `plan-scope-boundary`} AND an `override_artifact`
+    that names a follow-up ID or `blocked_by` reference which the verifier
+    confirms EXISTS in `backlog.md` / `tasks.md`. Prose without a verifiable
+    artefact → `BLOCKED`.
+  - Absent `override_by` on a `partial`/`missed` item defaults to `agent`
+    (most restrictive) for back-compat — i.e. a legacy prose-only override
+    now `BLOCKED`. Add `override_by: operator` (or a verifiable artefact) to
+    clear it.
+- **`override_class`** / **`override_artifact`** — only meaningful for an
+  `agent`-authored override. A legitimate deferral is time-dependent (result
+  physically unverifiable now, needs ≥1 day) or hard-external-blocker; the
+  artefact makes that claim falsifiable rather than self-asserted.
+- **Evidence-collector rule for deferred `empirical` wishes.** When an
+  `empirical` wish is deferred (`operator-deferral` or any agent-authored
+  legitimate-deferral class) because its evidence depends on a future event
+  (external input arriving, a scheduled window, a real-world trigger), the
+  override SHOULD cite a **ready-to-run evidence-collector command** — the
+  exact invocation plus its PASS criterion — recorded in the artefact the
+  `override_artifact` points to (task description section, follow-up task
+  body). Rationale: a deferral without a collector rots — by the time the
+  trigger fires, the verification recipe must be re-derived from context that
+  no longer exists. With a collector, anyone (or any later session) closes
+  the wish mechanically at the trigger event. Verifiers treat a missing
+  collector on such an override as an advisory note, not a block.
+- **`#### История статусов`** is append-only by convention. One line per <!-- allow-non-ascii: russian-status-history-section-name-from-canonical-schema -->
+  status transition. Canonical line format:
+  `<ISO> / <local> · <stage> · <prior> → <new> · reason: <plain ru>`. The
+  three `·` separators and the literal `reason:` token are required.
+- **`#### Текущий статус`** carries the current enum value. Allowed values: <!-- allow-non-ascii: russian-current-status-section-name-from-canonical-schema -->
+  `pending`, `met`, `partial`, `missed`, `n-a`, `deleted`.
+- **`evidence_type`** (schema v2+, required) declares what kind of evidence
+  `/dr-qa` must produce for this wish at Layer 3b. Allowed enum:
+  - **`empirical`** — runtime check: command invocation, smoke test, E2E
+    test, integration probe. Per-wish QA report MUST contain actual
+    command + stdout/exit-code, not only a grep-against-markdown.
+  - **`static`** — static check: `grep`, `test -f`, line-count, regex match
+    against the source tree or a documentation file. Cheapest tier; if all
+    wishes in a task are `static`, the validator emits an advisory warning
+    (`--all` mode) because the task likely lacks runtime evidence.
+  - **`measurement`** — numeric measurement: latency p95, throughput,
+    coverage %, token cost, file count vs target. Per-wish QA report MUST
+    contain the measured value + comparison to expected (`X = 87ms <
+    budget 100ms`).
+
+- **`verification_mode`** (schema v3+, optional per-wish) closes the
+  "manual-check ≠ coded verification" error class (the motivating incident:
+  an oral requirement closed by a one-off `curl` spot-check, never coded →
+  regression later). Allowed enum:
+  - **`one-off`** — manual or one-time check; no wired test required. This
+    is the implicit default when the field is absent. A `one-off` value on
+    a world-state-class wish (production URL, live HTTP status) SHOULD carry
+    the existing override triad (`override_by`, `override_class`,
+    `override_artifact` with a filed follow-up task) — the override creates
+    a falsifiable obligation that the operator consciously accepts regression
+    risk. No new validator enforcement for this; the obligation lives in
+    docs and `/dr-archive` recap (see § Recap obligation).
+  - **`reproducible`** — a wired, repeatable check exists: a committed test
+    path, a CI job name, or a test-id string findable in the source tree.
+    When `reproducible`, the wish block MUST also contain
+    `evidence_artifact:` (see below); the validator exits 1 on the
+    `verification-not-wired` error if it is missing.
+
+- **`evidence_artifact`** (schema v3+, required when `verification_mode:
+  reproducible`) names the concrete check: a relative file path, an
+  absolute path, a test-id string, or a CI-job name. Resolution is
+  deterministic and repo-root anchored (two-tier):
+  1. `test -f` (absolute path, or `$repo_root/$value`) — file exists → OK.
+  2. `grep -rqF "$value"` across `*.bats *.sh *.yml *.yaml` under
+     `$repo_root` — string found → OK (covers test-id + CI-job-name without
+     needing to distinguish syntactically).
+  Missing or unresolvable artifact → ERROR `verification-not-wired:
+  <wish_id>` (hard at `/dr-compliance`, advisory at `/dr-qa` Layer 3b).
+
+<!-- gate:example-only -->
+  **Stub-literal guard (advisory, best-effort):** when `evidence_artifact`
+  resolves to an existing file, the validator scans for stub literals
+  (`it.skip`, `xit(`, `.todo`, `expect(true).toBe(true)`, `test.skip`,
+  `@pytest.mark.skip`). When every non-blank line is a stub → advisory
+  finding `evidence-artifact-is-stub: <wish_id>` to stderr; exit code
+  unchanged. Residual risk: the guard cannot reliably distinguish a
+  partially-implemented test file from a stub-only file. A file with mixed
+  real and stub tests passes the guard even when the relevant assertion is
+  the stub. Operator must verify stub coverage during `/dr-qa` review.
+<!-- /gate:example-only -->
+
+  **Heuristic advisory (sub-v3 and v3+, NEVER hard):** for schema v3 or v4
+  wishes where `verification_mode` is ABSENT and `evidence_type:
+  empirical`, the validator runs a narrow deterministic case-insensitive
+  regex over the "Как проверить (success criterion)" text for world-state <!-- allow-non-ascii: russian-expectations-field-name-cited-verbatim-as-validator-regex-target -->
+  predicates: `https?://`, `\bHTTP\b`, `\bcurl\b`, `redirect`, `\bprod\b`,
+  `production`, `статус`, `status`, `перед тем как`, `/app/`-style endpoint <!-- allow-non-ascii: russian-schema-token-literals-cited-as-validator-regex-target -->
+  paths, `deploy`. On match → advisory warning
+  `verification-mode-suggested-reproducible: <wish_id>` to stderr; exit
+  code unchanged. Sub-v3 files are never checked.
+
+### Status semantics
+
+| Status | When | Verify verdict |
+|--------|------|----------------|
+| `pending` | item created, not yet verified | non-blocking (PASS) |
+| `met` | success criterion verified | non-blocking (PASS) |
+| `partial` | partially verified; missing sub-check or flaky signal | blocking unless override ≥10 chars |
+| `missed` | success criterion not met | blocking unless override ≥10 chars |
+| `n-a` | item became inapplicable (scope changed, environment drift) | non-blocking |
+| `deleted` | operator dropped the wish (history retained) | non-blocking |
+
+> **Glossary note.** `closed` is NOT an enum value here, although the word often appears in QA/PRD prose to mean "success criterion verified". The correct enum for that semantics is `met`. The validator (`"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --task <ID>`) rejects `closed` as a structural error so the mistake is caught before `/dr-compliance --verify`.
+
+### Numeric literals in success criteria
+
+Avoid hardcoded counts in success criteria when the count is derived from
+the codebase (skill count, line count, test count, file count). A literal
+number locks the AC to plan-time arithmetic and drifts when implementation
+revises the scope — for example, when a phase absorbs an unmerged branch
+and adds an extra artefact.
+
+Prefer one of two formulations:
+
+- **Formula.** «Counter X equals the number of files matching pattern Y
+  plus the agreed delta Z.» Verification is `find ... | wc -l` plus an
+  inline comparison, which stays correct under scope revisions.
+- **Re-derive at /dr-do time.** When the literal is genuinely required
+  (e.g. user-visible counter on a landing page), record the actual
+  implementation count in the expectations item's История статусов as a <!-- allow-non-ascii: russian-status-history-section-name-from-canonical-schema -->
+  one-line `stage: implementation-count` entry, and treat that line as
+  the authoritative target. PRD-side AC remains an estimate.
+
+Drift on a literal is recorded as «implemented with documented drift»
+rather than `missed`; the verify verdict still PASSes because operator
+intent (counter reflects new artefacts) is satisfied. Repeated occurrences
+of the same drift class across tasks indicate the AC was authored as a
+literal where a formula would have served.
+
+### Live-endpoint AC verification commands must follow redirects
+
+When a success criterion's verification command asserts against a **live,
+reachable HTTP endpoint** (a wish or PRD AC of the form "curl ... returns
+X" / "curl ... | grep ..."), the command MUST be run against the real
+endpoint before the wish is marked `met` — never presumed from the page
+content alone. In addition, if the target site applies a lang-prefix or
+locale-detection redirect (bare `/privacy`, `/cookies`, `/terms` and
+similar routes that 302 to `/en/...` or `/ru/...`), the `curl` invocation
+MUST include `-L` (follow redirects) — e.g. `curl -fsSL`, not
+`curl -fsS`. Without `-L`, the bare path returns an empty 302 body and the
+grep silently fails, producing a false `missed` verdict even though the
+underlying content is correct. Author success criteria for such wishes as:
+"`curl -fsSL <URL> | grep '<expected text>'` matches" and record the actual
+executed command + exit code as the evidence, not just the expected text —
+this closes the gap between "AC text says curl should return X" and "an
+agent actually ran curl against a reachable endpoint and confirmed X".
+
+## Mandatory read by pipeline commands
+
+After the file is created, every later pipeline command MUST read it and
+reconcile any divergence in its own output document:
+
+| Command | What it reads | Where divergence is recorded |
+|--------|---------------|------------------------------|
+| `/dr-design` | wish bodies | design doc § Decisions |
+| `/dr-do` | wish bodies; `--focus-items` ⇒ those wish-ids first | task-description § Implementation Notes |
+| `/dr-qa` | wish bodies; writes per-item Текущий статус | QA report § Expectations + History entries | <!-- allow-non-ascii: russian-current-status-field-cited-in-table-row -->
+| `/dr-compliance` | wish bodies; writes per-item Текущий статус | compliance report § Expectations + History entries | <!-- allow-non-ascii: russian-current-status-field-cited-in-table-row -->
+| `/dr-archive` | wish bodies; writes final per-item summary | archive doc § Выполнение ожиданий оператора | <!-- allow-non-ascii: russian-archive-section-name-cited-in-table-row -->
+
+## Append-merge contract
+
+When `/dr-prd` or `/dr-plan` runs a second time on a task that already has
+an expectations file:
+
+1. Load existing items by `wish_id`.
+2. For each new wish derived from updated PRD/plan AC, look up by wish_id:
+   - **No match** → append as a new item at the bottom; record one History
+     line `stage: append-merge` with reason "added at <current-stage>".
+   - **Match** → leave the item body untouched; record a History line
+     `stage: append-merge` only if the linked AC reference changed.
+3. Do not rewrite, reorder, or delete existing items. Operators control
+   pruning via explicit `Текущий статус: deleted`. <!-- allow-non-ascii: russian-current-status-enum-value-cited-from-canonical-schema -->
+
+## Multi-phase umbrellas (phase-level verify)
+
+When the task being verified is one phase of a multi-phase umbrella whose
+expectations file lives at the **umbrella** task ID (no separate
+`{PHASE-ID}-expectations.md` exists), `/dr-qa` and `/dr-compliance` invoked
+on the phase ID MAY legitimately:
+
+- Update `#### Текущий статус` only for wish-ids that fall in the phase's <!-- allow-non-ascii: russian-current-status-field-cited-in-bullet -->
+  scope (e.g. flip from `pending` to `met` when the phase delivers the
+  underlying success criterion).
+- Leave umbrella close-gate wish-ids and later-phase wish-ids as
+  `pending`. These are not `n-a` (the wish remains in scope; it is just
+  not yet verifiable) and not `partial`/`missed` (no failure to record at
+  this point in the pipeline).
+- Append one `История статусов` line per touched item with `reason:` text <!-- allow-non-ascii: russian-status-history-section-name-cited-in-bullet -->
+  that names the phase scope explicitly (e.g. "this wish belongs to phase 3
+  (audit coverage); it is not implemented in phase 1"). The phase mention
+  in the reason is what lets the umbrella close-gate auditor distinguish
+  «pending because phase X hasn't run» from «pending because no one looked».
+
+The validator still PASSes when `Текущий статус` is `pending` for these <!-- allow-non-ascii: russian-current-status-field-cited-in-prose -->
+items; the audit clarity comes from the History entry, not the status enum.
+On umbrella close (the last phase's `/dr-archive` or a follow-up umbrella
+QA pass), the remaining `pending` items are reconciled to `met` /
+`partial` / `missed` per the actual umbrella-wide outcome.
+
+## Verify-routing contract
+
+`/dr-qa` and `/dr-compliance` both invoke
+`"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --verify <ID>` after running
+their own structural checks. Three verdicts (single source of truth: the
+validator's stdout markers):
+
+- **`PASS`** — every item is `met`, `n-a`, `pending`, or `deleted`. The
+  command proceeds.
+- **`CONDITIONAL_PASS`** — at least one `partial`/`missed` item, but every
+  such item carries a valid override ≥10 characters that is either
+  operator-authored (`override_by: operator`) or agent-authored with a
+  verifiable legitimate-deferral artefact (`override_class` in the allowed
+  enum + an `override_artifact` ID present in the KB). The command proceeds;
+  the report records the conditional state.
+- **`BLOCKED`** — at least one `partial`/`missed` item without a valid
+  override, OR with an agent-authored prose-only override that names no
+  verifiable artefact (the self-certification loophole). The validator prints `Focus items: <wish_id_1,...,N>` and
+  `Next step: /dr-do <ID> --focus-items <wish_id_1,...,N>`. The command
+  refuses to continue and emits a FAIL-Routing CTA (see `cta-format.md`).
+
+## Backwards-compatibility window
+
+- **Per-task 30-day rolling soft window.** Tasks created before the
+  expectations contract existed (or in the first 30 days after adoption)
+  are protected from blocker-level findings.
+- **Below L3 is optional.** L1 and L2 tasks may skip the file entirely;
+  `--all` advisory does not flag them.
+- **Archive immunity.** Tasks with `status: archived | completed |
+  cancelled` are never flagged.
+- **Legacy marker.** Operators MAY set `legacy: true` in the description's
+  frontmatter to suppress findings indefinitely.
+
+## Recap obligation (one-off wishes in /dr-archive)
+
+When `/dr-archive` writes the `## Как решили` section, it MUST list every <!-- allow-non-ascii: russian-canonical-section-name-kak-reshili-cited-verbatim -->
+wish closed as `verification_mode: one-off` (or whose `verification_mode` is
+absent on a world-state-class wish identified by the heuristic) so the
+operator consciously accepts regression risk. The listing format mirrors the
+existing expectations fold contract (see § Body shape → `## Как решили` <!-- allow-non-ascii: russian-canonical-section-name-kak-reshili-cited-verbatim -->
+bullet with `(уточнение брифа)` marker): <!-- allow-non-ascii: russian-operator-output-marker-utochnenie-brifa-cited-verbatim -->
+
+- Append `(проверено вручную)` after the wish title when <!-- allow-non-ascii: russian-operator-output-marker-provereno-vruchnuyu-cited-verbatim -->
+  `verification_mode: one-off` is explicit.
+- Append `(нет воспроизводимой проверки)` when verification_mode is absent <!-- allow-non-ascii: russian-operator-output-marker-net-vosproizvodimoy-proverki-cited-verbatim -->
+  on a world-state-class wish.
+- No new override enforcement beyond existing `override_class`; the
+  obligation is editorial (human-in-loop boundary).
+
+The rationale: a one-off check closes the pipeline but creates no regression
+guard. Surfacing it explicitly in the archive document lets the operator
+decide whether to file a follow-up for a wired test, or accept the risk
+knowing the decision is recorded.
+
+## Validation
+
+`"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh"` is the canonical validator.
+
+- `--task <ID>`: structural validation. Exit 0 / 1 / 2.
+  - `verification-not-wired: <wish_id>` — `reproducible` wish whose
+    `evidence_artifact` is absent or unresolvable. Severity ladder:
+    advisory at `/dr-qa` Layer 3b (PASS_WITH_NOTES), HARD at
+    `/dr-compliance` (validator structural exit 1 enforces it).
+  - `evidence-artifact-is-stub: <wish_id>` — advisory only, never hard.
+  - `verification-mode-suggested-reproducible: <wish_id>` — heuristic
+    advisory, stderr only, never affects exit code.
+- `--verify <ID>`: verdict mode. Exit 0 (PASS / CONDITIONAL_PASS) /
+  1 (BLOCKED or malformed) / 2 (usage).
+- `--all`: advisory scan for L3+ tasks without expectations. Always exit 0;
+  severity ladder `info` (<30d) → `warn` (≥30d).
+
+**Full verdict requires both passes.** `--task` exit 0 is necessary but
+not sufficient for `--verify` PASS — `--task` checks schema validity and
+status presence; `--verify` additionally parses verdict routing
+(PASS / CONDITIONAL_PASS / BLOCKED) and enumerates focus-items on block.
+For complete pre-archive verdict, run both in sequence: first
+`--task <ID>` to confirm schema/status, then `--verify <ID>` to obtain the
+routing verdict.
+
+## Dogfooding
+
+The first task to use this contract is the task that defines it. Its own
+expectations file lives at `datarim/tasks/{TASK-ID}-expectations.md` of the
+framework workspace; `/dr-qa` and `/dr-compliance` invoked on that task
+exercise the verify-routing path against the contract itself before the
+rest of the framework adopts it.
+
+## Related skills
+
+### Automatic spec-graph addressing
+
+The pipeline builds the requirement graph without an operator command:
+
+- `wish_id → V-AC` comes from `Связанный AC из PRD`; <!-- allow-non-ascii: canonical-russian-expectations-field-name -->
+- `V-AC → D-REQ` comes from the PRD `Covers:` line;
+- `V-AC → plan-step` comes from an explicit `Verifies: V-AC-N[, ...]` marker;
+- `V-AC → evidence` comes from `Evidence: V-AC-N — <command/test/artifact>`.
+
+`dev-tools/spec-graph-gate.sh` validates these bindings automatically at PRD,
+plan, do, QA, compliance, and verify stages. Source-code comments and incidental
+V-AC prose are not graph edges.
+
+See also `skills/v-ac-axis-split/SKILL.md` for V-AC group composition rule
+(deterministic vs statistical axis separation). When drafting success
+criteria, identify whether each axis is rule-based (deterministic — single
+bats assertion or grep evidence) or rate-based (statistical — threshold over
+a measurement window with sample size and confidence interval). Mixing the
+two in one wish item masks which axis is the actual uncertainty source and
+yields false confidence at `/dr-qa` time. Split early; cite the measurement
+window for statistical criteria; cite the assertion evidence for
+deterministic criteria.

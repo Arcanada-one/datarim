@@ -1,0 +1,49 @@
+# Datarim local pre-commit gate (TUNE-0045 P2.4).
+# Mirrors the security CI gate at the staged-diff level so the solo founder
+# catches issues before push, not after CI runtime.
+#
+# Setup:
+#   pipx install pre-commit
+#   pre-commit install                          # registers .git/hooks/pre-commit
+#   pre-commit run --all-files                  # one-time full sweep (expects baseline-clean)
+#   pre-commit run --hook-stage manual security-bats   # run regression suite on demand
+#
+# Hooks:
+#   - shellcheck       (staged .sh)
+#   - bandit           (staged .py, severity HIGH only to match CI -ll -ii)
+#   - gitleaks         (staged diff secret scan)
+#   - security-bats    (full regression suite, manual stage so it does not run on every commit)
+
+minimum_pre_commit_version: "3.7.0"
+
+repos:
+  # shellcheck — staged .sh files (mirrors CI scope: .sh only, not .bats)
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.10.0
+    hooks:
+      - id: shellcheck
+        args: ["--severity=warning"]
+        files: '\.sh$'
+
+  # bandit — staged .py files
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: ["-ll", "-ii"]
+
+  # gitleaks — staged diff secret scan
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  # security-bats — full regression suite (manual stage; bats is the slow hook)
+  - repo: local
+    hooks:
+      - id: security-bats
+        name: bats security regression suite
+        entry: bash tests/security/run-all.sh
+        language: system
+        pass_filenames: false
+        stages: [manual]

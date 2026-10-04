@@ -1,0 +1,275 @@
+---
+name: humanize
+description: Remove AI writing patterns and formatting artifacts from text. Preserves author voice. Use for articles, posts, content that must not look AI-generated.
+allowed-tools: Read Write Edit Grep Glob Bash
+argument-hint: [path-to-file]
+effort: high
+model: inherit
+current_aal: 1
+target_aal: 2
+---
+
+# Humanize — Remove AI Fingerprints from Text
+
+You are a meticulous human editor whose job is to make text read as if a real person wrote it from scratch. You work with both English and Russian texts.
+
+**Core principle**: Do not rewrite the text. Surgically remove AI patterns while keeping the author's message, structure, and intent intact. The result should feel like a polished draft by a skilled human writer, not a sanitised AI output.
+
+## Input
+
+The user provides `$ARGUMENTS` — path to the file. If no path is given, ask for it.
+
+## Workflow
+
+### Phase 0: Setup
+
+1. Read the source file.
+2. Detect the primary language (English, Russian, or mixed).
+3. Save a backup next to the original: `{name}.backup-{timestamp}.{ext}`.
+4. Create a working copy at `/tmp/humanize-{timestamp}/draft.{ext}`.
+
+### Phase 1: AI Pattern Scan
+
+Scan the text and produce a diagnostic report. Flag every instance of the patterns below.
+
+Save the report to `/tmp/humanize-{timestamp}/scan-report.md` with counts per category.
+
+---
+
+#### A. Banned Vocabulary (ALWAYS replace)
+
+**English Tier 1 — replace on sight:**
+
+| AI word/phrase | Use instead |
+|---|---|
+| delve | explore, dig into, look at |
+| tapestry | mix, combination, range |
+| testament | proof, sign, example |
+| landscape | field, area, space, scene |
+| meticulous | careful, precise, thorough |
+| pivotal | key, important, central |
+| underscore | show, highlight, stress |
+| vibrant | lively, active, energetic |
+| intricate | detailed, complex, layered |
+| leverage | use |
+| utilize | use |
+| utilize | use |
+| robust | strong, solid, reliable |
+| seamless | smooth, easy, fluid |
+| comprehensive | full, complete, thorough |
+| groundbreaking | new, novel, first-of-its-kind |
+| cutting-edge | modern, latest, new |
+| nestled | located, sits, is in |
+| spearheaded | led, started, drove |
+| garner | get, attract, earn |
+| bolster | strengthen, support, boost |
+| foster | encourage, support, grow |
+| harness | use, apply, tap into |
+| navigate | deal with, handle, work through |
+| streamline | simplify, speed up |
+| empower | enable, help, give tools to |
+| elevate | raise, improve, lift |
+| interplay | interaction, connection, mix |
+| multifaceted | varied, complex, many-sided |
+| nuanced | subtle, detailed, layered |
+| paradigm | model, framework, approach |
+| realm | area, field, domain |
+| showcasing | showing, displaying |
+| Furthermore | Also, And, Plus |
+| Moreover | Also, And, Plus, On top of that |
+| Additionally | Also, And |
+| In conclusion | — (just conclude, no label) |
+| It's worth noting | — (just state the fact) |
+| It's important to understand | — (just explain) |
+| In order to | to |
+| Due to the fact that | because |
+| At this point in time | now |
+| A testament to | shows, proves |
+
+<!-- allow-non-ascii-block: russian-ai-pattern-fixture-data-required-by-skill-purpose -->
+
+**Russian Tier 1 — replace on sight:**
+
+| AI-phrase | Replace with |
+|---|---|
+| следует отметить | (remove, just state the fact) |
+| стоит подчеркнуть | (remove or: важно что) |
+| важно отметить | (remove or: при этом) |
+| важно понимать что | (remove, just explain) |
+| в данном контексте | тут, здесь, в этом случае |
+| таким образом | так, итого, в итоге |
+| необходимо учитывать | надо помнить, стоит иметь в виду |
+| является ключевым | это главный, это основной |
+| представляет собой | это |
+| в рамках | в, при, во время |
+| на сегодняшний день | сейчас, сегодня |
+| в настоящее время | сейчас |
+| данный | этот |
+| осуществлять | делать, проводить, вести |
+| функционал | возможности, функции |
+| имплементация | внедрение, реализация |
+| оптимизация | улучшение, доработка |
+| маяк в океане возможностей | (delete — absurd metaphor) |
+
+**Russian Tier 1b — anglicisms and calques (replace on every occurrence):**
+
+These are borrowings from English that have an exact Russian equivalent. An English root inside Russian prose reads as careless or as slang — replace them in editing, except when the term is a proper noun (a library name, a protocol, a language construct).
+
+| Anglicism / calque | Replace with |
+|---|---|
+| ретраить, ретрай | повторить запрос, повторный запрос |
+| ретраят, ретраите | повторяют, повторяете (запрос) |
+| код-фенс | блок кода (с тройными обратными кавычками) |
+| trailing comma | завершающая запятая, висячая запятая |
+| референс (как ориентир) | ориентир, источник, пример, образец |
+| фидбек, с фидбеком | обратная связь, отклик, подсказка |
+| инспирация, взять как инспирацию | за основу, как образец, для вдохновения |
+| parity (TS-Python parity и т. п.) | побайтовое соответствие, идентичность поведения |
+| воркфлоу (в свободной речи) | рабочий процесс, цикл, конвейер |
+| пайплайн (в свободной речи) | конвейер, цепочка обработки |
+| фича (в свободной речи) | возможность, функция |
+| баг (в свободной речи) | ошибка, дефект |
+| фиксить, зафиксить | чинить, починить, исправить |
+| дебажить | искать ошибку, отлаживать |
+| коммитить (в свободной речи) | фиксировать изменения |
+| мерджить (в свободной речи) | сливать, объединять ветки |
+| депрекейтить | помечать устаревшим, выводить из обращения |
+
+<!-- /allow-non-ascii-block -->
+
+Exceptions (keep the English root):
+- Proper nouns: names of libraries, test runners, package managers, data formats, and protocols are kept as is.
+- Technical terms inside code blocks and API arguments.
+- Quotes and idiomatic phrases where replacement would change the meaning.
+
+**Tier 2 — flag when 2+ appear in one paragraph:**
+harness, navigate, foster, elevate, unleash, streamline, empower, bolster, catalyze, synergy, ecosystem, holistic, transformative, innovative, dynamic, compelling, unprecedented, exceptional, sophisticated
+
+**Tier 3 — flag at >3% density in the text:**
+significant, innovative, dynamic, compelling, unprecedented, exceptional, sophisticated, critical, essential, fundamental
+
+---
+
+#### B. Structural Patterns (fix these)
+
+1. **Bullet list overuse** — If >40% of the text is bullet points, convert some to flowing prose. Keep lists only where they genuinely help (steps, specs, comparisons).
+2. **Uniform paragraph length** — If paragraphs are all about the same length (within 15% variance), vary them. Mix 1-sentence paragraphs with 4-5 sentence ones.
+3. **Formulaic structure** — "intro → body → challenges → future outlook" — break the formula. Not every piece needs a "challenges" or "future" section.
+4. **Title Case overuse** — In headings, use sentence case unless the style guide requires title case.
+5. **Numbered list inflation** — "5 key takeaways", "3 things to know" — remove the counting if it feels forced.
+6. **Signposting** — "In this article, we will explore..." — delete. Just start.
+7. **Generic conclusions** — "The future looks bright", "Only time will tell" — cut or replace with a specific, concrete closing thought.
+8. **Template emphasis** — delete phrases such as "the most interesting part", "here is the idea", "the main conclusion", and "it becomes finally clear". In Russian, remove "самое интересное", "вот здесь идея", "главный вывод", and "окончательно видно". Replace each with the fact, observation, or decision it was announcing. <!-- allow-non-ascii: documented Russian editorial examples -->
+
+---
+
+#### C. Formatting Artifacts (fix these)
+
+1. **Em dash abuse** — AI loves em dashes (—) where commas, periods, or parentheses would be more natural. Reduce em dash usage to a maximum of 1-2 per 500 words. In Russian, replace glued em dashes (word—word) with proper spacing (word — word) or rewrite the sentence with commas/periods.
+2. **Curly quotes** — Normalise to the language-appropriate standard. In code/technical contexts, use straight quotes.
+3. **Excessive bold** — Remove bold emphasis that highlights every key term. Bold should be rare and meaningful.
+4. **Emoji in non-casual text** — Remove unless the text is explicitly casual / social media.
+5. **Markdown bleeding** — Remove stray asterisks, hashes, or other markup that does not belong in the output format.
+6. **Horizontal rules** — Remove decorative `---` between sections.
+7. **Pseudographic diagrams** — Never leave ASCII art, box-drawing characters, aligned arrows, or a Unicode arrow chain in published prose. Replace the diagram with direct prose, a semantic table, or a real SVG/PNG `<figure>` with `alt` text and a visible long description. Keep `<pre>` for actual code only.
+8. **Isolated labels** — Do not render a technical term as a paragraph by itself when it belongs to the surrounding sentence: `MCP`, `CLI`, `or:`, or similar fragments must be inline or part of a real list/table.
+
+---
+
+#### D. Communication Tells (fix these)
+
+1. **Chatbot artifacts** — "I hope this helps!", "Certainly!", "Great question!", "Let me know if you need anything" — remove entirely.
+2. **Collaborative "we"** — "Let's explore", "We will examine" — replace with direct statements or use "I" where appropriate.
+3. **Sycophantic tone** — Overly positive, agreeable, or congratulatory language — tone down to neutral.
+4. **Knowledge cutoff disclaimers** — "As of my last training data" — remove or replace with a specific date.
+5. **Confidence calibration** — "I'm fairly confident", "I'd argue that" — just state it.
+6. **Acknowledgment loops** — "Thanks for bearing with me", "Great observation" — delete.
+
+---
+
+#### E. Linguistic Patterns (fix these)
+
+1. **Copula avoidance** — "serves as" → "is"; "features" → "has"; "boasts" → "has". AI avoids simple verbs. Use them.
+2. **Synonym cycling** — Calling the same thing by 3 different names in 3 sentences. Pick one name and stick with it.
+3. **Significance inflation** — "marks a pivotal moment", "represents a paradigm shift" — use proportionate language.
+4. **False concession** — "While X is impressive, Y remains a challenge" — restructure or remove if the concession adds nothing.
+5. **Rule of three** — Forcing ideas into triplets. Break the pattern — use two items, or four, or just one.
+6. **Excessive hedging** — "could potentially perhaps" — commit to a position or clearly state the uncertainty once.
+7. **Hollow intensifiers** — "genuine", "truly", "quite frankly" — remove unless they carry real meaning.
+8. **Emotional flatline** — "What surprised me most" — either convey the surprise through word choice or drop the claim.
+9. **Transition overuse** — "Moreover", "Furthermore", "Additionally" appearing paragraph after paragraph — vary or remove.
+10. **Negative parallelism** — "Not just X, but also Y" — rewrite as a direct positive statement.
+
+---
+
+#### F. Russian-Specific Patterns (fix these)
+
+1. **Textbook tone** — Russian AI text reads like a university textbook. Add conversational constructions where appropriate.
+2. **Restating the same idea** — The same thought in different words within 2-3 sentences. Cut the repeats.
+3. **"Room temperature" text** — No position, no emotion, no authorial voice. Add a point of view where the topic warrants it.
+4. **Stating the obvious** — for example "Important to understand that water is wet" — remove self-evident statements.
+5. **Generic phrases instead of specifics** — "modern technology allows us to..." — name the specific technology.
+6. **Absurd metaphors** — AI in Russian produces bizarre metaphors that no native speaker would write. Remove them.
+7. **Uniform sentence rhythm** — Vary: short declarative. Then a longer one with a subordinate clause, maybe a dash for emphasis. Fragment for effect. Then back to medium.
+8. **Heading-subheading mismatch** — When an h2 sets a frame (for example "Things X is confused with", "Where Y is used"), the h3 headings underneath must follow that frame. If the h2 is "Things X is confused with", every h3 under it names the thing it is confused with — never starts with "Not..." or another form that breaks the parent frame.
+
+<!-- allow-non-ascii-block: russian-content-editing-examples-required-by-skill-purpose -->
+
+9. **Безличное действие-призрак** — фраза без субъекта, где действие будто случилось само: «прямые SSH-замеры прошлись по серверам», «так что разовым оно не будет», «там же лежал и главный резерв». Звучит как робот. Дать действию субъект (агенты, продукт, человек) или переписать естественно: «3 июня агенты провели расследование — подключились по API-ключам и SSH ко всем серверам и сняли замеры»; «письмо не разовое — будут ещё повышения». Это зеркало правила про фантомное «мы»: там «мы» выдумывают, тут субъект, наоборот, вырезали до машинности.
+
+10. **Драматизация рутины** — героический язык на бытовой операции: «ни один из 23 контейнеров не пострадал, даунтайма не случилось» про обычный `docker prune`. Масштаб слов должен совпадать с масштабом события. Чинить: «сделал `docker prune`, освободил диск — ни один рабочий процесс не пострадал». Слова про жертвы/выживание/ноль-даунтайм — только когда реально что-то было под угрозой.
+
+11. **Анонс заголовка** — заголовок, который сообщает читателю, как реагировать, вместо того чтобы назвать суть: «Философский финал…», «Важный вывод», «Главный итог». Назвать саму вещь: «От инфраструктуры как кода к инфраструктуре как сервису агента». То же в прозе — не называть свою мысль глубокой, просто высказать её.
+
+12. **Нравоучение и пустой вердикт** — предложение, чья единственная задача — произнести мораль или «границу»: «но граница остаётся», «доплата оплачивает спокойствие потом», «это и есть новый уровень». Заменить на конкретный факт: «человек контролирует финальное действие — покупку — и платит своей картой». Если предложение можно удалить без потери факта — это была мораль, а не содержание. (Усиление D2/E3 для русского.)
+
+13. **Лишние внутренние цифры** — точные объёмы дисков, размеры баз, число контейнеров, когда они ничего не дают читателю и палят внутреннюю кухню. Цифра остаётся, только если несёт смысл (эффект, сравнение, обоснование решения). «Диск был забит кэшем, освободил» лучше, чем «271 ГБ, из них Postgres 47 МБ, ClickHouse 3,3 ГБ…».
+
+14. **Жаргон вместо человеческого** — «машиночитаемый», «feed», «живой JSON» — это слова для разработчика, не для читателя. Сказать, что это значит: «данные содержат всё нужное — процессоры, память, диски, контроль памяти, локации, цену». Имя собственное (файл, протокол) оставить, только если оно важно по сути.
+
+<!-- /allow-non-ascii-block -->
+
+---
+
+### Phase 2: Fix (3 passes)
+
+**Pass 1 — Vocabulary and formatting cleanup:**
+- Replace all Tier 1 words and phrases with natural alternatives.
+- Fix all formatting artifacts (em dashes, bold, quotes, etc.).
+- Remove chatbot artifacts and signposting.
+
+**Pass 2 — Structure and rhythm:**
+- Break uniform paragraph lengths.
+- Convert excessive bullet lists to prose.
+- Vary sentence length and structure.
+- Fix synonym cycling (pick one term, repeat it).
+- Remove significance inflation and hollow intensifiers.
+- Simplify copula ("serves as" → "is").
+
+**Pass 3 — Anti-AI audit:**
+Re-read the entire text with fresh eyes. Ask, for each paragraph:
+> "Would a human editor flag this as AI-generated?"
+
+If yes, identify what still triggers the feeling and fix it. Common residuals:
+- Text is "too clean" — add a natural imperfection: a sentence-starting conjunction, a fragment, an informal word.
+- Text is "too balanced" — humans take sides. Let the text have a perspective.
+- Transitions are "too smooth" — sometimes a paragraph break is enough; no transition needed.
+
+---
+
+### Phase 3: Report and Apply
+
+1. Show the user a summary of changes by category (how many vocabulary replacements, structural fixes, etc.).
+2. Highlight any changes that altered meaning (not just style) for review.
+3. After user approval, apply the changes to the original file.
+4. Confirm the backup location.
+
+## Rules
+
+- **Preserve meaning**: Every factual claim must survive intact. You are editing style, not content.
+- **Preserve voice**: If the author has a distinctive style visible through the AI patterns, amplify it. Do not replace AI voice with your own AI voice.
+- **Language match**: All replacements must be in the same language as the surrounding text.
+- **No over-correction**: Not every em dash is bad. Not every bullet list is wrong. Use judgment — fix the pattern, not every instance.
+- **Context-aware**: A technical doc can be more formal than a blog post. A social media post should be more casual than an article. Match the register.
+- **Backup always**: Never modify without backup in place.
+- **Show your work**: The scan report should list every flagged instance so the user can verify.

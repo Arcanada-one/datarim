@@ -1,0 +1,92 @@
+# Datarim model-tier configuration - TUNE-0304 V-AC-5.
+#
+# Maps abstract capability tiers to concrete provider model IDs. Skills and
+# agents declare intent via `metadata.model_tier:` in their frontmatter; the
+# runtime resolves the tier here to pick an actual model. Top-level `model:`
+# in a skill/agent file SHOULD be `inherit` unless the skill has a hard
+# capability requirement (consilium / evolution / deep-analysis) that
+# justifies an explicit override.
+#
+# Schema version 1. Validators: dev-tools/check-skill-frontmatter.sh
+# (model: + metadata.model_tier:), dev-tools/check-model-tiers.sh
+# (this file's structural integrity, to-be-added in Phase 1 follow-up).
+#
+# Tier selection follows the vendor-default semantics defined in
+# `skills/datarim-system/model-assignment.md`. `vendor-default` is declarative:
+# an adapter MUST omit its model override rather than pass this token as a
+# literal model ID. The tier key remains capability-intent metadata.
+
+schema_version: 1
+
+# Default for skills/agents without explicit `model:` in their frontmatter.
+runtime_default: inherit
+
+# Tier -> selection behavior.
+#
+# Tier semantics:
+#   reasoning - architectural decisions, consilium panels, evolution proposals,
+#               deep analysis. Highest capability, highest cost. Default
+#               for the architect/strategist agent stack.
+#   balanced  - workhorse for normal coding, planning, review. Most skills
+#               and agents fall here. Usually expressed via `model: inherit`
+#               so the operator's session model wins; this row exists for
+#               documentation and for non-interactive resolution paths.
+#   fast      - routine ops, formatting, validation, status reports. Low
+#               latency, cheap. Default for status/help/utility skills.
+#   cheap     - explicit cost-driven equivalent of `fast`; separate name so
+#               callers can express intent ("save money" vs "save time").
+#               Maps to the same concrete model as `fast` today; reserved
+#               for future divergence.
+#
+# `selection: vendor-default` stays the cross-vendor default: the adapter omits
+# its model override and whatever the runtime is already talking to answers.
+# A tier MAY additionally carry a `models:` map naming a concrete model per
+# provider. That map is consulted only when a caller has explicitly selected
+# that provider; it never turns into a top-level `model:` in a skill or agent
+# file, which must remain `inherit` (a literal model id there is a hard gate
+# failure by design — see check-skill-frontmatter.sh).
+tiers:
+  reasoning:
+    selection: vendor-default
+    adapter_behavior: omit-model-override
+    models:
+      # Documents and artefacts: the tier whose output a human reads and keeps.
+      deepseek: deepseek-v4-pro
+  balanced:
+    selection: vendor-default
+    adapter_behavior: omit-model-override
+    models:
+      deepseek: deepseek-v4-pro
+  fast:
+    selection: vendor-default
+    adapter_behavior: omit-model-override
+    models:
+      deepseek: deepseek-flash
+  cheap:
+    selection: vendor-default
+    adapter_behavior: omit-model-override
+    models:
+      # Agent runs: high call volume, output consumed by the pipeline, not read.
+      deepseek: deepseek-flash
+
+# Provider env-var convention - used by runtime adapters to discover keys.
+# Datarim does not embed keys; adapters read from environment or Vault.
+providers:
+  anthropic:
+    api_env_var: ANTHROPIC_API_KEY
+  openai:
+    api_env_var: OPENAI_API_KEY
+  google:
+    api_env_var: GOOGLE_AI_API_KEY
+  deepseek:
+    api_env_var: DEEPSEEK_API_KEY
+    base_url: https://api.deepseek.com
+    # Model ids verified against a live GET /models on 2026-09-14: the account
+    # exposes exactly `deepseek-flash` and `deepseek-v4-pro`. Neither
+    # `deepseek-chat` nor `deepseek-reasoner` is offered, so a config naming
+    # them would resolve to nothing.
+    #
+    # `deepseek-v4-pro` spends completion tokens on reasoning BEFORE it emits
+    # any text: a live call with max_tokens=16 returned an empty string and
+    # reasoning_tokens=16. An adapter that caps this tier tightly gets silence
+    # that reads as a broken provider. Give the reasoning tier real headroom.

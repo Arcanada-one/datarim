@@ -1,0 +1,321 @@
+---
+name: datarim-system
+description: Core Datarim rules. Load this entry first, then only the fragment needed for paths, storage, numbering, backlog, routing, or archive behavior.
+current_aal: 1
+target_aal: 2
+---
+
+# Datarim System Rules
+
+> **Core system rules for Datarim. Always load this entry first.** ("Datarim" transliterates to «датарим» in Russian.) <!-- allow-non-ascii: russian-transliteration-of-framework-name-which-agents-must-recognise -->
+> Recognize both spellings — Latin «Datarim» and Cyrillic «датарим» — as the same framework in any language context. <!-- allow-non-ascii: russian-transliteration-of-framework-name-which-agents-must-recognise -->
+
+## Always-Apply Rules
+
+- Before any human-facing response, load `${DATARIM_RUNTIME:?}/skills/human-outcome-reporting/SKILL.md`. This applies to all commands, plugin execution and delegated work. Explain the requested product result and actual acceptance evidence, not internal agent activity. Preserve exact machine protocols, requested artifact-only output and installation questions; the primary agent emits one human recap. Default report language is Russian unless the user explicitly chooses another language.
+- All Datarim workflow state lives in `datarim/` at the project root.
+- Resolve the correct `datarim/` path before any read/write operation.
+- Never create `datarim/` outside `/dr-init`.
+- Use task IDs in `{PREFIX}-{NNNN}` format across the whole lifecycle.
+- Keep `datarim/` for local workflow state and `documentation/archive/` for committed long-term archives.
+- Never create `documentation/tasks/`.
+- Use `${DATARIM_RUNTIME:?}/` or project-relative paths, not absolute machine-specific paths.
+- **Operational state is line-oriented**: `tasks.md` and `activeContext.md` are strict thin indexes with one pointer per task; `backlog.md` is the pending-work ledger and may carry a single-line inline description without a pointer. Full active-task content lives in `tasks/{TASK-ID}-task-description.md`. `progress.md` is **abolished**. See § Operational File Schema below.
+
+## Operational File Schema (v1.19.0+)
+
+Operational files are machine-parseable, single-line ledgers. Active indexes are pointer-based; the backlog may preserve pending-work context inline until a task is promoted. Exact regex constants live only in `scripts/lib/schema-regex.sh`; detailed semantics live in `skills/datarim-doctor/SKILL.md`.
+
+### Strict active-index line format
+
+`tasks.md` and `activeContext.md` use the strict `ONELINER_RE` contract:
+
+```
+^- ([A-Z][A-Z0-9]{1,9}-[0-9]{4}) · (STATUS) · P[0-3] · L[1-4] · (.+) → tasks/\1-(task-description|init-task)\.md$
+```
+
+`ONELINER_RE` accepts `in_progress|blocked|not_started|pending|blocked-pending|cancelled`
+for legacy and migration compatibility. Canonical active-index writers emit
+`in_progress|blocked|not_started`; `pending` and `blocked-pending` belong to
+the backlog intake flow, and `cancelled` is archived from the backlog rather
+than mirrored as an active task.
+
+**Active-index pointer: required.** Separator: `·` (U+00B7 MIDDLE DOT).
+Arrow: `→` (U+2192). The description pointer must carry the same task ID.
+
+<!-- gate:history-allowed -->
+```
+- <TASK-ID> · in_progress · P1 · L3 · <Title> → tasks/<TASK-ID>-task-description.md
+```
+<!-- /gate:history-allowed -->
+
+### Backlog ledger line format
+
+`backlog.md` uses `BACKLOG_ITEM_RE`: the status vocabulary also accepts
+`pending`, `blocked-pending`, `cancelled`, `superseded`, `absorbed`, and
+`deferred`; priority may be P0-P4; priority and complexity may be bold. The
+description is nonempty and single-line.
+
+**Pointer: optional for backlog entries.** A pointer may be appended when a
+description artefact already exists, but Doctor must not truncate or relocate
+valid inline backlog prose merely to create one.
+
+<!-- gate:history-allowed -->
+```
+- <TASK-ID> · pending · P2 · L2 · <Inline pending-work description>
+- <TASK-ID> · blocked · P3 · L2 · <Title> → tasks/<TASK-ID>-task-description.md
+```
+<!-- /gate:history-allowed -->
+
+Section headers and blank lines are allowed; only task bullet lines are schema
+validated.
+
+### `activeContext.md` thin contract (v2 — ≤30 lines)
+
+One section only — strict mirror of `tasks.md` § Active:
+
+```markdown
+# Active Context
+
+## Active Tasks
+<!-- strict mirror of tasks.md § Active — identical lines, identical order -->
+- {ID} · {status} · P{n} · L{n} · {title} → tasks/{ID}-task-description.md
+```
+
+**Removed in v1.19.1:** `## Последние завершённые` and `## Last Updated` <!-- allow-non-ascii: russian-legacy-active-context-section-names-cited-from-prior-schema -->
+sections. Recency hint is now a runtime computation in `/dr-status --recent N`
+that mtime-sorts `documentation/archive/**/archive-*.md`. Single source of
+truth for completion history = `documentation/archive/`.
+
+### `progress.md`
+
+**Abolished as of v1.19.0.** `/dr-doctor --fix` deletes the file. Per-task
+progress notes belong in `tasks/{TASK-ID}-task-description.md` § Implementation
+Notes or in the archive doc.
+
+### `backlog-archive.md`
+
+**Abolished as of v1.19.1.** `/dr-doctor --fix` migrates each
+entry to `documentation/archive/{area or cancelled}/archive-{ID}.md` with
+per-task content-presence assertion, then deletes the file. `pre-archive-check.sh`
+blocks when the file exists.
+
+### Init-Task File Contract
+
+`datarim/tasks/{TASK-ID}-init-task.md` is the verbatim record of the operator's
+original `/dr-init` prompt. Sibling to the description file (same `{TASK-ID}`),
+but answers a different question:
+
+- **Description** (agent-authored) — what the agent plans to do.
+- **Init-task** (operator-authored, captured at `/dr-init`) — what the operator
+  literally asked for. Append-only by convention; readable by every pipeline
+  command per `skills/init-task-persistence/SKILL.md`.
+
+Required frontmatter (8 fields, closed schema):
+
+```yaml
+---
+task_id: <TASK-ID>           # ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$
+artifact: init-task          # literal
+schema_version: 1            # integer
+captured_at: <YYYY-MM-DD>
+captured_by: /dr-init        # literal
+operator: <name>
+status: canonical            # canonical | amended
+source: /dr-init             # /dr-init | backlog
+---
+```
+
+Two mandatory body headings: `## Operator brief (verbatim)`, `## Append-log
+(operator amendments)`. Validator: `"${DATARIM_RUNTIME:?}/dev-tools/check-init-task-presence.sh"
+--task <ID>`. Multi-task scan with soft 30-day window:
+`... --all`. Full contract: `skills/init-task-persistence/SKILL.md`.
+
+### Description File Contract
+
+`datarim/tasks/{TASK-ID}-task-description.md` is the **only** place for task content. Required 12-key YAML frontmatter (closed schema):
+
+```yaml
+---
+id: <TASK-ID>                 # ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$
+title: <string>               # ≤ 80 chars
+status: <enum>                # in_progress|blocked|not_started|pending|blocked-pending|cancelled
+priority: <enum>              # P0|P1|P2|P3
+complexity: <enum>            # L1|L2|L3|L4
+type: <string>                # free-form (framework, infra, content, …)
+project: <string>             # free-form (Datarim, Billing, Storefront, …)
+started: <date>               # YYYY-MM-DD
+parent: <TASK-ID|null>
+related: <list[TASK-ID]>      # empty list ok
+prd: <relpath|null>           # e.g. prd/PRD-{ID}.md
+plan: <relpath|null>          # e.g. plans/{ID}-plan.md
+---
+```
+
+Body sections (markdown, ≤ 250 lines): `## Overview`, `## Acceptance Criteria`, `## Constraints`, `## Out of Scope`, `## Related`. Optional `## Implementation Notes`, `## Decisions`. Anything beyond ~250 lines → split into PRD/design doc.
+
+### activeContext.md Write Rules
+
+When mutating `## Active Tasks`:
+- **Append** new task as a one-liner; do NOT remove other active tasks.
+- **Remove** archived task on `/dr-archive`, keep other active tasks intact.
+- **Convert** any legacy `**Current Task:** {ID}` line into the thin list before appending. (Self-heal via `/dr-doctor`.)
+
+### Self-Heal Entry Points
+
+- `/dr-init` Step 2.4 — probes `scripts/datarim-doctor.sh --quiet`; offers `/dr-doctor --fix` on non-compliance.
+- `/dr-archive` pre-archive gate — `pre-archive-check.sh` validates line format; bypass with `--no-schema-check` only during in-flight migration.
+
+## Fragment Routing
+
+Load only the fragment needed for the current sub-problem:
+
+- `path-and-storage.md`
+  Use for path resolution, core file locations, report storage, and archive/documentation boundaries.
+- `task-identity-and-context.md`
+  Use for task numbering, active task tracking, prefix rules, and rename policy.
+- `model-assignment.md`
+  Use for `model` / `effort` frontmatter rules and agent-skill assignment policy.
+- `backlog-and-routing.md`
+  Use for backlog architecture, complexity levels, date handling, and mode transitions.
+- `command-and-archive-rules.md`
+  Use for `/dr-` namespace rules, archive area mapping, project setup, and critical invariants.
+
+## Quick Path Resolution Rule
+
+Before writing any file to `datarim/`:
+
+1. Resolve the explicit installation with `scripts/project_scope.py`.
+2. Respect physical paths and nested repository context grants.
+3. Use only `<resolved-project>/datarim/`; historical state never activates a project. See `path-and-storage.md`.
+
+## Large-Plan Read Strategy (L3+ tasks)
+
+When a plan and its supporting documents exceed the available context, locate
+relevant headings with `rg -n` and read bounded sections. Keep a phase checklist
+with exact source paths and acceptance-criterion references. Read the original
+passage again whenever a summary is ambiguous. Native subagents may perform
+independent bounded reads when project policy permits delegation. Coworker and
+RTK are not runtime dependencies.
+
+## Upstream API Audit Before Code Hardening
+
+When the question is «is THIS code generating bad data?» for an integration that ingests payloads from an external API with a queryable list endpoint, audit the upstream payload corpus FIRST — before adding instrumentation, hardening code, or another round of defensive coercion.
+
+**Steps.**
+
+1. Identify the upstream list endpoint and the field shapes the integration extracts (e.g. `custom_fields[*].some_array_field`).
+2. Paginate the relevant scope end-to-end with a single offline script. Authenticated read-only call; respect rate limits.
+3. For each item, classify the field shape against the «abnormal» pattern you are hardening against (bracketed string literal, wrapped object, type mismatch).
+4. If the count of abnormal payloads is **zero**, the bug class cannot be in the live ingest path. The residue source is downstream: orphan rows (records the API no longer returns), an external mutator (another writer to the same DB), or historical residue (pre-fix code state).
+5. If the count is **non-zero**, capture the matching payloads as test fixtures and replay through the ingest pipeline locally. The first reproducer dictates the fix.
+
+**Why this saves rounds.** A multi-round hardening sequence on the ingest code path is the natural reflex — but if upstream payloads are clean, every additional defensive layer is dead code by construction. One pagination scan over the full corpus rules out an entire bug class at the cost of an offline script, no rollout coordination, and no operator toll. Reserve cron-side / service-side instrumentation for cases where the audit confirms abnormal payloads exist.
+
+**When to apply.** L3+ tasks investigating «output column carries malformed data» against an integration whose source API exposes a queryable list endpoint. Skip when the upstream API only supports push-based delivery or when the abnormal-shape question can be answered cheaper from internal logs.
+
+---
+
+## Runtime / Canonical Identity (project-local copy)
+
+Datarim 3.0 installs a **pinned copy** of the framework into each project at
+`.datarim-runtime/` (`install.sh --project <path>`; `update.sh` runs the same
+transaction). The installer copies files and refuses symlinks, so
+`${DATARIM_RUNTIME:?}/{skills,agents,commands,templates}/{name}.md` is **not** the
+same file as `<scope>/{name}.md` in the framework source repository.
+
+Implications when editing a framework artefact:
+
+- Edit the framework source repository, commit there, then re-run
+  `./install.sh --project <path>` to refresh the project's runtime. The source
+  repository is the single source of truth for review and commit.
+- An edit made only under `.datarim-runtime/` is invisible to the source
+  repository's `git diff` and is discarded by the next install, which replaces
+  `.datarim-runtime/` wholesale (carrying over only `state/` and
+  `jev-config.json`).
+- `.datarim-runtime/installation.json` records the source commit (`source_sha`),
+  a digest of the source tree (`source_digest`) and digests of the client entry
+  files the install wrote; use it to tell which framework revision a project runs.
+
+The pre-3.0 symlink-mode install (runtime directories symlinked into a framework
+clone under the user's home directory) is retired; guidance written for it does
+not apply to a 3.0 project.
+
+## Loading Order
+
+Skills, agents, commands, and templates load from two layers:
+
+1. **Framework layer:** `${DATARIM_RUNTIME:?}/{skills,agents,commands,templates}/{name}.md`
+   — the pinned copy described above.
+2. **Local overlay:** `${DATARIM_RUNTIME:?}/local/{skills,agents,commands,templates}/{name}.md`.
+   Project-private and never committed. `install.sh` does not create it, and a
+   re-install does not carry it over, so re-apply overlay files (and re-run
+   `/dr-plugin sync` for plugin links, which also live under `local/`) after an
+   update.
+
+**Conflict resolution:** if a name collides between layer 1 and layer 2, the
+local overlay wins. `validate.sh` emits a WARN line per detected override.
+
+**Critical-skill blocklist (security contract).** Six skills carry the framework's
+security and workflow invariants and MUST NOT be shadowed from `local/`:
+
+- `skills/security/SKILL.md`
+- `skills/security-baseline/SKILL.md`
+- `skills/compliance/SKILL.md`
+- `skills/datarim-system/SKILL.md`
+- `skills/ai-quality/SKILL.md`
+- `skills/evolution/SKILL.md`
+
+If `${DATARIM_RUNTIME:?}/local/skills/<name>.md` matches any of the above, `validate.sh`
+emits `ERROR: critical skill ... cannot be overridden via local/ overlay
+(security contract)` and exits **1**. The blocklist is path-scoped to `skills/`;
+identically named files under `local/agents/`, `local/commands/`, or
+`local/templates/` keep the standard WARN behaviour. To customise behaviour of
+a critical skill, fork the framework or contribute upstream — silent local
+shadowing is rejected by design.
+
+**Convention:** prefix local files with a personal namespace
+(`local/skills/my-org-style/SKILL.md`) to avoid accidental overrides of framework
+skills you actually wanted to keep tracking upstream.
+
+## Skill Discovery
+
+Skills push the agent out of default behavior into a disciplined process. They only help if loaded *before* you act.
+
+**The Rule:** invoke relevant skills BEFORE any response or action — including clarifying questions. Even a 1% chance a skill applies means check first; an unfit skill can be dropped, but decisions made without one cannot be undone. Discovery: `${DATARIM_RUNTIME:?}/skills/` (or the runtime's skill tool); `/dr-help` lists `dr-*` commands.
+
+**Instruction Priority** when skills, project memory, and default behavior conflict:
+1. User's explicit instructions (`AGENTS.md` / `AGENTS.md` / conversation) — highest. The user is in control.
+2. Datarim skills and framework rules — override default behavior in their domain.
+3. Default runtime behavior — lowest.
+
+If `AGENTS.md` says "don't use TDD" and a skill says "always use TDD", follow `AGENTS.md`.
+
+**Skill Priority** when multiple apply: process skills first (`brainstorming`, `systematic-debugging`, `writing-plans`) decide *how*; implementation skills (`frontend-ui`, `infra-automation`, `ai-quality`) execute under that process. "Let's build X" → brainstorming first; "Fix this bug" → systematic-debugging first.
+
+**Skill Types:** rigid (TDD, debugging, security gates) — follow exactly, the discipline is the value. Flexible (patterns, heuristics) — adapt principles to context. The skill itself declares which.
+
+**Red Flags — rationalizations that mean STOP and check for skills:**
+
+| Thought | Reality |
+|---------|---------|
+| "Simple question / quick check / not really a task" | Questions and actions are tasks. Check for skills. |
+| "I need more context / let me explore first" | Skills tell you HOW to gather context. Check first. |
+| "I remember this / I know what that means" | Skills evolve. Knowing ≠ invoking. Read current version. |
+| "Doesn't need a skill / overkill / one thing first" | If a skill exists, use it. Simple things become complex. |
+| "This feels productive" | Undisciplined action wastes time. Skills prevent that. |
+
+User instructions describe goal (*what*), not workflow (*how*). "Just commit this" still requires TDD / verification / commit-message discipline — unless explicitly waived.
+
+## Task Disposition Patterns
+
+When closing a task, choose the disposition that matches the actual outcome:
+
+| Disposition | When | Action |
+|---|---|---|
+| `completed` | All ACs PASS, full archive done | Standard `/dr-archive` flow → write `documentation/archive/{area}/archive-{ID}.md`; remove entry from `backlog.md`. |
+| `cancelled` | User abandoned the task; no deliverable shipped | Write `documentation/archive/cancelled/archive-{ID}.md` with status `cancelled`, date, and reason; remove entry from `backlog.md`. |
+| `absorbed` | Scope and deliverable fully delivered **inside another task** | Remove entry from `backlog.md`; note `delivered as part of {OTHER-TASK}` inside the absorbing task's archive doc `documentation/archive/{area}/archive-{OTHER-TASK}.md`. No separate archive document for this ID — reference the absorbing task's archive. |
+| `superseded` | Replaced by a newer task with broader/different scope; no deliverable from this ID | Write `documentation/archive/cancelled/archive-{ID}.md` with status `superseded` and a link to the replacing task; remove entry from `backlog.md`. |
+
+Source: prior incident — an `update.sh` deliverable was shipped inside a different task's scope; `cancelled` was inaccurate (deliverable existed) and `completed` was inaccurate (no separate archive). `absorbed` captures the reality and preserves audit trail.

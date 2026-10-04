@@ -1,0 +1,159 @@
+# Project Documentation Stubs
+
+> This is a meta-template used by `/dr-init` project scaffolding (skill: `project-init.md`).
+> Each section below is a separate file to be created under `documentation/` per the **Diátaxis Documentation Taxonomy Mandate** (`skills/diataxis-docs/SKILL.md`).
+> The agent reads this template and creates individual files from each section. Category READMEs (`documentation/{tutorials,how-to,reference,explanation}/README.md`) come from `templates/documentation-diataxis/<category>/README.md` (separate stubs, not duplicated here).
+>
+> **Mapping (per skill § Mapping Table):** architecture → reference (system map); testing / deployment / gotchas → how-to (problem-solving recipes).
+
+---
+
+## File: documentation/reference/architecture.md
+
+```markdown
+# Architecture
+
+> Last updated: __DATE__
+
+## Overview
+
+[TODO: High-level description of the system architecture]
+
+## Components
+
+| Component | Path | Language | Purpose |
+|-----------|------|----------|---------|
+| [TODO] | `src/` | [TODO] | [TODO] |
+
+## Data Flow
+
+[TODO: Describe how data flows through the system]
+
+## Security Model
+
+[TODO: Authentication, authorization, data protection]
+```
+
+---
+
+## File: documentation/reference/architecture.md — SECRECY-AWARE VARIANT
+
+> **Use this variant instead of the one above when `/dr-init` project-init is in
+> secrecy-aware mode** (Step 4.5 detected a secrecy signal). The mechanism-bearing
+> sections are redacted so the secret core never lands on the public surface. The
+> secret lives only in the private code and, if needed, in `documentation/ephemeral/`.
+
+```markdown
+# Architecture
+
+> Last updated: __DATE__
+>
+> 🔒 **Secret-core project.** The internal mechanism is REDACTED from this public
+> reference. Do not describe the algorithm / encoding / mechanism here or anywhere
+> under `documentation/{tutorials,how-to,reference,explanation}/` or `README*`.
+> See AGENTS.md § Secrecy for the disclosure boundary and the pre-publish gate.
+
+## Overview
+
+[REDACTED — see AGENTS.md § Secrecy]
+
+## Components
+
+| Component | Path | Language | Purpose |
+|-----------|------|----------|---------|
+| [internal] | `src/` | [internal] | [REDACTED — see AGENTS.md § Secrecy] |
+
+## Data Flow
+
+[REDACTED — see AGENTS.md § Secrecy]
+
+## Security Model
+
+[REDACTED — see AGENTS.md § Secrecy]
+```
+
+---
+
+## File: documentation/how-to/testing.md
+
+```markdown
+# Testing
+
+> Last updated: __DATE__
+
+## Strategy
+
+[TODO: Which test types are used and why]
+
+## Test Structure
+
+| Type | Location | Runner | Purpose |
+|------|----------|--------|---------|
+| Unit | `test/` | [TODO] | Core logic |
+| Integration | `test/` | [TODO] | Component interaction |
+| E2E | `test/e2e/` | [TODO] | Full user flows |
+
+## How to Run
+
+[TODO: Commands for running tests]
+
+## Coverage Expectations
+
+[TODO: Minimum coverage thresholds and what to prioritize]
+```
+
+---
+
+## File: documentation/how-to/deployment.md
+
+```markdown
+# Deployment
+
+> Last updated: __DATE__
+
+## Environments
+
+| Environment | URL | Purpose |
+|-------------|-----|---------|
+| Local | `localhost:PORT` | Development |
+| Production | [TODO] | Live |
+
+## Deploy Steps
+
+[TODO: Step-by-step deployment instructions]
+
+## Rollback
+
+[TODO: How to roll back a bad deployment]
+
+## Monitoring
+
+[TODO: Health checks, alerts, dashboards]
+```
+
+---
+
+## File: documentation/how-to/gotchas.md
+
+```markdown
+# Gotchas
+
+> Hard-won lessons organized by category. Add entries as they are discovered.
+> Each entry: **what happened** — **what to do / avoid**.
+
+## Setup
+
+[Nothing yet — add entries as discoveries are made]
+
+## Development
+
+[Nothing yet]
+
+## Deployment
+
+[Nothing yet]
+
+## Dependencies
+
+[Nothing yet]
+```

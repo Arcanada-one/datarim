@@ -1,0 +1,131 @@
+# Doc-fanout linter config — bundled defaults for Datarim framework repo
+# Schema: v1. See dev-tools/README.md for grammar.
+#
+# Three rule kinds:
+#   grep_in_file    — pattern (with {name} substitution) must appear in `file`
+#   file_must_exist — `path` (with {name}) must resolve to an existing file
+#   count_match     — first capture group of `pattern` in `consumer_file`
+#                     must equal len(glob expansion)
+#
+# Block style only (depth <=3). No flow style, no anchors, no multiline scalars.
+
+version: 1
+
+artifacts:
+  - glob: commands/dr-*.md
+    name_transform: basename_no_ext
+    consumers:
+      - id: framework_claude
+        kind: grep_in_file
+        file: AGENTS.md
+        pattern: /{name}
+        severity: error
+      - id: framework_readme
+        kind: grep_in_file
+        file: README.md
+        pattern: /{name}
+        severity: error
+      - id: docs_commands_row
+        kind: grep_in_file
+        file: documentation/reference/commands.md
+        pattern: /{name}
+        severity: error
+      - id: site_data_php
+        kind: file_must_exist
+        path: ../../../Websites/datarim.club/data/commands/{name}.php
+        severity: warning
+        cross_root: true
+
+  # --- Per-skill fanout: DISABLED, pending a linter capability -------------
+  # The skill layout is `skills/<name>/SKILL.md`, not `skills/<name>.md`.
+  # The previous entry here globbed `skills/*.md`, which expands to ZERO
+  # entries — so it was silently inert and checked nothing.
+  #
+  # It cannot simply be re-pointed at `skills/*/SKILL.md`: the artefact name
+  # is derived by `name_transform`, and the linter supports only
+  # `basename` / `basename_no_ext` / `literal`. All three collapse every
+  # skill to the same name ("SKILL"), which turns the two `grep_in_file`
+  # consumers into trivially-true checks and emits one bogus
+  # `data/skills/SKILL.php` warning per skill (measured: 51 -> 118 warnings,
+  # zero added signal).
+  #
+  # Re-enabling requires a `parent_dirname` name_transform in
+  # dev-tools/doc-fanout-lint.sh. Until then the skill count is still
+  # guarded by the `skill_count_docs` rule under `counts:` below, which
+  # works correctly against `skills/*/SKILL.md`.
+
+  - glob: agents/*.md
+    name_transform: basename_no_ext
+    consumers:
+      - id: framework_claude
+        kind: grep_in_file
+        file: AGENTS.md
+        pattern: "{name}"
+        severity: error
+      - id: docs_agents_row
+        kind: grep_in_file
+        file: documentation/reference/agents.md
+        pattern: "{name}"
+        severity: error
+      - id: site_data_php
+        kind: file_must_exist
+        path: ../../../Websites/datarim.club/data/agents/{name}.php
+        severity: warning
+        cross_root: true
+
+counts:
+  - id: skill_count_docs
+    # Layout is skills/<name>/SKILL.md — `skills/*.md` expanded to 0, so this
+    # rule compared 0 against the documented count and could never be
+    # meaningful.
+    source_glob: skills/**/SKILL.md
+    consumer_file: documentation/reference/skills.md
+    pattern: ([0-9]+) reusable skill
+    severity: error
+  - id: agent_count_docs
+    source_glob: agents/*.md
+    consumer_file: documentation/reference/agents.md
+    pattern: ([0-9]+) specialized agent
+    severity: error
+  - id: command_count_docs
+    source_glob: commands/dr-*.md
+    consumer_file: documentation/reference/commands.md
+    pattern: ([0-9]+) slash command
+    severity: error
+
+  # --- Site narrative-count sentinels (TUNE-0106, TUNE-0100 follow-up) ---
+  # The canonical live-inventory counts quoted in the datarim.club narrative
+  # surfaces (hero blurb, About page) must equal the live framework glob
+  # counts. Cross-root site paths are warning-only: they are absent in a
+  # single-repo CI checkout, but the local pre-commit hook (--strict) and the
+  # operator machine (where the site is checked out) enforce them for real.
+  - id: site_hero_agent_count
+    source_glob: agents/*.md
+    consumer_file: ../../../Websites/datarim.club/content/en.php
+    pattern: ([0-9]+) agents
+    severity: warning
+  - id: site_hero_command_count
+    source_glob: commands/dr-*.md
+    consumer_file: ../../../Websites/datarim.club/content/en.php
+    pattern: ([0-9]+) commands
+    severity: warning
+  - id: site_hero_skill_count
+    source_glob: skills/**/SKILL.md
+    consumer_file: ../../../Websites/datarim.club/content/en.php
+    pattern: ([0-9]+) skills
+    severity: warning
+  - id: site_about_agent_count
+    source_glob: agents/*.md
+    consumer_file: ../../../Websites/datarim.club/pages/about.php
+    pattern: ([0-9]+) specialized agents
+    severity: warning
+  - id: site_about_command_count
+    source_glob: commands/dr-*.md
+    consumer_file: ../../../Websites/datarim.club/pages/about.php
+    pattern: ([0-9]+) commands
+    severity: warning
+  - id: site_about_skill_count
+    source_glob: skills/**/SKILL.md
+    consumer_file: ../../../Websites/datarim.club/pages/about.php
+    pattern: ([0-9]+) skills
+    severity: warning

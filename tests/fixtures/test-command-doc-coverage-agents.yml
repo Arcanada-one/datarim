@@ -1,0 +1,14 @@
+# Fixture for test-command-doc-coverage.bats (assertion 2)
+# Asserts every commands/dr-*.md is mentioned in framework AGENTS.md.
+
+version: 1
+
+artifacts:
+  - glob: commands/dr-*.md
+    name_transform: basename_no_ext
+    consumers:
+      - id: framework_agents
+        kind: grep_in_file
+        file: AGENTS.md
+        pattern: /{name}
+        severity: error

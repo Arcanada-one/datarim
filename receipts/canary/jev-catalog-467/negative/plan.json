@@ -1,0 +1,268 @@
+{
+ "schema": "CanaryPlan/v2",
+ "id": "datarim-467-jev-catalog-process-negative",
+ "owner": "Control network hand for JEV-audit remediation (Arcanada, claude-opus-5-5)",
+ "environment": "control-host-isolated-tmphome",
+ "read_only": false,
+ "subject": {
+  "schema": "GitCanarySubject/v1",
+  "commit": "1b36781c8d265205044caefe1d0a9535bc788c3a",
+  "tree": "fae1a1cf0cc988bbde41a4008a41c30d88892bf3",
+  "evidence": {
+   "path": "source-evidence.json",
+   "sha256": "97e41d4f3a4bddbadd4179baf826cfa5e1a93dcf723bcfed9a4aa41a021ecb10",
+   "source_field": "commit"
+  }
+ },
+ "purpose": "AUP-GRAPH-008 canary for the four code units of datarim#467 on an inferred boundary. The host JEV runtime is a CLI/hook, not a service, so the live contour is the PROCESS: the subject installer installs into a throwaway HOME under TMPDIR with an authorized catalog root, the installed jev-hook answers a UserPromptSubmit through the live provider, and the selected catalog references must carry sha256 equal to the file bytes; --clear-catalog-roots must remove catalog advice. Negative probe: world-writable root refused by the installer, planted world-writable and FIFO entries refused by the installed runtime without blocking. The real ~/.local/share/jev, ~/.config/jev, ~/.claude and ~/.codex are never written; the provider key bytes are copied into the throwaway 0600 key file and removed with it. NEGATIVE CONTROL: the same probes against origin/main before #467 must be red.",
+ "probes": [
+  {
+   "kind": "process",
+   "id": "isolated-tmphome-install-route-hook-revoke",
+   "argv": [
+    "/usr/bin/python3.12",
+    "/var/tmp/control-jev/canary/harness.py",
+    "positive"
+   ],
+   "cwd": ".",
+   "env_keys": [
+    "PATH",
+    "TMPDIR",
+    "JEV_CANARY_KEY_FILE"
+   ],
+   "timeout_seconds": 120,
+   "capture_limit_bytes": 262144,
+   "executable_sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f",
+   "execution_files": [
+    {
+     "path": "/var/tmp/control-jev/canary/harness.py",
+     "sha256": "411412eb8733cd777199b54127b257b793f8c6e0c0eeb12c45b426f98b32aeae"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/scripts/jev_host_install.py",
+     "sha256": "457784e712ff8828fe64eceb749791317628bc49aca31cb9cb63130bba78fdd7"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/scripts/jev_hook.py",
+     "sha256": "9c24fe47faa69a3324d5415d53ebc01c29e38ff990a15cfe1c8e9c5b53f6b73f"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/catalog.py",
+     "sha256": "8fc5d7dd3cacfdd0dbe5e28aa6eba1f73f211fbb744301679f05d9a7c7871bae"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/cli_report.py",
+     "sha256": "83d677d5542590808ba19000530698300d31b60c3564a2ce57b9d0d6e57137df"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/components.py",
+     "sha256": "8bddc9fc0c436429546e0d36f3de195b4385c35485fac790f1e31e729dae5230"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/doctor_api.py",
+     "sha256": "db87f25ee02988ccbc057c4655297194d7b143f5756c6099b3fe3a7433efef8e"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_post_tool.py",
+     "sha256": "e6f5db630b8905a017bc6ce206831e1cda94cd10104b562282db8d23b11829f4"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_pre_tool.py",
+     "sha256": "63357504693c2ca37338bb87e819541191ddce62250637115e4bab214418a799"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_stop.py",
+     "sha256": "e951e8c30bc331248a3feae7f17cdb33ef5947d479b4ed7432827622dc4fbd34"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_user_prompt.py",
+     "sha256": "3ee4411f1739786895113a373e8d6058b81e9fc7615cb193bb8eeb2417c89c84"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/install.py",
+     "sha256": "0f185524c3707edc96a9a39b0dc794dba2c2321687a554a45dbe6759ad4af50a"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/jev_client.py",
+     "sha256": "360266565fc97da93ad933302b8e80483d626712eb6495c8235034bce2e14f2f"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/ledger.py",
+     "sha256": "649b2eb72b77e3ea28fd7d91896c3df53f78a6c12118b832e9cdac5b9d24eb07"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/live_policy.py",
+     "sha256": "7aee1416d40d06ab6ec16a0a83b4550c8b3326c0ba2315512fb93a8496d643dc"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/live_supervisor.py",
+     "sha256": "99d49782c88f803c2144b0c99c4b7d81e34446caa5f9a654b0e430cc39106dd0"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/project_state.py",
+     "sha256": "bbd607e5cbe9802e4c566589b184fa3dbfe3620758719b88c977e52ded5688d8"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/prompt_cache.py",
+     "sha256": "070399bbff82cc248cb24b0d8cba0f2975844e5d0e347f882da95abc01e1cdbf"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/route.py",
+     "sha256": "91b804e236ae23c71a7ce95ccda65d226ff787ade2f9136f3eaa31820e45f9f2"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/runtimes.py",
+     "sha256": "9d3cbaa41004069dcf82a8eb4bf6dfaecd1409d2c87f66e05277fc7f6ef6e669"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/safety_floor.py",
+     "sha256": "86aa7f3c0a4c77c10be7053c1edd6d4c90dc82705c0212eff960e8e100a7ccbd"
+    }
+   ],
+   "expect": {
+    "exit_codes": [
+     0
+    ],
+    "stdout_contains": [
+     "CANARY ok install authorized catalog_roots=[team] datarim_projects=[]",
+     "CANARY ok installed release byte-identical to subject for catalog, catalog_sources, route, hook",
+     "catalog reference(s), every sha256 matches file bytes",
+     "CANARY ok revoke --clear-catalog-roots removes catalog advice (hook rc=0, no team-- entries)",
+     "CANARY ok cleanup throwaway HOME and copied key removed"
+    ]
+   },
+   "entities": [
+    "code_unit:plugins/dr-jev-control/scripts/catalog.py",
+    "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py",
+    "code_unit:plugins/dr-jev-control/scripts/route.py",
+    "code_unit:scripts/jev_host_install.py"
+   ],
+   "mutating": true
+  },
+  {
+   "kind": "process",
+   "id": "isolated-tmphome-planted-unsafe-entries-refused",
+   "argv": [
+    "/usr/bin/python3.12",
+    "/var/tmp/control-jev/canary/harness.py",
+    "negative"
+   ],
+   "cwd": ".",
+   "env_keys": [
+    "PATH",
+    "TMPDIR",
+    "JEV_CANARY_KEY_FILE"
+   ],
+   "timeout_seconds": 120,
+   "capture_limit_bytes": 262144,
+   "executable_sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f",
+   "execution_files": [
+    {
+     "path": "/var/tmp/control-jev/canary/harness.py",
+     "sha256": "411412eb8733cd777199b54127b257b793f8c6e0c0eeb12c45b426f98b32aeae"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/scripts/jev_host_install.py",
+     "sha256": "457784e712ff8828fe64eceb749791317628bc49aca31cb9cb63130bba78fdd7"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/scripts/jev_hook.py",
+     "sha256": "9c24fe47faa69a3324d5415d53ebc01c29e38ff990a15cfe1c8e9c5b53f6b73f"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/catalog.py",
+     "sha256": "8fc5d7dd3cacfdd0dbe5e28aa6eba1f73f211fbb744301679f05d9a7c7871bae"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/cli_report.py",
+     "sha256": "83d677d5542590808ba19000530698300d31b60c3564a2ce57b9d0d6e57137df"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/components.py",
+     "sha256": "8bddc9fc0c436429546e0d36f3de195b4385c35485fac790f1e31e729dae5230"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/doctor_api.py",
+     "sha256": "db87f25ee02988ccbc057c4655297194d7b143f5756c6099b3fe3a7433efef8e"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_post_tool.py",
+     "sha256": "e6f5db630b8905a017bc6ce206831e1cda94cd10104b562282db8d23b11829f4"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_pre_tool.py",
+     "sha256": "63357504693c2ca37338bb87e819541191ddce62250637115e4bab214418a799"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_stop.py",
+     "sha256": "e951e8c30bc331248a3feae7f17cdb33ef5947d479b4ed7432827622dc4fbd34"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/hook_user_prompt.py",
+     "sha256": "3ee4411f1739786895113a373e8d6058b81e9fc7615cb193bb8eeb2417c89c84"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/install.py",
+     "sha256": "0f185524c3707edc96a9a39b0dc794dba2c2321687a554a45dbe6759ad4af50a"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/jev_client.py",
+     "sha256": "360266565fc97da93ad933302b8e80483d626712eb6495c8235034bce2e14f2f"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/ledger.py",
+     "sha256": "649b2eb72b77e3ea28fd7d91896c3df53f78a6c12118b832e9cdac5b9d24eb07"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/live_policy.py",
+     "sha256": "7aee1416d40d06ab6ec16a0a83b4550c8b3326c0ba2315512fb93a8496d643dc"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/live_supervisor.py",
+     "sha256": "99d49782c88f803c2144b0c99c4b7d81e34446caa5f9a654b0e430cc39106dd0"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/project_state.py",
+     "sha256": "bbd607e5cbe9802e4c566589b184fa3dbfe3620758719b88c977e52ded5688d8"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/prompt_cache.py",
+     "sha256": "070399bbff82cc248cb24b0d8cba0f2975844e5d0e347f882da95abc01e1cdbf"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/route.py",
+     "sha256": "91b804e236ae23c71a7ce95ccda65d226ff787ade2f9136f3eaa31820e45f9f2"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/runtimes.py",
+     "sha256": "9d3cbaa41004069dcf82a8eb4bf6dfaecd1409d2c87f66e05277fc7f6ef6e669"
+    },
+    {
+     "path": "/var/tmp/control-jev/subject-base/plugins/dr-jev-control/scripts/safety_floor.py",
+     "sha256": "86aa7f3c0a4c77c10be7053c1edd6d4c90dc82705c0212eff960e8e100a7ccbd"
+    }
+   ],
+   "expect": {
+    "exit_codes": [
+     0
+    ],
+    "stdout_contains": [
+     "CANARY ok installer refused world-writable catalog root",
+     "CANARY ok control: clean catalog accepted by installed runtime (4 candidates)",
+     "CANARY ok installed runtime refused planted world-writable entry: REFUSED unsafe catalog file",
+     "CANARY ok hook gave no catalog advice with world-writable entry",
+     "CANARY ok installed runtime refused planted FIFO without blocking",
+     "CANARY ok hook returned without blocking and without catalog advice with FIFO",
+     "CANARY ok cleanup throwaway HOME and copied key removed"
+    ]
+   },
+   "entities": [
+    "code_unit:plugins/dr-jev-control/scripts/catalog.py",
+    "code_unit:plugins/dr-jev-control/scripts/hook_user_prompt.py",
+    "code_unit:plugins/dr-jev-control/scripts/route.py",
+    "code_unit:scripts/jev_host_install.py"
+   ],
+   "mutating": true
+  }
+ ]
+}

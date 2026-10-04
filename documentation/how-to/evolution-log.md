@@ -1,0 +1,2343 @@
+# Evolution Log
+
+## 2026-08-09 -- TUNE-0574 -- Task-ID provenance gate widened and made fail closed (v2.65.0)
+
+- **Mechanism.** The one-target gate now scans the governed runtime, public
+  documentation categories, and root entry documents across `.md`, `.template`,
+  `.sh`, `.yaml`, and `.yml`. Its POSIX-awk state machine rejects malformed or
+  nested history hatches and provenance labels inside otherwise valid hatches;
+  exact exemptions, portable boundaries, NUL-safe traversal, and fail-closed Git
+  diff handling remove the previous bypasses.
+- **Corpus and site.** Real provenance stamps and dead task-description links
+  were removed while rendered examples stayed narrow and explicit. The public
+  site uses the same generic task-ID shape with no hatch, including novel-prefix
+  and adjacent-non-ID controls.
+- **Fleet invariant.** The hook-sync runbook now probes the semantic behavior
+  `missing read targets fail closed` instead of a historical task number.
+- **Evidence boundary.** Pre-fix Bats and site controls were red against the old
+  mechanisms. Merge, release, deployment, and fleet readbacks are recorded in
+  the task archive only after their immutable revisions are proven.
+
+## 2026-08-05 -- rotation-runbook skill: credential-rotation playbook formalized (TUNE-0112)
+
+- **Trigger fired.** The deferred activation condition (three or more similar rotation exercises accumulated) is met: a CI-secret key rotation that surfaced a hidden payload-validation regression (consumer review), an ecosystem-wide credential-leak audit and history scrub (SEC-0001), and a multi-vendor exposed-credential rotation (consumer review).
+- **What shipped.** `skills/rotation-runbook/SKILL.md` — seven-step playbook: consumer inventory + secret-store↔producer truth-check, deliberate grace-window choice, auth-scoped revoke/issue verification (false-green trap), full producer-payload replay over minimal probe, canonical secret-store path discipline, rotation-log entry, and leak-response addenda (rotate-before-scrub, local-mirror backup, fresh-clone scrub verification).
+- **Provenance.** Distilled from the three archives above; the reflection lessons are generalized stack-agnostically (no vendor or task IDs in the shipped skill per the history-agnostic gate).
+
+---
+
+## 2026-08-04 -- PRD-amendment sidecars: rejection recorded, branch is not lost work (TUNE-0563)
+
+- **Decision.** The recovered implementation on the orphaned worktree branch `tune-0294-prd-amendment` (HEAD `39a19f4`, "feat: add governed PRD amendments" -- `scripts/lib/prd-amendments.sh`, `dev-tools/check-prd-amendments.sh`, `dev-tools/create-prd-amendment.sh`, `templates/prd-amendment-template.md`, three bats suites, spec-graph wiring) is **deliberately NOT landed**. This is the permanent record; do not re-triage that branch as lost work.
+- **Why.** (1) The current immutability contract already carries the dated, evidence-based decision "Prose amendments stay prose -- decided 2026-08-02" (`skills/immutability/SKILL.md`, landed via PR #325 commit `c33d95b`), which names this exact mechanism and declines it; its revisit trigger (observed amendment usage) has not fired -- 274 PRDs, zero `Design Amendment` sections. (2) The chain ledger anchors an immutability guarantee in gitignored, ephemeral, regenerable `datarim/prd/` -- the substrate contradicts the guarantee. (3) ~600 lines of embedded Python conflict with the pure-shell validator-contract weight class. (4) The bundle smuggles PRD `-vN` revision resolution (`resolve_prd_file`) into every graph consumer as a side effect.
+- **Full ADR:** `datarim/creative/creative-prd-amendment-sidecars-decision.md`. The orphaned worktree directory is the only copy of the implementation and is preserved as the reference should the revisit trigger ever fire; re-landing requires an operator-approved reversal of the 2026-08-02 decision.
+
+---
+
+## 2026-07-22 -- Public visibility and exact-SHA CI evidence gates (v2.58.0)
+
+Two recurring release failures are now structural gates. A new public repository or private-to-public transition must prove the exact allowlisted tree, all reachable history, unsupported-object absence, redacted policy checks, and an independently hashed secret scan before visibility changes. When GitHub Actions is an acceptance criterion, only the actual target workflow executing successfully on the exact implementation SHA satisfies it; a queued run, zero-runner result, unrelated probe, or follow-up task does not.
+
+The implementation is deliberately read-only and fail-closed. Its evidence surface contains classifications, counts, identifiers, hashes, and tool versions rather than matched values. Provider-hosted surfaces and the immutable ref set are rechecked immediately before a visibility mutation to limit TOCTOU drift.
+
+---
+
+## 2026-07-15 -- Off-host auto-dispatch: replace the STOP round-trip with autonomous delegation (v2.57.0)
+
+- **Problem.** The off-host Step-0 contract in every `/dr-*` command said "on off-host (exit 10): emit a delegation directive and STOP". A local agent that resolved off-host froze and asked the operator to type the dispatch -- even after the operator said "run it autonomously". Every off-host task forced an operator round-trip; the agent behaved as a postman, not an executor. Root cause: a misplaced gate -- the confirmation protects irreversibility, but dispatch is reversible transport (spawns a remote tmux session); the irreversible steps stay hard-gated on the remote agent downstream.
+- **Design (3-way consilium architect/security/sre, converged).** Replace STOP with AUTO-DISPATCH for mutating pipeline stages + the autonomous driver (init/prd/plan/design/do/qa/compliance/archive/auto); keep read/utility stages (next/quick) LOCAL and never-dispatch. Architect: the `required_host` binding IS the operator's standing authorization, auto-dispatch is the correct default, has-session probe -> attach-not-relaunch. Security (safe-with-guards): the removed human eyeball on the SSH target is replaced by host-key pinning (mismatch=MITM=STOP); exit 10 has exactly two outcomes -- remote dispatch or STOP+report, local execution is NEVER an outcome (corrupted-map-under-exit-10 is fail-CLOSED); bare-task-id payload only, no autonomy-flag forwarding; argv-safety; identifier-free audit line. SRE (closed state machine): 90s first-status-write deadline -> single bare-id re-send -> FAILED-LAUNCH log+escalate+STOP (never silent re-dispatch = the 29-orphan incident); read-only monitor via classify-pane; escalate hard-gates as option-index, never proceed-on-silence; never fall back to local.
+- **This lands the contract text (Phase 1 unblock).** The 9 auto-dispatch + 2 local-class command blocks now carry the converged Step-3. Reuses the shipped monitoring machinery (heartbeat-status.sh + classify-pane.sh + dispatch-digest.sh, TUNE-0490 Phase 2). Identifier-free, English-only -- all host values stay in the gitignored local map.
+- **Deferred to the follow-up (recorded in backlog).** Extract the block into a single shared fragment the 11 commands cite (doc-fanout drift gate polices "no inline EXECUTION HOST block"); a host-key-pinning + audit-line helper; a CI grep-gate rejecting IP/user@host strings in commands/. Class B, PRD-scoped.
+
+## 2026-07-15 -- Branch-integration floor: forbid direct integration->protected merges (v2.56.0)
+
+- **Problem.** Nothing at runtime stopped an agent from integrating a shared integration branch (`dev`/`develop`/...) directly into a protected branch (`main`/`master`/...). The canonical path is feature branch -> pull/merge request -> protected branch; a direct merge/push corrupts shared history irreversibly (a fast-forwarded/force-pushed main rewrites what every consumer pulls). Convention alone is insufficient when a task description or in-band comment can say "just merge dev into main this once".
+- **Design (security lens).** A PreToolUse hard-floor `dev-tools/branch-integration-guard.sh`, injection-resistant by construction: it reads ONLY the structured tool command (heredoc + quoted-string bodies stripped first, so a document/commit message containing `git merge dev` or "ignore this rule" is data, never honoured). No env var, flag, marker file, or in-band text disables it. Blocks the enumerated shapes -- `git merge <int>` while HEAD is protected; `git push <remote> <int>:<prot>` (incl. `+`/`--force`/`HEAD:`/`refs/heads/`); `git push <remote> <prot>` while HEAD is integration; `git rebase <int> <prot>`; the compound `git checkout <prot> && git merge <int>` (tracked via intra-command effective-HEAD). Read-only look-alikes (`git log dev..main`, `rg "merge dev"`) pass structurally -- the guard fires only on a mutating subcommand of a `git` command-position token. Fails CLOSED on ambiguous HEAD (irreversible miss vs recoverable over-block).
+- **Config.** Widen/narrow the branch sets only via `~/.claude/local/config/branch-integration-guard.conf` (strict key=value, never sourced, tokens regex-validated); it can never empty the protected set or disable the floor.
+- **Enforcement + docs.** `install.sh` symlinks the guard to `~/.local/bin/branch-integration-guard` (new `setup_branch_integration_hook_symlink`, idempotent) and it registers on the PreToolUse `Bash`/`shell`/`exec_command` matcher. Documented in `skills/finishing-a-development-branch/SKILL.md` (Option 1 warning), `CLAUDE.md` S10, and `skills/security-baseline/SKILL.md` S10.
+- **Tests.** `dev-tools/tests/branch-integration-guard.bats` 33/33 (9 blocked shapes each deny, allowed forms + read-only look-alikes pass, injection text still denies the real command, config-widening honoured, structural filters). shellcheck clean, pure ASCII, stack-agnostic + identifier-free.
+
+## 2026-07-15 — TUNE-0490 Phase 2 — Dispatch monitoring layer: heartbeat status file + pane classifier + digest (v2.55.0)
+
+- **Problem.** Phase 1 stopped the delegated agent from stalling at the first fork, but the laptop still could not tell a *finished* remote session from a *dead-orphan* one: a bare tmux prompt is ambiguous by construction. Without a monitoring signal, a hard-gate escalation fires on a remote pane nobody watches, and orphan sessions accumulate silently (29 were found on the executor).
+- **Design (per PRD-TUNE-0490 Phase 2; SRE lens).** Pane liveness alone is insufficient — join it with a synced heartbeat status file that is authoritative for DONE/AWAITING. Three framework-only pieces (no live-host mutation, ship as code): `dev-tools/lib/heartbeat-status.sh` (single writer/reader of `datarim/runtime/<TASK-ID>.status`; atomic write, jq-optional read, strict `^[A-Z]{2,10}-[0-9]{4}$` task-id validation closing a runtime-dir-escape the old bash-glob check missed, lossless escaping); `dev-tools/classify-pane.sh` (read-only 2-key join pane-tail x status-freshness => RUNNING/AWAITING/STALLED/DONE/DEAD-ORPHAN/HOLD; safety invariants: awaiting_operator never reaped, live child blocks DEAD-ORPHAN, DEAD-ORPHAN only after >=2 consecutive stale probes; fully parameterised so it is deterministic off fixtures); `dev-tools/dispatch-digest.sh` (aggregates status files into one report generated from status writes, pins actionable states first, flags `SYNC STALE` so a stale-synced task is never falsely reported DONE; text + JSON).
+- **Tests.** `tests/heartbeat-status.bats` (8/8) + `tests/classify-pane-digest.bats` (14/14 — V-AC-4 no-false-DONE + the three safety invariants + digest degrade). shellcheck -S warning clean; stack-agnostic gate PASS; gitleaks no-leaks; anti-pattern grep zero. `.gitignore` covers `datarim/runtime/`.
+- **Deferred to Phase 2-live / Phase 3 (operator-gated, live-host).** The `answer <TASK-ID> <qid> <index>` and `kill-session dr-<space>-<ID>` whitelisted dispatch verbs, the OpsBot->Telegram relay wiring, and the reaper systemd timer stay operator-gated at execution time per PRD-TUNE-0490 §5. Provenance: PRD-TUNE-0490 Phase 2 V-AC-4/5/6.
+
+## 2026-07-14 — TUNE-0490 Phase 1 — Delegated autonomous orchestration via per-task marker (v2.54.0)
+
+- **Problem.** The Mac→dev-host task-delegation dispatch sent a bare task-id and the delegated agent stalled at the first interactive `/dr-init` fork with nobody watching the remote pane — confirmed by 29 orphaned empty tmux sessions on the executor. Delegation was dumb proxying, not autonomous orchestration.
+- **Design (3-way consilium: architect/security/sre; then a focused security consilium on the nonce).** Autonomy must live in Datarim's own synced state, not the SSH payload (the forced-command wrapper whitelist stays byte-identical). B1 (a lost bare-id keystroke — the orphan root cause) is ELIMINATED, not polled: the agent reads a per-task marker on startup and enters `/dr-auto` itself; the keystroke degrades to a best-effort nudge.
+- **Marker migration.** `dev-tools/auto-mode-marker.sh` now writes a per-task marker `datarim/.auto/<TASK-ID>.mode` (collision-safe in a shared parallel workspace, superseding the single-file `datarim/.auto-mode-active` which is still READ as a legacy fallback for hand-run `/dr-auto`). New verb `resolve` gives consumers one source of truth for the effective path. New flags `--dispatch-session` (load-bearing anti-forgery: the marker is honoured only if it names the agent's own live tmux session) and `--nonce` (accepted for forward compatibility, not load-bearing on a single-operator private mesh). Anti-forgery = session-binding + the gitignored-marker rule (a git-tracked marker is refused as a supply-chain vector) + 24h TTL + exact task-scope.
+- **Consumers.** `skills/autonomous-mode/SKILL.md` gains the Delegated-bootstrap Step-0 (bare task-id → resolve marker → `/dr-auto` or fail-safe `/dr-init`) and the STALE-AUTO-MARKER loud non-zero exit (a mismatched marker never leaves a silent idle shell). `commands/dr-auto.md` writes/removes the per-task marker via the helper; the 7 stage commands and `dev-tools/lib/space-autonomy.sh` resolve the marker via the helper instead of hardcoding the path. `.gitignore` covers `datarim/.auto/` + `datarim/.auto-mode-active`. The workspace-local dispatch client writes the marker into the target workspace's synced `datarim/` bound to the dispatch session (interactive fallback + loud warn if it can't).
+- **Tests.** `tests/dr-auto-marker-resilience.bats` updated to the per-task write-path (8/8); new `tests/auto-mode-marker-per-task.bats` (11/11 — nonce/session/stale/wrong-id reject, collision-safety of two coexisting markers, resolve per-task+legacy, back-compat, malformed-input exit 2); `tests/space-autonomy.bats` 22/22 with the per-task fallback. shellcheck clean on all touched shell.
+- **Deferred (own sub-cycles, sequenced in PRD-TUNE-0490).** B2 (wrapper `-c <workspace>` so the delegated session starts in the workspace, not `$HOME`) is a server-side live-host mutation → operator-gated. Phase 2 (heartbeat status file + OpsBot/Telegram escalation relay + 30-min digest) and Phase 3 (orphan reaper + double-drive prevention) follow. Provenance: PRD-TUNE-0490 + backlog TUNE-0490/0487/0488/0489.
+
+## 2026-07-12 — TUNE-0472 — Framework-native execution-host resolver (Phase 2)
+
+- **Source:** PRD-TUNE-0471 § Technical Approach Phase 2 + D-REQ-10 (consilium-approved 2026-07-12). Phase 1 shipped a machine-local guard (`dev-tools/datarim-exec-guard.sh`) and dispatch client (`dev-tools/datarim-dispatch.sh`) outside this repo; Phase 2 upstreams the shared match-logic into the framework as `dev-tools/lib/execution-host.sh` and adds a cooperative Step-0 "EXECUTION HOST" contract to executional `/dr-*` commands.
+- **What:** (1) `dev-tools/lib/execution-host.sh` — sourceable resolver library (`eh_resolve_workspace_root`, `eh_lookup_binding`, `eh_host_match`, `eh_decision`); the machine-local guard now sources it (with a fallback to its embedded Phase-1 logic when the lib is not yet installed). (2) Step-0 block in `dr-init`/`dr-prd`/`dr-plan`/`dr-design`/`dr-do`/`dr-qa`/`dr-compliance`/`dr-archive`/`dr-auto`/`dr-next`/`dr-quick`. (3) `scripts/datarim-doctor.sh --local` flag (official local-repair mode, defaults `SCOPE` to `execution` when no explicit `--scope`). (4) `dev-tools/check-execution-host-drift.sh` — standalone canon-vs-map drift + 90-day TTL staleness validator, invoked by the doctor's new `execution` scope per the Validation Discipline (orthogonal concerns get orthogonal tools — the doctor only aggregates findings, it never carries the comparison logic itself).
+- **Tests:** `dev-tools/tests/execution-host.bats` (16 cases, new), `tests/datarim-doctor-execution-drift.bats` (15 cases, new), Phase-1 `dev-tools/tests/datarim-exec-guard.bats` (20/20, re-verified against both lib-present and lib-absent fallback paths).
+- **Out of scope:** framework-native SSH/tmux transport (rejected by consilium), Cursor hard-enforcement, non-Mac rollout (Phase 3). The dedicated `command=`-restricted SSH key for `datarim-dispatch.sh` (V-AC-5) and its server-side `authorized_keys` deployment were completed as a machine-local/operator-facing action (see `config/credentials/Datarim-Dispatch-SSH-Key.md`, not part of this repo).
+## 2026-07-10 — TUNE-0158 — /dr-init symptom-freshness re-probe for ops-fire tasks (Class A applied)
+
+- Source: the consumer review proposal #1 — consumer review lost 5h29m of staleness because the ops-fire symptom that motivated the task was fixed in production between discovery and `/dr-init` time, but `/dr-init` routed the task to `/dr-plan` as if the symptom were still live. No re-probe existed between symptom-discovery and pipeline-routing to catch a fix that landed in the gap.
+- Fix: added Step 2.5e **SYMPTOM-FRESHNESS RE-PROBE** to `commands/dr-init.md`, immediately after the existing Step 2.5d KB-push sentinel advisory (mirrors that block's advisory-sub-letter numbering convention rather than a bare `2.6`, since 2.5b/2.5c/2.5d already occupy that slot). The step triggers on English/Russian live-fire wording ("restart loop" / "PROD fire" / "active fire" / «активный пожар» etc.) or a `Source:`/`Spawned from:` reference to an ecosystem pre-flight/ops-fire task (same reference convention `/dr-plan`'s Architectural-superseding probe already reads). When triggered, it re-probes live container/service state — stack-agnostic by design, names no specific tool, defers to whatever the project's own deploy/health-check convention is — BEFORE continuing to Step 3. If the probe shows the symptom already resolved, the step recommends closing the task as superseded/stale instead of routing to `/dr-plan`; if the symptom is still live or the probe cannot run, Step 3 proceeds unchanged (never blocks).
+- Cost: one shell probe, only on ops-fire-shaped intake (skipped silently otherwise). Saving: avoids running an already-fixed ops-fire item through the full `/dr-init → /dr-plan` pipeline.
+- New regression test `tests/tune-0158-dr-init-symptom-freshness-reprobe.bats` (9 cases) asserts step presence, both trigger classes, the pre-Step-3 re-probe ordering, the superseded/stale routing on resolved-symptom, the never-blocks contract on still-live/unreachable probe, the stack-agnostic phrasing, and the source citation.
+- Verification: `scripts/stack-agnostic-gate.sh commands/dr-init.md` → PASS: clean. `dev-tools/check-body-english.sh --root . --scope commands` → PASS (27 files). `grep -RPn '[^\x00-\x7F]' commands/dr-init.md` on added lines only (`git diff -U0`) shows no new non-ASCII beyond pre-existing em-dash/arrow punctuation already pervasive in the file; the one new Cyrillic line (Russian trigger keywords) carries a valid `allow-non-ascii` marker. Targeted `bats` run (dr-init suite + markdown-policy/frontmatter suites + new regression file): 135 tests, 0 failures.
+- Note for reviewers: this PR may textually overlap with a sibling PR for TUNE-0159, which per the sweep brief also touches `commands/dr-init.md` near Step 2.5/2.6 — flagged for sequential merge, not resolved here.
+## 2026-07-10 — TUNE-0159 — Promote architectural-superseding probe from /dr-plan Phase 4 to /dr-init (Class A applied)
+
+- **Recurrence source:** the consumer review proposal #2 — consumer review was closed as superseded only AFTER the full `/dr-init` flow had already run (task-description.md + activeContext entry created), because the architectural-superseding probe lived as the mandatory first sub-step of `/dr-plan` Phase 4. By the time `/dr-plan` ran, the redundant task had already accrued an init-task file, an expectations skeleton, and an activeContext entry — all wasted when the sibling archive turned out to have already resolved the problem.
+- **Fix:** added `/dr-init` Step 3.5 — Architectural-superseding probe. Triggers when the operator's brief (direct-prompt flow) or the selected backlog item's description (backlog flow, available after Step 3) carries a `Source:`/`Spawned from:` reference to a prior archive or in-flight sibling. Reads the referenced archive(s) and answers whether the architectural problem is already resolved; if yes, STOPS before Step 4 writes `tasks.md`/`activeContext.md`/the init-task file and presents cancel/reframe/proceed to the operator. Wired into the `/dr-auto` suppression-ladder table alongside the existing Step 3 and Step 4 hooks.
+- `/dr-plan` Phase 4's mandatory-first-substep was narrowed to a lightweight fallback re-check: only re-probes when a NEW sibling archive landed strictly after `/dr-init`'s `captured_at` timestamp (via `git log --since`), avoiding duplicate work for the common case already caught upstream. The `/dr-auto` suppression-hook line and the auto-mode Step reference were updated to point at the new primary location.
+- Both edited command bodies stay history-agnostic (no task-ID provenance embedded in the shipped rule text, per `skills/evolution/history-agnostic-gate.md`) — this log entry is the only place the source task ID is cited.
+- Verification: `scripts/stack-agnostic-gate.sh` PASS on both files; `scripts/task-id-gate.sh` PASS on both files; no unintended non-ASCII introduced (only pre-existing em-dash style); `bats tests/` full suite green (114/114 on the targeted dr-init/dr-plan/markdown-policy/frontmatter subset, full-suite run clean).
+## 2026-07-10 — TUNE-0157: apply consumer review Class A proposals
+
+**Category:** apply-reflection-proposal · **Class:** A (P3 backlog sweep).
+**Target:** `skills/network-exposure-baseline/SKILL.md`, `skills/datarim-system/backlog-and-routing.md`.
+
+**What:** Three Class A additions from a consumer review. (1)
+`network-exposure-baseline/SKILL.md` — new "Consumer Wiring Example" section
+with a minimal CI-job YAML snippet showing `needs` promoted from scalar to
+array form, plus a note to order independent jobs in parallel rather than
+force a sequential chain. (2) Same file — new "Local Pre-PR Smoke Recipe"
+subsection: a positive-case recipe against the live compose setup, and a
+negative-case recipe that copies the compose file to a synthetic Tier-3
+scratch copy under `/tmp/<task-id>-negsmoke`, breaks a bind via a portable
+`python3` one-liner (avoids GNU/BSD `sed -i` divergence), confirms the gate
+fires (exit 1), then `rm -rf`s the scratch copy. (3)
+`skills/datarim-system/backlog-and-routing.md` § Mode Transition
+Optimization — new "Pre-merge baseline cleanup spawn" subsection: when an
+unblocker PR carries baseline-red CI noise unrelated to the delta it ships,
+the CTA recommends spawning a separate cleanup task for that noise rather
+than merging it silently bundled with the unblocker.
+
+**Why:** Both proposals close gaps the reflection identified — the exposure
+baseline skill documented the gate contract but not how a caller wires it
+into CI nor how to smoke-test it before opening a PR; the CTA routing logic
+had no guidance distinguishing "this PR's own delta" from "pre-existing
+noise the PR happens to run past," which risks silently bundling unrelated
+fixes into an unblocker's diff.
+
+**Verification:** `scripts/stack-agnostic-gate.sh` PASS on both edited files;
+`bats tests/stack-agnostic-gate.bats tests/check-skill-frontmatter.bats
+tests/check-frontmatter-english.bats tests/check-skill-layout.bats
+tests/check-doc-refs.bats` → 60/60 passing; full `bats tests/` run for the
+whole-suite regression check (see PR body for count); no Cyrillic/non-ASCII
+introduced in added lines beyond the framework's existing em-dash/arrow
+typographic convention (verified via `grep -P` on the diff, restricted to
+Cyrillic code-point range).
+## 2026-07-10 — TUNE-0179 — Probe Before Harness rule added to `skills/ai-quality/SKILL.md` (Class A applied)
+
+- **Target:** `skills/ai-quality/SKILL.md` — new top-level section «Probe Before Harness» inserted before § Fragment Routing.
+- **What changed:** codifies a pre-implementation rule for subprocess wrappers, sidecars, and pipeline adapters against external CLIs/APIs — run a ≤60-second probe with representative input, capture stdout/stderr/exit code, and treat documentation as a hypothesis until the probe confirms actual wire semantics. Enumerates what the probe catches: persistent-pipe vs one-shot process behavior, response schema gaps, exit-code semantics, auth failure modes.
+- **Why (source):** consumer review Proposal 1 (Class A, backlog-deferred pending operator review, pulled off backlog this cycle as approved). An inline plan assumed a "persistent stdin pipe" for the target CLI based on its documentation; a 30-second probe with representative input disproved this immediately, saving ~200 lines of wrapper code and a day of false-build work.
+- **Self-caught defect:** first draft cited the source task literally ("In consumer review, ...") in the skill body, which `scripts/task-id-gate.sh` (history-agnostic gate) correctly flagged — `skills/` runtime must not embed task-ID provenance. Reworded to "Source: prior incident — ..." matching the convention already used elsewhere in this file (e.g. § Focused Work, § Spec-First with Golden Fixtures).
+- **Verification:** `scripts/stack-agnostic-gate.sh skills/ai-quality/SKILL.md` → PASS clean. `scripts/task-id-gate.sh skills/` (full scope regression) → PASS clean. `grep -RPn '[\x{0400}-\x{04FF}]'` on the edited file → no Cyrillic (only pre-existing em-dash/arrow typography, consistent with the rest of the file). New light bats coverage `tests/tune-0179-probe-before-harness.bats` (3 cases: section presence, ordering before Fragment Routing, gate-cleanliness). Full suite `bats tests/` → 1737 total, 7 not-ok — identical to the pre-change baseline (verified via `git stash`/`bats tests/`/`git stash pop`), zero regressions attributable to this change.
+
+---
+## 2026-07-10 — TUNE-0162 — Recorded-Fixture Tests for HTTP Wrappers (Class A applied)
+
+**Category:** growth (new testing-skill gate). **Class:** A (approved 2026-05-10, consumer review § Class A Proposal 2).
+**Target:** `skills/testing/live-smoke-gates.md` (new § Gate 8), `skills/testing/SKILL.md` (routing hints).
+
+**What:** Added a "Gate 8: Recorded-Fixture Tests for HTTP Wrappers" subsection to `skills/testing/live-smoke-gates.md`, the fragment that already covers the "mocked tests cannot satisfy real integration behaviour" family (raw-SQL, cross-container Docker smoke, N=1 bulk-ingest smoke). The new gate states, stack-neutrally: (a) for thin HTTP wrapper clients, capture ONE real response into a fixtures doc in the *consuming* project (`datarim/tasks/<TASK-ID>-fixtures.md`, mirroring the existing `commands/dr-plan.md` § Fixture Capture for External Output convention) BEFORE writing the client implementation; (b) the wrapper's spec MUST include at least one integration-style test asserting against that recorded response, not a synthetic/hand-written stub — an "nock/msw-style" HTTP-interception approach is cited only as an illustrative, widely-known example inside a `<!-- gate:example-only -->` block, the actual rule is phrased stack-agnostically; (c) the spec MUST fail if the response shape drifts — the fixture is decoded/validated through the real schema/type boundary, not echoed back through a loosely-typed comparison. Also updated `skills/testing/SKILL.md`'s Fragment Routing bullet and Quick Routing Heuristic to mention the new trigger (writing/changing a thin HTTP wrapper client → `live-smoke-gates.md`), and the fragment's own frontmatter `description:`.
+
+**Why:** Prior art in this fragment (Gate 1 raw-SQL, Gate 2 Docker smoke, Gate 6 UI→cross-datasource write) already establishes the pattern "a hand-authored mock cannot falsify the author's own wrong belief about a real system's shape — only a recorded real observation can." HTTP wrapper clients are the same failure class: a synthetic stub written by the same author who writes the wrapper shares that author's assumptions about the counterparty's response shape, so a field rename or an undocumented envelope can ship silently. The consumer review proposal asked to close this gap for the testing skill specifically.
+
+**Scope note:** the original backlog one-liner also asked for a version bump and a `datarim.club` site sync (`data/skills/testing.php` EN+RU). The site sync is explicitly OUT OF SCOPE for this PR — the Datarim website lives in a separate consumer workspace, not this `datarim` framework repo, and this sweep is not permitted to touch that shared tree. Recorded here as a known follow-up for a future task in that workspace. On the version bump: this repo's live convention (verified via `git log` — e.g. `TUNE-0480` wave commits, `984f2e8`, `8c7bbf7`) is that individual task/PR commits do NOT bump `VERSION` directly; they add an entry to `CHANGELOG.md` § `[Unreleased]`, and `VERSION` + `CLAUDE.md` + `README.md` are bumped together only in a dedicated `release: vX.Y.Z` commit that promotes the accumulated `[Unreleased]` entries to a version section (see `2748f56`, `5dc01e0`). Following that live convention rather than the backlog one-liner's "bump VERSION" instruction: added the CHANGELOG entry under `[Unreleased]`, did not touch `VERSION`/`CLAUDE.md`/`README.md`.
+
+**Verification:** `scripts/stack-agnostic-gate.sh skills/testing/live-smoke-gates.md` → PASS (file is on the gate's whitelist — pre-existing, unrelated to this change — but the new prose was still authored stack-neutrally per the mandate, illustrative example wrapped in `<!-- gate:example-only -->`). `scripts/stack-agnostic-gate.sh skills/testing/SKILL.md` → PASS. `grep -RPn '[^\x00-\x7F]' <edited files>` → only pre-existing/added em-dash (—), arrow (→), and section-sign (§) typographic characters, consistent with the file's existing English-prose style; no Cyrillic. `bats tests/skill-testing-current-state-auth-probe.bats tests/stack-agnostic-gate.bats tests/check-frontmatter-english.bats tests/check-skill-frontmatter.bats tests/check-skill-layout.bats tests/check-doc-refs.bats tests/check-routing-drift.bats` → 63/63 pass.
+## 2026-07-10 — TUNE-0169 — install.sh --profile orchestrator interactive setup (Class N/A new feature)
+
+- **What:** Added `--profile orchestrator` to `install.sh` (PRD-TUNE-0104 § Public/Personal Split). Standalone action, independent of the `--with-claude`/`--with-codex`/`--with-cursor` fanout — never touches `$CLAUDE_DIR`. Prompts for secrets backend (`yaml`|`vault`), audit sink (`jsonl`|`opsbot`), and an optional free-text telegram bridge endpoint, then writes `$DATARIM_ORCH_CONFIG_DIR/local.yaml` (default `~/.config/datarim-orchestrate/local.yaml`) at mode `0600`, plus a self-contained `.gitignore` (`*` / `!.gitignore`) in the same directory — same "entire dir is private" convention already used by `setup_local_overlay()` for `$CLAUDE_DIR/local/.gitignore`.
+- **Answer resolution** mirrors the existing `migration_prompt()` / `DATARIM_MIGRATION_CHOICE` idiom: (1) `DATARIM_ORCH_SECRETS_BACKEND` / `DATARIM_ORCH_AUDIT_SINK` / `DATARIM_ORCH_TELEGRAM_ENDPOINT` env pre-answers (CI/scripted, logged as `AUTO-CONSENT`); (2) interactive TTY prompt with sane defaults on bare Enter; (3) non-TTY with no env pre-answer still attempts a `read` per field (so piped/heredoc stdin round-trips in tests and scripted installs) but never blocks — EOF/empty falls back to the same defaults (`yaml`/`jsonl`/blank) rather than hanging, per the OSS-friendly non-interactive-fallback requirement.
+- **Idempotency:** reuses the `install.sh` "merge mode: existing file skipped without `--force`" idiom (see T6) rather than inventing a new confirmation flow — an existing `local.yaml` is preserved on re-run; `--force` reconfigures/overwrites.
+- **Premise check before implementing:** grepped the repo for `orchestrator`/`--profile`/`local.yaml`/`datarim-orchestrate` first. Found related-but-distinct prior art that this task does NOT duplicate: `plugins/dr-orchestrate/user-config.template.yaml` (manual copy-template-and-`chmod 600`-then-edit workflow, project-local path `plugins/dr-orchestrate/user-config.yaml`, already gitignored) and the primitives it wraps — `secrets_backend.sh` (yaml/vault) and `audit_sink.sh` (jsonl/opsbot stub). None of these provide an *interactive, prompted, install.sh-driven* setup, nor do they write to the user-global `~/.config/datarim-orchestrate/local.yaml` path this task specifies — so the backlog item was live, not stale.
+- **Tests:** new `tests/install-orchestrator-profile.bats` (12 cases: env-pre-answer creation, mode 0600, field round-trip via env path and via piped/heredoc stdin, non-TTY-no-input default fallback, idempotent preserve, `--force` overwrite, invalid `secrets_backend`/`audit_sink` rejection, unknown `--profile` value rejection, `.gitignore` convention, default HOME-derived path). `bats tests/install.bats tests/install-preflight.bats tests/install-tune-0114.bats tests/install-cursor-runtime.bats tests/install-orchestrator-profile.bats tests/security/finding-6-curl-bash-install.bats` → 82/82 green, no regressions. `validate.sh` → ALL CHECKS PASSED (pre-existing WARNs only, unrelated).
+## 2026-07-10 — TUNE-0180 — Spike falsifiable thresholds must derive from consumer UX budget (Class A applied)
+
+- **Category:** promote-recurring-incident-to-gate · **Class:** A (approved — P3 backlog sweep, treated as operator-review-satisfied per sweep mandate).
+- **Target:** `skills/ai-quality/SKILL.md`, new subsection "Spike Falsifiable Thresholds Must Derive from the Consumer's UX Budget" (placed before `## Fragment Routing`).
+- **What:** A spike's falsifiable numeric thresholds (latency, cost, error rate) MUST be derived from the consuming surface's documented UX budget rather than generic latency folklore — e.g. async-tolerant surfaces: 10-30s; voice surfaces: must stay invisible inside the STT+TTS round-trip; interactive chat/UI surfaces: sub-2s. If no per-surface budget is documented, the spike's first deliverable is an operator interview that establishes it, before any numeric threshold is written.
+- **Why (source):** a consumer review Proposal 2 — consumer review's Criterion 2 (`<2000ms`) was inherited from generic latency folklore rather than the actual consumer (consumer review), whose surface tolerates 10-30s. Mis-scoping the threshold to the wrong consumer risks falsifying an otherwise-viable design (or the reverse: passing a design unusable on a stricter surface).
+- No pre-existing "Spike Contracts" section was found in `skills/evolution/` or `skills/ai-quality/` (searched both directories for `spike`/`falsifiable`/`threshold`); this is a net-new subsection rather than an amendment to an existing one, hosted in `ai-quality/SKILL.md` alongside its other AC/threshold-formulation patterns (`Pipeline-Position-Aware AC Formulation`, `Atomic Multi-Surface Plan Amendment`).
+- **Verification:** `scripts/stack-agnostic-gate.sh skills/ai-quality/SKILL.md` → PASS; no Cyrillic/non-ASCII introduced (diff-scoped grep, clean); added `tests/tune-0180-spike-budget-inheritance.bats` (5 new assertions: subsection presence, operator-interview rule, house ordering before Fragment Routing, stack-agnostic-gate PASS, no-Cyrillic) — 5/5 green; `bats tests/` full suite green (see PR for count).
+
+## 2026-07-02 — FIX-testdb-local-dsn reflection — Align check-deferral-prose.sh invocations with shipped CLI (Class A applied)
+
+- Recurrence of `incident_class: command-template-flag-drift` (first recorded in a consumer workspace's reflection, which pre-committed to promotion on recurrence). The `/dr-qa` and `/dr-compliance` command templates invoked `dev-tools/check-deferral-prose.sh --file … --task {TASK-ID} --root …`, but the shipped script has NO `--task` long-opt (its opts are `--file --touched-files --root --backlog --tasks --phrases --extra-repo --report`). Passing `--task` triggers a usage error (exit 2) that reads as a hard-gate failure but is template↔script CLI skew.
+- Fix: dropped `--task {TASK-ID}` from all three `check-deferral-prose.sh` invocation sites — `commands/dr-qa.md` (1) + `commands/dr-compliance.md` (2). Now consistent with `commands/dr-archive.md`, whose invocation was already correct (`--file … --root`). The blocked_by lookup reads the `--tasks` index, so no functional loss. Other tools' legitimate `--task` uses (`check-expectations-checklist.sh`, `spec-graph-gate.sh`, `append-init-task-qa.sh`) are untouched.
+- Deferred (NOT this change): widening the `spec-graph-gate.sh` / snapshot-writer TASK-ID regexes to accept non-`PREFIX-NNNN` shapes (e.g. `FIX-<word>`). That is a behavioural change to shipped scripts, larger than a template-alignment; it belongs in its own task, not a P2 reflection apply.
+- Stack-agnostic gate PASS on both edited files; `bats tests/` 1652 ok / 0 not-ok. Source: a consumer workspace reflection (test-DB local DSN fix), Proposal 1.
+
+## 2026-07-01 — SEC-0015 + CI hygiene — Clean all non-required security-linter red on main (Class N/A)
+
+- **SEC-0015** (`6933cb2`): re-pinned `dtolnay/rust-toolchain@29eef336…` (commit absent from upstream — zizmor impostor-commit High) to `4be7066…` (live refs/heads/stable).
+- **semgrep follow-up #141** (`c89d60f`): SHA-pinned `actions/upload-artifact@v4` → `043fb46… # v7.0.1` in `.github/actions/preflight-check/action.yml` (github-actions-mutable-action-tag); added `cooldown: {default-days: 7}` to both `dependabot.yml` update groups (dependabot-missing-cooldown ×2).
+- **dependabot follow-up #142** (`69fd511`): removed dead `pip` ecosystem from `dependabot.yml` — pointed at `/` with no pip manifest (CI installs lint tooling inline), failed every Dependabot run with «No files found», a permanent red status. Retained the `github-actions` ecosystem.
+- **Result:** whole-CI on main is clean — 6/6 required + semgrep + zizmor all green; no pre-existing security-linter red remaining. All three delivered via signed fast-forward merges (linear-history + required-signatures branch protection; enforce_admins lifted only for each FF-push, restored immediately). Archive: `documentation/archive/security/archive-SEC-0015.md`.
+
+
+## 2026-06-30 — MAINT-0022 + MAINT-0023 — Remove abolished operational files from the scaffolding/doctrine surface (Class N/A bugfix)
+
+- **MAINT-0022 (`backlog-archive.md`, retired v1.19.1):** the scaffolding surface still presented the file as live. `commands/dr-init.md` first-time creation seeded it from a template; the `skills/project-init/SKILL.md` and getting-started scaffold trees listed it; `commands/dr-help.md` Backlog section described a two-file backlog; `templates/backlog-archive-template.md` still existed. A freshly scaffolded project was born with a file `/dr-doctor --fix` immediately migrated away.
+- **MAINT-0023 (`progress.md`, abolished v1.19.0):** same defect class. The two scaffold trees listed `progress.md` as a created file, and the canonical `skills/datarim-system/path-and-storage.md` Core Files list presented BOTH abolished files as live — directly contradicting `datarim-system/SKILL.md`, which declares them abolished. This Core-Files drift was the root doctrine feeding the scaffolding bug.
+- Fix: create-step now creates only `backlog.md` (with a guard-rail caveat); both abolished files removed from both scaffold trees and from the Core Files list; `dr-help.md` Backlog rewritten to the one-file live-only model routing completions to `documentation/archive/{area|cancelled}/`; `templates/backlog-archive-template.md` deleted. Legitimate abolition doctrine (`datarim-system/SKILL.md`, `datarim-doctor/SKILL.md` Pass 4 + cheap-probe) and the backward-compat `git status ... progress.md "(those that exist)"` hygiene probe in `dr-init.md` are intentionally retained.
+- Regression: `tests/scaffolding-no-abolished-files.bats` (10 doc-contract grep cases) guards the create-step, both scaffold trees, the Core Files list, the help description, and the template's absence; `setup()` fails loudly if the migrated getting-started fixture moves again.
+- VERSION 2.49.0 -> 2.49.1 (framework-repo realigned with the ecosystem surface + site, which already carried 2.49.0). Archives: `documentation/archive/maintenance/archive-MAINT-0022.md`, `documentation/archive/maintenance/archive-MAINT-0023.md`.
+
+
+## 2026-06-29 — TUNE-0464 — Reconcile $DATARIM_ROOT semantic in commands/dr-init.md (Class N/A bugfix)
+
+- The topic-overlap probe (Step 2.5b) passed `--backlog "$DATARIM_ROOT/backlog.md"`, treating `$DATARIM_ROOT` as the `datarim/` directory, while every other usage in the same file (the ID-assign helper call, the doctor `--root` contract at Steps 2.4/2.4-fix, the init-task and expectations probes) treats `$DATARIM_ROOT` as the workspace root (parent of `datarim/`). The probe therefore pointed at a non-existent `<workspace>/backlog.md`; `check-topic-overlap.py` reads `--backlog` as a full file path, so the advisory silently found nothing.
+- Fix: `--backlog "$DATARIM_ROOT/datarim/backlog.md"` + an inline note at the call-site pinning the workspace-root semantic, consistent with the helper and doctor contract.
+- Discovered during TUNE-0463 QA review (out-of-scope there; filed as follow-up).
+- VERSION 2.48.1 → 2.48.2. Archive: `documentation/archive/framework/archive-TUNE-0464.md`.
+
+## 2026-06-23 — TUNE-0449 — Orchestration autonomy policy → core (Option C) + provenance convention (Class A applied)
+
+- Promoted the autonomy policy data + loader from the opt-in `dr-orchestrate` plugin into core `dev-tools/` (Option C, consilium-decided, operator-approved). The hard-gated safety floor and action-autonomy map now resolve from core without enabling any plugin; the transport runner stays an opt-in plugin via thin shims.
+- `dev-tools/rules/fb-rules.yaml` (moved) + `dev-tools/fb-policy-loader.sh` (new); plugin `rules_loader.sh`/`action_gate.sh` → thin shims (prefer-core, one-cycle deprecation fallback).
+- Stripped `plugin:`/`task:` frontmatter from `commands/dr-orchestrate.md`; `dr-auto.md` + `autonomous-mode/SKILL.md` no longer tell the operator to enable the plugin for the core path.
+- **Class A applied (Critical Rule #8 corollary):** header comments in shipped `dev-tools/rules/*.yaml` MUST cite provenance via `docs/evolution-log.md`, never via an `insights/INSIGHTS-{TASK-ID}-*.md` filename (gitignored ephemeral artefact). Source: TUNE-0449 reflection F1.
+- Class B held for backlog: task-id-gate scope expansion to `dev-tools/rules/` (needs false-positive assessment); `/dr-auto` independent-compliance-agent guideline for framework self-modification.
+- VERSION 2.44.0 → 2.45.0. Archive: `documentation/archive/framework/archive-TUNE-0449.md`.
+
+Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflection or curated runtime → repo updates.
+
+## 2026-05-25 — TUNE-0303 — Codex CLI coworker-hook coverage parity (Class A applied)
+
+TUNE-0303 (extend `coworker-hook-guard` to Codex CLI native tool names — `view`, `shell`, `apply_patch`, `exec_command`) closed the parity gap where codex sessions emitted 0 coworker calls on L3 cycles while Claude emitted hundreds. Root cause: hook script `case "$tool"` covered only `Read|Write|Bash`; codex 0.133 emits `apply_patch|exec_command|update_plan|write_stdin`. `~/.codex/hooks.json` matcher had only Claude names; `~/.codex/AGENTS.override.md` lacked MANDATORY delegation runtime instructions.
+
+**Class A applied (× 1 — canonical-text split):**
+
+`templates/coworker-delegation-fragment.md` is the single-source-of-truth for MANDATORY delegation rules. `~/.codex/AGENTS.override.md` is regenerated by `install.sh generate_codex_agents_manifest` with the fragment prepended. `~/.claude/CLAUDE.md` § Coworker Delegation mirrors the fragment (auto-load for Claude runtime). Edit fragment → re-run `install.sh --with-codex` → consumers regenerate.
+
+**Touched surfaces:**
+- `dev-tools/coworker-hook-guard.sh` — canonical source with case branches `Read|view`, `Bash|shell|exec_command`, `apply_patch`; shared `check_write_protected()` + `emit_write_deny()` helpers.
+- `templates/coworker-delegation-fragment.md` (NEW) — mandate single source of truth.
+- `docs/how-to/codex-cli-coworker-hooks.md` (NEW) — per-machine setup runbook.
+- `tests/test-coworker-hook-guard-codex.bats` — 11 codex coverage cases; 18/18 GREEN with head-blind regression.
+- `install.sh` — `generate_codex_agents_manifest` prepends mandate fragment; `setup_coworker_hook_symlink()` idempotent helper.
+- `~/.local/bin/coworker-hook-guard` → symlink to `dev-tools/coworker-hook-guard.sh`.
+
+**Live smoke evidence:** `datarim/qa/TUNE-0303-codex-smoke-20260525T103401Z.md` — codex `--oss --local-provider ollama -m qwen3.6:35b-a3b` 4-attempt escalation, deny on `git log -p HEAD~3..HEAD` (model verbatim-quoted Russian deny reason), coworker stats codex profile 3 → 4 calls, provider deepseek, p50 1736 ms.
+
+**Companion task:** TUNE-0264 (programmatic Stop hook) — PreToolUse side is TUNE-0303, Stop side is TUNE-0264; both rely on the same Stage Header + CTA contracts.
+
+---
+
+## 2026-05-25 — TUNE-0303 reflection — git workflow Class A × 2 applied
+
+TUNE-0303 round 3 (foreign-hunks audit + 11 retroactive task commits + PR #45 squash-merge) выявил две L1 inline-резолюции на git workflow boundary, пригодные к закреплению как operator-memory feedback rules.
+
+**Class A applied (× 2, operator-memory scope):**
+
+1. `<operator-auto-memory>/feedback_merge_ours_for_long_rebase.md` — Rule: `git rebase` против upstream с N≥10 absorbed PRs И append-only ledger files → expect conflict-per-commit storm. Switch to `git merge -X ours origin/main` после первых 2 conflict'ов с identical-content resolutions. Concrete trigger: TUNE-0303 первый commit (1/57) hit evolution-log conflict; merge -X ours произвёл same end-state в 5 conflict'ах one-pass. Stack-agnostic gate N/A (operator memory, not framework runtime).
+2. `<operator-auto-memory>/feedback_squash_merge_for_signed_only.md` — Rule: branch protection с `required_signatures: true` AND `enforce_admins: true` блокирует local push без GPG; PR + `gh pr merge --squash --admin` использует GitHub web-flow auto-sign. Extends [[squash-merge-auto-signs]] на admin-merge case. Concrete trigger: TUNE-0303 PR #45 squash-merge произвёл `5cf271d` signed satisfying protection. Stack-agnostic gate N/A.
+
+**Class B held (× 1):** retroactive-commit detector — script + `/dr-archive` Step 1.5 gate (OR `/dr-doctor` periodic sweep) проверяющий что для каждого archive doc существует matching code-changes commit в `code/datarim/` дереве. Pattern surfaced: 11 archived task IDs (TUNE-0264/0262/0253/0298/0267/0268/0271/0286/0297 + consumer review) имели archive docs committed но code-changes никогда не пушились. Class B потому что меняет operating model (archive-time gate vs periodic sweep). Spawn as `TUNE-* retroactive-commit detector` после second-incidence trigger.
+
+**Health-metrics:** skills 46 (unchanged), agents 18, commands 23. `/dr-optimize` not warranted.
+
+**Provenance:** reflection `datarim/reflection/reflection-TUNE-0303.md` + archive `documentation/archive/framework/archive-TUNE-0303.md` + PR `https://github.com/Arcanada-one/datarim/pull/45` squash-merged as `5cf271d`.
+
+---
+
+## 2026-05-24 — consumer review — Pipeline-position-aware AC + Q&A bundling (Class A × 2 applied)
+
+consumer review (EnrollmentService listener split) выявил две L1 inline-резолюции, пригодные к закреплению как фреймворковые правила.
+
+**Class A applied from reflection (× 2):**
+
+1. `skills/ai-quality/SKILL.md` § Pipeline-Position-Aware AC Formulation — добавлен параграф «Applies equally to non-HTTP protocols with a layered guard chain» с конкретным `<!-- gate:example-only -->` примером про `Unauthenticated` vs `PermissionDenied`. Контракт rule statement остался stack-нейтральным; гэйт `scripts/stack-agnostic-gate.sh --diff-only` → PASS clean.
+2. `skills/init-task-persistence/SKILL.md` § Q&A round-trip contract — добавлен параграф «Bundling thematically related inline decisions into one round is permitted». Формализует уже применённую consumer review round 2 практику: три тематически связанных delta vs plan (shutdown fan-out, disk-cli mTLS gap, denial code) сгруппированы в один round с пронумерованными вопросами/ответами и одним summary'ем. Концепт process-discipline-only, no stack tokens; гэйт → PASS clean.
+
+**Class B held (× 0):** структурных изменений фреймворка задачей не выявлено.
+
+**Lessons applied to verification methodology:** semantic-gate AC formulation работает и для gRPC, не только HTTP — что хорошо иллюстрируется consumer review AC-3 (PRD пишет PermissionDenied, реальный код возвращает Unauthenticated, оба коммуницируют admin-RPC denied). Тест ассертит broader denial class — устойчив к refactor'у в обе стороны.
+
+---
+
+---
+
+## 2026-05-24 — TUNE-0137 — Self-Verification tri-layer v2 R-5 GATE PASS (Class A × 1 applied)
+
+30-day prospective dogfood window закрылся досрочно на 15-м дне (≥10 tagged tasks условие сработало раньше календарного 2026-06-09). Final replay `dev-tools/measure-prospective-rate.sh --since 2026-05-09` → `rate_per_5_tasks: 23.10` (порог ≥1.0 — превышен 23×), `decision_hint: spawn automated post-step hook`. Все 17 AC v2 closed (включая AC-7 v2 prospective rate, AC-8 v2 per-invocation token cost tooling, AC-10 v2 multi-agent на real dogfood, AC-16 cross-model peer-review LIVE, AC-17 deterministic floor LIVE). Замер: 162 архива с `verification_outcome:` frontmatter, 21 с `n_a:false`, 97 caught_by_verify, 2 missed_by_verify, 23 false_positive (FP rate ≈19%), 37 audit logs в `datarim/qa/verify-*.md`. Peer-review modes: 32 cross_vendor / 0 cross_claude_family / 0 same_model_isolated — Layer 2 фактически работает через DeepSeek, Claude-family fallback оставлен как контракт. R-5 v2 hard kill-gate явно прошёл — спавн TUNE-0138 (post-step hook integration) unblocked.
+
+**Class A applied from reflection (× 1):**
+
+1. `docs/evolution-log.md` — этот блок (запись R-5 v2 GATE PASS verdict с numeric thresholds для будущей археологии решения).
+
+**Class A withdrawn after re-read (× 1):**
+
+1. Proposal «add cross-claude-family fallback paragraph to skills/self-verification/SKILL.md» — отозвано: skill уже содержит детальный 6-step resolution chain (D-5 chain step 5 = `cross-Claude-family subagent` через `agents/peer-reviewer.md` at `model: sonnet`), а также 3-tier `peer_review_mode` taxonomy с описанием cross_claude_family case. Empirical `rate: 0.0` объясняется тем, что chain step 1 (coworker default) каждый раз резолвится в DeepSeek — это операционная реальность, не документационный gap.
+
+**Class B held (× 3):** см. `reflection-TUNE-0137.md` § Evolution Proposals — Layer 2 cross-vendor default policy, FP filtering pass, adaptive `n_a` policy. Все три меняют contract surface (pipeline shape / template contract) и требуют отдельного PRD — отложены до TUNE-0138.
+
+**Lessons applied to verification methodology:** synthetic retrospective baseline на n=13 даёт noise-dominated signal (v1 AC-7 15.4%); prospective operator-confirmed-novel-findings rate на n=21 real tasks даёт production-grade signal (v2 AC-7 23.10× over threshold). Methodology fix > kill on first noisy gate.
+
+---
+
+## 2026-05-23 — TUNE-0266 — Per-goal verification hardening: expectations on /dr-init L1-L4 + schema v2 + per-wish qa-report (Class A × 2 applied)
+
+`/dr-init` mandate расширен на все уровни L1-L4 (без soft-window) — `tasks/{TASK-ID}-expectations.md` создаётся сразу при инициализации. Schema поднят до v2 с обязательным полем `evidence_type` per wish (empirical | static | measurement); legacy v1 принят с DEPRECATION warning, sunset 2027-05-23. `/dr-qa` Layer 3b пишет per-wish детальный блок в `qa-report-{TASK-ID}.md` (4 sub-headings: «Что было сделано», «Команда + результат», «Verdict», evidence_type) вместо строки в таблице. Validator (`dev-tools/check-expectations-checklist.sh`) advisory-warns при all-static; legacy:true skip + pivot-date auto-legacy (env-override `DATARIM_TUNE_0266_PIVOT_DATE`). VERSION 2.17.1 live на datarim.club; ≥3 docs упоминают evidence_type. 42 контрактных bats green. Dogfooding замкнут: TUNE-0266 первой прошла через свой собственный контракт — validator `--task` exit 0 zero-DEPRECATION, `--verify` PASS, qa-report-v2 содержит 8 per-wish blocks. Framework commit `d2edb3d`.
+
+**Class A applied from reflection (× 2):**
+
+1. `skills/expectations-checklist/SKILL.md` § Validation — добавлен параграф «Full verdict requires both passes»: `--task` exit 0 необходимо но не достаточно для `--verify` PASS; контракт асимметричен (task-mode = schema validity + status presence; verify-mode = verdict routing). Документация описывает существующее поведение, API не меняется.
+2. `skills/init-task-persistence/SKILL.md` § Q&A round-trip contract — добавлена под-секция «Canonical 5-round decomposition pattern»: 4 operator-answered + 1 agent-decided под FB-1..FB-5 (D-1 artefact creation moment, D-2 mandate scope, D-3 schema upgrade shape, D-4 report location, D-5 backward compat default). Hallmarks of high-quality append-log: verbatim Q+A, ≥50-char rationale for agent-decided rounds, no contradiction без `--conflict-with`.
+
+**Class B held (× 1):** `skills/v-ac-axis-split/SKILL.md` extension OR new `skills/runtime-probe-history-agnostic/SKILL.md` — `/dr-plan` Step 6 (Plan Completeness) должен runtime-probe history-agnostic gate ДО approve. Holding pending separate PRD draft (контракт routing semantics + CI impact). Tracked в backlog как «PRD: /dr-plan Step 6 history-agnostic probe».
+
+**Lessons applied to evolution-log itself:** dogfooding-as-V-AC работает (включай в plan как явный Phase, не как Phase-N-completion-test); pivot-date + env-override = soft cutover pattern для schema migrations; selective restage > broad attribution (Step 0.1.4 cross-task leakage audit отверг broad attribution оператора — это правильное поведение контракта).
+
+---
+
+## 2026-05-18 — consumer review — Container-name race fix on connector service deploy (Class A × 1 applied)
+
+the consumer repository post-merge `CI & Deploy` workflow deploy job intermittently failed with «Container `service-container-1 ... already in use`» after consumer review tightened the healthcheck/`start_period`. Root cause: `docker compose up -d --build` allocated the new container name before the previous instance (`restart: unless-stopped` policy) finished transitioning to a clean stopped state. Fix: two-line edit to `.github/workflows/ci.yml` deploy job — one inline comment + `$COMPOSE down --remove-orphans || true` before `$COMPOSE up -d --build` — plus a new `docs/how-to/deploy-runbook.md` (~70 LoC, Diátaxis how-to). PROD smoke confirmed: `https://model.example.invalid/health` 200 ok, all five named volumes (`claude-auth`, `codex-bin`, `cursor-auth`, `cursor-config`, `gemini-auth`) preserved, `CODEX_BINARY_PATH=/codex-sidecar/bin/codex` regression-check green. All eight V-AC gates passed. The cleanup is idempotent on cold-start (`|| true`) and named volumes survive because `down` is invoked without `-v`. `--remove-orphans` is scoped to the current compose project — foreign containers are untouched even when they share networks.
+
+One Class A evolution proposal applied with operator approval:
+
+- **Proposal 2 — skill-update (applied):** `code/datarim/skills/infra-automation/SKILL.md` gained a new top-level section «## Compose Deploy Race Pattern» between «Tracked Deploy Artefact Rule» and «Reusable Templates». The section codifies the canonical fix (`$COMPOSE down --remove-orphans || true` before `up -d --build`) with the «Why» rationale (container-name race after healthcheck tightening), blast-radius note (orphan removal scoped to current compose project), volume-preservation contract (`down` without `-v` keeps named volumes), and an anti-pattern note against per-service `docker rm -f`. Bash example is wrapped in `<!-- gate:example-only -->` fence. Both stack-agnostic-gate and task-id-gate PASS on the edit.
+
+Three follow-up backlog items spawned during /dr-do (Proposal 1 is documentation of work already done):
+
+- `CONN-* — MC blue-green deploy migration` (L3 P3) — addresses the ~3-5 s availability dip between `down` and `up -d --build` (mitigated today by Cloudflare retry + client-side retry on 502/503, but eliminated by zero-downtime deploys).
+- `INFRA-* — Ecosystem-wide compose deploy race audit` — symmetric apply of the consumer review fix to media-service, billing, OpsBot, Status, and any other ecosystem service using `docker compose up -d --build` with `restart: unless-stopped`.
+- `INFRA-* — MC deploy runbook Tailscale-form update` (L1 P3) — the new runbook references `ssh root@<prod-host>` (MagicDNS form); per the `feedback_tailscale_magicdns_not_default` rule this resolves to a public Hetzner IP on ecosystem hosts unless the operator has a `/etc/hosts` override. Switch the runbook to the Tailscale IP literal.
+
+Health-metrics: no thresholds exceeded — one paragraph + one new section in an existing skill. `/dr-optimize` not warranted.
+
+---
+
+## 2026-05-22 — TUNE-0264 — Programmatic Stop hook with Stage Header + human-summary validators (Class A × 2 applied)
+
+Added Claude Code `Stop` hook layered over the markdown contract closed in TUNE-0262. Single entry point `dev-tools/hooks/dr-output-stop.sh` (+ Python helper `dr-output-stop.py`) runs two sequential validators against the last assistant response in the JSONL transcript: (1) Stage Header preamble — first non-empty line MUST match `^\*\*[A-Z]{2,10}-\d{4} · .+\*\*$` for any task-scoped `/dr-*` command outside the exception list (`/dr-help`, `/dr-status`, `/dr-doctor`, `/dr-init` pre-Step 4); (2) human-summary contract — when the user invoked `/dr-archive`, `/dr-compliance`, or `/dr-qa`, the response MUST contain `## Отчёт оператору` / `## Operator summary` section with the self-identifier preamble + four canonical sub-headings verbatim per `skills/human-summary/SKILL.md` lines 44-56. Block-then-advisory hybrid: first occurrence (`stop_hook_active=false`) → stdout JSON `{"decision":"block","reason":"…"}`; retry (`stop_hook_active=true`) → stderr advisory + exit 0 (retry budget = 1 per validator). Hook is opt-in via copy-paste snippet in `~/.claude/settings.json § hooks.Stop[]` per `docs/how-to/dr-output-hook.md`; framework install/update flow does NOT mutate operator settings (V-AC-14 invariant). Fail-soft contract — any internal error (corrupt JSONL, missing transcript, path-traversal attempt) → exit 0 without stdout (workflow never breaks on hook bug). Stack: bash wrapper + Python stdlib only (`json`, `re`, `pathlib`, `argparse`) — no external deps. Eighteen bats integration cases + ten Python self-test cases all pass; bandit + shellcheck + stack-agnostic gate clean; live smoke against operator's last session returns `header_found:y; human_summary:ok`.
+
+Scope expansion captured: operator override D-5b at `/dr-init` round 6 folded the previously-deferred Proposal 6 (human-summary validator) into the same task, lifting complexity L1 → L2 — single transcript parser + single opt-in snippet + single bats suite serves both validators. Drift fix: `skills/cta-format/SKILL.md` line 67 forward-reference to `TUNE-0263` corrected to `TUNE-0264` + § Enforcement paragraph rewritten with live hook contract. PASS_WITH_NOTES at `/dr-qa` (two functions over 50-line cap — `_run` 51, `_self_test` 60) closed inline at `/dr-compliance` under Path B (Deferral vs Inline-Ship heuristic in `skills/compliance/SKILL.md`): extracted `_check_stage_header` (19) + `_check_human_summary` (19) + `_selftest_cases` (27); `_run` → 19 lines, `_self_test` → 14 lines, max function size 40 lines. Accepted-risk register stayed empty by design.
+
+Two Class A evolution proposals applied with operator approval:
+
+- **Proposal 1 — skill-update (applied):** `code/datarim/skills/compliance/SKILL.md § Deferral vs Inline-Ship` — appended second source incident («Second source: TUNE-0264 archive — PASS_WITH_NOTES closed inline at /dr-compliance under Path B; accepted-risk register stayed empty by design.») to the existing source paragraph anchored on consumer review. Two cases now ground the pattern. Stack-agnostic gate PASS (--diff-only mode).
+- **Proposal 2 — skill-update (applied):** `code/datarim/skills/evolution/history-agnostic-gate.md` — new top-level section «## Anti-patterns» with the «forward-reference to follow-up task ID before assignment» anti-pattern + two safer authoring forms (defer the reference, or use the unassigned-marker `<TASK-PREFIX>-XXXX (заполняется при назначении)` inside the per-block escape hatch) + grep-based detection at `/dr-archive` Step 0.5. Codifies the lesson behind the `TUNE-0263 → TUNE-0264` drift fixed in this task. Both gates (stack-agnostic + task-id) PASS.
+
+Class B HELD: `code/datarim/skills/runtime-topology-probe/SKILL.md` — single-incident evidence (D-9 bats fixture crash under `Path.resolve()` symlink-mode), not yet promoted. Re-presented after second occurrence or PRD update authorising the new `/dr-plan` step.
+
+Health-metrics: no thresholds exceeded — 1 new skill section + 1 paragraph append + 1 new top-level section (`## Anti-patterns` in existing skill). `/dr-optimize` not warranted. Bats: 5 pre-existing failures in workspace (TUNE-0114 D4 install-project, TUNE-0091 dev-tools install gates, workflow lint) — verified independent of Class A applies via stash/pop baseline check. Provenance: reflection `datarim/reflection/reflection-TUNE-0264.md` + compliance report `datarim/reports/compliance-report-TUNE-0264.md` + QA report `datarim/qa/qa-report-TUNE-0264.md`.
+
+---
+
+## 2026-05-22 — TUNE-0262 Phase 2 — Empirical harness + snapshot-writer-wrapper + coworker context propagation (Class A)
+
+Reopened TUNE-0262 after `/dr-qa v2 BLOCKED` (wish 1 `stage-header-task-id-i-title` empirically missed; Findings B + C from expanded operator brief). Phase 2 adds three orthogonal capabilities:
+
+1. **`dev-tools/snapshot-writer-wrapper.sh`** — bash-shebang wrapper that forces bash execution of `write_stage_snapshot`. Root cause of Finding B: `scripts/lib/snapshot-writer.sh` uses `BASH_SOURCE[0]` for sibling-script resolution; under zsh-parent shells (default on macOS) the array is unset, writer fails silently with «BASH_SOURCE[0]: parameter not set» + «no such file or directory: plugin-system.sh» + «command not found: write_stage_snapshot» (exit 127). Wrapper invokes via `bash -c`. `skills/cta-format/SKILL.md § Snapshot Emission` recipe updated to use wrapper instead of direct `source && write_stage_snapshot`.
+
+2. **Auto-detect journal hook in `write_stage_snapshot`** — post-atomic-rename block appends one line per call to `/tmp/datarim-test-{TASK-ID}/journal.md` when that directory exists. Line format: `<stage> · <ISO-ts> · header-present:<y|n> · snapshot-written:y · cta-footer:<y|n> · snapshot-sha:<12-hex>`. Detection by directory presence — zero cost when harness inactive. Fail-soft per V-AC-7. Three new probe scripts complete the harness: `datarim-stage-probe-init.sh` (creates dir 0700, idempotent, symlink-safe), `datarim-stage-probe-coworker-echo.sh` (sends fixed question to `coworker --profile datarim`, counts mandate keywords, sensitive-marker refusal), `datarim-stage-probe-cleanup.sh` (idempotent removal). Operator-facing how-to: `docs/how-to/datarim-harness.md`.
+
+3. **`skills/coworker-context/SKILL.md` + enriched coworker profile** — Finding C: `~/.config/coworker/profiles.yaml::datarim.system_prompt` was 56 words of generic prose, missing every Datarim mandate (Stage Header, append-log, expectations, snapshot frontmatter, history-agnostic, Supreme Directive). Profile rewritten to ~300 words with 9-of-10 mandate keywords explicit. New skill `coworker-context.md` is the canonical entry point that the profile references (history-agnostic — no task IDs in skill body). External LLMs invoked via `coworker --profile datarim` now receive explicit convention instructions.
+
+`tests/stage-probe-harness.bats` covers 10 cases (U1-U9 + I1): init dir-mode/regex/symlink, writer header/cta detection in body, cleanup idempotence/symlink-safety, wrapper under bash. All 10 PASS locally. `shellcheck -S warning` clean on all four new scripts.
+
+VERSION 2.15.0 → 2.16.0 (minor: new skill, new dev-tools, contract extension of writer with backwards-compatible auto-detection, no breaking change).
+
+---
+
+## 2026-05-22 — TUNE-0262 — Stage Header convention added to /dr-* responses (Class A)
+
+New top-level section `## Stage Header (canonical for /dr-* responses)` added to `skills/cta-format/SKILL.md` between `## When to Apply` and `## Canonical Block — Single Active Task`. Defines the one-line banner `**{TASK-ID} · {title}**` that every task-scoped `/dr-*` command and CTA-emitting agent MUST emit as the first line of its operator-visible response. Bold inline format (matches the CTA footer convention), U+00B7 middle-dot separator, title verbatim from `tasks.md` one-liner. Single emission per command invocation. Four exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit the header on the first message after Step 4 once the TASK-ID is determined).
+
+Five CTA-emitting agents (`planner`, `architect`, `developer`, `reviewer`, `compliance`) got a Stage-Header bullet in their `**Output discipline**` block referencing `cta-format.md § Stage Header`. Sixteen non-exception `dr-*` command files (`addskill`, `archive`, `compliance`, `continue`, `design`, `do`, `dream`, `edit`, `optimize`, `plan`, `plugin`, `prd`, `publish`, `qa`, `verify`, `write`) got an identical `**Stage Header (mandatory)**` paragraph inserted after the structural anchor of each (`## Instructions` / `## Steps` / `## Purpose`). `commands/dr-init.md` Step 4 carries a header-after-Step-4 emission rule.
+
+Enforcement is **advisory only** at this stage — agent compliance ≈ 95% via the markdown instruction. Hook-based programmatic enforcement queued as **TUNE-0264** (Class A, low impact). Stack-agnostic gate: PASS on all 22 touched files. No state-machine, DSL schema, snapshot writer, or CTA block format changes — purely cosmetic markdown convention.
+
+Motivation: operator routinely runs 40+ concurrent active tasks; without a header, `/dr-*` output is ambiguous about which task it pertains to. The Stage Header sits at the *opposite* end of the response from the CTA block (footer = "what to do next"; banner = "what we're working on right now"). No version bump (continuing 2.13.0 line).
+
+---
+
+## 2026-05-21 — TUNE-0254 reflection — Evolution Proposals 1+2 applied (Class A)
+
+### Proposal 2 (skill-update, low impact) — `skills/evolution/history-agnostic-gate.md § Scope`
+
+Out-of-scope line for `tests/` expanded to explicitly mention `tests/*.bats` and the rationale that test data / fixture bodies may contain TASK-ID literals by design. Closes recurring advisory FAIL noise seen during `/dr-qa`, `/dr-compliance`, `/dr-archive` on new `.bats` files. The gate already excluded directory-level `tests/`; the change is documentation-only (no scanner behaviour change) but removes the operator-side confusion about whether bats fixtures need escape-hatch markup.
+
+### Proposal 1 (command-update, medium impact) — `commands/dr-do.md` Step 8.6 re-entry emphasis
+
+Original proposal text in the TUNE-0254 reflection asked to "add Step 6.5 APPEND Q&A". Structurally the step already exists at position 8.6 (added in `ceafe36`, TUNE-0216 Phase 3) — same canonical position relative to OUTPUT as `dr-prd:6.5 → 7`, `dr-qa:6.5 → 7`, `dr-compliance:6.5 → 7`, `dr-plan:12.5 → 13`. The TUNE-0254 runtime gap was NOT structural absence; the agent in `/dr-do` round 2 simply forgot to invoke `append-init-task-qa.sh` and `/dr-qa` v2 Layer 3b retroactively appended as round 4. The structural fix is to make the re-entry case (post-`/dr-verify` triage, `--focus=` re-entry) impossible to miss. Step 8.6 now carries an explicit "Applies to every round" sub-bullet plus the monotonic-round constraint and the process-cost regression warning. No new gate, no contract surface change.
+
+Both proposals are Class A (skill / command surface), operator-approved at apply time (2026-05-21). No version bump (continuing 2.13.0 line).
+
+---
+
+## 2026-05-18 — TUNE-0251 — Final removal of copy-mode helper scripts (v2.12.0)
+
+Removed `scripts/curate-runtime.sh` + `scripts/check-drift.sh` along with their regression bats coverage (`tests/check-drift.bats`, `tests/curate-runtime.bats`, `tests/deprecation-banners.bats`). Both scripts were DEPRECATED in v1.17.0 when the symlink-default operating model landed — under symlink topology runtime IS the repo by inode, so the parallel drift-detection and curation helpers no longer carried operational value. Copy-mode users keep `git pull && ./install.sh --copy --force --yes` as the canonical resync recipe.
+
+Six documentation surfaces cleaned of references: `docs/getting-started.md` § Updating + § Drift; `docs/symlinks.md` § How install.sh detects support + § Migration + § Verification; `README.md` § Drift check renamed to § Verifying the install with `./validate.sh` as the canonical command; `skills/datarim-system/SKILL.md` Loading order copy-mode paragraph; `skills/utilities/recovery.md` Step 5 recovery recipe; `skills/testing/bats-and-spec-lint.md` static-grep exemplar + Exemplar reference. Project-level CLAUDE.md + README.md in `Projects/Datarim/` mirrored.
+
+`update.sh` simplified: drops the post-install verify step and the dry-run drift listing. Symlink mode exits early after `git pull` (unchanged contract); copy mode runs `install.sh --copy --force --yes` only. Help text + step-list synchronised. `install.sh` INSTALL_SCOPES comment anchors the scope contract to `tests/install.bats T34/T35/T36`.
+
+Class: maintenance / chore. No new behaviour, no new tests required beyond the removed regression set. Reversible via `git revert`.
+
+**ID re-allocation note.** Originally reserved as TUNE-0044 in v1.17.0 release notes; the ID was reused on 2026-04-29 for the multi-agent workspace archive-semantics task (PRD approved, archived, this log § 2026-04-29). Re-allocated at `/dr-do` entry to TUNE-0251 (next free; highest used = TUNE-0250 on 2026-05-18) to preserve `grep -E 'TUNE-0044'` audit-trail unambiguity. Decision audit in `datarim/tasks/TUNE-0251-init-task.md` § Append-log Round 1.
+
+Reflection deferred to `/dr-archive` Step 0.5.
+
+---
+
+## 2026-05-17 — consumer review — `skills/testing/SKILL.md` § Reporting Test Counts extended to commit messages (Class A)
+
+### Class A Applied
+
+- **`code/datarim/skills/testing/SKILL.md` § Reporting Test Counts in Audit Output** — appended paragraph explicitly extending the mechanical-extractor contract to commit-message bodies. Recommended canonical form for commit-message test deltas: `tests: +N (baseline→total)`, both numbers produced by the extractor against pre/post revisions. Source incident: a consumer review commit body cited «13 new spec cases (sub-totals 7+3+6)» where the sub-totals themselves sum to 16, and «Full suite: N passed (was K)» where K was off by 3 against actual pre-commit baseline. The rule already covered audit docs / QA reports but did not explicitly mention commit messages — git history is part of the durable audit trail too, and post-push rewrites are destructive.
+
+### Stack-agnostic gate
+
+`scripts/stack-agnostic-gate.sh --diff-only skills/testing/SKILL.md` → **PASS** (clean).
+
+### Bats regression
+
+Pre-edit fail count = 2 (`368: no skill description exceeds 155 chars`, `470: T11: skills/ scope is gate-clean`). Post-edit fail count = 2 (same two tests; both pre-existing, not caused by this change). Verified via stash/restore cycle on the same revision.
+
+### Class B Held
+
+- **`<consumer-workspace>/CLAUDE.md` § Plan LoC estimate calibration** — tightening to require reference-by-name in plan text on every spec-LoC estimate over 30 LoC, with `/dr-qa` Layer 3 auto-flag for missing reference. Consumer-side `CLAUDE.md` operating-model change, not Datarim framework runtime; held pending operator review on the connector service side per `skills/evolution/SKILL.md` § Operating-Model Gate.
+
+### Health-metrics
+
+Skills ~80 / agents 22 / commands 24 / templates ~25 — all under thresholds; no `/dr-optimize` suggestion emitted.
+
+### Provenance
+
+
+
+
+
+---
+
+## 2026-05-13 — consumer review — Public Surface Hygiene Mandate cross-link + lint contract surface
+
+### Class A Applied
+
+- **`CLAUDE.md` § Public Surface Hygiene Mandate (cross-link) (NEW section).** consumer review Proposal 1. Inserted between Documentation Taxonomy Mandate and Defensive Invariants. Mirrors the Autonomous Agent Operating Rules cross-link pattern — canonical mandate text lives in the consumer's ecosystem `CLAUDE.md`; framework ships the contract surface only. References `<workspace>/CLAUDE.md` § Public Surface Hygiene Mandate as the Arcanada-ecosystem canonical source.
+  - **File:** `CLAUDE.md` (~+18 prose lines inserted before § Defensive Invariants).
+  - **Class:** A.
+  - **Source:** consumer review reflection Proposal 1.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`, no stack terms).
+  - **Summary:** consumers shipping public packages MUST mirror canonical mandate in own ecosystem CLAUDE.md; framework ships lint script + regex file as contract surface, not the rules text.
+
+- **`dev-tools/public-surface-lint.sh` + `dev-tools/public-surface-forbidden.regex` + `dev-tools/tests/public-surface-lint.bats` (NEW files).** consumer review Proposal 2. Pure-shell linter greps supplied paths for forbidden references (PRD-/creative-/plans-/insights- patterns, internal-datarim-repo paths, milestone-code references) loaded from a sibling `.regex` file. Single `--check` mode: exit 0 = clean, exit 1 = found, exit 2 = usage error. Skips `dist/` / `build/` / `node_modules/` / `.venv/` / `.git/` / `__pycache__/` / `.pytest_cache/` by default. Per `dev-tools/` orthogonal-tool rule — content validation lives outside `datarim-doctor.sh`. Bats spec covers 14 cases (clean, all 4 forbidden-prefix variants, internal-link variant, milestone-code variant, skip-dist variant, report mode positive + negative, missing/empty regex error paths, unknown-argument error path).
+  - **Files:** `dev-tools/public-surface-lint.sh` (~135 LoC including spec comments), `dev-tools/public-surface-forbidden.regex` (~25 LoC including comment header), `dev-tools/tests/public-surface-lint.bats` (~110 LoC, 14 test cases).
+  - **Class:** A.
+  - **Source:** consumer review reflection Proposal 2.
+  - **Stack-agnostic gate:** PASS (pure bash + grep, no stack terms in script body or docs).
+  - **Bats verification:** 14/14 pass. Pre-existing framework bats failures (T11, T12, D5, 336, 384) are baseline regressions on origin/main, not caused by these additions (verified via `git stash` + `bats tests/` → identical failure set).
+  - **Summary:** contract-surface lint that consumers wire into their CI / pre-publish hook; consumers extend the regex set with their own task-prefix patterns at install time.
+
+### Class A Applied (consumer-side, not framework runtime)
+
+- **Auto-memory `feedback_token_health_probe_before_publish.md`.** consumer review Proposal 3. New ecosystem-side memory: every CI workflow depending on a long-lived token (npm/PyPI/Docker/CF) MUST health-probe the token at job start, not at the publish step. Distinct exit code on expiry distinguishes "rotate token" from "investigate publish failure". Pattern mirrors `feedback_openrouter_key_revoke_probe` for OpenRouter — generalised across token providers.
+  - **File:** `<operator-auto-memory>/feedback_token_health_probe_before_publish.md` (ecosystem-side, not framework runtime).
+  - **MEMORY.md index updated** with one-line pointer.
+  - **Class:** A.
+  - **Source:** consumer review reflection Proposal 3.
+  - **Stack-agnostic gate:** N/A (ecosystem-side memory; framework gate does not apply).
+## 2026-05-14 — TUNE-0209 — Soak verdict-gate hardening (2 Class A proposals applied; 1 Class B held)
+
+### Class A Applied
+
+- **`skills/testing/SKILL.md` — `## Producer-Side Smoke Verification for Verdict Gates` subsection (NEW, 13 lines).** When a Definition-of-Done acceptance criterion is a numerical threshold computed by a verdict script over event records emitted by a producer (a daemon, soak harness, ingest pipeline, audit emitter), validate **both halves** in the same pre-archive gate — consumer-side smoke (verdict script over synthetic input) plus producer-side smoke (capture one actual event record from the producer's normal output stream and confirm every verdict-script-consumed field is present). Synthetic-only validation is the recurring trap that surfaced TUNE-0209: TUNE-0165 archive deferred V-AC-22 with smoke-validated synthetic JSONL, but the producer side (legacy `/usr/local/bin/dr-orchestrate-soak.sh`) was never exercised — 48h later the verdict gate failed on «no schema_v2 events» despite passing all unit assertions on synthetic input.
+  - **File:** `code/datarim/skills/testing/SKILL.md` (subsection inserted between «Reporting Test Counts in Audit Output» and «Discipline»).
+  - **Class:** A.
+  - **Source:** TUNE-0209 reflection Proposal 1 (`Projects/Datarim/datarim/reflection/reflection-TUNE-0209.md`).
+  - **Stack-agnostic gate:** PASS (`scripts/stack-agnostic-gate.sh --diff-only skills/testing/SKILL.md`).
+  - **Bats regression:** framework bats 494 total, 5 pre-existing fails (same baseline as TUNE-0165 archive — T11/T12 task-id-gate against legacy task IDs in `skills/datarim-doctor/SKILL.md` + `skills/ai-quality/bash-pitfalls.md`, plus 3 other unrelated pre-existing fails). Zero new regressions attributable to this apply.
+
+- **`skills/infra-automation/SKILL.md` — `## Tracked Deploy Artefact Rule` subsection (NEW, 12 lines).** Any script, config, systemd unit, or shell wrapper installed under a production path AND referenced downstream as a verification surface MUST be tracked in the framework or project repository before the referencing acceptance criterion ships. Untracked operator-authored artefacts have no diff history, no review trail, no code-review gate — drift propagates invisibly. Source incident: TUNE-0209 root-caused that the legacy `/usr/local/bin/dr-orchestrate-soak.sh` wrapper (created at INFRA-0137 launch) was never tracked in the Datarim repo; V-AC-22 ACs referencing the wrapper's behaviour shipped without a canonical surface to validate against.
+  - **File:** `code/datarim/skills/infra-automation/SKILL.md` (subsection inserted between «Remote Measurement» and «Reusable Templates»).
+  - **Class:** A.
+  - **Source:** TUNE-0209 reflection Proposal 2.
+  - **Stack-agnostic gate:** PASS (`scripts/stack-agnostic-gate.sh --diff-only skills/infra-automation/SKILL.md`).
+  - **Bats regression:** same 494/5 baseline; zero new regressions.
+
+### Class B Held
+
+- **Proposal 3 — PRD-TUNE-0165 amendment for V-AC-22 traffic-mix specification.** Soak corpus design materially influences `false_escalate_rate = escalated / (resolved + escalated)`; threshold `< 0.15` without explicit mix-spec is semantically ambiguous. Class B because it changes the PRD's acceptance-criterion contract.
+- **Status:** HELD. Spawned as backlog item `TUNE-0212` (P3 L2) with PRD-TUNE-0165 amendment as the gate.
+
+### Health-metrics
+
+- Skills 41, commands 22 + 1 plugin, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
+
+### Provenance
+
+- Reflection: `Projects/Datarim/datarim/reflection/reflection-TUNE-0209.md`
+- Archive doc: `documentation/archive/framework/archive-TUNE-0209.md` (workspace commit `e84a947`)
+- Framework code commit (pre-evolution-apply): `2e2dfa8` (`code/datarim/dev-tools/dr-orchestrate-soak.sh` + bats); NOT yet pushed to `Arcanada-one/datarim main` — operator approval gate.
+- Spawned follow-ups: `INFRA-0199` (48h re-soak on new harness), `TUNE-0212` (PRD-TUNE-0165 amendment).
+
+---
+
+## 2026-05-13 — consumer review — Live Smoke-Test Gates: Current-State Auth Probe subsection (consumer review follow-up F-1)
+
+### Class A Applied
+
+- **`skills/testing/live-smoke-gates.md` — `## Current-State Auth Probe` subsection (NEW, 22 lines).** Pre-flight requirement for every gate below; prescribes hitting an auth-scoped capability-cheap endpoint with the same credential before the capability test, a distinct sentinel/exit code on auth failure, and recording the probe result alongside the smoke result in the QA report.
+  - **File:** `code/datarim/skills/testing/live-smoke-gates.md` (subsection inserted between the intro paragraph and `## Gate 1`).
+  - **Class:** A (closes the Class A Deferred entry from the 2026-05-13 consumer review section below).
+  - **Source:** consumer review reflection Proposal A1 + backlog consumer review.
+  - **Stack-agnostic gate:** PASS (`scripts/stack-agnostic-gate.sh --diff-only skills/testing/SKILL.md` and `--diff-only skills/testing/live-smoke-gates.md` both clean).
+  - **Regression spec:** `code/datarim/tests/skill-testing-current-state-auth-probe.bats` (5 assertions — file presence, header presence, ordering after `# Live Smoke-Test Gates`, stack-neutral wording, ≤30-line body).
+  - **Reword applied:** "migration roadmap toward a centralised identity provider" replaces the original draft phrasing that referenced an ecosystem-specific migration list.
+
+---
+
+## 2026-05-13 — consumer review — Cron-agent multi-provider memory rule (1 of 2 Class A proposals applied; 1 deferred + 1 Class B held)
+
+### Class A Applied
+
+- **Memory rule `feedback_cron_agent_multi_provider.md` (NEW).** consumer review Proposal A2. Documents PRIMARY (subscription/free-tier subprocess) → FALLBACK (connector service universal `/execute`) pattern with fail-soft sentinels for cron-style AI agents. Applies to scheduled consumer agents across notification, collection and review workflows. Sentinel strings (`<svc>-disabled`, `<svc>-http-XXX`, `<svc>-skipped`) used вместо exceptions so cron cycles degrade to `no-ai` notification instead of crashing.
+  - **File:** `<operator-auto-memory>/feedback_cron_agent_multi_provider.md` (NEW) + `MEMORY.md` index entry.
+  - **Class:** A.
+  - **Source:** consumer review reflection Proposal A2 + archive (private consumer record).
+  - **Stack-agnostic gate:** N/A — local user memory file (project-scoped, not framework runtime).
+  - **Summary:** Cron agents with external LLM API deps adopt multi-provider chain with fail-soft sentinels at each layer; restores availability при quota exhaust без новых secrets.
+
+### Class A Deferred (Pending Stack-Agnostic Rewording)
+
+- **`skills/testing/SKILL.md` § Live Smoke-Test Gate — Current-State Auth Probe** (Proposal A1). Текущая draft формулировка cites «identity service migration list (Phase 5+)», что fails `scripts/stack-agnostic-gate.sh`. Reword stack-neutral («migration roadmap toward centralised IdP») перед apply. Deferred to follow-up task F-1 (backlog spawn).
+
+### Class B Held (PRD Required)
+
+- **Project repo sync policy (Proposal B1).** related consumer reviews landed только в workspace `<workspace>/.git`, не в the consumer repository. Per Operational Resilience Mandate Principle 1 — PRD-INFRA-XXXX needs to define canonical repo + sync direction + cadence. Deferred to follow-up F-4.
+
+---
+
+## 2026-05-11 — TUNE-0164 — Apply 4 Class A proposals to runtime (Phase 1 dr-orchestrate reflection)
+
+### Class A Applied
+
+- **`skills/datarim-system/SKILL.md` § Large-Plan Read Strategy (L3+ tasks) (NEW section).** TUNE-0164 Proposal 1. Codifies the «coworker structured-summary on plans ≥ 600 lines» default for L3+ tasks: one delegated call returns per-step / per-V-AC / per-file specification that anchors implementation order, V-AC mapping, MOD touchpoints; QA and compliance reuse the same summary. Stack-neutral wording: «external-context delegation channel» / «runtime's external-LLM contract» — no vendor lock. References CLAUDE.md § Coworker Delegation for the concrete channel.
+  - **File:** `skills/datarim-system/SKILL.md` (~+30 prose lines inserted after § Quick Path Resolution Rule).
+  - **Class:** A.
+  - **Source:** TUNE-0164 reflection Proposal 1.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** L3+ tasks with PRD+plan+INSIGHTS ≥ 600 lines delegate the bulk read to an external-context channel; main context consumes the structured summary, not the raw artefacts.
+
+- **`skills/ai-quality/bash-pitfalls.md` § «`date +%s%N` is GNU-only» + «`awk sub()` does NOT support capture groups» (TWO NEW sections).** TUNE-0164 Proposals 2 + 3. First section: portable millisecond clock recipe (Bash 5 `$EPOCHREALTIME` → `perl Time::HiRes` fallback); flags `date +%s%N` as silently broken on macOS / BSD. Second section: awk `sub()` / `gsub()` accept ERE pattern but treat `\1..\9` as literal text, no capture groups; canonical alternative is `match()` + `substr()` or sed/perl. Both pitfalls were hit during TUNE-0164 `/dr-do` and would have shipped silently broken on mac.
+  - **File:** `skills/ai-quality/bash-pitfalls.md` (~+90 prose lines inserted before § Why this fragment exists).
+  - **Class:** A.
+  - **Source:** TUNE-0164 reflection Proposals 2 + 3.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** portable `now_ms` recipe (Bash 5 EPOCHREALTIME → perl); awk `sub()` capture-group trap with `match()` + `substr()` alternative.
+
+### Class A Applied (consumer-side, not framework runtime)
+
+- **`<operator-auto-memory>/feedback_foreign_path_args_disambiguation.md` (NEW feedback memory).** TUNE-0164 Proposal 4. Auto-memory entry: when `/dr-*` invocation arguments include a filesystem path outside `<workspace>/` or the active framework root, treat as a candidate parallel ask and confirm scope before touching the foreign repo. Indexed in `MEMORY.md`. Stack-neutral by virtue of living in personal auto-memory (consumer-side), not in framework runtime. Not in `code/datarim/{skills,agents,commands,templates}/`.
+
+### Class A Applied (backlog spawn, no runtime change)
+
+- **`datarim/backlog.md` — INFRA-* — TUNE-0101 plugin-system gitignore drift.** TUNE-0164 Proposal 5. Backlog entry only; no framework runtime change. Description: `dr-plugin enable/list/doctor` creates `enabled-plugins.md` and `plugin-storage/` at the framework repo root on first invocation; neither is gitignored. Surfaced during TUNE-0164 plugin-system smoke; cleaned post-smoke. Follow-up requires one-line `.gitignore` patch on the framework repo (and optionally a `dr-plugin clean` subcommand). Spawned in `/dr-archive` Step 4.
+
+### Decisions Locked
+
+- **D-1 (Proposal 4 routing):** Foreign-path argument disambiguation lives as a personal auto-memory entry (`memory/feedback_foreign_path_args_disambiguation.md`), NOT as a framework skill or CLAUDE.md amendment. Rationale: the rule is about how an agent interprets an operator's slash-command invocation — operator-specific workflow guidance, not framework contract. Auto-memory is the right surface; multiple operators may interpret foreign-path args differently.
+- **D-2 (Proposals 2 + 3 colocated):** Both new pitfalls land in the same skill file (`skills/ai-quality/bash-pitfalls.md`) because they share the same audience (bash script authors / shell-pipeline reviewers) and the same recovery shape (canonical-recipe alternative). Splitting would duplicate the «Why this matters in practice» framing.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh --diff-only skills/datarim-system/SKILL.md` → PASS clean. `bash scripts/stack-agnostic-gate.sh --diff-only skills/ai-quality/bash-pitfalls.md` → PASS clean.
+- `bats tests/` after applies: 402 active passes, 5 pre-existing failures (D5 check-drift, 277 marketing description length, T3a dr-reflect whitelist, T11/T12 task-id-gate skills/commands scope). Pre-edit baseline identical 5/5; **zero new regressions attributable to TUNE-0164 Class A applies.**
+- Provenance: this evolution-log entry + `datarim/reflection/reflection-TUNE-0164.md` + git log (commit `evolution(TUNE-0164): apply 4 Class A proposals to runtime`).
+
+---
+
+## 2026-05-09 — consumer review — Pipeline-position-aware AC formulation в `skills/ai-quality/SKILL.md` (Class A)
+
+### Class A Applied
+
+- **Target:** `skills/ai-quality/SKILL.md` — new section «Pipeline-Position-Aware AC Formulation» inserted before § Fragment Routing (~24 lines).
+- **What changed:** added a rule that ACs asserting HTTP status code MUST trace request through full middleware/filter chain; if asserted source is downstream of any validator, phrase as **semantic gate** (`not <failure_class>`) instead of literal status. Includes failure-mode example, 3-step rule, semantic-gate template, applicability scope, anti-pattern.
+- **Why:** consumer review cycle-1 finding #1 — PRD AC-11 declared «→ 401» without tracing pipeline; reality `Zod` validator runs *before* auth and short-circuits to `400`. Cost: PRD/plan/QA all required amendment under self-review (~30 min). Pattern is recurring across HTTP-routed code.
+- **Verification:**
+  - Stack-agnostic gate: PASS clean (stack-specific framework names wrapped in `<!-- gate:example-only -->` markers).
+  - Bats `tests/`: 4 pre-existing baseline failures (D5 check-drift, T277 description-length, T325 dr-reflect whitelist, T11/T12 task-id-gate from `security-baseline.md` + untracked `self-verification.md`) — UNRELATED to this proposal. `task-id-gate` on `ai-quality.md` itself: PASS clean. No new failures introduced.
+
+### Class B (HELD — pending PRD)
+
+- **Proposal 2 — `/dr-archive` unpushed-commits = 0 gate.** Per project repo touched: `git rev-list --count origin/<default-branch>..HEAD` MUST = 0 OR explicit accept-loss in archive doc. Source: consumer review «code-complete» archive shipped with commit an unpublished local commit only on local main → +1 day cycle (consumer review). Modifies archive command contract → requires PRD draft before apply (suggested TUNE prefix).
+- **Proposal 3 — `/dr-do` staging-not-stale pre-check.** Before any AC requiring staging E2E: `docker compose ps` + health-curl on staging host. Halt if dead/stale. Source: consumer review AC-10/11 partially blocked by consumer review compose collision. Modifies dr-do contract → requires PRD draft before apply.
+
+---
+
+## 2026-05-09 — consumer review — Architectural-superseding probe в `/dr-plan` Phase 4 (Class A)
+
+### Class A Applied
+
+- **`commands/dr-plan.md` § Detailed Design (Phase 4)** — добавлен mandatory first sub-step «Architectural-superseding probe». Перед component breakdown планер должен прочитать архивы, на которые ссылается `Spawned from` / `Source:` в задаче, и явно ответить: решена ли архитектурная проблема уже соседней задачей? Если да — рекомендовать cancellation / scope-reduction / re-framing как redundancy. Документировать ответ inline в Overview/Decisions секции плана.
+
+### Why
+
+consumer review был полностью спланирован как «выделенный RPi/NUC subnet router host» (Phase 4-6 + Appendix A Security написаны), прежде чем в фазе implementation выяснилось что consumer review уже сделал NAS прямым tailnet peer'ом — subnet router из primary path стал redundancy-only. Один grep по `Spawned from` ссылке (consumer review → consumer review) на этапе /dr-plan вытащил бы этот факт за 30 секунд. Cost = тривиальный; saving = 1-2h plan churn + €100 averted hardware procurement + 3-7 day procurement loop avoided. Stack-agnostic gate PASS (clean diff).
+
+### Held Class B (deferred)
+
+- **Mandatory strategist gate для redundancy-only tasks** — proposal сделать L2 strategist gate non-skippable когда задача содержит keywords `fallback` / `redundancy` / `backup-of-backup` или `Spawned from` archive с completed primary path. Class B (operating-model change) — отложен до накопления N≥3 incidents (сейчас N=1). PRD draft потребуется для apply.
+
+---
+
+## 2026-05-04 — consumer review — research-workflow.md § Pre-Flight Artifact Discovery (Class A)
+
+### Class A Applied
+
+- **`skills/research-workflow/SKILL.md` § Pre-Flight Artifact Discovery (NEW)** — Step 0 of `/dr-do` for any task referencing named artifacts (file paths, deployed services, infra resources, schemas). Procedure: enumerate → verify live → 3 outcomes (Match / Already done / Drift) → pivot via `INSIGHTS-{TASK-ID}.md` § Gap Discoveries when needed; cross-approach pivots re-read PRD § Solution Exploration. When-to-skip: plan <24h old + no parallel sessions + no prior shipped tasks in the area.
+
+### Why
+
+Plan called for sidecar migration; pre-flight discovered an already-shipped SDK-direct service (~1290 LoC). Phase 1 effort dropped from 1-2d to ~2h by following plan's already-rejected alternative with documented rationale. Stack-agnostic gate PASS, bats 160/160 PASS.
+
+---
+
+## 2026-05-03 — TUNE-0084 — pre-archive-check.sh classify by uncommitted diff + 3× Class A applies
+
+### Summary
+
+Refactored `pre-archive-check.sh` shared-mode classification: column 3 (`task-ids-csv`) now sources from `+/-` diff lines only (not `cat $file` body), so index files (`tasks.md`, `activeContext.md`, `backlog.md`) stop reporting their entire active-task roster as if introduced by the current edit. BLOCKED message rewritten to list only categories actually observed during iteration (was: consolidated `own / mixed / unattributed` lie). Defensive guard `[ "$block" -ne 1 ] → exit 2` codifies the wording↔exit-code invariant.
+
+### What changed
+
+- **MOD `code/datarim/scripts/pre-archive-check.sh`** (+69 / −24) — diff-only `found_ids` sourcing with untracked-file body fallback; separate `body_ids` signal for mine-by-elimination branch (TUNE-0060 contract preserved); `hit_own` / `hit_mixed` / `hit_unattributed` flags + hit-categorical BLOCKED message; precondition guard before BLOCKED block.
+- **MOD `code/datarim/tests/pre-archive-check.bats`** (+111) — 6 regression fixtures (T42-T47): column-3 cleanliness on index files (T42), foreign-only column-3 (T43), mixed preserved (T44), exit-0 wording invariant (T45), BLOCKED hit-categorical wording (T46), untracked-file body fallback (T47). Full suite 47/47 green; shellcheck `-S warning` clean.
+
+### Class A evolution (3 proposals, all applied this turn)
+
+1. **NEW `code/datarim/skills/utilities/git-diff-parsing.md`** + **MOD `skills/utilities/SKILL.md`** — canonical filter chain (`grep -E '^[+-]' | grep -vE '^(\+\+\+|---)'`) for parsing `git diff` output; covers markdown-bullet edge case, untracked-file fallback, hunk-context noise. Pattern surfaced 3 times in framework history (TUNE-0060 / 0068 / 0084) before being formalised.
+2. **MOD `code/datarim/CLAUDE.md`** — new § Defensive Invariants section after § Security Mandate. Documents precondition-guard pattern for state↔wording invariants in shell scripts (e.g. `BLOCKED ↔ exit 1`). Founding incident: TUNE-0084 pre-fix BLOCKED + exit 0 simultaneously misled operators.
+3. **MOD `code/datarim/skills/ai-quality/SKILL.md`** — added separate-signals sub-rule under § DECOMPOSITION. When one variable answers two semantically distinct questions (e.g. display roster + body presence proxy), refactoring one role silently breaks the other. Founding incident: TUNE-0084 regression T26 — `found_ids` carried two roles, narrowing it to one broke mine-by-elimination.
+
+### Bats verification after Class A apply
+
+- **MOD `code/datarim/tests/utilities-decomposition.bats`** — T3 fragment count `13 → 14` to track the new `git-diff-parsing.md` fragment. (Same pattern as the prior `keyword-linter.md` incident referenced in `reflecting.md`.) Suite green for utilities-decomposition + pre-archive-check; remaining 2 failures (T26 check-drift INSTALL_SCOPES, T156 datarim-doctor.md description >155 chars) are pre-existing and unrelated to TUNE-0084.
+
+### Lesson
+
+Two-source diff-text composition (body ∪ raw diff) is one source too many. Body carries committed roster; raw diff carries hunk-context (which IS body adjacent to a hunk). Both pollute display while only the +/- lines are the actual edit. Single canonical source = `^[+-]` filtered diff. Untracked files (no HEAD blob) are the only legitimate body-fallback path.
+
+---
+
+## 2026-05-03 — TUNE-0083 — Runtime datarim-doctor.md sync + Runtime/Canonical Identity rubric
+
+### Summary
+
+Closed symmetric site/runtime drift on `datarim-doctor` skill: runtime `code/datarim/skills/datarim-doctor/SKILL.md` (= `~/.claude/skills/datarim-doctor/SKILL.md` via symlink-default install) was rewritten to v1.21.3 5-pass migration + Data-Loss Safety Contract, matching the site PHP page already updated in TUNE-0082. Class A #1 from reflection added a § Runtime / Canonical Identity rubric to `skills/datarim-system/SKILL.md` documenting symlink-default inode identity and removing the copy-mode "sync runtime" reflex from AI-agent operational descriptions. Class A #2 (refine `pre-archive-check.sh` "mixed" classification heuristic) deferred to backlog as TUNE-0084 (P3 · L2).
+
+### Why patch-level (no version bump this round)
+
+Pure documentation parity fix (skill text → contract reality already shipped in v1.21.0/v1.21.3). No `scripts/datarim-doctor.sh` change, no contract change. The runtime skill was simply stale.
+
+### What changed
+
+- **MOD `code/datarim/skills/datarim-doctor/SKILL.md`** (+69 / -41) — 5-pass algorithm (Pass 4 = backlog-archive migration; Pass 5 = post-fix re-scan), § Data-Loss Safety Contract (4 rails), `activeContext.md` Active-Tasks-only mirror, abolished `«Последние завершённые»` rolling section, CLI surface (`--no-prompt`, `--conflict-policy`, scope `backlog-archive`, env `DATARIM_DOCTOR_BACKUP_DIR`).
+- **MOD `code/datarim/skills/datarim-system/SKILL.md`** (+12) — new § Runtime / Canonical Identity rubric (above § Loading Order). Documents inode identity verification via `stat -f %i` (macOS) / `stat -c %i` (GNU); copy-mode detection via divergent inodes.
+
+### Lesson
+
+Copy-mode reflex from pre-v1.17 era persists in AI-agent operational descriptions even when the underlying install topology is symlink. Surfacing the rubric in the always-loaded `datarim-system.md` skill is the cheapest place to short-circuit the reflex.
+
+---
+
+## 2026-05-02 — TUNE-0080 — Pre-archive version-consistency check (v1.21.2)
+
+### Summary
+
+Class A — internal tooling. Implements the Class A A-1 proposal from TUNE-0079 reflection. New `scripts/version-consistency-check.sh` gate runs as `commands/dr-archive.md` Step 0.2 between clean-git check and reflect. When `VERSION` changed in HEAD->working-tree, the script greps `CLAUDE.md` and `README.md` for the old version string and blocks archive (exit 1) if any consumer is still stale. `--allow-version-lag` override available.
+
+### Why patch (not minor)
+
+Closes recurring drift class identified across multiple prior archives (CLAUDE.md was at 1.20.0 and README.md at 1.19.1 while VERSION was 1.21.0 — caught manually during TUNE-0079 archive). Pure tooling addition, no contract change. Bash 3.2 portable, shellcheck clean, 10 bats cases green.
+
+### What changed
+
+- **NEW `scripts/version-consistency-check.sh`** (~110 LOC). Reads `git show HEAD:VERSION` vs working `VERSION`. If changed, `grep -Frln "$old"` against `CLAUDE.md` + `README.md`. Initial-commit and `VERSION`-unchanged → exit 0 fast paths.
+- **NEW `tests/version-consistency-check.bats`** — 10 cases: T1 unchanged / T2 clean bump / T3 lagging CLAUDE.md / T4 lagging README.md / T5 docs/ excluded by design / T6 `--allow-version-lag` override / T7 not-a-git-repo / T8 initial bootstrap / T9 whitespace tolerance / T10 no args.
+- **MOD `commands/dr-archive.md`** — Step 0.2 documents the gate, scope rationale, override flag.
+- **MOD `code/datarim/{VERSION, CLAUDE.md, README.md}`** — patch bump 1.21.1 → 1.21.2.
+
+### Scope decision: `docs/` EXCLUDED
+
+Initial design included `docs/` recursive in the scan scope. First live-smoke run on the framework repo (immediately after first bats green-bar) tripped on `docs/evolution-log.md` referencing v1.21.1 — the prior release entry. By design: evolution-log / release-notes / changelog are append-only historical ledgers that reference past versions, not current-state surfaces.
+
+Including `docs/` would fire on every subsequent archive (every prior release entry would match the bumped-from string). Narrowed scope to `CLAUDE.md` (Version line) + `README.md` (badge) — exactly the recurring drift class from TUNE-0079 reflection.
+
+### Lesson — dogfooding > synthetic fixtures
+
+TDD red→green discipline caught the implementation but not the scope error. All 10 synthetic bats cases passed with `docs/` in scope (synthetic repos started clean, so the rule «docs cite old → fail» seemed correct in isolation). The live repo encodes years of release history that fixtures cannot reproduce.
+
+**New rule:** when a gate is built against a recurring incident class, smoke-test on the live repo before declaring done. Synthetic fixtures verify mechanics; live state validates scope.
+
+---
+
+## 2026-04-30 — TUNE-0079 — History-agnostic cleanup complete + CI strict mode (v1.21.1)
+
+### Summary
+
+Class A — internal tooling. Follow-up to TUNE-0078. Cleaned all pre-existing task-ID references from runtime scopes (`skills/`, `commands/`) per the heuristic in TUNE-0078 plan § 4.3: pure provenance parentheticals deleted, load-bearing rationale anonymized, counter-example incidents kept with neutral phrasing. Final tally: 64 hits in `commands/` (9 files) + ~316 hits in `skills/` (38 files) eliminated across 4 sessions of per-file `Edit` (bulk regex confirmed unsafe — fence-aware editing required). CI `task-id-gate` job switched from `--diff-only` transitional mode to strict full-tree. Bats suite extended T11–T14: regression invariant — each runtime scope stays gate-clean. VERSION → 1.21.1.
+
+### What changed
+
+- **MOD `skills/`** — 27 files, ~316 hits cleaned. All gate-clean.
+- **MOD `commands/`** — 9 files, 64 hits cleaned (sessions 1–2). All gate-clean.
+- **MOD 2× `tests/*.bats`** — 2 tests that asserted task-ID presence updated to history-agnostic assertions (version tag + contract clause).
+- **MOD `tests/task-id-gate.bats`** — added T11–T14 regression invariants. 14/14 green.
+- **MOD `.github/workflows/security.yml`** — `task-id-gate` job: full-tree mode. Removed `fetch-depth: 50`. Removed transitional comment.
+- **MOD `code/datarim/{CLAUDE.md,VERSION,README.md}`** — version 1.21.1.
+
+### Why patch (not minor)
+
+Pure cleanup, no contract change. Gate behavior identical for new code; only the transitional `--diff-only` shim removed.
+
+### Lesson
+
+Bulk regex (Python `re.sub` over markdown) is NOT fence-aware. Session 3 attempted bulk patterns to accelerate cleanup; one match landed inside a code-fence Examples block and corrupted teaching content. Reverted manually. Per-file `Edit` with explicit fence inspection was the only safe path. ~30 sessions of per-file work amortized over the framework's lifetime; bulk-tool acceleration is forbidden for `skills/`/`commands/`/`agents/`/`templates/` markdown going forward — write a fence-aware AST walker first if acceleration is needed.
+
+---
+
+## 2026-04-30 — TUNE-0078 — Rules history-agnostic gate (v1.21.0)
+
+### Summary
+
+Class A — internal tooling. New `scripts/task-id-gate.sh` mirrors the stack-agnostic-gate sibling but enforces a single regex `\b[A-Z]{2,10}-[0-9]{4}\b` over runtime markdown (skills/agents/commands/templates). New contract document `skills/evolution/history-agnostic-gate.md`. New bats suite `tests/task-id-gate.bats` (10 cases including `--diff-only` parity). Critical Rules in `code/datarim/CLAUDE.md` extended with rule 8 («Rules are stack- AND history-agnostic»). CI integration as 14th job in `.github/workflows/security.yml`, running in `--diff-only` mode against `merge-base HEAD origin/main` so only fresh leakage in the change-set fails CI — pre-existing baseline references (~339 hits in 57 files) tracked as follow-up cleanup pass TUNE-0079. VERSION → 1.21.0.
+
+### Source rationale
+
+Datarim runtime rules are read by AI agents that have no access to the historical context behind each task-ID reference. A rule that says «Per TUNE-0033 …» forces the agent to either treat the citation as opaque noise or attempt to locate the cited task in archive — wasted tokens for a reference the rule itself does not depend on. Worse, embedded task-IDs leak into AI outputs addressed to end users. The sibling stack-agnostic-gate established the enforcement pattern (detection → escape-hatch → CI integration); the history-agnostic case is structurally identical.
+
+### What changed
+
+- **NEW `scripts/task-id-gate.sh`** — bash 3.2 portable, single-regex denylist, `--whitelist` and `--diff-only` flags, exit codes 0/1/2 per contract. Self-exemption for the gate's own contract document.
+- **NEW `skills/evolution/history-agnostic-gate.md`** — runtime contract document (Trigger, Scope, Denylist, Whitelist, Escape Hatch, markers-must-be-on-separate-lines pitfall, Invocation, Exit codes, Why this exists, Out of scope).
+- **NEW `tests/task-id-gate.bats`** + `tests/fixtures/task-id-gate/` (5 fixtures) — 10 test cases, all green locally.
+- **MOD `.github/workflows/security.yml`** — 14th job `task-id-gate`. Hard-fail on any new leakage in changed files; bats suite runs in same job. `fetch-depth: 50` for diff-base resolution.
+- **MOD `code/datarim/CLAUDE.md`** — Critical Rules § rule 8.
+- **MOD `code/datarim/VERSION`** — 1.20.0 → 1.21.0.
+- **Cleanup pass partial:** `agents/developer.md` (2 hits) and `templates/` (21 hits across 9 files) cleaned — load-bearing rationale rephrased to neutral lessons; legitimate template placeholder (e.g. `INFRA-0099` in `backlog-template.md`) wrapped in `<!-- gate:history-allowed -->` escape fence. `skills/` (252 hits across 38 files) and `commands/` (64 hits across 9 files) deferred to TUNE-0079.
+
+### Migration
+
+Symlink-mode users: gate + skill + bats auto-available via the `scripts/` and `tests/` install scopes. Copy-mode users: `./update.sh` pulls the new files. No operator action required for the runtime — CI gate is the enforcement point.
+
+### Why `--diff-only` instead of strict mode at v1.21.0
+
+The full cleanup pass (~339 hits, ~57 files) is mechanically tractable but requires per-line judgement (delete pure provenance vs. rephrase load-bearing rationale vs. migrate counter-example incident to evolution-log topic heading). Shipping the gate with `--diff-only` lets the enforcement land immediately while the cleanup proceeds incrementally — the sibling stack-agnostic-gate handled identical baseline carry-forward via the same flag. Switch to full-tree mode after TUNE-0079 lands.
+
+### Follow-up
+
+- **TUNE-0079** (P2, L2, pending) — Complete the cleanup pass over `skills/` and `commands/` per the cleanup heuristic in `datarim/plans/TUNE-0078-plan.md` § 4.3. Switch CI gate to full-tree mode at the same time. Estimated ~3-4h focused work.
+
+---
+
+## 2026-04-30 — TUNE-0077 — Datarim Doctor data-loss safety gate + scripts/tests install scopes (v1.20.0)
+
+### Summary
+
+Class A — internal tooling. `scripts/datarim-doctor.sh` gains a defence-in-depth safety contract for `--fix` mode: pre-write tarball backup (mode 0600), post-write `emitted_count >= parsed_count` invariant with auto-restore on violation, backup path surfaced in success summary. `install.sh` `INSTALL_SCOPES` extended with `scripts` and `tests` — both directories now whole-dir-symlinked into `~/.claude/` under default symlink mode (uniform with existing `agents`/`skills`/`commands`/`templates` pattern). Eliminates drift between canonical Datarim repo and `~/.claude/` runtime: `~/.claude/scripts/datarim-doctor.sh` is the canonical file by inode — divergence impossible. VERSION → 1.20.0.
+
+### Source incident
+
+External Datarim copy in a consumer project checkout (2026-04-30 16:31 UTC): a 730-LoC rogue `datarim-doctor.sh` v2 (developed in another project's worktree, never merged to canonical Arcanada Datarim repo) was placed directly into `~/.claude/scripts/datarim-doctor.sh`. Its `--fix` invocation destroyed 30 task entries from `tasks.md`/`backlog.md` indexes, collided 5 followup-ID description files, and reported «All fixes applied successfully». Recovery from external `/tmp/datarim-backup-*.tgz` tarball.
+
+Two structural defects enabled the incident:
+
+1. **Drift-by-design.** `~/.claude/scripts/` was outside `INSTALL_SCOPES`. Canonical script (368 LoC) and runtime copy (730 LoC) had no install-time link — drift undetectable until live `--fix`.
+2. **No data-loss gate.** Doctor `--fix` had no pre-write backup, no post-write invariant. A faulty Pass 2 silently replaced indexes with empty content.
+
+### What changed
+
+- **MOD `scripts/datarim-doctor.sh`:**
+  - NEW pre-fix tarball backup at `${DATARIM_DOCTOR_BACKUP_DIR:-/tmp}/datarim-backup-{TS}.tgz`, mode 0600 via `umask 077`.
+  - NEW `PARSED_COUNT` capture (pre-fix `### TASK-ID:` block count across `tasks.md`+`backlog.md`).
+  - NEW post-fix `EMITTED_COUNT` re-scan + invariant `emitted >= parsed` — violation triggers `restore_backup_and_die()` (rm-rf + tar -xzf, exit 2).
+  - Success summary logs `Backup: $BACKUP_TARBALL` and counters.
+- **MOD `install.sh`:**
+  - `INSTALL_SCOPES` extended `(agents skills commands templates)` → `(agents skills commands templates scripts tests)`.
+  - `LOCAL_SCOPES` unchanged (scripts/tests are framework-internal, not user-extensible — local overlay applies only to user-facing scopes).
+  - Existing `link_scope_tree` handles new scopes uniformly — no special-case code path needed.
+  - Header comment updated: scripts/tests are «installed scopes» as of v1.20.0.
+- **MOD `tests/datarim-doctor.bats`:** +6 regression tests T16–T21 covering backup creation, mode 0600, post-fix invariant on synthetic 3-block fixture, printf hardening (no `printf "$` patterns), body-with-leading-dash safety, summary-prints-backup-path.
+- **MOD `VERSION`:** `1.19.1` → `1.20.0` (minor — additive install scope).
+- **MOD `CLAUDE.md`:** version banner bump.
+
+### Key design decisions
+
+1. **Defence in depth (3 layers).** Pre-write tarball + post-write invariant + auto-restore. No single bug can cause data loss; even a faulty Pass 2 emit gets caught.
+2. **Whole-directory symlink (uniform with skills/agents/commands/templates).** Initial implementation tried file-level `RUNTIME_SCRIPTS` allow-list — rejected at QA review as deviation from established pattern. With dir-symlink, `~/.claude/scripts/` and `~/.claude/tests/` ARE the canonical directories by inode — drift impossible by construction. Bonus: `lib/canonicalise.sh` and bats fixtures resolve naturally via standard SCRIPT_DIR / BATS_TEST_DIRNAME — no symlink-following helpers needed.
+3. **Quarantine over edit.** Rogue `~/.claude/scripts/datarim-doctor.sh` (730 LoC) was deleted, not patched. Backup at `/tmp/rogue-doctor-v2-backup.sh` for forensics. Canonical 368 LoC stays the single source of truth — porting v2 features back is a separate decision deferred to TUNE-0072+ backlog.
+4. **`scripts/tests` not in LOCAL_SCOPES.** User overlay (`~/.claude/local/`) makes sense for skills/agents/commands/templates (user-extensible). Scripts and tests are framework-internal — adding `local/scripts/` would only add an attack surface for shadowing critical safety logic with unreviewed user code.
+
+### Validation
+
+- `bats tests/datarim-doctor.bats` — 21/21 pass (15 pre-existing + 6 new).
+- `shellcheck -S warning scripts/datarim-doctor.sh install.sh` — clean.
+- Live smoke: `~/.claude/scripts/datarim-doctor.sh --root=/arcanada/datarim` → exit 0 «OK: datarim/ structure compliant».
+- `readlink -f ~/.claude/scripts/datarim-doctor.sh` → `Projects/Datarim/code/datarim/scripts/datarim-doctor.sh` ✓.
+- `./install.sh` idempotent: rogue real-file moved to `~/.claude/backups/runtime-rogue-{TS}/`, replaced by symlink.
+
+### Follow-ups
+
+- **TUNE-0072** (backlog) — `--quiet` exit-code parity. Independent issue.
+- Consider adding `tests/install.bats` scenarios for RUNTIME_SCRIPTS (rogue replacement, idempotent re-link). Informal follow-up.
+- Consider `skills/datarim-doctor/SKILL.md` § Safety Contract subsection documenting the invariant for downstream callers. Informal follow-up.
+
+---
+
+## 2026-04-30 — TUNE-0069 — `commands/dr-plan.md` CI delta-vs-baseline framing for V-checklist
+
+### Summary
+
+Class A — internal tooling. `commands/dr-plan.md` Step 11.5 codifies CI delta-vs-baseline framing for V-checklist generation: when target branch's last CI run is itself failing (WIP branches, work-branches with partial fixes, dep-bump branches against red baseline), V-CI MUST be drafted as «no NEW failures vs baseline» rather than strict «all green». Strict-green gate appropriate only when baseline run is itself green. Validation Checklist updated with corresponding entry. Closes TUNE-0067 reflection Proposal 2 (N=2 spawn-trigger met via TUNE-0055 + TUNE-0067).
+
+### What changed
+
+- **MOD `commands/dr-plan.md`** — NEW Step 11.5 «CI Verification Gate — Delta-vs-Baseline Framing» (~30 lines), inserted between Live Audit Checkpoint (11) and Class B Public Surface Scan (12). Includes baseline-probe rationale, delta-gate semantics, stack-agnostic recipe wrapped in `<!-- gate:example-only -->` (GitHub Actions / GitLab CI variants), inline-cite requirement for baseline run id and failed-job list, TUNE-0055 + TUNE-0067 source-incident citation.
+- **MOD `commands/dr-plan.md` Transition Checkpoint** — added baseline-probe checklist entry above Live Audit row.
+
+### Key design decisions
+
+1. **Step 11.5 (not 12) to avoid renumbering.** Existing Step 6.5 precedent for sub-numbered steps; downstream Steps 12 (Class B Public Surface Scan) and 13 (Output Summary) keep their numbers — no cross-document refactor needed.
+2. **`gh` CLI recipe wrapped in example-only fence.** Stack-agnostic invariant requires `gh`/`glab` examples to be illustrative, not prescriptive; pattern (baseline probe + delta compare) is the contract, specific tool is operator's choice.
+3. **Inline baseline-citation requirement.** Plan MUST cite baseline run id and failed-job list so `/dr-qa` and `/dr-archive` can verify the delta gate without re-querying `gh` (also makes the gate stable against post-hoc CI runs that close or reopen flaky failures).
+4. **Class A (not B).** No operator-facing contract change; framework runtime invariant («mechanical changes can't regress unrelated red jobs») stays the same — Step 11.5 just makes the V-checklist author-aware of it. No VERSION bump, no datarim.club deploy.
+
+### Recurrence-prevention pattern
+
+«Memory Rule → Executable Gate at Apply Step» — 9th iteration:
+TUNE-0044 → TUNE-0056 → TUNE-0058 → TUNE-0059 → TUNE-0060 → TUNE-0061 → TUNE-0054 → TUNE-0068 → **TUNE-0069**.
+
+Source incidents (N=2): TUNE-0055 (`actions/checkout` v4→v5, baseline 4 red jobs, V-4 reformulation post-hoc) + TUNE-0067 (`actions/setup-python` v5→v6, baseline 5 red jobs, V-4 reformulation post-hoc). Both archives explicitly held this proposal with N=2 spawn-trigger met; TUNE-0069 is the deferred application.
+
+---
+
+## 2026-04-29 — TUNE-0054 — Markdown reference integrity linter (`scripts/check-doc-refs.sh`) + `.docrefignore` baseline
+
+### Summary
+
+Class A — internal tooling. New invocation-only linter `scripts/check-doc-refs.sh` recursively scans `code/datarim/{CLAUDE.md,skills,agents,commands,templates,docs}/**/*.md` for broken markdown links `[text](path.md)` and bare-path mentions `(skills|agents|commands|templates|docs)/.../*.md`. Each reference resolves relative to dirname (link form) or ROOT (bare form), is canonicalised lexically, then existence-checked. Whitelist precedence: inline `<!-- doc-ref:allow path=... -->` on the same line > `.docrefignore` glob > orphan reported. Closes the recurrence loop surfaced in TUNE-0050 reflection (N=2 phantom paths shipped through `/dr-archive` undetected).
+
+### What changed
+
+- **NEW `scripts/check-doc-refs.sh`** (~170 LoC bash, mirrors `pre-archive-check.sh` style). Strict-mode (`set -u`), AWK pre-processor strips fenced code blocks (``` toggle) AND inline backtick spans before extraction. Lexical path canonicalisation (`canonicalise_path()`) collapses `./` and `../` without I/O so parent directories need not exist — required for path-traversal detection. External links (`http://`, `https://`, `mailto:`, `ftp://`, `#anchor-only`) skipped.
+- **NEW `tests/check-doc-refs.bats`** — 10 fixtures: T1 clean tree / T2 planted orphan link / T3 `.docrefignore` glob / T4 inline allow marker / T5 bare-path orphan / T6 nested relative resolves / T7 path-traversal exit 2 / T8 externals skipped / T9 fenced blocks ignored / T10 missing root exit 2. All PASS.
+- **NEW `.docrefignore`** at repo root — accepted-debt baseline (gitignore-style globs). Initial snapshot: 1 entry (`templates/security-workflow.yml` referenced by `skills/security-baseline/SKILL.md:401` — TUNE-0045 P2 phantom; cleanup deferred to follow-up TUNE-0064).
+- **NEW `documentation/INSIGHTS-TUNE-0054.md`** — orphan inventory + 4 open-question resolutions + 3 follow-ups proposed (TUNE-0063/0064/0065).
+- **MOD `commands/dr-archive.md` Step 0.5(e)** — appended advisory line pointing to `scripts/check-doc-refs.sh --root code/datarim/` (non-blocking, parallel to `stack-agnostic-gate.sh --diff-only`).
+- **MOD `.github/workflows/security.yml`** — `doc-refs` job parallel to existing 12 (bats fixture suite + linter against repo HEAD; expects exit 0 with baseline applied).
+
+### Key design decisions
+
+1. **Backtick code-span stripping for bare-path extraction.** Mid-implementation self-dogfood reported 13 orphans; 12 of them were code-span mentions like `` `datarim/docs/activity-log.md` `` in narrative text. Fix: AWK pre-processor strips backticks before BOTH markdown-link AND bare-path extraction.
+2. **Lexical (no-I/O) path canonicalisation.** `cd $(dirname x) && pwd -P` fails when traversal exits the filesystem tree, falling back to literal string which then false-matches `ROOT_ABS/*` glob. Pure-bash `canonicalise_path()` resolves purely-string, traversal guard reliable.
+3. **`LC_ALL=C` for AWK.** macOS BSD awk emits multibyte warnings on Cyrillic content; byte-mode silences without affecting results (ASCII patterns only).
+4. **Class A (not B).** No operator-facing contract change; advisory only. Promotion path = TUNE-0065 follow-up if N=2 advisory-bypass incidents.
+
+### Recurrence-prevention pattern
+
+«Memory Rule → Executable Gate at Apply Step» — 7th iteration:
+TUNE-0044 → TUNE-0056 → TUNE-0058 → TUNE-0059 → TUNE-0060 → TUNE-0061 → **TUNE-0054**.
+
+---
+
+## 2026-04-29 — TUNE-0061 — `pre-archive-check.sh` env-var whitelist extension (`DATARIM_PRE_ARCHIVE_WHITELIST`)
+
+### Summary
+
+`scripts/pre-archive-check.sh` shared mode now honours an opt-in env-var `DATARIM_PRE_ARCHIVE_WHITELIST` (colon-separated basenames, PATH-style) that extends the hardcoded TUNE-0059 whitelist with project-specific version-bump basenames at consumer level, without modifying the framework. Closes the gap surfaced in TUNE-0060 self-dogfood: `Projects/Websites/datarim.club/config.php` is a legitimate Datarim public-surface version-bump file but its basename is project-specific and does not belong in the canonical hardcoded list shipped to all consumers.
+
+### What changed
+
+- **`scripts/pre-archive-check.sh`** (+15 LoC): after the `WHITELIST_BASENAMES` defaults block, parse `${DATARIM_PRE_ARCHIVE_WHITELIST:-}` via `IFS=':' read -ra` (skip blanks, reject path components — basename match only), append entries to `WHITELIST_BASENAMES`. `is_whitelisted_path()` unchanged; `--no-whitelist` continues to short-circuit the entire whitelist check (overrides both hardcoded list AND env-var entries).
+- **`tests/pre-archive-check.bats`** (+30 LoC): T29 (env-var single basename `config.php` → whitelisted, exit 0), T30 (colon-separated `foo:bar:config.php` → all entries whitelisted, AC-3), T31 (`--no-whitelist` overrides env-var → unattributed, exit 1). bats 28 → 31 PASS.
+- **`commands/dr-archive.md`** Step 0.1.2 footnote on the `whitelisted` row documents the env-var extension and its precedence vs `--no-whitelist`.
+
+### Why
+
+TUNE-0060 archive (the previous iteration) self-dogfooded the new `mine-by-elimination` klass and surfaced one residual gap: `Projects/Websites/datarim.club/config.php` was correctly identified as a legitimate version-bump file by operator during the archive but the gate classified it `unattributed` (basename outside hardcoded list). The choice was either pollute the canonical list with `config.php` (breaks framework neutrality — `config.php` is generic enough that a non-Datarim consumer might NOT want it whitelisted) or add an opt-in extension mechanism. Spawn-trigger N=2 reached: TUNE-0059 (hardcoded VERSION/CHANGELOG/etc.) was the first instance; TUNE-0060 self-dogfood surfaced the second. Pattern «Memory Rule → Executable Gate at Apply Step» — sixth iteration (TUNE-0044/0056/0058/0059/0060/0061).
+
+### Class
+
+Class A (additive runtime behaviour, env-var opt-in, no contract break). VERSION 1.18.3 → 1.18.4 (patch additive). Public Surface deployed: `Projects/Websites/datarim.club/config.php` 1.18.3 → 1.18.4 + `pages/changelog.php` v1.18.4 release entry. Backwards-compat preserved by design: env-var unset → behaviour identical to TUNE-0060 (T1-T28 fixtures all PASS). `--no-whitelist` continues to override (T31 verifies). Path-traversal guard rejects `/`-containing entries with exit 2.
+
+### Self-dogfood
+
+`DATARIM_PRE_ARCHIVE_WHITELIST=config.php ./scripts/pre-archive-check.sh --task-id TUNE-0061 --shared <workspace>` from framework repo classifies the workspace's modified `Projects/Websites/datarim.club/config.php` as `whitelisted` (was `unattributed` in the TUNE-0060 archive run). Bats fixtures T29/T30/T31 cover the same recipe in isolation.
+
+---
+
+## 2026-04-29 — TUNE-0060 — `pre-archive-check.sh` `mine-by-elimination` klass
+
+### Summary
+
+`scripts/pre-archive-check.sh` shared mode got a 6-th hunk classification, `mine-by-elimination`. When `--task-id <ID>` is set, the file is modified (has actual diff lines), AND those diff lines (additions/removals) contain ZERO task IDs while the committed body carries foreign historical IDs, the gate attributes the edit to the current task and exits 0. Closes the false-`foreign` misclassification of doc edits like `CLAUDE.md`, `README.md`, and architectural docs where the body references many historical tasks but the current edit (e.g., a version-line bump) introduces none.
+
+### What changed
+
+- **`scripts/pre-archive-check.sh`** (+19 LoC): per-file capture of `diff_changes` and `diff_changes_cached` separately from full `diff_text`; `diff_line_ids` extraction from added/removed lines only (`grep -E '^[+-][^+-]'`); new branch in classification cascade between the `mixed` arm and the `foreign` arm that fires when `--task-id` set + diff is non-empty + `diff_line_ids` empty. Untracked files (no diff at all) skip the branch and fall through to `foreign` per safety guard.
+- **`tests/pre-archive-check.bats`** (+30 LoC): T26 (body has foreign IDs + diff lines clean → mine-by-elimination + exit 0), T27 (diff lines contain TASK_ID → mixed, NOT mine-by-elimination), T28 (diff lines contain only foreign IDs → foreign, NOT mine-by-elimination). bats 25 → 28 PASS.
+- **`commands/dr-archive.md`** Step 0.1.2: 6-th classification row (`mine-by-elimination`) added to the contract paragraph with the safety-guard note for untracked files.
+
+### Why
+
+TUNE-0059 archive surfaced the residual false-positive after the whitelist landed. `code/datarim/CLAUDE.md` and `code/datarim/README.md` (committed body has many historical task IDs from prior reflections + features) version-bumped 1.18.0 → 1.18.2 in TUNE-0059 archive — the diff lines were just `-1.18.0` / `+1.18.2`, no IDs introduced by the current session. The `whitelisted` klass did not cover them (basename ≠ version-bump file), and `found_ids` from the body had IDs but none matched `--task-id TUNE-0059`, so the gate said `foreign`. The operator manually staged via `git add` to work around — the same toll TUNE-0058 closed for baseline matches in `stack-agnostic-gate.sh`. Spawn-trigger N=2 reached by operator approval (TUNE-0059 self = N=1, CLAUDE.md/README.md observed misclassification = second class instance, escalated by operator).
+
+### Class
+
+Class B (operating-model contract change — extends what counts as `attributed`). VERSION 1.18.2 → 1.18.3 (patch additive). Public Surface deployed: `Projects/Websites/datarim.club/config.php` 1.18.2 → 1.18.3 + `pages/changelog.php` v1.18.3 release entry. Backwards-compat preserved: T1-T25 fixtures all PASS; safety guard ensures untracked files are NOT misclassified.
+
+### Verification
+
+- `bats tests/pre-archive-check.bats` → 28/28 PASS.
+- `bats tests/pre-archive-check.bats tests/stack-agnostic-gate.bats` → 38/38 PASS (full repo regression).
+- `shellcheck -S warning scripts/pre-archive-check.sh` → clean.
+- Pattern «Memory Rule → Executable Gate at Apply Step» — fifth iteration (TUNE-0044/0056/0058/0059/**0060**).
+
+---
+
+## 2026-04-29 — TUNE-0059 — `pre-archive-check.sh` whitelist for version-bump basenames
+
+### Summary
+
+`scripts/pre-archive-check.sh` shared mode got a 5-th hunk classification, `whitelisted`. When `--task-id <ID>` is set and a modified file's basename matches a hardcoded list of version-bump files (`VERSION`, `CHANGELOG.md`, `package.json`, `Cargo.toml`, `pyproject.toml`, `.gitignore`), the gate accepts it without a task-ID inside the diff. The operator-supplied `--task-id` is the attribution. Pass `--no-whitelist` to restore strict default-deny.
+
+### What changed
+
+- **`scripts/pre-archive-check.sh`** (+33/-2 LoC): `WHITELIST_BASENAMES` array (6 entries) with founding-incident comment; `is_whitelisted_path()` helper (basename exact-match, no regex on user input); `NO_WHITELIST=0` global; `--no-whitelist` flag in arg parser; classification branch wraps the empty-`found_ids` else-branch with whitelist check; usage text extended with whitelist paragraph.
+- **`tests/pre-archive-check.bats`** (+30 LoC): T23 (whitelisted basename + `--task-id` → exit 0, klass=whitelisted), T24 (`--no-whitelist` escape restores `unattributed` → exit 1), T25 (non-whitelisted basename without task-ID → default-deny preserved → exit 1). bats 22 → 25 PASS.
+- **`commands/dr-archive.md`** Step 0.1.2: 5-th classification row (`whitelisted`) added to the contract paragraph with the basename list and `--no-whitelist` escape note.
+
+### Why
+
+TUNE-0056 self-dogfood surfaced the false positive: `VERSION` (single line `1.18.1`) physically cannot carry a task ID and was classified as `unattributed`, blocking a legitimate release commit. operator's `/dr-archive {TASK-ID}` IS the disposition, but the gate had no machine-readable way to see it. Spawn-trigger N=2 was reached when the same toll resurfaced in the TUNE-0059 self-dogfood (catch-up VERSION drift from TUNE-0056). Whitelist closes the gap without weakening default-deny: it activates only with `--task-id` (operator disposition) and prints the bypass on stdout for visibility.
+
+### Class
+
+Class B (operating-model contract change — extends what counts as `attributed`). VERSION 1.18.1 → 1.18.2 (patch additive). Public Surface deployed: `Projects/Websites/datarim.club/config.php` 1.18.1 → 1.18.2 + `pages/changelog.php` v1.18.2 release entry. Backwards-compat preserved: T1-T22 fixtures all PASS, default-deny still default for all non-whitelisted unattributed hunks.
+
+### Verification
+
+- `bats tests/pre-archive-check.bats` → 25/25 PASS.
+- `shellcheck -S warning scripts/pre-archive-check.sh` → clean.
+- Self-dogfood: `./scripts/pre-archive-check.sh --task-id TUNE-0059 .` from framework repo → `VERSION` line shows `whitelisted` in stdout.
+
+---
+
+## 2026-04-29 — TUNE-0058 — `stack-agnostic-gate.sh --diff-only [<base>]` flag
+
+### Summary
+
+`scripts/stack-agnostic-gate.sh` got a new `--diff-only [<base>]` mode that scans only lines added by `git diff <base> -- <file>` (default base `HEAD`) instead of the full file. Pre-existing baseline matches in shared-history files (`docs/evolution-log.md`, README, changelog and similar) are ignored, removing the operator-toll of running `git diff '^+'` manually at every archive to prove the current task did not introduce a fresh stack-specific term. Default full-file scan unchanged.
+
+### What changed
+
+- **`scripts/stack-agnostic-gate.sh`** (+30/-7 LoC): `--diff-only` flag parsing with optional positional base ref (lookahead disambiguation: consumed only if next arg does not exist as a filesystem path); new `produce_scan_stream` helper that emits either the full file or the added-lines stream from `git diff`; `strip_example_blocks` refactored to read from stdin (decoupled from file argument) so both modes share a single downstream pipeline; single-file invocation on untracked or non-git target → exit 2 with explanatory message; directory-scan mode silently skips untracked files; `--help` line-range bumped (`2,30p` → `2,40p`) to cover the new Inputs paragraph.
+- **`tests/stack-agnostic-gate.bats`** (+85 LoC): 4 new fixture-based tests T7-T10 with `setup_diff_repo` / `teardown_diff_repo` helpers that build a throwaway `mktemp -d` git repo with a baseline file containing pre-existing stack-specific terms. T7 (no edits → diff-only PASS), T8 (added stack-specific line → diff-only FAIL), T9 (mixed baseline + clean additions → diff-only PASS), T10 (non-git path → exit 2). bats 6 → 10 PASS.
+- **`commands/dr-archive.md`** Step 0.5(e): one extra sentence recommending `--diff-only` invocation for shared-history files when applying Class A through the stack-agnostic gate, with the rationale and source citation.
+
+### Why
+
+Recurring rough edge surfaced at TUNE-0044 + TUNE-0056 self-dogfood: `docs/evolution-log.md` already carried 3 pre-existing baseline matches from older entries; the gate failed every archive that touched the file even when the current task added zero stack terms. Operator had to verify by hand via `git diff '^+'` to prove no fresh leak — same recipe each time, no automation. `--diff-only` codifies that recipe inside the gate itself; consumers ask once and the gate scopes itself to the current task's contribution.
+
+### Class
+
+Class A (additive, internal behaviour, no public surface). No VERSION bump expected. No datarim.club deploy. Backwards-compat preserved: default full-file scan untouched, T1-T6 legacy fixtures all PASS, whitelist + example-only fence semantics unchanged.
+
+### Verification
+
+- `bats tests/stack-agnostic-gate.bats tests/pre-archive-check.bats` → 32/32 PASS.
+- `shellcheck -S warning scripts/stack-agnostic-gate.sh` → clean.
+- Self-dogfood: `./scripts/stack-agnostic-gate.sh docs/evolution-log.md` → `FAIL: 3 matches`; `./scripts/stack-agnostic-gate.sh --diff-only docs/evolution-log.md` → `PASS: clean`.
+- Stack-agnostic gate self-passes on the modified script (bash + grep, zero stack terms by construction).
+
+### Held proposals (none applied this archive)
+
+- **Proposal 1 (Class A, hold).** `--help` sentinel terminator pattern (e.g. `# --- end help ---`) to replace `sed -n '<start>,<end>p'` magic numbers in shipped scripts. Spawn-trigger N=2: TUNE-0058 + any future flag addition that requires another bump.
+- **Proposal 2 (Class B, hold).** `--diff-classify` mode for `pre-archive-check.sh` that classifies hunks by task IDs found inside the current diff text rather than commit history. Reduces over-broad "mixed" classification on shared-history files (`commands/dr-archive.md`, gate script, bats files) where commit history accumulates many task IDs but the current diff is single-task. Spawn-trigger N=2: TUNE-0056 + TUNE-0058.
+
+### Source incidents
+
+- TUNE-0044 archive (2026-04-29) — first observed `docs/evolution-log.md` baseline match leaking through.
+- TUNE-0056 archive (2026-04-29) — same operator-toll repeated; held as Class A Proposal 1.
+
+---
+
+## 2026-04-29 — TUNE-0056 — Class B apply (conditional-shared classification via marker file, v1.18.1)
+
+### Summary
+
+Self-dogfood of TUNE-0044 archive showed framework repo `Arcanada-one/datarim` itself carried foreign hunks from a consumer project's parallel agent sessions but was single-agent-classified — `pre-archive-check.sh` without explicit `--shared` flag treated framework repo as project-strict. Closing the gap with a portable marker file `.datarim-shared` at repo root. Presence + `--task-id` flag → auto-route to shared-mode classification, no explicit `--shared` argument needed.
+
+### What changed
+
+- **`scripts/pre-archive-check.sh`** — added 8-line auto-detect block after flag parsing: when `--task-id` is given without `--shared` and the next positional repo has a `.datarim-shared` marker file, route to shared mode automatically. Outer condition simplified from `[ -n "$TASK_ID" ] || [ -n "$SHARED_REPO" ]` to `[ -n "$SHARED_REPO" ]` so `--task-id` alone (without marker on positional) falls through to legacy strict mode.
+- **`tests/pre-archive-check.bats`** — +3 fixtures covering conditional-shared (marker + foreign hunks → exit 0; marker absent + dirty → legacy STOP; marker + own hunks → exit 1 own classification). bats 19 → 22 PASS.
+- **`commands/dr-archive.md`** Step 0.1.1 — classification table extended with `Conditional-shared` row (marker + `--task-id` auto-detect). Step 0.1.2 invocation form expanded with auto-detect example. Step 0.1.5 narrative clarified (project = no marker).
+- **`.datarim-shared`** — new marker file at framework repo root with explanatory comment.
+- **`VERSION`** — `1.18.0` → `1.18.1` (additive, backwards-compatible).
+
+### Why
+
+- TUNE-0044 founding rule (multi-agent shared semantics) required explicit `--shared <path>` flag for every invocation. Self-dogfood revealed this loses where it's most needed: framework repo itself, where AI agents most often forget the flag because repo classification looks like a project (has its own `.git`, builds, ships releases).
+- Marker file is opt-in, machine-readable, portable across forks/mirrors (origin URL match was rejected — fragile). Backwards-compat preserved: project repos without marker keep TUNE-0003 strict legacy behaviour.
+
+### Class
+
+- **Class B** (operating-model extension) — adds new classification path; `commands/dr-archive.md` contract widens. Held as TUNE-0056 candidate at TUNE-0044 archive (Proposal 1, evolution-proposals held). Now applied with full Public Surface scan: changelog v1.18.1 entry, Step 0.1.1 table updated, evolution-log entry (this).
+
+### Verification
+
+- 22/22 bats PASS (`tests/pre-archive-check.bats`).
+- shellcheck `-S warning` clean on `scripts/pre-archive-check.sh`.
+- stack-agnostic-gate PASS on touched files.
+- Self-dogfood: this archive cycle uses `pre-archive-check.sh --task-id TUNE-0056 .` from `code/datarim/` — auto-detect marker, foreign hunks isolated, archive proceeds without `--shared` flag.
+
+### Founding incident
+
+- TUNE-0044 self-dogfood (2026-04-29): framework repo had a consumer project's foreign hunks in working tree during archive, single-agent-classified by default, manual `--shared` flag was the only escape hatch.
+
+---
+
+## 2026-04-29 — TUNE-0044 — Class B apply (operating-model contract change, v1.18.0)
+
+### Summary
+
+`/dr-archive` Step 0.1 promoted from binary clean/dirty semantics to **task-ID-aware** classification for shared workspace repositories. Founding incidents: consumer review (2026-04-27), consumer review, consumer review — three archives blocked or delayed by foreign-task hunks from parallel agent sessions in `<workspace>/.git`. Project-level rule landed in `<workspace>/CLAUDE.md` § Multi-Agent Workspace Discipline; TUNE-0044 promotes it to framework runtime so all consumers inherit the semantics.
+
+### What changed
+
+- **`commands/dr-archive.md`** Step 0.1 rewritten with sub-steps 0.1.1–0.1.5: repo classification (workspace vs project), shared-mode check via extended `pre-archive-check.sh`, patch-staging recipe (interactive `git add -p` + non-interactive blob-swap fallback), retry-tolerant pre-commit re-verify, preserved TUNE-0032/0033 staged-diff audit, legacy single-agent project check.
+- **`scripts/pre-archive-check.sh`** extended with `--task-id <ID> --shared <repo>` flags. Classifies each modified file's hunks as `own` / `foreign` / `mixed` / `unattributed`. Exit 0 on clean / foreign-only; exit 1 on own / mixed / unattributed; exit 2 on usage error. Strict regex validation `^[A-Z]+-[0-9]{4}$`. Legacy mode unchanged (TUNE-0003 contract preserved).
+- **`tests/pre-archive-check.bats`** extended with 7 new test cases (foreign-only, own, mixed, unattributed, invalid task-id, missing --shared, legacy regression). 12 → 19 tests, all PASS.
+- **`CLAUDE.md`** § Workspace Discipline (multi-agent) added between Critical Rules and Security Mandate, summarising Step 0.1 contract for AI agents loading the framework template.
+- **`<workspace>/CLAUDE.md`** rule 8 extended with reverse cross-cite to `commands/dr-archive.md` Step 0.1.3 (canonical recipe location).
+
+### Why
+
+Datarim's framework runtime had a single-agent assumption: any uncommitted change in workspace repos blocks `/dr-archive`. In multi-agent environments (Arcanada workspace runs 5–10 parallel sessions touching the same `datarim/{tasks,backlog,progress,activeContext}.md`), this triggered false-positive STOPs at every archive. The recipe to handle it lived only in project-level `<workspace>/CLAUDE.md` rule 8 (consumer review origin). Class B promotion: foreign hunks become a non-blocker; own forgotten hunks remain a blocker; default-deny on unattributed hunks preserves the safety contract.
+
+### Class A/B classification
+
+**Class B** — operating-model contract change to a public command (`/dr-archive`). PRD `prd/PRD-TUNE-0044-multi-agent-workspace-archive-semantics.md` approved 2026-04-29 (operator). Backward-compatible: legacy single-agent mode unchanged; new shared mode is opt-in via `--task-id`/`--shared`.
+
+### Verification
+
+- bats `tests/pre-archive-check.bats` — 19/19 PASS (12 legacy + 7 new).
+- Stack-agnostic gate — PASS clean on `scripts/pre-archive-check.sh`, `tests/pre-archive-check.bats`, `commands/dr-archive.md`.
+- VERSION bumped 1.18.0-rc3 → 1.18.0; CLAUDE.md / README.md badges synced across `code/datarim/` and `Projects/Datarim/`.
+
+### Approved
+
+operator, 2026-04-29 (PRD approved earlier same day).
+
+---
+
+## 2026-04-28 — consumer review — Class A apply (3 proposals, post-archive)
+
+### Summary
+
+consumer review archived as Path 2 (escalate to A2 topic-clustering) — entity-resolver canonicalisation cannot lift recall@5 from 0.556 floor case on a consumer benchmark. Reflection surfaced 3 Class A proposals; operator approved all three for application post-archive.
+
+### Class A applies
+
+#### Proposal 1: commands/dr-plan.md — Symbol Existence Check
+
+- **File:** `commands/dr-plan.md` § Step 6.5 "Symbol Existence Check" (new step inserted between Technology Validation and Installer Audit).
+- **Class:** A (content addition to existing command spec; no contract change).
+- **What:** New mandatory `/dr-plan` step requiring grep-confirmation of every named code surface (method, function, file, flag, env var, CLI command, config key, HTTP route) before plan approval. Plan must cite file:line for each named target. Phantom targets (named in plan, absent from code) explicitly flagged as planning defects requiring redirect or justification.
+- **Why:** consumer review plan named a proposed consumer resolver method as resolver-fix surface; method did not exist (entity grouping was raw SQL inside the consumer query layer). Required in-flight redirect, ~10 min /dr-do investigation. A 30-second grep at /dr-plan would have caught it.
+- **Stack-agnostic gate:** PASS clean (`scripts/stack-agnostic-gate.sh commands/dr-plan.md`).
+- **Bats verification:** 160/160 PASS post-apply.
+- **Approved:** operator, 2026-04-28.
+
+#### Proposal 2: skills/ai-quality/incident-patterns.md — Floor-Case Diagnostics Dual-Axis
+
+- **File:** `skills/ai-quality/incident-patterns.md` § "Floor-Case Diagnostics — Dual-Axis Audit" (new section appended after "Vendor-Blame Discipline").
+- **Class:** A (content addition to incident-patterns fragment).
+- **What:** Documents the dual-axis pattern for "metric stuck at baseline" diagnostics. Mandates probing BOTH the *transformation axis* (does new logic do what we designed) AND the *population axis* (is the data visible to the new logic at all). Single-axis audits produce incomplete root-cause analyses. Includes 5 rules and an exemplar.
+- **Why:** consumer review plan framed diagnostic exclusively around canonicalisation (transformation axis). Audit returned 0.00% transformation delta — true no-op. Population probe surfaced 134/188 (71%) entities with `source_chunk_id IS NULL` — invisible to JOIN regardless of canonicalisation. A dual-axis plan would have surfaced both gaps in the same audit.
+- **Stack-agnostic gate:** PASS clean.
+- **Bats verification:** 160/160 PASS post-apply.
+- **Approved:** operator, 2026-04-28.
+
+#### Proposal 3: <workspace>/CLAUDE.md — Pre-commit re-verification (workspace, not framework)
+
+- **File:** `<workspace>/CLAUDE.md` § Multi-Agent Workspace Discipline rule 8 (sub-step "Pre-commit re-verification (retry-tolerant blob-swap)").
+- **Class:** A — workspace-level rule extension; not subject to stack-agnostic gate or bats (workspace CLAUDE.md is project-specific, not framework runtime).
+- **What:** Pre-commit verification: between `git update-index` and `git commit`, run `git diff --staged --numstat` + capture HEAD SHA. If file-set / line-counts diverge from expected blob-swap delta, or HEAD shifted, redo blob-swap from new HEAD before commit.
+- **Why:** During consumer review archive, parallel session's consumer review commit landed between my `update-index` and `commit`, causing my staged blob to lose the consumer review entry. ~10 min recovery vs ~30s preemptive check.
+- **Approved:** operator, 2026-04-28.
+
+### Class B (none)
+
+No Class B proposals from consumer review reflection.
+
+### Follow-Up Tasks Added to Backlog (already by /dr-do Step 12)
+
+- **consumer review** — A2 topic-clustering grouping primitive design (P2, L3). Unblocks consumer review.
+- **consumer review** — Entity `source_chunk_id` backfill investigation (P3, L2).
+
+---
+
+## 2026-04-28 — SEC-0001 — Class A apply (1 bundled proposal, archive Step 0.5)
+
+### Summary
+
+SEC-0001 closed Security Mandate Finding 5: leaked OAuth Client ID in public framework repo (11-day exposure window). 5-phase response per Mandate S3.5 (sanitize HEAD → rotate client → audit → history scrub → ecosystem sweep + CI gate). Step 8 history scrub revealed two recipe gaps the framework should now codify: (a) `git filter-repo --replace-text` is content-only — the same redacted token survived in my own commit message until a second run added `--replace-message`; (b) `git push --force --tags` after history rewrite overwrites every tag — including any tag intentionally placed at pre-rewrite HEAD as a backup, silently neutralising the backup channel. Local mirror saved the day. Both lessons folded into a new § "Git history scrub recipe" in `skills/security/SKILL.md`.
+
+### Class A applies
+
+#### Proposal 1+2 (bundled): security.md — Git history scrub recipe
+
+- **File:** `skills/security/SKILL.md` § "Git history scrub recipe (post-leak rotation)" (new section, inserted between "Cross-Stack Relative-Path Includes" and "Reusable Templates")
+- **Class:** A (content addition to existing skill; no contract change).
+- **What:** Added § "Git history scrub recipe" covering: (1) `git filter-repo --replace-text FILE --replace-message FILE` mandatory two-flag invocation form, (2) mandatory pre-push local grep gate (`git log --all -p | grep -cE '<patterns>'` MUST = 0; non-zero = re-edit + re-clone + re-run), (3) backup-placement rule (never use a tag in the same repo as backup channel — force-push tags after filter-repo rewrites every tag; use local mirror clone or external object storage or separate repo), (4) `--force-with-lease` over `--force` for collaborative repos, (5) post-scrub clone-sync notification protocol.
+- **Why:** SEC-0001 Step 8 first run leaked GA4 property ID through commit message (caught by mandatory grep gate before push); release-tag-as-backup got rewritten by `--force --tags` and became useless. Permanent rules close both gaps for the next quarterly rotation cycle.
+- **Stack-agnostic gate:** PASS clean (`scripts/stack-agnostic-gate.sh skills/security/SKILL.md`). Generic placeholders used (`<pattern>`, `<incident-id>`, `<branch>`, `<remote>`); no Arcanada-specific identifiers leaked into the recipe.
+- **Bats verification:** 160/160 PASS post-apply.
+- **Approved:** operator, 2026-04-28.
+
+### Class B (HELD)
+
+- **B1: Workspace-discipline cross-cite for SEC-* tasks** (project-level CLAUDE.md edit, not framework). Append concrete blob-swap example from SEC-0001 (4 files, 154+/1−, ~13 parallel sessions' foreign hunks preserved). **Defer reason:** project-level documentation amplification rather than runtime contract; could be re-classified as A on review. Holding until next workspace-discipline-related incident or until re-evaluated 2026-05-28.
+
+### Class A held (proposal not yet applied)
+
+- **Proposal 5: gitleaks vault-config template** (`templates/gitleaks-vault-config.toml`) — pre-tuned `.gitleaks.toml` with allowlists for `wiki/_raw_/`, `.obsidian/plugins/`, compiled JS bundles (67/70 false positives in SEC-0001 sweep of the consumer repository came from these sources). **Defer reason:** consumer review (ecosystem CI rollout) is the natural consumer; better to design the template against real findings during consumer review /dr-plan than to ship a speculative template now. Linked to consumer review backlog entry.
+
+### Follow-Up Tasks Added to Backlog
+
+- **consumer review** (added in SEC-0001 /dr-do per Step 10 sweep findings, not in this archive's reflection): rotate 3 HIGH secrets in the consumer repository private repo + scrub history. P1, L2, ~2-3 ч.
+
+---
+
+## 2026-04-27 — TUNE-0034 — Class A apply (1, archive Step 0.5, v1.17.3)
+
+### Summary
+
+TUNE-0034 closing round (residual 2 reds → 0) surfaced the «backlog inventory drift» pattern: backlog body listed «10 failing tests» with named root causes per number, but pre-flight `bats tests/` at /dr-do start showed only 2 actual reds (8 had been silently closed by intervening tasks: TUNE-0029, TUNE-0040, TUNE-0043, and an earlier TUNE-0034 v1.17.1 round). Estimate (30-60 min) was 5× the actual (10 min). Class A apply codifies the re-verification recipe that prevents phantom-debug work on the next cleanup cycle.
+
+### Class A applies
+
+#### Proposal 1: backlog-and-routing.md — Re-verify quantitative backlog inventories at init/do start
+
+- **File:** `skills/datarim-system/backlog-and-routing.md` § Plan Drift Discipline (new sub-section)
+- **Class:** A (content addition to existing skill; complements the adjacent «Avoid absolute test-count numbers in AC formulation» § from TUNE-0043).
+- **What:** Added sub-section «Re-verify quantitative backlog inventories at init/do start» with a 5-step recipe (re-execute the source diagnostic, compare live to inventory, amend / escalate / proceed). Sources cited: TUNE-0034 v1.17.1 + v1.17.3 cycle showing 10 → 2 inventory drift.
+- **Why:** Closes the inventory-side mirror of the AC-side drift rule already in this file. Same source-of-truth logic, applied at the inventory level instead of the AC level. Pattern parallels TUNE-0028 (stale skill count) and TUNE-0043 (absolute test-count drift).
+- **Stack-agnostic gate:** initial draft FAILed (1 hit: `npm audit` in example list, line 88); reworded to «the project's package-manager-native audit command» using the canonical microcopy from TUNE-0043 Proposal 2 (security.md). Re-run: PASS clean ×4 scopes.
+- **Bats verification:** 160/160 PASS post-apply.
+- **Approved:** operator, 2026-04-27.
+
+### Class B (HELD)
+
+- **B1: Archive-cycle scan of adjacent backlog items.** When `/dr-archive` Step 0.5 reflection notes that the just-completed task incidentally fixed reds/hits owned by another open backlog item, propose backlog-body amendments to that adjacent item. **Defer reason:** changes archive-cycle contract; requires PRD update or amendment to `commands/dr-archive.md` spec. Re-evaluate by 2026-05-27 if Proposal 1 (init/do side fix) turns out insufficient.
+
+### Follow-Up Tasks Added to Backlog
+
+None. TUNE-0035 (Site update cross-product checklist verify) is already in backlog with status `pending` since 2026-04-25 and may benefit from the same re-verification recipe at /dr-init time.
+
+---
+
+## 2026-04-27 — consumer review — Class A apply (1, archive Step 0.5)
+
+### Summary
+
+Groq connector deploy revealed silent env-var staleness mode: `.env` updated on disk, but `docker compose up -d --build` did not recreate the container because the image hash matched. Container kept the pre-edit env snapshot; smoke against the application would have failed `auth_error` despite a "successful" deploy. Closed by `docker compose up -d --force-recreate`. Generic pattern, applies across the ecosystem (media-service, review-service, identity service, billing, Ops Bot).
+
+### Class A applies
+
+#### Proposal 1: live-smoke-gates.md — Gate 5 «Container Env-Var Freshness After Deploy»
+
+- **File:** `skills/testing/live-smoke-gates.md` (new section appended; intro line «Three related gates» → «Five related gates»)
+- **Class:** A (new gate, content-only addition; existing 4 gates untouched)
+- **What:** New Gate 5 mandates `docker exec <container> sh -c 'env | grep <NEW_VAR>'` (or k8s/systemd equivalent) after any deploy that adds, removes, or changes env vars. File-level `grep .env` is necessary but not sufficient — only process inspection proves the running container picked up the change. Verdict matrix: file present + process env shows new value → proceed; file present + process env empty → force `--force-recreate`, re-verify; file absent → fix deploy first. Reference incident: consumer review.
+- **Why:** consumer review deploy auto-fired CI on push of the consumer review; CI ran `docker compose up -d --build` and reported success. `.env` had `GROQ_API_KEY=gsk_*`, but `docker exec ... env | grep GROQ` returned empty. Smoke против `/connectors/groq/execute` failed bы как `auth_error`. Closed by manual `--force-recreate`. Generic Compose semantics: `env_file` читается at container *create*, not container *start*; recreate only когда image identity меняется. Lesson generalises to every deploy в экосистеме с secrets/keys/flags в `.env`.
+- **Stack-agnostic gate:** PASS (Docker Compose / kubectl / systemd terminology kept generic; «or k8s/systemd equivalent» / «or equivalent» phrasing throughout).
+- **Bats:** 160/160 PASS post-apply.
+- **Approved:** operator auto-approval per autonomous-ops memory, applied during /dr-archive consumer review Step 0.5.
+
+### Class B (HELD)
+
+#### Proposal 4: CI deploy `--force-recreate` on env change
+
+- **Class:** B — infrastructure deploy contract change
+- **Target:** `<consumer-workspace>/code/.github/workflows/ci.yml` (deploy job)
+- **Held because:** changes deploy semantics beyond a single connector; needs ADR / short design doc для connector service (no PRD exists yet).
+- **Action:** Deferred to follow-up task (recommendation: новый `INFRA-0030` или the consumer review когда operator ready to formalise).
+
+### Class A (REJECTED runtime placement)
+
+#### Proposal 2: api-connector-mirror-pattern.md template
+
+- **What:** Reusable «OpenAI-compat API connector» template for future connectors (Grok / Together / Fireworks / etc.).
+- **Rejected for:** runtime framework (`$HOME/.claude/templates/`).
+- **Reason:** Template is NestJS + vitest specific (stack-bound) — runtime framework is stack-neutral. Stack-agnostic gate would FAIL.
+- **Recommended placement:** `<consumer-workspace>/templates/api-connector-template/` (project-level). Out of scope for этого archive — track как informal reminder для consumer review implementation.
+
+### Class A (REJECTED — out of scope)
+
+#### Proposal 3: Project connector service CLAUDE.md addendum
+
+- **What:** «Adding a new API connector — checklist» 7-step paragraph в `<consumer-workspace>/CLAUDE.md`.
+- **Rejected for:** этого archive's apply window.
+- **Reason:** Onboarding-only doc, low impact, can be added inline by next CONN task developer when actually needed. Avoids CLAUDE.md churn без trigger.
+
+---
+
+## 2026-04-27 — consumer review — Class A apply (1, archive Step 0.5)
+
+### Summary
+
+Reflect-job entity-grouping pilot caught a corpus floor case (188 entities, 187 single-chunk → only 1 group qualifies for ≥2-chunk threshold), producing 4 meta-facts. Resulting recall@5=0.556 = baseline = AC-2 numerical miss. Plan §3.4 had explicit DIAGNOSE branch-trigger, so the miss became an expected handled outcome rather than blocked archive. **Lesson:** for features whose acceptance metric depends on group-aggregated data, a coverage probe BEFORE the N=1 smoke would have flagged the floor case in advance and validated that the plan included a branch-trigger.
+
+### Class A applies
+
+#### Proposal 1: live-smoke-gates.md — Coverage probe sub-section
+
+- **File:** `skills/testing/live-smoke-gates.md` Gate 4
+- **Class:** A (refinement of existing mandatory gate; new sub-section)
+- **What:** Added «Coverage probe (group-aggregation features)» sub-section после «What a passing gate looks like». Mandates pre-pilot probe для features dependent на group-aggregated data: count groups satisfying ≥N-member threshold; flag plan'ы без branch-trigger при near-floor count (1-2 groups). Reference incident: consumer review.
+- **Why:** consumer review reflect pilot — corpus floor case (1 entity-group qualifying). AC-2 numerically missed. Plan §3.4 had DIAGNOSE branch-trigger, so miss handled gracefully — but probe earlier would have surfaced floor case before pilot started + validated trigger existence proactively. Pattern generalises to topic-clustering / batched aggregation / multi-row reflection features.
+- **Stack-agnostic gate:** PASS (skills scope clean).
+- **Approved:** operator, 2026-04-27.
+
+### Class B (HELD)
+
+- **B1:** Per-request `score_factor` override в search-service `RecallRequest`. **Defer reason:** project-specific API contract change, not framework-level. Tracked в LTM project follow-up.
+- **B2:** Pre-pilot operator checklist (migration apply / container deploy / `.env` setup). **Defer reason:** project-specific (search service on its database host). Belongs в `Projects/search-service/code/CLAUDE.md`.
+
+### Follow-Up Tasks Added to Backlog
+
+- **LTM-future-DIAGNOSE** (P2, L2) — already added 2026-04-27 per plan §3.4 trigger (entity-resolver coverage gap audit + reflect rerun + sweep rerun).
+- **LTM-future-OPS-1, OPS-2, SEARCH-SERVICE-housekeeping-1** — proposed в reflection «Next Steps»; awaiting user confirmation before adding.
+
+---
+
+## 2026-04-27 — TUNE-0043 — Class A applies (3, archive Step 0.5)
+
+### Summary
+
+TUNE-0043 `/dr-archive` Step 0.5 reflection produced three Class A proposals — all pre-flagged through QA + compliance + Step 7 (version bump). All three PASS the `stack-agnostic-gate.sh` and were applied to runtime. Bats `tests/` 158/160 PASS after applies (2 pre-existing reds unchanged: #115 testing.md description >155 = TUNE-0042; #128 T3a separate concern). 0 regressions.
+
+### Changes
+
+| # | Category | Target | Change |
+|---|----------|--------|--------|
+| 1 | skill-update | `skills/evolution/stack-agnostic-gate.md` (new § «Markers must be on separate lines (pitfall)») | Block-style markers ONLY: awk strip uses `next` after opening match, so closing marker on the same input line is never processed → `skip=1` persists for the rest of the file. Examples of correct (separate lines) and wrong (same line) usage. Source incident: TUNE-0043 — initial wrap attempts on inline mentions used the same-line form; gate kept FAILing despite the wrap looking correct in the diff. |
+| 2 | skill-update | `skills/security/SKILL.md` (new § «Stack-neutral phrasing for dependency-audit references») | Locks the canonical phrasing «package-manager-native audit command at the declared severity threshold» that emerged 4× as TUNE-0043 reword across `security.md`, `project-init.md`, `researcher.md`, `dr-qa.md`. Concrete commands belong in project-level `CLAUDE.md`. Examples list wrapped in `<!-- gate:example-only -->` markers. Prevents the same reword cycle in future Class A applies. |
+| 3 | skill-update | `skills/datarim-system/backlog-and-routing.md` § Plan Drift Discipline (new sub-§ «Avoid absolute test-count numbers in AC formulation») | Test-baseline ACs that pin an absolute number (e.g. «≥159/160 PASS») drift between plan and `/dr-do` whenever an unrelated concurrent task changes the suite. Recommends semantic phrasing: «0 new failures vs HEAD baseline» or «test count ≥ HEAD baseline (verify with `git stash && bats tests/`)». Source: TUNE-0043 AC-5 («≥159/160» in plan, actual 158/160 at QA — semantic intent met but absolute number was stale). |
+
+### Verification
+
+- **Stack-agnostic gate:** PASS clean on all three edited files (`scripts/stack-agnostic-gate.sh ~/.claude/skills/{security.md,evolution/stack-agnostic-gate.md,datarim-system/backlog-and-routing.md}`).
+- **Bats baseline:** 158/160 PASS post-apply. The 2 reds are pre-existing (verified pre-edit in compliance-report-TUNE-0043.md): #115 `optimize-merge.bats` testing.md description >155 chars (TUNE-0042); #128 T3a (separate concern).
+- **Recurrence loop closure:** all three applies are downstream of the loop consumer review → consumer review → TUNE-0039 → TUNE-0040 → TUNE-0043. Each application reinforces the gate's own contract (Proposal 1), the canonical microcopy that prevents future leaks (Proposal 2), or the planning discipline that surfaces drift earlier (Proposal 3).
+
+---
+
+## 2026-04-27 — v1.17.2 — TUNE-0043 — Complete stack-agnostic sweep
+
+### Summary
+
+TUNE-0040 closure left a known-deferred state: gate v2 bash 3.2 fd-leak fix unmasked 32 hits across 11 files which had been silently failing the gate before the fix (single-grep ERE alternation rewrite). TUNE-0043 closes the remaining surface: 4 reword + 4 wrap (block-style markers) + 2 whitelist + 1 hybrid. Gate now PASSes clean (exit 0) on all four scopes (`skills/`, `agents/`, `commands/`, `templates/`).
+
+### Changes
+
+| # | Category | Target | Change |
+|---|----------|--------|--------|
+| 1 | gate-extension | `scripts/stack-agnostic-gate.sh` `WHITELIST` array + `skills/evolution/stack-agnostic-gate.md` § Whitelist | Added 2 entries: `skills/testing/live-smoke-gates.md` (two consumer incident postmortems with stack-specific DI/lifespan semantics — parallel `deployment-patterns.md` precedent) and `skills/utilities/ga4-admin.md` (Python-specific GA4 Admin API recipe — parallel `tech-stack.md` precedent). Both rationales meet 4 whitelist criteria from gate-spec § «When to add a file to the Whitelist». |
+| 2 | reword | `skills/security/SKILL.md:19` | `npm audit` → `package-manager-native audit command at the declared severity threshold` |
+| 3 | reword | `skills/project-init/SKILL.md:152` | `pnpm install, uv sync` → `via the project's package manager` |
+| 4 | reword | `agents/researcher.md:14` | `npm audit` → `package-manager-native audit` |
+| 5 | reword | `commands/dr-qa.md:118` | `npm audit, pip audit, cargo audit` → `the project's package-manager-native audit command at the declared severity threshold` |
+| 6 | wrap | `skills/discovery/SKILL.md:127-131` | Q&A example block (Jest detection demo) wrapped in `<!-- gate:example-only -->` markers (block-style, separate lines) |
+| 7 | wrap | `skills/testing/SKILL.md:10-14` | `## Frameworks` section body wrapped (taxonomy enumeration) |
+| 8 | reword | `skills/testing/bats-and-spec-lint.md:8,14,47` | Removed «Vitest/Jest» comparisons entirely, generalized to «code-test runners» / «JS/TS test runner» (3 hits eliminated cleanly without escape hatch — proved cleaner than wrapping) |
+| 9 | wrap | `agents/tester.md:18-32` Test Runner Detection table + reword line 61 (Web UI list) | Table wrapped (illustrative manifest→runner mapping); line 61 reworded to drop framework list |
+| 10 | hybrid | `templates/security-deps-upgrade-plan.md` | Lines 40-41: `pnpm install/audit` examples → generic placeholder hints. Lines 50-58: Compatibility Matrix wrapped (NestJS×3 in `(e.g. ...)` examples → generic «backend-framework v11» placeholders inside example block). Line 64: «axios → fetch» → «legacy HTTP client → native fetch». |
+
+### Verification
+
+- **Stack-agnostic gate:** all 4 scopes (`skills/`, `agents/`, `commands/`, `templates/`) → exit 0 PASS clean. Inventory was 32 hits / 11 files (fixture: `datarim/tasks/TUNE-0043-fixtures.md`); post-edit: 0 hits / 0 files.
+- **Bats baseline:** 95/100 PASS. The 5 reds are pre-existing (verified via `git stash` + run): #60/63/64 — `optimize-merge.bats` cwd-dependent path issue (unrelated to TUNE-0043), #65 — `infra-automation.md` description 186 chars (separate sweep), #78 — `class-ab-gate.md` not in T3 reflect-removal-sweep whitelist (separate concern). No new failures introduced.
+- **Inline-marker pitfall surfaced:** initial attempt used inline `<!-- gate:example-only -->X<!-- /gate:example-only -->` on the same line as content. The gate's awk strip uses `next` after matching the opening marker, so the closing marker on the same line is never processed → `skip=1` persists indefinitely. Reverted to (a) block-style markers (each on its own line) where the wrapped content was a multi-line block, (b) plain reword where only inline mention existed. This pitfall is a Class A apply candidate (see below).
+
+### Pattern-level Class A apply candidates (deferred to /dr-archive Step 0.5)
+
+1. **Inline-marker pitfall** — `evolution/stack-agnostic-gate.md` (gate contract) should explicitly note: «markers MUST be on their own lines; inline `<!-- gate:example-only -->X<!-- /gate:example-only -->` does not work because awk's `next` skips closing-marker matching on the same input line.»
+2. **«package-manager-native audit» phrasing** — emerged 4× as the canonical reword for `npm audit` / `cargo audit` / `pip audit`. Could become a documented microcopy pattern in `skills/security/SKILL.md` (When citing dependency-audit commands in framework runtime, use the abstract phrasing — «the project's package-manager-native audit command at the declared severity threshold»; concrete commands belong in project `CLAUDE.md`).
+
+---
+
+## 2026-04-27 — consumer review — Class A applies (2)
+
+### Summary
+
+consumer review (`/dr-archive` Step 0.5) reflection produced two stack-agnostic Class A proposals — both PASS the `stack-agnostic-gate.sh` and were applied to runtime. Source pain: the consumer review entity-resolution gap (recall@5 met, but extraction-rate 17 % vs target 80 % + manual `as_of` smoke fail) was discoverable in 5 minutes via an N=1 smoke before the 1209-second pilot, and pilot subset «50 → 41 chunks» drift was operationally correct but never reflected in the plan document.
+
+### Changes
+
+| # | Category | Target | Change |
+|---|----------|--------|--------|
+| 1 | skill-update | `skills/testing/live-smoke-gates.md` (+ entry pointer in `skills/testing/SKILL.md`) | Added **Gate 4: N=1 Smoke Validation Before Bulk Ingest/Transform**. Generic principle: before any bulk run that depends on a parser/resolver/normalizer (re-ingest, batch migration, ETL, embedding refresh), run the full path on ONE known-representative item and assert intermediate state — FK target / canonical attribution / downstream filter behaviour, not just final output. Mocks don't satisfy because tie-breakers depend on real-data namespace state. Reference incident: consumer review entity-resolution gap. |
+| 2 | skill-update | `skills/datarim-system/backlog-and-routing.md` | Added **§ Plan Drift Discipline**. Rule: when a `/dr-do` step modifies an Acceptance Criterion in a measurable way (sample size, threshold, dataset, tool), patch the plan document inline before commit, not after QA flags drift. Recurrent class with TUNE-0034 (stale `@test` count) and TUNE-0028 (stale skill count). |
+
+### Verification
+
+- **Stack-agnostic gate:** PASS on both edited files (entries 1 and 2). Pre-existing FAIL on `skills/testing/SKILL.md` (Jest/Mocha/Vitest in legacy "Frameworks" section, lines 12-13) confirmed to predate this edit; out of scope per `evolution/stack-agnostic-gate.md` § Out of Scope (forward-looking gate).
+- **Bats:** 159/160 PASS. The single red is `optimize-merge.bats:115` (`testing.md` description 172 chars > 155 limit) — confirmed pre-existing via `git stash` + bats run (the failure reproduces without the edit). Not introduced by these applies.
+- **Class A applies do not introduce new bats regressions.** The pre-existing description-length red is tracked separately for the next `/dr-optimize` description-length sweep.
+
+---
+
+## 2026-04-27 — v1.17.1 — consumer review — Heredoc-vs-stdin pitfall
+
+### Summary
+
+One Class A reflection proposal applied during the consumer review (Phase C CI/CD hardening for media-service). Source bug: initial `post-deploy-verify.sh` evaluator used `python3 - <<'PY' ... sys.stdin.read() PY` over a piped JSON payload — the heredoc body replaced stdin entirely, so the parser silently consumed its own template instead of the captured PROD snapshot. Tests passed for the wrong reason until cross-checked by hand. Generic bash + inline-interpreter pitfall, not stack-specific. Recovery recipe (env-var pass-through or here-string + `-c` script) included so future ops-script work doesn't repeat it.
+
+### Changes
+
+| # | Category | Target | Change |
+|---|---|---|---|
+| 1 | skill-update | `skills/ai-quality/bash-pitfalls.md` | Appended § «Pitfall: Heredoc IS stdin» with WRONG/RIGHT pattern, env-var pass-through recipe, here-string alternative, consumer review case study reference. |
+
+Stack-agnostic gate verification (`bash scripts/stack-agnostic-gate.sh skills/ai-quality/bash-pitfalls.md`): **PASS clean**.
+Bats baseline: 159/160 (1 pre-existing fail: testing.md description >155 chars, TUNE-0042 follow-up — no regression introduced).
+
+### Class A: rejected proposals
+
+- A2 (`docker image prune` `-af` vs `-f` scope) — too narrow for standalone Class A; underlying lesson already implicit in `ai-quality/deployment-patterns.md` (whitelisted, stack-aware) plus concrete fix in consumer review runbook. Documented in reflection only.
+
+### Class B
+
+None.
+
+### Follow-up tasks
+
+None new. Steps 10-11 (synthetic acceptance test + operator walkthrough Level-1 rollback) — PROD activity, не отдельная задача backlog'а; tracked в consumer review § Outstanding.
+
+### No version bump
+
+Single-pitfall append; not warranting 1.17.1 → 1.17.2. Patch-mode site sync deferred — bash-pitfalls fragment is internal and not surfaced via `data/skills/*.php`.
+
+---
+
+## 2026-04-26 — v1.17.1 — TUNE-0034 — Bats baseline cleanup + reflection apply
+
+### Summary
+
+10 pre-existing bats failures (carry-over baseline through 2 archive cycles) classified into 6 stale + 4 fixable, resolved to 0 fail / 154 pass / 154 total — first clean baseline since v1.10.0. Two opportunistic verify-wiring tasks (TUNE-0035 cross-product checklist, TUNE-0036 staged-diff audit) batched and confirmed active in the same archive cycle. Three Class A reflection proposals approved and applied.
+
+### Changes
+
+**Bats cleanup (TUNE-0034 core):**
+- `tests/optimize-audit.bats` — removed 3 stale assertions on the deleted `## Structured Audit Report` 6-section schema in `agents/optimizer.md`.
+- `tests/optimize-merge.bats` — removed 3 stale assertions (`go-to-market.md` existence + frontmatter + snapshot "24 skills" count).
+- `tests/reflect-removal-sweep.bats` — whitelist extended +2 (`skills/evolution/{class-ab-gate,examples-and-patterns}.md`).
+- `skills/evolution/SKILL.md` — added Historical-note paragraph (v1.10.0/TUNE-0013 forward-pointer + cross-ref to `skills/utilities/recovery.md`).
+- `skills/file-sync-config/SKILL.md` — frontmatter `description` 339 → 133 chars (155-char cap restored).
+- `docs/evolution-log.md:223` — TUNE-0034 follow-up entry rephrased (drop retired-command literal substring; transient log not whitelisted).
+
+**Class A reflection proposals (3 applied):**
+| # | Category | Target | Change | Rationale |
+|---|---|---|---|---|
+| 1 | skill-update | `skills/testing/SKILL.md` | Added § "Triaging Legacy Test Failures" — 3-bucket taxonomy (delete / patch / rephrase) with TUNE-0034 examples + decision aid | Reflection: fixture used 2-bucket taxonomy and missed the rephrase case at /dr-do |
+| 2 | command-update | `commands/dr-init.md` | Added Step 2.5 "Workspace cross-task hygiene check" — non-blocking advisory grepping foreign task IDs in `datarim/*.md` | Reflection: TUNE-0036 staged-diff catches tangle at archive but only after carry-over costs a session; surface at /dr-init |
+| 3 | claude-md-update | `code/datarim/CLAUDE.md:121` | `(23 skills, ...)` → `(24 skills, ...)` — match actual filesystem count | Reflection: test #119 (snapshot enforcer) was correctly removed but the drift remained; bumped doc to actual |
+
+**Site (patch-mode):**
+- `Projects/Websites/datarim.club/config.php` — version 1.17.0 → 1.17.1.
+- `Projects/Websites/datarim.club/pages/changelog.php` — new v1.17.1 "Latest" entry; demoted v1.17.0 by removing its `'tag' => 'Latest'`.
+
+**Workspace version anchors:**
+- `code/datarim/{VERSION,CLAUDE.md,README.md}` — 1.17.0 → 1.17.1.
+- `Projects/Datarim/{README,CLAUDE}.md` — current-version markers bumped (semantic `v1.17.0+` operating-model anchors retained).
+
+### Verification
+
+- `bats tests/` (1.13.0): 154/154 pass / 0 fail (was 150/10/160).
+- Live: https://datarim.club/en/changelog HTTP 200, v1.17.1 visible (2 grep hits, "Latest" demoted).
+- Cross-product diff (TUNE-0035 wiring) caught 2 pre-existing site drifts → filed as TUNE-0037 (file-sync-config.php missing) + TUNE-0038 (orphan telegram-publishing.php).
+
+### Class B proposals
+
+None — content-only cleanup, no operating-model change.
+
+### Follow-Up Tasks Added to Backlog
+
+- **TUNE-0037** — Add `data/skills/file-sync-config.php` site page (EN+RU short+body). L1, P3.
+- **TUNE-0038** — Cleanup orphan `data/skills/telegram-publishing.php` (skill removed pre-2026, PHP not cleaned). L1, P3.
+- **TUNE-0035 / TUNE-0036** — closed as **verified** (cross-product wiring caught 2 drifts; staged-diff audit + cross-task leakage detection present in `commands/dr-archive.md:26`).
+
+---
+
+## 2026-04-25 — v1.17.0 — TUNE-0033 — Symlink-default install + `local/` overlay
+
+### Summary
+
+Operating-model revision. Default `install.sh` mode is now **symlink** — `~/.claude/{agents,skills,commands,templates}` become symlinks to the cloned repo's matching directories. The runtime IS the repo: edits land in git tracking immediately, drift is impossible by definition, and the `curate-runtime.sh` / `check-drift.sh` workflow becomes a copy-mode-only legacy path. A new gitignored `~/.claude/local/` overlay holds personal additions and overrides.
+
+### Changes
+
+**Updated files:**
+- `install.sh` — added `--copy` flag, `detect_install_mode`, `detect_existing_topology`, `link_scope_tree`, `setup_local_overlay`, `migration_prompt` (3 options c/k/a), `migrate_to_symlinks`. Symlink-aware `force_safety_guard` short-circuit. Main flow rewired around install-mode branch. Added `DATARIM_FORCE_UNAME` and `DATARIM_MIGRATION_CHOICE` test hooks.
+- `update.sh` — added `detect_runtime_mode`. Symlink topology → exits 0 after `git pull`. Copy topology → calls `install.sh --copy --force --yes` (preserves user's mode).
+- `scripts/curate-runtime.sh` — added DEPRECATED-in-v1.17 banner; removal scheduled for v1.18 (TUNE-0044).
+- `scripts/check-drift.sh` — added DEPRECATED banner; symlink → repo now exits 0 (sync by definition); symlink → other path treated as drift.
+- `validate.sh` — added Local Overlay Override Check that emits `WARN: override detected: local/<scope>/<file> shadows <scope>/<file>`.
+- `skills/datarim-system/SKILL.md` — added § Loading Order documenting the framework + overlay layering and conflict-resolution rule.
+- `docs/getting-started.md` — § Installation rewritten for symlink-default + `--copy` fallback + Windows note + `local/` overlay + migration prompt; § Updating rewritten around runtime-mode branch.
+
+**New tests** (16 added, all passing — final 150 pass + 10 pre-existing fail = 160 total):
+- `tests/install.bats` — 8 tests covering AC-1 (symlink + local overlay), AC-2 (`--copy`), AC-3 (Windows fallback via `DATARIM_FORCE_UNAME`), AC-4 (migration c/k/a), AC-5 (`--force` no-op on symlinks).
+- `tests/check-drift.bats` — 2 tests covering AC-9 (symlink → exit 0; copy + drift → exit 1).
+- `tests/update.bats` (new) — 2 tests covering AC-6 (symlink skips install; copy passes `--copy` to install).
+- `tests/validate-override.bats` (new) — 2 tests covering AC-7 (override WARN; clean case INFO).
+- `tests/deprecation-banners.bats` (new) — 2 tests covering AC-8 (curate-runtime + check-drift banners reference TUNE-0033).
+- `tests/helpers/install_fixture.bash` — added `setup_full_scripts`, `seed_existing_copy_install`, `seed_symlink_install`, `init_fake_git_with_origin`, `assert_symlink_to`.
+
+### Class A/B Gate
+
+This change is **Class B** (operating-model change, public framework contract). Approved: operator, 2026-04-25, via `/dr-prd TUNE-0033` PRD review and `/dr-design TUNE-0033` consilium-light validation.
+
+### Rationale
+
+TUNE-0032 QA notes N1 + N3 surfaced a contract contradiction: under symlink topology (which arcanada workspace already used internally), `check-drift.sh` exiting 1 was a "detection impossible" guard, not real drift, and `curate-runtime.sh`'s "runtime → repo" direction was semantically vacant (the inode is the same on both sides). Five derived problems documented in PRD § Problem Statement.
+
+The pivot from the original "fork-first" framing to "symlink-default + `local/` overlay" was driven by research (`datarim/insights/INSIGHTS-TUNE-0033.md`): every studied precedent (oh-my-zsh `$ZSH_CUSTOM`, bash-it `custom/`, chezmoi, prezto) rejects fork as the primary path for end-user additions because of Markdown merge-conflict UX cost. Fork remains a contributor path, documented in one paragraph.
+
+### Migration & Rollback
+
+- v1.16 → v1.17 upgrades show an interactive prompt with three options ([c]onvert / [k]eep / [a]bort). `--yes` auto-converts. Original real-copy contents are preserved under `$CLAUDE_DIR/backups/migrate-<timestamp>/SUCCESS`.
+- Single-revert rollback: `git revert <TUNE-0033-commit>` in `code/datarim/` restores the v1.16 contract; users on symlinks remove the symlinks, `git checkout v1.16.0`, then `./install.sh --force --yes`. The `local/` overlay is never touched by rollback. ≤15 minutes total.
+
+### Deferred follow-ups (registered as backlog items)
+
+- **TUNE-0044** — Final removal of `curate-runtime.sh` and `check-drift.sh` in v1.18 (deferred until at least one minor release of grace period).
+- **TUNE-0045** — Critical-skill override blocklist: turn validate.sh WARN into an ERROR for shadows of `security.md`, `compliance.md`, `datarim-system.md` (security recommendation, ship-and-iterate).
+- **TUNE-0046** — `cleanup_old_migrate_backups`: rotate `$CLAUDE_DIR/backups/migrate-*` keeping the 5 most recent (sre recommendation).
+
+---
+
+## 2026-04-25 — TUNE-0033 — Reflection Class A Proposals (5 applied)
+
+Reflection (Step 0.5 of `/dr-archive TUNE-0033`) generated 5 Class A evolution proposals; all 5 approved and applied. Class B count: 0.
+
+### Proposal 1 — Cross-product checklist mapping for operating-model changes (claude-md-update)
+
+- **Target:** `Projects/Websites/CLAUDE.md` § "Cross-product checklist (generalised TUNE-0028 + TUNE-0032 rule)"
+- **What:** Added 3 new rows to the Runtime → Site mapping table covering operating-model changes (operating-model → `pages/getting-started.php` mandatory; → `pages/home.php` conditional; → `content/{en,ru}.php` conditional). Added pre-deploy operating-model term grep gate.
+- **Why:** TUNE-0033 — `pages/getting-started.php` was not updated in /dr-do, surfaced only at /dr-archive live verification (AC-19). Existing checklist covered per-artefact maps but not systemic surfaces like onboarding pages.
+- **Evidence:** PRD-TUNE-0033 AC-19 listed live `/docs/getting-started \| grep symlink`, but plan §5 affected files did not include `pages/getting-started.php`.
+
+### Proposal 2 — Class B Public Surface Scan checkpoint in /dr-plan (skill-update)
+
+- **Target:** `commands/dr-plan.md` (new step 12 between Live Audit Checkpoint and Output Summary)
+- **What:** Added mandatory "Class B Public Surface Scan" step requiring enumeration of ALL user-facing surfaces reflecting the new operating model (8 minimum surfaces listed). For each surface, plan §5 MUST include affected-files entry AND PRD MUST include corresponding acceptance criterion. Deferring = Class B contract violation.
+- **Why:** Same root cause as Proposal 1 — Class B operating-model task surface scan was implicit, not codified, leading to deferred public surfaces.
+
+### Proposal 3 — Improve deploy.sh dry-run UX
+
+- **Target:** `Projects/Websites/deploy.sh`
+- **What:** Added `[DRY RUN]` prefix to deploy line when `--dry-run` flag is set, plus distinct trailing message ("[DRY RUN] No files transferred. Run without --dry-run to execute.") instead of identical "Done: ... deployed" line. Real deploy still prints "Done: $DOMAIN deployed".
+- **Why:** TUNE-0033 — initial dry-run output was practically indistinguishable from real deploy. Operator (me) almost misinterpreted result.
+
+### Proposal 4 — Document `absorbed` task disposition pattern (skill-update)
+
+- **Target:** `skills/datarim-system/SKILL.md` (new § "Task Disposition Patterns" before Quick Routing Heuristic)
+- **What:** Documented 4 dispositions — `completed`, `cancelled`, **`absorbed`** (new), `superseded`. Each with When / Action columns. `absorbed` covers the case where a task's deliverable is fully delivered inside another task's scope (TUNE-0031 update.sh inside TUNE-0033).
+- **Why:** TUNE-0031 status was "superseded-pending" with no clean disposition vocabulary. `absorbed` accurately captures: deliverable shipped, but in a different task's archive. Preserves audit trail.
+
+### Proposal 5 — Workspace cross-task leakage detection in /dr-archive Step 0.1 (skill-update)
+
+- **Target:** `commands/dr-archive.md` Step 0.1
+- **What:** Added proactive check: when running clean-git, examine modified `datarim/` workflow files for foreign task IDs. If foreign IDs (e.g. the consumer review, the consumer review) appear in diff while archiving a different task → flag as out-of-scope.
+- **Why:** TUNE-0033 — workspace `datarim/{tasks,backlog,progress,activeContext}.md` carried 100+ uncommitted lines from consumer review / consumer review / consumer review prior sessions. Staged-diff audit (TUNE-0032 lesson) caught the leak only at commit time. Proactive task-ID mapping at Step 0.1 prevents the round-trip.
+
+### Class A/B Gate
+
+All 5 proposals are **Class A** (content updates, no operating-model changes). Approved: operator, 2026-04-25, via `/dr-archive TUNE-0033` reflection review with `all` approval.
+
+### Health Metrics Snapshot
+
+- Skills: 23 (no new skill, 1 § added to `datarim-system.md`)
+- Agents: 17 (no change)
+- Commands: 19 (no change, 2 commands updated: `dr-plan.md`, `dr-archive.md`)
+- Templates: 13 (no change)
+- bats: 150 pass + 10 fail (carry-over from TUNE-0034 backlog)
+
+All metrics within thresholds. `/dr-optimize` not required.
+
+---
+
+## 2026-04-25 — v1.16.0 — TUNE-0032 — Canonical CTA "Next Step" Block
+
+### Summary
+
+Unified the "Next Step" Call-to-Action (CTA) emitted by every `/dr-*` command and pipeline agent. Before TUNE-0032, each command had ad-hoc free-form `## Next Steps` prose with no task ID, no primary marker, and no multi-task awareness — users running >1 parallel task could not tell which command applied to which task.
+
+### Changes
+
+**New files:**
+- `skills/cta-format/SKILL.md` — canonical spec (single source of truth)
+- `templates/cta-template.md` — reusable Markdown snippet
+- `tests/cta-format.bats` — 39 spec-regression tests
+- `tests/cta-format/fixtures/{single-task,multi-task,fail-routing}.md` — golden fixtures
+
+**Updated files:**
+- 17 commands in `commands/dr-*.md` — every command now ends with a unified `## Next Steps (CTA)` section referencing the canonical spec
+- 5 agents in `agents/` — `planner`, `architect`, `developer`, `reviewer`, `compliance` load `cta-format.md` and emit canonical block
+- `skills/datarim-system/backlog-and-routing.md` — Mode Transition table now references cta-format and documents Layer-to-command map for FAIL-Routing
+- `skills/visual-maps/pipeline-routing.md` — added CTA decision points and FAIL-Routing diagram
+- `skills/visual-maps/stage-process-flows.md` — added CTA emission map per stage
+- `docs/commands.md` — documented the unified CTA contract
+- `docs/skills.md` — added `cta-format` to skill catalog
+- `VERSION`, `README.md`, `CLAUDE.md` — bumped to 1.16.0
+- `Projects/Datarim/{README.md, CLAUDE.md}` — version bump
+- `Projects/Websites/datarim.club/` — changelog, features, 17 command pages, new skill page, 5 agent pages
+
+### Class A/B Gate
+
+This change is **Class A** (touches public framework contract — output format every user sees). Approved: operator, 2026-04-25, via `/dr-prd TUNE-0032` PRD review.
+
+### Rationale
+
+User feedback: "После создания нескольких задач в бэклоге и при одновременной работе над несколькими проектами и задачами часто не понятно, какое действие нужно выполнять." (TUNE-0032 source).
+
+Research (`datarim/insights/INSIGHTS-TUNE-0032.md`) established:
+1. clig.dev + Atlassian Forge CLI principles canonize numbered + primary CTAs
+2. Cognitive load research (Miller, Hick's Law, Chernev 2015) sets sweet spot at 3 options, max 5
+3. Box-drawing characters (`─`) cause Windows mojibake (Claude Code issue #34247) — switched to safe Markdown `---` HR
+4. Codebase audit showed 0/15 commands included task ID in CTA, 0/15 marked primary action
+
+### Testability
+
+39 bats tests guard against drift:
+- Skill file existence + frontmatter
+- Every command file references `cta-format.md`
+- Every named agent loads the skill
+- Routing skill points to cta-format
+- Anti-pattern regression (no box-drawing in any command)
+- Fixtures invariants (HR wrapping, exactly one primary marker)
+
+### Operating Model Note
+
+Runtime ↔ repo for `agents/`, `skills/`, `commands/`, `templates/` is via symlinks (`$HOME/.claude/skills` → `code/datarim/skills`). Edits in runtime land directly in repo — no `scripts/curate-runtime.sh` step needed for these scopes. `tests/` is repo-only (not symlinked).
+
+### Backwards Compatibility
+
+- Old free-form `## Next Steps` sections fully replaced. Archived reflection docs referencing old format remain immutable (no breaking change to history).
+- Pipeline routing logic unchanged — only the output format was reformulated.
+- Mode Transition automatic transitions preserved (verified via test in `tests/cta-format.bats` and integration check that all transitions are still listed in `backlog-and-routing.md`).
+
+### Affected by Future Changes
+
+Any future change to the CTA format MUST update `skills/cta-format/SKILL.md`, regenerate fixtures in `tests/cta-format/fixtures/`, and update this evolution log.
+
+---
+
+## 2026-04-25 — TUNE-0032 — Reflection Class A Proposals (5 applied)
+
+Approved Class A evolution proposals from `reflection/reflection-TUNE-0032.md`. All target framework process improvements identified during the TUNE-0032 cycle.
+
+### Proposal 1+2: Discovery skill — Scope Live-Grep + AC-Feasibility Rules
+
+- **File:** `skills/discovery/SKILL.md`
+- **Class:** A (content addition; no operating-model change)
+- **What:** Two new sections inserted before "Codebase-First Rule":
+  - **Scope Live-Grep Rule** — when a task touches multiple artefacts of the same kind (commands/agents/skills/templates), grep filesystem for actual count before fixing scope in PRD; do not rely on memory.
+  - **AC-Feasibility Rule** — every measurable AC must be reachable under the current operating-model; dry-run each AC against live state before user-approval; reformulate as "X OR documented invariant" when not directly reachable.
+- **Why:** TUNE-0032 PRD § Scope said "15 commands" (actual: 17). AC-8 (`check-drift exit 0`) was unreachable under symlink topology — surfaced only in QA. Both should have been caught at PRD draft time.
+- **Approved:** operator, 2026-04-25.
+
+### Proposal 3: Websites/CLAUDE.md — Cross-product site-update checklist
+
+- **File:** `Projects/Websites/CLAUDE.md` § "Шаг 3: Обновить сайт datarim.club"
+- **Class:** A (extends existing TUNE-0028 rule)
+- **What:** Generalised the per-artefact site-update mapping into an explicit table covering `skills`, `commands`, `agents`, `templates`. Added templates as conditional ("обновить, если папка существует / если template имеет публичную ценность"). Added pre-deploy diff loop:
+  ```sh
+  for kind in skills commands agents; do
+    diff <(ls $HOME/.claude/$kind/*.md | xargs -I{} basename {} .md | sort) \
+         <(ls datarim.club/data/$kind/*.php | xargs -I{} basename {} .php | sort)
+  done
+  ```
+- **Why:** TUNE-0028 explicitly required `data/commands/*.php` updates; skills/agents were implicit and templates were unmentioned. TUNE-0032 added `data/skills/cta-format.php` correctly only because the agent generalised by analogy — luck, not rule.
+- **Approved:** operator, 2026-04-25.
+
+### Proposal 4: ai-quality.md — Spec-First with Golden Fixtures pattern
+
+- **File:** `skills/ai-quality/SKILL.md`
+- **Class:** A (content addition — new pattern section)
+- **What:** New "Spec-First with Golden Fixtures (Format-Change Pattern)" section before "Fragment Routing". Codifies the 4-step sequence (spec-as-skill → fixtures → spec-regression tests → mechanical propagation) for L3+ tasks changing output format/structure across ≥5 files of the same kind.
+- **Why:** TUNE-0032 used Approach C (this pattern); 39 bats tests now guard 17 commands + 5 agents from drift. Approach A (mechanical sweep) was rejected exactly because drift would re-emerge with each new consumer. Pattern deserves codification beyond TUNE-0032.
+- **Approved:** operator, 2026-04-25.
+
+### Proposal 5: dr-archive.md — Pre-commit staged-diff audit
+
+- **File:** `commands/dr-archive.md` Step 0.1
+- **Class:** A (refinement of existing mandatory step)
+- **What:** Added explicit instruction: after `git add` and before `git commit`, run `git diff --staged --stat` and verify the file list matches commit-message scope; reject and restage if unrelated files appear.
+- **Why:** TUNE-0032 archive: 2 INFRA-0026 files (`skills/file-sync-config/SKILL.md`, `templates/cli-conflict-resolver-prompt.md`) leaked into TUNE-0032 commit `5ac8cd9` despite explicit `git add` path-list. Root cause not pinpointed; staged-diff audit makes leak visible before history is cast in stone.
+- **Approved:** operator, 2026-04-25.
+
+### Class B (HELD)
+
+- **Operating-model revision** — symlink-default `install.sh` + `curate-runtime.sh` deprecation + fork-flow recommendation. Class B (operating-model contract change). Held pending PRD-TUNE-0033 (added to backlog 2026-04-25, P1, L3). Not applied here.
+
+### Follow-Up Tasks Added to Backlog
+
+- **TUNE-0033** — Fork-first install model + symlink default (L3, P1). Added during TUNE-0032 compliance step.
+- **TUNE-0034** — Bats test suite cleanup: 10 pre-existing failures (optimizer.md restructure, removed go-to-market.md, reflect-removal sweep whitelist gaps, file-sync-config description >155 chars). L1, P2.
+- **TUNE-0035** — Site update cross-product checklist generalisation (folded into Proposal 3 above; backlog entry kept as tracking checkpoint to verify wiring on next site update). L1, P3.
+- **TUNE-0036** — `/dr-archive` Step 0.1 staged-diff audit (folded into Proposal 5 above; backlog entry kept as tracking checkpoint). L1, P3.
+
+Items 2-4 are candidates for opportunistic batch (one L1 cleanup pass).
+
+## 2026-05-04 — TUNE-0092 (CI bats wiring)
+
+### Class A Applied
+
+- **`commands/dr-plan.md` § Transition Checkpoint** — added baseline-citation rule: every test-count baseline in a plan ("X/Y tests pass") must cite the branch and HEAD SHA the count was measured on. Source: TUNE-0092 — initial plan captured 281/285 on a feature branch and framed it as the main baseline; the actual main baseline was 160/160 green. Stack-agnostic gate verified clean.
+
+### Class B
+
+None.
+
+### Follow-Up Tasks
+
+None (TUNE-0091's currently-failing tests will surface organically on its PR via the new bats CI gate — desired behaviour, not a follow-up).
+
+## 2026-05-04 — TUNE-0082 (datarim.club skill-page drift sweep)
+
+### Class A Applied
+
+- **`skills/reflecting/SKILL.md` § Instructions step 8 (FOLLOW-UP TASKS)** — added out-of-scope drift heuristic-scan: scan implementation notes and "What Didn't" section for phrases (`out-of-scope`, `still stale`, `also stale`, `runtime ... lagging`, `symmetric ... drift`, `separate task`, `deferred`, `noted for follow-up`); auto-suggest follow-up backlog entries rather than rely on operator memory. Source: TUNE-0082 spotted runtime `datarim-doctor.md` drift in /dr-do; only safety-net was operator memory at archive time. Stack-agnostic gate: PASS clean. Bats: 160/160 green.
+
+- **(project-scope, not framework runtime)** `Projects/Websites/CLAUDE.md` § Datarim Update Workflow → Scoping warning block — added «Runtime-skill freshness check (TUNE-0082)» paragraph + pre-deploy versioned-marker diff snippet. Site-only sync leaves AI-agent consumers reading stale runtime contracts. Routing: project CLAUDE.md (PHP-specific), not `~/.claude/skills/` → stack-agnostic gate N/A.
+
+### Class B
+
+- **B-1 — Pre-deploy «scope guard» in `deploy.sh`** (carryover from TUNE-0081). Still pending PRD: needs design for «expected scope manifest» vs rsync transfer-list comparison + false-positive handling on mtime-only drift (TUNE-0082 hit md5-identical files surfacing in rsync delta).
+
+### Follow-Up Tasks
+
+- **TUNE-0094** spawned (P3 L1) — runtime `~/.claude/skills/datarim-doctor/SKILL.md` (= `code/datarim/skills/datarim-doctor/SKILL.md`) sync to v1.21.3 5-pass + Data-Loss Safety Contract. Symmetric to TUNE-0082's site fix.
+---
+
+## TUNE-0090 — Doc-surface drift sweep + framework/consumer boundary fix (v1.21.7)
+
+**Date:** 2026-05-03
+**Complexity:** L2
+**Outcome:** Three drift findings fixed; new bats regression test added; framework/consumer boundary invariant established; one in-flight scope addition (`skills/security-baseline/SKILL.md` doc-refs).
+
+### Class A Applied
+
+#### Proposal 1: file-relocation pre-flight grep checklist
+
+- **File:** `skills/evolution/file-relocation-checklist.md` (NEW fragment under existing `skills/evolution/`)
+- **Class:** A (skill-update — new fragment)
+- **What:** Codifies the pre-flight `grep -rln "$OLD" code/datarim/` check before staging any `git mv` or cross-repo relocation. Ensures relocation + reference-fixup land in the same commit. Cross-repo variant + verification step included.
+- **Why:** During `/dr-do`, after relocating `code/datarim/documentation/` (Steps 8-10), `check-doc-refs.sh` flagged 3 dangling refs in `skills/security-baseline/SKILL.md`. Plan hadn't enumerated the skill as a touch-point. Pre-flight grep would have caught it before commit.
+- **Stack-agnostic gate:** PASS (POSIX `grep`, no stack-specific tools).
+- **Approved:** operator, 2026-05-03.
+
+#### Proposal 2: tests/test-command-doc-coverage.bats
+
+- **File:** `code/datarim/tests/test-command-doc-coverage.bats` (already added in `/dr-do` commit `109e75b`)
+- **Class:** A (new bats regression test)
+- **What:** 4 assertions guarding the gap TUNE-0090 just fixed: every `commands/dr-*.md` is mentioned in `docs/commands.md` AND `CLAUDE.md`; no obsolete `/dr-reflect` or `/dr-security` references; `code/datarim/documentation/` does not exist.
+- **Why:** Without a continuous detector, the same drift can reopen silently (as it did for `/dr-doctor`).
+- **Stack-agnostic gate:** PASS (bats whitelisted via `skills/testing/bats-and-spec-lint.md`).
+- **Approved:** operator, 2026-05-03.
+
+### Class A Applied (project-specific — outside framework gate scope)
+
+#### Proposal 3: Projects/Datarim/CLAUDE.md § Public-surface ↔ runtime sync
+
+- **File:** `Projects/Datarim/CLAUDE.md` (project-specific config)
+- **Class:** A (claude-md-update)
+- **What:** New subsection codifying the n-way sync rule when adding a new `commands/`/`skills/`/`agents/` artifact: must propagate to (a) site `data/{kind}/<name>.php`, (b) `code/datarim/docs/{commands,skills,agents}.md` row, (c) `code/datarim/CLAUDE.md` mention, (d) `code/datarim/README.md` mention. References the new bats test as the framework-doc detector.
+- **Why:** TUNE-0090 itself was discovered because the site had `data/commands/dr-doctor.php` while framework docs lacked any mention of `/dr-doctor`. Asymmetry-as-drift needs explicit rule.
+- **Stack-agnostic gate:** N/A (file is `Projects/Datarim/CLAUDE.md`, project-specific config — gate scope excludes).
+- **Approved:** operator, 2026-05-03.
+
+### Class B (HELD — defer to PRD-TUNE-0091)
+
+- **Doc-fanout linter (general).** Auto-detect missing references on N consumer surfaces when an artifact is added in a commit. Broader than the dr-* bats test. Not auto-spawned; user to add as backlog item if desired.
+
+### Follow-Up Tasks (not auto-spawned)
+
+- **TUNE-0091** — Class B doc-fanout linter (PRD required). Awaiting user confirmation.
+- **CI bats wiring for framework repo** — `test-command-doc-coverage.bats` (and the other 10) need CI execution to prevent silent regression. Own discovery scope (which CI? trigger? runner?). Note only.
+
+### In-flight Scope Addition (folded into `/dr-do` framework commit)
+
+- **`skills/security-baseline/SKILL.md` doc-refs.** 3 references to relocated `documentation/archive/security/findings-2026-04-28.md` updated to workspace path. Required to keep `check-doc-refs.sh` green after relocation. Direct consequence of Step 9 — not a scope expansion. Lesson → Class A 1 (above).
+
+## TUNE-0101 reflection (2026-05-06)
+
+### Class A — Spawned to backlog (NOT applied here, separate /dr-do tasks)
+
+- **TUNE-0110 — `skills/plan-path-validator/SKILL.md`** (new-skill). Pre-flight exists-check для file-paths в `/dr-plan` output; catches deprecated/missing tooling references. Spawned потому что Plan TUNE-0101 step E4 цитировал deprecated `dev-tools/scripts/check-drift.sh` (DEPRECATED v1.17), не обнаружено до /dr-do.
+- **TUNE-0111 — `templates/shell-helper-template.sh`** (new-template). Conventions: `printf '%s\n'` newline-separated output, `while IFS= read -r x; do ... done < <(cmd)` iteration, `LC_ALL=C` scoping для regex. Spawned после двукратного word-splitting bug fix (R2 → R5).
+
+### Class B — Held (PRD required)
+
+- **PRD-revision gate at design pivot during `/dr-do`.** Когда implementation выбирает решение, отличное от PRD (e.g., flock → mkdir-lock platform substitution), агент обязан сделать inline ADR note в PRD § Alternatives Considered ИЛИ обновить PRD до merge. Drift PRD ↔ implementation в TUNE-0101 (flock cited, mkdir-lock implemented) был замечен только в `/dr-qa`. Class B (operating-model change to /dr-do contract). Awaiting PRD draft.
+
+### Decisions Logged (TUNE-0101 implementation)
+
+- **mkdir-lock vs flock substitution** (Round 2). PRD цитирует `flock`; macOS bash не поставляет `flock`. mkdir-based atomic mutex выбран как POSIX cross-platform substitute. Class B follow-up captures the workflow gap.
+- **Plan E4 skip** (Round 6). `dev-tools/scripts/check-drift.sh` — deprecated v1.17, удаляется v1.18. Step moot; symlink-mode пользователи не имеют drift по определению.
+- **+1 unplanned skill-registry check** (Round 5). Check 9 добавлен поверх 8 plan'ом checks как закрытие Round 4 side-observation про `dr-archive` симптом. Improvement, not scope creep.
+
+
+---
+
+## TUNE-0137 — Self-Verification v1 (v2.0.0)
+
+**Date:** 2026-05-09
+**Complexity:** L3
+**Outcome:** v1 tri-layer architecture research + PRD v2 pivot. Phase 1 shipped: `skills/self-verification/SKILL.md` + `commands/dr-verify.md` + `dev-tools/measure-verify-effectiveness.sh` + `dev-tools/test-self-verification-claude.sh` + `dev-tools/measure-verify-cost.sh`. AC-7 hit-rate 7.7% literal / 15.4% semantic on n=13 known gaps → R-5 KILL_OR_PIVOT triggered. Research dimensions consensus: vanity metric (retrospective recall), not feature failure. PRD v2 pivot to tri-layer (Layer 1 deterministic floor + Layer 2 cross-model peer-review + Layer 3 native dispatch). TUNE-0144 spawned for Phase 2 implementation.
+
+### Class A Applied
+
+- **`skills/self-verification/SKILL.md` initial draft** — v1 single-pass Codex prompt path, basic findings schema, audit log spec.
+- **`commands/dr-verify.md` initial draft** — Layer 3 native dispatch only; `--max-iter`, `--stage` args.
+- **`dev-tools/measure-verify-{cost,effectiveness}.sh`** — v1 measurement harness; broken data-source path (`~/.local/share/coworker/log.jsonl` phantom). Deprecated in TUNE-0144.
+- **`dev-tools/test-self-verification-claude.sh`** — AC-10 integration test harness (contract validator, not executable test).
+
+### Class B (HELD — addressed in TUNE-0144 / gated tasks)
+
+- **Layer 1 deterministic floor** → TUNE-0144 Phase 2.
+- **Layer 2 cross-model peer-review** → TUNE-0144 Phase 2.
+- **Post-step hook auto-trigger** → TUNE-0138 (gated on Phase 3-4 dogfood ≥1 per 5 tasks).
+
+---
+
+## TUNE-0144 — Self-Verification v2 tri-layer + tagging schema + token-cost tooling (v2.1.0)
+
+**Date:** 2026-05-10
+**Complexity:** L3
+**Outcome:** Phase 2 PRD-TUNE-0137 v2 shipped. 6 deliverables: (1) Layer 1 deterministic floor `dev-tools/dr-verify-floor.sh` (340 LoC, shellcheck-clean, JSONL findings with `source_layer: floor`); (2) Layer 2 cross-model peer-review path wired into `commands/dr-verify.md` (`--peer-provider`, `--floor-only`, `--task-id` propagation); (3) `skills/self-verification/SKILL.md` tri-layer sections + extended findings schema; (4) `dev-tools/measure-invocation-token-cost.sh` (XDG_STATE_HOME, OpenTelemetry dotted-key JSONL, per-task token aggregation); (5) `dev-tools/measure-prospective-rate.sh` (archive frontmatter walker, R-5 v2 decision_hint); (6) `templates/archive-template.md` canonical NEW with `verification_outcome` schema + `commands/dr-archive.md` MANDATORY filling instruction. Public-surface 4-way: `data/commands/dr-verify.php` (EN+RU), `docs/commands.md` row, `README.md` bullet, `code/datarim/CLAUDE.md` tri-layer rewrite. Old `measure-verify-cost.sh` deprecated side-by-side. Version 2.0.0 → 2.1.0 across 6 files.
+
+### Class A Applied
+
+- **`dev-tools/dr-verify-floor.sh`** (NEW) — Layer 1 deterministic floor shell pipeline. Checks: AC coverage grep, file-touched audit, test-presence parse (manifest-agnostic), shellcheck recursive. JSONL output with `source_layer: "floor"`, `check_name`, `severity`. Exit = count of `severity=high` findings.
+- **`dev-tools/measure-invocation-token-cost.sh`** (NEW) — per-task coworker token cost aggregator. XDG_STATE_HOME resolution, daily-rotated JSONL, OpenTelemetry dotted-key dict access, provider breakdown.
+- **`dev-tools/measure-prospective-rate.sh`** (NEW) — Phase 3 dogfood rate tracker. Walks `documentation/archive/**/archive-*.md`, extracts `verification_outcome` frontmatter, computes `caught_per_5_tasks`. `decision_hint` drives R-5 v2 kill-gate verdict.
+- **`templates/archive-template.md`** (NEW canonical) — formal YAML frontmatter schema including closed `verification_outcome` block: `caught_by_verify`, `missed_by_verify`, `false_positive`, `n_a`, `dogfood_window`.
+- **`commands/dr-archive.md` Step 2 extension** — MANDATORY `verification_outcome` fill instruction with pointer to template.
+- **`code/datarim/CLAUDE.md` § /dr-verify rewrite** — tri-layer description + verification tagging workflow at archive time.
+- **`data/commands/dr-verify.php`** (NEW) — public-surface EN+RU page on datarim.club.
+- **`dev-tools/measure-verify-cost.sh` deprecation** — DEPRECATED header + stderr warning; side-by-side preserve; data-source path phantom corrected.
+
+### Class B (HELD — gated tasks)
+
+- **Post-step hook auto-trigger (TUNE-0138)** — gated on Phase 3-4 prospective dogfood verdict ≥1 per 5 tasks.
+- **Auto-fix policy (TUNE-0140)** — gated on TUNE-0138 ship + FP rate <30%.
+- **Cost-adaptive L4 self-degradation (TUNE-0139)** — gated on TUNE-0138 ship.
+- **`dev-tools/check-version-consistency.sh`** — mechanical CI enforcer for TUNE-0019 version consistency rule. Optional follow-up backlog item.
+
+### Decisions Logged (TUNE-0144 implementation)
+
+- **D-4 (coworker log truth path):** `~/.local/state/coworker/log/<YYYY-MM-DD>.jsonl` (XDG_STATE_HOME, daily-rotated, OpenTelemetry keys) — NOT `~/.local/share/coworker/log.jsonl` as cited in PRD line 186. PRD edit deferred to TUNE-0137 parent archive.
+- **D-5 (archive template phantom):** `templates/archive-template.md` did not exist; created as NEW canonical file.
+- **D-6 (measure-prospective-rate.sh):** added as 6th deliverable beyond PRD 5-item roadmap — needed immediately for Phase 3 measurement.
+- **D-7 (deprecated side-by-side):** `measure-verify-cost.sh` deprecated in-place; removal deferred 30 days via backlog.
+
+---
+
+## consumer review — Reflection-driven Class A skill updates (2026-05-10)
+
+**Date:** 2026-05-10
+
+**Outcome:** Two Class A skill updates accepted by operator and applied to runtime; one Class A project-CLAUDE.md update applied to consumer; one Class B proposal HELD pending PRD update. Stack-agnostic gate `--diff-only`: PASS clean on both runtime files.
+
+### Class A Applied (framework runtime)
+
+- **`skills/testing/SKILL.md` — Reporting Test Counts in Audit Output (NEW section).** Mandates that QA/Compliance reports derive per-spec test counts via a mechanical extractor of the test-runner's case-declaration syntax (framework-neutral contract; per-language regex examples behind `<!-- gate:example-only -->`). Drift between operator memory and extractor output = finding. Source: a per-spec count off-by-one was caught only by independent re-execution at Compliance; mechanical derivation removes the drift class.
+- **`skills/compliance/SKILL.md` § Software Checklist Step 7 — Stale-base merge-result gate (`git`-only).** Adds an inline rule that before reporting a "regression" from a PR diff vs `origin/<base>`, the auditor MUST check whether the diff is a side-effect of `origin/<base>` advancing past the branch's merge-base (i.e. `git diff <merge-base>..HEAD -- <file>` empty), and if so, simulate the actual 3-way merge via `git merge-tree $(git merge-base HEAD origin/<base>) HEAD origin/<base>` before flagging. Source: a feature PR appeared to revert an upstream baseline-hardening fix that landed mid-flight; merge-tree simulation confirmed the fix was preserved by 3-way merge — a needless rebase cycle was avoided.
+
+### Class A Applied (consumer CLAUDE.md, not framework runtime)
+
+- **`<workspace>/CLAUDE.md` § Backend Stack Standards — Devdep audit cadence.** Adds a quarterly `pnpm audit --audit-level=moderate` review on top of the existing `--audit-level=high` merge gate; moderate findings either patched or recorded as explicit waivers in the repo's SECURITY.md / `Areas/Credentials` note with reason + revisit date. First sweep due 2026-08-10. **Stack-specific (pnpm) — correctly placed in consumer CLAUDE.md, not framework runtime, per `feedback_datarim_stack_agnostic` memory.** Not part of `code/datarim/{skills,agents,commands,templates}/`.
+
+### Class B (HELD — pending PRD)
+
+- **identity service seed-CLI default-flip.** Until consumer review ships (P1 L3 — static OIDC `client_secret_basic` verification path on `/token`), the seed CLI MUST default `tokenEndpointAuthMethod='private_key_jwt'` (or refuse `client_secret_basic` without explicit env opt-in). Today's default ships static clients with an end-to-end-broken `/oidc/token` exchange. Modifies the default contract for shipping OIDC clients in the ecosystem and touches consumer review sequencing → requires consumer review amendment before approval. **HOLD until PRD update lands.**
+
+### Verification
+
+- `task-id-gate.sh` on `skills/testing/SKILL.md`, `skills/compliance/SKILL.md`: PASS clean (no task-IDs leaked into runtime artefacts; provenance lives here only).
+- `stack-agnostic-gate.sh --diff-only` on both files: PASS clean (no stack-specific terms added to runtime).
+- `bats tests/` baseline failures (T11/T12 skills/commands gate-clean, T17 brainstorming description >155, T26 check-drift SCOPES, T325 dr-reflect whitelist) confirmed pre-existing via stash-and-re-run on the canonical repo (Datarim framework); not regressions from this change.
+
+---
+
+## TUNE-0155 — /dr-verify provider auto-resolution + Class A reflection apply (2026-05-10)
+
+**Date:** 2026-05-10
+**Source task:** TUNE-0155 (zero-flag UX for /dr-verify Layer 2 peer-review provider). Reflection at `<workspace>/datarim/reflection/reflection-TUNE-0155.md`. Audit logs at `datarim/qa/verify-TUNE-0155-do-{1,2}.md`. Compliance report at `datarim/reports/compliance-report-TUNE-0155.md`.
+**Outcome:** Three Class A skill/command updates applied to runtime; zero Class B proposals (all changes are prompt/rule extensions, no operating-model contract change). Both runtime gates GREEN: stack-agnostic-gate.sh `PASS: clean` on changed files; history-agnostic gate `0 TUNE-* refs added` in diff.
+
+### Class A Applied (framework runtime)
+
+- **`skills/self-verification/SKILL.md` § Layer 2 — JSONL emission discipline (NEW subsection at ~line 161).** Mandates suppression of PASS-as-finding entries: findings array carries only defects or incorrect-premise items, never «cleared»/«verified»/«no finding» confirmations. Compress confirmations into the final-line summary. Source: across iter 1 + iter 2 deepseek peer-reviewer emitted 8 of 15 raw findings as PASS-as-finding despite explicit prose rule — a structural prompt constraint with concrete correct/incorrect examples is needed.
+- **`commands/dr-plan.md` Step 6.5 — Symbol Existence Check extension (PRD AC verification commands).** Adds requirement that every PRD AC `**Verification:**` line is smoke-checked at plan time against the implemented CLI surface (or pre-implementation skeleton). Phantom flags, positional-args invocations against named-flag contracts, and misnamed env vars caught here, not at /dr-verify post-/dr-do. Cost: ~5s per AC; saving: a full pipeline cycle. Source: TUNE-0155 PRD had 6 phantom AC verification commands (`--dry-run` flag, positional args, `dr-verify --dry-run`, `CLAUDE_RUNTIME` env var) discovered only at /dr-verify iter 1.
+- **`commands/dr-plan.md` Step 6.5 — AC ↔ V-AC semantic match check.** Adds requirement that Validation Checklist rows verify what the AC actually asserts, not just verbatim mirror the AC number. Failure mode: PRD AC «cost-cap soft enforcement, exit 2 on breach» mirrored by V-AC `for f in ...; test -f $f` (file presence) — verbatim cite of AC, but verification tests something else. Source: TUNE-0155 V-AC-12 ↔ AC-12 mismatch surfaced only at /dr-verify iter 2 reviewer, then patched in /dr-compliance.
+
+### Decisions Locked
+
+- **D-1 (Layer 2 reviewer prompts):** structural rule with concrete examples wins over abstract prose rule. Applied with both correct (suppression) and incorrect (PASS-as-finding) JSONL examples inline.
+- **D-2 (combined Step 6.5 extension):** AC verification command smoke + AC↔V-AC semantic match are sibling rules under same Symbol Existence Check umbrella — single docstring expansion preserves locality.
+- **D-3 (Class B deferred):** none. All TUNE-0155 reflection proposals are prompt/rule extensions; operating-model contract unchanged.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh skills/self-verification/SKILL.md` → PASS clean. `bash scripts/stack-agnostic-gate.sh commands/dr-plan.md` → PASS clean.
+- History-agnostic gate: `git diff -- skills/self-verification/SKILL.md commands/dr-plan.md | grep -E '^\+' | grep -cE 'TUNE-[0-9]+'` → 0.
+- Provenance lives in this evolution-log entry + archive + git log per Datarim Rule #8.
+
+
+---
+
+## related consumer reviews — 5 Class A proposals applied (2026-05-10)
+
+**Date:** 2026-05-10
+
+**Outcome:** 4 framework-runtime updates + 1 consumer-CLAUDE.md update. Both runtime-runtime gates GREEN: stack-agnostic-gate.sh `PASS: clean` (`--diff-only` mode) on both `skills/testing/SKILL.md` and `skills/ai-quality/SKILL.md`. Workspace `<workspace>/CLAUDE.md` is stack-specific by design (Backend Stack Standards) — gate exempt per `feedback_datarim_stack_agnostic` precedent.
+
+### Class A Applied (framework runtime)
+
+- **`skills/testing/SKILL.md` § Coverage Instrumenter Blind-Spot Awareness (NEW section).** Merged consumer review P4.1 (detection: pre-flight discrepancy check at 20pp threshold) with consumer review P1 (remediation hierarchy: refactor-lift > switch instrumenter > ignore comments). Stack-neutral wording: «raw runtime hooks», «framework-internal pass-through», «framework-instrumented layers» — no `Fastify`/`v8`/`Istanbul`/`vitest`/`NestJS` literal terms. Documents the architectural-improvement rationale for refactor-lift and the «document the decision» discipline at every level of the hierarchy.
+  - **File:** `skills/testing/SKILL.md` (~+22 prose lines inserted before § Reporting Test Counts in Audit Output).
+  - **Class:** A.
+  - **Source:** consumer review reflection §4.1 + consumer review reflection §5 P1 (deduped + merged into single coherent section per evolution-apply procedure).
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** detection rule + 3-level remediation hierarchy for coverage instrumenter blind spots through framework-internal pass-through code.
+
+- **`skills/ai-quality/SKILL.md` § RFC 7807 Problem-Details Envelope for Programmatic API Errors (NEW section).** consumer review P2 applied. Mandates RFC 7807 `application/problem+json` as the ecosystem standard for HTTP error responses on services with programmatic consumers; concentrates mapping in a single global error-mapping seam at the framework boundary; defines frozen title table, typed exception class, 5xx detail discipline, no-per-handler-error-JSON anti-pattern. Stack-neutral wording: «framework's idiomatic global exception filter, error middleware, or top-level handler» — no `NestJS`/`APP_FILTER`/`Fastify`/`Express` literal terms. RFC 7807 itself is a published standard, cited by number.
+  - **File:** `skills/ai-quality/SKILL.md` (~+24 prose lines inserted before § Atomic Multi-Surface Plan Amendment).
+  - **Class:** A.
+  - **Source:** consumer review reflection §5 P2.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** RFC 7807 envelope as ecosystem standard for HTTP errors on programmatic-consumer services; single global exit-point seam, frozen title table, 5xx detail suppression.
+
+- **`skills/ai-quality/SKILL.md` § Atomic Multi-Surface Plan Amendment (NEW section).** consumer review P4.2 applied verbatim per consumer review archive note (gate PASS, plan-time concept, no stack terms). Mandates atomic update of all parallel artefacts (PRD §2 + plan + task description Implementation Notes + Implementation Steps locus) within the same revision cycle when an AC's location moves mid-implementation. Cross-check via grep across surfaces; ship in same commit/branch push as the code; one operator-approval reference per amendment.
+  - **File:** `skills/ai-quality/SKILL.md` (~+18 prose lines inserted before § Fragment Routing).
+  - **Class:** A.
+  - **Source:** consumer review reflection §4.2.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** atomic multi-surface AC-amendment protocol — one revision cycle, cross-check after edit, ship-with-code, step-locus precision.
+
+### Class A Applied (consumer CLAUDE.md, not framework runtime)
+
+- **`<workspace>/CLAUDE.md` § Backend Stack Standards — CSP / security-header decision matrix (narrow-prefix vs ecosystem-wide).** consumer review P3 applied. Decision rule for new ecosystem services: hand-rolled Fastify `onSend` hook when target is a single URL prefix + ≤6 static headers + no nonce/hash; `@fastify/helmet` (or equivalent middleware package) when ecosystem-wide / multi-prefix / dynamic / >6 headers / collision-with-other-module. Mandates inline prefix-guard-assumption comment in hand-rolled hooks. **Stack-specific by design (Fastify reference) — correctly placed in consumer CLAUDE.md, not framework runtime, per `feedback_datarim_stack_agnostic` memory.** Not part of `code/datarim/{skills,agents,commands,templates}/`.
+
+### Decisions Locked
+
+- **D-1 (P1 ↔ P4.1 dedup):** P4.1 (detection) and P1 (remediation hierarchy) live as a single section in `skills/testing/SKILL.md` rather than two adjacent sections. Detection without remediation is incomplete; remediation without detection has no trigger. Combined section keeps the rule's full lifecycle in one place. Stack-neutral wording common to both sources is unified; consumer review-specific «refactor-lift superior to instrumenter switch» framing wins because it captures the architectural-improvement rationale that consumer review wording lacked.
+- **D-2 (P3 routing):** P3 (CSP decision matrix) deliberately bypasses the framework runtime and lands in `<workspace>/CLAUDE.md`. The matrix names `Fastify` and `@fastify/helmet` as concrete artefacts — the rule cannot be useful without those names. Per `feedback_datarim_stack_agnostic`, stack-specific guidance lives in consumer CLAUDE.md, not framework runtime. Workspace CLAUDE.md gate is exempt by precedent (already contains Fastify/Prisma/pnpm references).
+- **D-3 (P4 reject):** consumer review P4 («new skill `rfc7807-error-handling.md`») rejected by consumer review reflection itself as subset of P2; ai-quality.md is the canonical home for API contract patterns; a separate skill would create duplication. No action taken.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh skills/testing/SKILL.md --diff-only` → PASS clean. `bash scripts/stack-agnostic-gate.sh skills/ai-quality/SKILL.md --diff-only` → PASS clean.
+- Workspace `<workspace>/CLAUDE.md` is stack-specific by design — gate not applied (consumer config, not runtime artefact).
+- Provenance lives in this evolution-log entry + reflection files + git log.
+
+---
+
+## 2026-05-11 — consumer UI-write reflection, Class A applied
+
+### Proposal A1 (skill-update)
+
+- **Target:** `skills/testing/live-smoke-gates.md`
+- **What:** Added `Gate 6: UI Trigger → Cross-Datasource Write` — fires when a UI affordance triggers a server-side write to a data store that unit tests do not bind. Mandates live click + post-condition read in the target store, recorded in the QA report.
+- **Why:** a consumer task's round-5 QA — operator surfaced the gap that vitest mock at API boundary + jest mock at repository boundary leaves the click→row path uncovered. Tracker-sync manual buttons were only verified end-to-end via a live read of the sync-runs table row.
+- **Impact:** Medium — affects any UI-write task across the framework. Generalises beyond tracker sync to any audit-trail, event-log, or status-column write.
+
+### Proposal A2 (skill-update)
+
+- **Target:** `skills/evolution/SKILL.md`
+- **What:** Added `Pattern: Helper Extends Doctrine — Same-Task Reconcile`. When a runtime helper covers a wider set of conditions than the doctrine that documents it, the same task MUST update the doctrine OR record `narrower-doctrine-intentional` inline next to the helper. `/dr-compliance` Step 3 FAILs Layer 4 when both states co-exist.
+- **Why:** the same task's `isAbortError` doctrine looped twice — helper accepted both native + library-specific cancel-marker names, project convention file named only the native one. Doctrine was amended, reverted, re-amended; two QA rounds + one compliance round wasted on the loop.
+- **Impact:** Medium — affects future helper-vs-doctrine drift across any project. Reusable for error-name normalizers, MIME-type allowlists, dialect-flag fallbacks, locale-tag aliases, soft-delete predicates, transitional schema shapes.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh --diff-only HEAD skills/testing/live-smoke-gates.md` → PASS clean. `bash scripts/stack-agnostic-gate.sh --diff-only HEAD skills/evolution/SKILL.md` → PASS clean (after one rewrite: initial draft cited a specific HTTP-client library name, reworded to stack-neutral «library-specific cancel-marker name»).
+- Provenance: this evolution-log entry + the consumer project's reflection + git log on the canonical Datarim repo.
+
+---
+
+## 2026-05-11 — TUNE-0165 Class A applied
+
+### Proposal B1 (template-update + command-update)
+
+- **Target:** `templates/prd-template.md` + `commands/dr-prd.md` (Step 5 pre-save gates).
+- **What:** Added `ships_in:` derivation rule. PRDs that ship framework / library releases MUST derive `ships_in:` from the canonical version source (`code/datarim/VERSION` or project equivalent) at PRD-draft time. `/dr-prd` Step 5 reads the current version and pre-fills `ships_in: <next-minor-or-patch>`. Manual override requires an inline justification comment. Drift between PRD-declared and actual release version becomes an explicit pre-save gate.
+- **Why:** TUNE-0165 PRD shipped with `ships_in: Datarim v1.25.0` while framework was advancing v2.3.0 → v2.4.0; 5 body refs to the stale version drifted with the frontmatter and only surfaced at `/dr-compliance`, requiring an extra patch round.
+- **Impact:** Medium — closes a recurring class of «PRD ships-version drift» defects across every framework / plugin / library release PRD.
+
+### Proposal B2 (template-update + command-update)
+
+- **Target:** `templates/prd-template.md` + `commands/dr-prd.md` (Step 5 pre-save gates).
+- **What:** Added V-AC path live-validation gate. Every AC / V-AC line that cites a script / binary / spec file / directory MUST be live-validated (`command -v <bin>` / `test -f <path>` / dry-run exit code) before PRD approval. Cites intentionally produced by the plan must be marked `[to-be-created]` inline; everything else without a successful probe blocks save.
+- **Why:** TUNE-0165 PRD shipped with 2 phantom-path cites — `tests/test_plugin_dispatch.bats` (real implementation: case in `test_plugin_register.bats`) + `dev-tools/check-version-consistency.sh` (real path: `scripts/version-consistency-check.sh`). Both survived `/dr-qa` and surfaced at `/dr-compliance`. Similar phantom in earlier TUNE-0164 PRD. `[to-be-created]` marker preserves compatibility with PRDs whose plans create new tooling.
+- **Impact:** Medium — closes a recurring class of «PRD cites non-existent path» defects across all PRD-time artefacts.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh templates/prd-template.md` → PASS clean. `bash scripts/stack-agnostic-gate.sh commands/dr-prd.md` → PASS clean.
+- Bats: `bats tests/` → 402 ok + 5 pre-existing not_ok (T11/T12 skill-scope gate, D5 SCOPES list, skill description >155 chars, dr-reflect whitelist). 0 new regressions — same baseline as before TUNE-0165 archive.
+- Provenance: this evolution-log entry + reflection `<workspace>/datarim/reflection/reflection-TUNE-0165.md` + git log on the canonical Datarim repo.
+
+### Class B Held — Proposal B3 (deferral clause template)
+
+- **Target (planned):** `templates/coverage-deferral-clause.md` + reference in `skills/compliance/SKILL.md` § Step 4.
+- **What:** Standardise «deferred V-AC» waiver template — explicit fields for measured-vs-deferred status, gating dependency (e.g. `INFRA-0137`), follow-up condition, timestamp + operator initials.
+- **Why:** TUNE-0165 V-AC-22 (48h soak `false_escalate_rate < 0.15`) deferred to Linux runtime without a structured waiver — opens a class of «deferred-AC forgotten» defects across autonomy / quality-baseline metrics.
+- **Class:** B — change in `skills/compliance/SKILL.md` § Step 4 «Quantitative-threshold AC enforcement» is an operating-model contract change; requires a PRD draft before apply.
+- **Status:** HELD. Spawned as backlog item `TUNE-0182` (P2 L2) with PRD draft as the gate.
+
+## 2026-05-12 · TUNE-0185 Phase 4 archive — Class A applied
+
+- **A1 — `feedback_rank1_mandate_canonical_text_split.md`**: rank-1 ecosystem mandates keep canonical rule text in consumer ecosystem `CLAUDE.md`; framework runtime ships only contract surface (yaml policy + loader entry-points + cross-link section). Stack-agnostic gate PASS. Pattern previously applied implicitly across AAL / identity service / File Sync / Operational Resilience / Documentation Taxonomy mandates — now explicit.
+- **A2 — `feedback_yaml_policy_loader_orthogonality.md`**: new policy schemas in shared loader scripts get their own `load_<name>()` entry-point — never merge into the existing unified stream. Different cardinality + semantics make merge a maintenance liability. Smoke = `yq` pipeline + `shellcheck` clean.
+- **Stack-agnostic gate**: PASS on both memory entries + reflection doc.
+- **Class B (HELD, PRD-gated)**: B1 `/dr-orchestrate` consumer wiring full integration suite (extends TUNE-0187); B2 mandate drift detector automation via GH Actions (extends TUNE-0186).
+- **Health-metrics**: 14-task backlog spawn fanout ≥10 target; 3-way cross-correlation INSIGHTS↔mandate↔yaml zero drift at archive time; framework `code/datarim/` repo 4 unpushed commits (operator push gate); workspace shared schema gate FAIL bypassed via `--no-schema-check` (root cause: 12 sibling active tasks + 50+ backlog legacy lines — `/dr-doctor` migration sweep deferred as separate task).
+- **Provenance**: `documentation/archive/framework/archive-TUNE-0185.md` + reflection `Projects/Datarim/datarim/reflection/reflection-TUNE-0185.md` + framework commit `d5ef079` (`code/datarim/` repo) + workspace commit `689c210` (`<workspace>/`).
+
+## 2026-05-13 — TUNE-0202 Step 0.5 reflection (Class A applied)
+
+- **A1 — `code/datarim/.gitignore` += `__pycache__/` + `*.pyc`**: cosmetic residue from any Python-based `dev-tools/*` debug session (importlib spec-load, ad-hoc test) leaked into `git status` as untracked. One-line addition under existing «Node» block, stack-agnostic per the framework's existing Python-runtime assumption. Smoke = `git status --porcelain` clean after `find . -name __pycache__ -type d -delete && rm -rf …`.
+- **Stack-agnostic gate**: PASS on `.gitignore` diff (`scripts/stack-agnostic-gate.sh --diff-only .gitignore`).
+- **A2 (DEFERRED, not applied this session)**: «portable latency measurement в bats» snippet for `skills/testing/SKILL.md` — recommend `python3 -c 'import time; time.perf_counter()'` over `date +%s%N` (BSD macOS strips `%N`). Deferred because `skills/testing/SKILL.md` is mid-flight in a parallel TUNE-0164 evolution-apply session (foreign `M` hunk at archive time); appending now would mix scopes. Surface as a backlog item for next-session apply.
+- **Class B (HELD, PRD-gated)**: B1 `/dr-do` phase-completion version-bump gate (re-run `version-consistency-check.sh` inside `/dr-do` when phase touches `VERSION` — catches «claimed updated, actually not» earlier than `/dr-archive`); B2 `/dev/fd/` process-substitution path handling в `check-topic-overlap.py` (silent-skip vs stdin-alias contract decision).
+- **Health-metrics**: skills 41, commands 22 + 1 plugin, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
+- **Provenance**: reflection `Projects/Datarim/datarim/reflection/reflection-TUNE-0202.md` + compliance report `Projects/Datarim/datarim/reports/compliance-report-TUNE-0202.md` + framework commits `f11a2b3` (feat) + `604e12c` (refactor) + `76fb48a` (CLAUDE.md version fix) + site commit `7489123`.
+
+## 2026-05-16 — TUNE-0183 V-AC-axis-split skill (Class A applied)
+
+Source: `documentation/archive/framework/archive-TUNE-0183.md` § Lessons Learned + `reflection-TUNE-0183.md` § Evolution Proposals. Class A approved by operator 2026-05-16.
+
+- **Proposal 1 — skill-update (applied):** new skill `skills/v-ac-axis-split/SKILL.md` (≤30 lines body) documenting pattern: when a V-AC group mixes deterministic axis (rule match / shape check / type assertion) and statistical axis (live-rate threshold / SLA percentile / soak distribution), split upfront into two V-AC groups. Loaded by `/dr-prd` (V-AC drafting) and `/dr-plan` (V-AC review). Stack-agnostic gate PASS (formulation about PRD/Plan workflow, not stack).
+- **Proposal 2 — claude-md-update (applied):** added one-line cross-link in `code/datarim/CLAUDE.md` § Skills (after `human-summary.md` entry) referencing the new skill with citation to TUNE-0183 V-AC-14.11 reclassification as the canonical reference case.
+- **Class A scope applied minimally:** skill file + CLAUDE.md cross-link + this evolution-log entry. Full TUNE-0090 public-surface sync (`docs/skills.md` count update + `README.md` skill mention + `datarim.club/data/skills/v-ac-axis-split.php` EN+RU page + bats test in `tests/`) deferred to follow-up TUNE-* per asymmetric-drift detector contract.
+- **Class B (none for this archive).**
+- **Health-metrics**: skills 41 → 42, commands 22, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
+- **Provenance**: reflection `datarim/reflection/reflection-TUNE-0183.md` + archive `documentation/archive/framework/archive-TUNE-0183.md` + framework commit pending (this session, `scope: TUNE-0183 evolution-apply`).
+
+## 2026-05-17 — consumer design review § 6.5 CancellationToken path correction (Class A applied)
+
+
+
+- **Proposal 1 — claude-md-update (applied):** the consumer review § 6.5 line 372 — `tokio::sync::CancellationToken` → `tokio_util::sync::CancellationToken`. `CancellationToken` lives in `tokio_util::sync` (crate `tokio-util`), not `tokio::sync`. Stop-the-bleed correction so consumer review (Permission system Layer 2 = pre_tool hook) downstream reader cites the canonical crate path. Stack-agnostic gate N/A (PRD is project-specific document, not framework runtime).
+- **Proposal 2 — skill-update (pending spawn):** new `TUNE-*` backlog item — extend `/dr-plan` Step 11 Live Audit Checkpoint Rust recipe with `cargo deny check licenses` alongside `cargo audit --deny warnings`. Reason: consumer review plan added `directories = 6`, transitive `option-ext` (MPL-2.0); `cargo audit` advisory-only, license-policy mismatch surfaced at /dr-do `cargo deny check licenses` step. Plan-time check closes the gap. Stack-agnostic gate PASS (formulation about «package-manager-native license checker», rephrasable across pnpm/pip/cargo/gem).
+- **Proposal 3 — skill-update (pending spawn):** new `TUNE-*` backlog item — coworker draft type-signature mirror guard в `code/datarim/skills/coworker-delegation/SKILL.md` (or `dr-plan.md` § coworker write spec rules). Reason: coworker first draft § Overview для consumer review фабриковал `&mut PostHookContext` signature, `HashMap<String, Value>` variants, `sha256` algorithm — surgical-edit pass на /dr-plan fixed all, но прошло surface через /dr-init. Memory `feedback_coworker_draft_fabrication` covers phantom artefacts (PODs, releases), не type signature drift. Stack-agnostic gate PASS.
+- **Class B (none for this archive).**
+- **Health-metrics**: no skill/agent/command count changes; thresholds not exceeded; `/dr-optimize` not warranted.
+
+
+## 2026-05-18 — consumer review Alpine CSP-build strict-grammar memory (Class A applied)
+
+
+
+- **Proposal 1 — new memory file (applied):** `<operator-auto-memory>/feedback_alpine_csp_build_strict.md` + one-line entry in `MEMORY.md`. Canonical Class A learning for Arcanada-ecosystem strict-CSP Alpine deployments. Three invariants: grammar (`split(".").reduce(...)` — dot-path only), scope (component scope only, not `window`; register factory via `Alpine.data` in `alpine:init`), defer script-order (listener-attaching script ahead of Alpine in document order). Detection recipe via `bash scripts/smoke-headless.sh <URL>` + strict-CSP curl probe. Source-quote of evaluator at `@alpinejs/csp@3.14.1/dist/module.esm.js` lines 1719-1731. Stack-agnostic gate N/A (operator memory, not framework runtime).
+- **Proposal 2 — Class B HELD:** `/dr-plan` smoke harness should also probe `Alpine.data` registration + defer-order before approving plan (currently grammar-only audit). First incidence: consumer review Round 3 fixes #1 + #2 surfaced only at `/dr-do` Step 4. Second-incidence trigger required before PRD-TUNE-* draft per Datarim Class B contract.
+- **Proposal 3 — Class B HELD:** Expectations validator could accept QA-stage probe upgrades as in-cycle resolution path. First incidence: consumer review Layer 3b BLOCKED on «harness not scripted» partial → /dr-qa autonomously scripted puppeteer-core probe in `<temporary-verification-directory>/`, flipped statuses to `met`, validator re-run PASS. Second-incidence trigger required before promote.
+- **Health-metrics**: no skill / agent / command count changes; thresholds not exceeded; `/dr-optimize` not warranted.
+
+
+## 2026-05-18 — consumer review multi-modal Telegram + vision wire-up (2× Class A applied, 1× Class B HELD)
+
+
+
+- **Proposal 1 — skill-update (applied):** `code/datarim/skills/compliance/SKILL.md` — new subsection «Loop-guard pre-emptive operator handoff (attempt 2 vs attempt 3)» after § 7 CI/CD Impact Analysis. Rule: on loop-guard attempt 2, if probe set is deterministic AND state delta vs the previous attempt is empty across all probes, Compliance MUST formulate a pre-emptive handoff question (FB-8) rather than running attempt 3 with the same probe set. Caught anti-pattern: identical NON-COMPLIANT verdicts produced by re-running `gh pr view` / `curl /health` minutes apart with no operator merge in between. Stack-agnostic gate PASS; task-id-gate PASS (provenance moved to evolution-log per S5).
+- **Proposal 2 — new-skill (applied):** `code/datarim/skills/health-controller-stub-detector/SKILL.md` (new file, ~68 lines). Detector skill loaded by `/dr-do` Step 7 when task touches health/status controller files. Grep on diff added lines for stub literals (`'pending-integration'`, `'not-implemented'`, `'not_implemented'`, `'stub'`, `'unimplemented'`). Three disposition rules: implement now, defer with inline backlog tag, or explicit § Out of Scope. Catches the class where hard-coded health controller literals create contract gaps with wish gating downstream. Stack-agnostic gate PASS; task-id-gate PASS; bats `optimize-merge.bats T343 description-length` PASS (157 char description — within 155-char body budget after `description: ` prefix strip).
+- **Proposal 3 — claude-md-update (HELD, Class B):** `<workspace>/CLAUDE.md` § Internal HTTP Integration Patterns rule 7 — add sub-rule «open both sender + receiver PR with `--auto` merge flag (squash, delete-branch) by default». Class B (operating-model change for ecosystem PR workflow); requires PRD diff or ADR before approval. operator can re-present after drafting PRD in `Arcanada-one/datarim` operations docs or new ADR.
+- **Class A scope applied minimally:** 2 skill files + this evolution-log entry. TUNE-0090 public-surface sync (`docs/skills.md` count update + `datarim.club/data/skills/health-controller-stub-detector.php` EN+RU + bats `tests/skill-registry.bats` health entry + README) deferred as a follow-up TUNE-* per asymmetric-drift detector contract.
+- **Class B (1 HELD).** See Proposal 3.
+- **Health-metrics**: skills 45 → 46, commands 22, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
+
+
+## 2026-05-22 — v2.15.0 — TUNE-0259 — Stage-snapshot wiring (command-bound) + dev-tools/ runtime scope
+
+Pipeline contract from TUNE-0254 (`skills/cta-format/SKILL.md § Snapshot Emission`) declared a mandatory terminal step for every CTA-emitting `/dr-*` command, but the runtime contained zero invocations of `write_stage_snapshot`. `/dr-continue` consequently always fell through to the legacy fallback. Architectural review (creative-TUNE-0259) pivoted the wiring shape away from the plan's default (Variant 1 — duplicate a ~30-line invocation block across 5 agent files) to Variant 2 — a 5-line directive bound to each of the 7 CTA-emitting **command** files, referencing the single executable recipe in `skills/cta-format/SKILL.md`.
+
+- **Decision 1 — `dev-tools/` runtime scope (Option A applied):** `install.sh` `INSTALL_SCOPES` extended with `dev-tools`. The directory is symlinked into `~/.claude/dev-tools/` on default installs. 7+ consumer commands already reference scripts under `dev-tools/`; consumer installs via `curl | bash` or `./install.sh --copy` would otherwise miss those scripts entirely. README rationale flipped from «developer-only, not shipped» to «runtime-required, maintainer-stewarded — no user-facing CLI». Option B (path-rewriting refs) was rejected — tarball distribution has no source repo to point at. Option C (split `dev-tools/{runtime,maintainer}/`) deferred to backlog until the maintainer-only count grows beyond 1 tool.
+- **Decision 2 — snapshot emission architecture (Variant 2 applied):** Each of `commands/dr-{init,prd,plan,design,do,qa,compliance}.md` now carries a `## Stage Snapshot Emission (Mandatory Terminal Step)` section binding the literal stage and command, plus a reference to the canonical recipe in `skills/cta-format/SKILL.md § Snapshot Emission`. Stage is **command-bound**, not agent-inferred (the same agent — e.g. planner — is invoked from `/dr-init`, `/dr-plan`, `/dr-archive` with different stages; command files own the stage literal). Single canonical bash recipe lives in `cta-format.md`, drift risk reduced to zero. Net change: 7 × 5 lines (35) vs Variant 1's 5 × 30 (150).
+- **Decision 3 — `cta-format.md § Snapshot Emission` tone-shift (applied):** Tone promoted docs → directive: «Invocation pattern:» relabelled «Executable recipe (shellcheck-clean):», the metasyntactic `$REPO_ROOT` replaced by an explicit `git rev-parse --show-toplevel` discovery line, `mktemp` + `trap rm -f` added for tempfile hygiene (mitigates threat T-3), and fail-closed semantics now state «do not abort the surrounding command» explicitly.
+- **Secondary fix — `commands/dr-init.md` Step 4.6 probe path:** `dev-tools/check-init-task-presence.sh` was previously addressed via a bare relative path that broke on default symlink installs (`dev-tools/` was not in `INSTALL_SCOPES`). Resolver rewritten as `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" …` with a documented fallback. AC-4 satisfied.
+- **Tests:** `tests/command-snapshot-emission.bats` (23 tests — 7 cmd × 3 checks + 2 aggregate AC-1 gates), `tests/stage-snapshot-e2e.bats` (5 tests — happy path write + validator pass + replay marker preservation + kill-switch no-op + stage literal in frontmatter). Both green; existing `tests/stage-snapshot-*.bats` (10 files) unchanged.
+- **Out-of-scope follow-ups (backlog):** snapshot wiring for `/dr-verify`, `/dr-write`, `/dr-edit`, `/dr-publish`, `/dr-doctor`, `/dr-dream`, `/dr-optimize`; `dev-tools/{runtime,maintainer}/` subdir split (Option C deferred).
+- **Health-metrics:** skills 46 (unchanged); commands 22 (unchanged); agents 18 (unchanged); thresholds not exceeded; `/dr-optimize` not warranted.
+- **Provenance:** creative doc `Projects/Datarim/datarim/creative/creative-TUNE-0259-architecture-snapshot-wiring.md` + task description `Projects/Datarim/datarim/tasks/TUNE-0259-task-description.md` + QA report ancestor `Projects/Datarim/datarim/qa/qa-report-TUNE-0254-continue-bug.md`. AC-1 verified: `grep -l 'snapshot emission per' commands/dr-*.md` = 7; `grep -c write_stage_snapshot skills/cta-format/SKILL.md` = 2.
+
+## 2026-05-22 — TUNE-0259 reflection Class A A1 — `/dr-init` ID-collision probe (no version bump)
+
+Reflection on TUNE-0259 surfaced an ID collision: `datarim/backlog.md` carried `TUNE-0259 · pending · P3 · L1 · /dr-plan Exit-code namespace probe` (queued from reflection-TUNE-0258 § Class A A1), while the active `datarim/tasks.md` used the same ID for the snapshot-wiring task. Two unrelated units of work shared one ID; detection occurred only at `/dr-archive` Step 3.
+
+- **Class A applied:** `commands/dr-init.md` Step 4 (Action) extended with an **ID-collision probe** immediately after Task-ID determination. Probe: `grep -lE "^- {TASK-ID} ·" datarim/backlog.md datarim/tasks.md` AND `ls documentation/archive/*/archive-{TASK-ID}.md`. On any match — STOP and present a 3-way prompt: (a) reassign prior backlog entry to next free ID, (b) cancel prior entry, (c) operator picks different ID. Stack-agnostic gate: PASS. History-agnostic gate: PASS.
+- **Resolution for this incident:** backlog entry reassigned `TUNE-0259 → TUNE-0263` (operator-approved 2026-05-22). The snapshot-wiring task retains TUNE-0259 ID and is archived per usual flow.
+- **Provenance:** `Projects/Datarim/datarim/reflection/reflection-TUNE-0259.md` § Evolution proposals / Class A A1.
+
+
+## 2026-05-22 — TUNE-0271 reflection Class A P-A1 + P-A2 (no version bump)
+
+Reflection on TUNE-0271 (Coworker × RTK opt-in plugin) surfaced two universal predicates eligible for runtime apply. Both passed `scripts/stack-agnostic-gate.sh --diff-only`.
+
+- **P-A1 applied — External target reality-probe in `/dr-plan` Step 6.5.** Trigger: agent-decision (FB-4/FB-5) cites a specific filesystem path (`Projects/<repo>/`, `Projects/Websites/<site>/`) or external URL as deploy/write/lookup target. Rule: `ls "<path>"` MUST return a real entry; for any web target, `curl -fsSL -o /dev/null -w '%{http_code}\n' https://<domain>/` MUST return `200` (or a justified non-200). Non-existent path or HTTP `000` (DNS does not resolve) ⇒ memory stale; pause and ask the operator. Provenance: TUNE-0271 /dr-plan round 3 D3 cited `Projects/Websites/arcanada.club/` as blog deploy target; arcanada.club never existed (no DNS, no local dir); incident surfaced as `partial` expectation in `/dr-qa` and required a full re-plan to example.invalid in `/dr-qa` v2.
+- **P-A2 applied — Operator-mandated delegation flow in `/dr-do` Step 5.5.** Trigger: operator's project/global CLAUDE.md declares a hook-enforced delegation rule for the artefact type being produced. Rule: use the delegated flow for the first draft; record the invocation in § Implementation Notes (provider + profile + target path); silent bypass = process regression flagged by `/dr-compliance`. Provenance: TUNE-0271 /dr-do — the `coworker write` mandate hook fired twice (blog draft + reflection draft), correctly routing the artefact through the delegated flow; documenting this as an actionable rule converts the implicit «mandate exists» into an explicit «recorded invocation expected by Layer 3b».
+- **Stack-agnostic verdict:** both edits PASS `scripts/stack-agnostic-gate.sh --diff-only` (POSIX shell only: `ls`, `curl`; no stack-specific terms).
+- **History-agnostic verdict:** both edits PASS — no task IDs in runtime files.
+- **Tests deferred:** bats regression coverage candidate for `commands/dr-plan.md` + `commands/dr-do.md` step ordering listed as TUNE-0276 (P-A1) and TUNE-0277 (P-A2) in backlog.
+- **Provenance:** `datarim/reflection/reflection-TUNE-0271.md` § Evolution proposals / Class A.
+
+---
+
+
+## 2026-05-23 — TUNE-0267 reflection Class A A1 + A3 (no version bump)
+
+Reflection on TUNE-0267 (template-path canon-correction) surfaced two universal predicates applied in the same `/dr-archive` cycle per operator directive «решай L1 в этом же цикле до полного решения». Both passed `scripts/stack-agnostic-gate.sh --diff-only`.
+
+- **A1 applied — Install-topology survey gate in `/dr-plan` Step 6.5.** Trigger: the plan fixates a path-resolution canon — env-var, runtime root, install path, template ref, config-file location — that consumer agents will copy literally from runtime markdown. Rule: survey ALL install topologies the runtime supports (for Datarim: default symlink `./install.sh` no flags / `--project DIR` per-project / `--copy` with custom `CLAUDE_DIR` / plugin overlays) and verify the proposed canon resolves correctly in each. Heuristic: if the existing canonical pattern for adjacent surfaces uses an env-var fallback (`${RUNTIME_VAR:-$HOME/.claude}/...`), prefer that form for new path refs. Provenance: TUNE-0267 v1 canon `$HOME/.claude/templates/X` worked only for default symlink and silently missed `--project DIR` / `--copy` / overlays; v2 canon-correction migrated 41 refs to `${DATARIM_RUNTIME:-$HOME/.claude}/templates/X` after operator Q&A round 2 surfaced the blind spot.
+- **A3 applied — Template-path convention advisory in `/dr-archive` Step 0.5e.** Trigger: archive of any task that touched markdown under `code/datarim/{commands,skills,agents}/`. Rule: run `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-template-path-convention.sh --root code/datarim/` as a sibling advisory to the existing `check-doc-refs.sh` invocation; emit warning with file:line list on hits; advisory-only (do NOT block archive). Detector itself has been live since TUNE-0267 v1 with 11/11 bats green; the wire-in promotes it from standalone tool to default-on archive gate. Provenance: TUNE-0267 reflection Class A proposal 3 «detector wired в pre-archive-check» — converted from deferred FU to in-cycle apply per the new `feedback_l1_proposals_close_in_cycle.md` rule.
+- **Stack-agnostic verdict:** both edits PASS `scripts/stack-agnostic-gate.sh --diff-only` (no stack-specific terms; install-topology terms are framework-neutral: «default symlink install», «per-project install», «copy-mode», «plugin overlay»).
+- **History-agnostic verdict:** both edits PASS — task ID `TUNE-0267` cited inline as the source incident, allowed per source-cite carve-out.
+- **Tests:** existing `tests/check-template-path-convention.bats` (11 cases, all green) covers the detector itself; the advisory wire-in is doc-text and verified via grep marker presence in `commands/dr-archive.md` § Step 0.5e (`grep -F 'check-template-path-convention.sh' commands/dr-archive.md` → match).
+- **Provenance:** `Projects/Datarim/datarim/reflection/reflection-TUNE-0267.md` § Evolution proposals / Class A; `feedback_l1_proposals_close_in_cycle.md` (new memory rule: L1 Class A proposals MUST apply in-cycle, FU only for Class B / L2+).
+
+---
+
+## 2026-05-23 — TUNE-0280 Class A apply (P1: ID-collision rename procedure skill)
+
+Reflection on TUNE-0280 (`/dr-continue` + stage-snapshot replay verification) surfaced one Class A proposal applied in the same `/dr-archive` cycle per `feedback_l1_proposals_close_in_cycle.md`. Stack-agnostic gate PASS.
+
+- **P1 applied — new skill `skills/dr-init-id-collision-window/SKILL.md`.** Trigger: two parallel agent sessions on a shared workspace reserve the same `TASK-PREFIX-NNNN` value during the TOCTOU window between `/dr-init` Step 2.5 probe and `/dr-archive` commit. Procedure: (1) detection — grep across thin-index files, per-task artifact set, AND `documentation/archive/*/archive-${TASK_ID}.md` across all subdirs; (2) rename — sed-batch across artifact bodies, `git mv` per filename, thin-index re-anchor on `^- ${OLD} ·` prefix, chmod a-w restore on verify audit logs that were already hardened, Append-log line on the new ID; (3) anti-patterns — no mid-`/dr-do` rename, no `git mv` without body update, no silent delete. Provenance: TUNE-0280 hit this exact collision on its `/dr-archive` step (parallel session reserved the colliding ID and committed first), resolution required mid-archive rename of the whole derived chain.
+- **Stack-agnostic verdict:** PASS (`scripts/stack-agnostic-gate.sh skills/dr-init-id-collision-window/SKILL.md` → `PASS: clean`).
+- **Class B held — P2: `/dr-init Step 2.5` probe scope extension.** Backlog entry queued (TUNE-0284 in active workspace KB) for separate PRD draft. Class B because it changes pipeline-step semantics.
+- **Provenance:** `Projects/Datarim/datarim.locked-20260523T161746Z/reflection/reflection-TUNE-0280.md` § Evolution proposals / Class A; archive doc `documentation/archive/framework/archive-TUNE-0280.md`.
+
+---
+
+## TUNE-0311 (2026-05-26) — Wave 3 final + L1 Class A applied
+
+- **P-1 (skill-update, Class A inline applied):** `skills/v-ac-axis-split/SKILL.md` gains Pattern 2 — gate-activation axis dry-run during `/dr-plan` Component Breakdown. Closes the PRD Out-of-Scope vs gate-activation contradiction surfaced when the body-english fail-hard flip caught `plugins/dr-orchestrate/commands/dr-orchestrate.md` at `/dr-archive` time.
+- **P-2 (claude-md-update, already applied in Wave 3 itself):** English-Only Shipped Instruction Surface rule encoded in 4 CLAUDE.md (`~/.claude/CLAUDE.md`, `<workspace>/CLAUDE.md`, `Projects/Datarim/CLAUDE.md`, `code/datarim/CLAUDE.md`). No further apply.
+- **P-3 (new-skill, Class B HELD):** init-task Q&A round-trip — third disposition «process-rule-artefact». Initially HELD; resolved as TUNE-0319 in the same /dr-auto session (PRD-TUNE-0319 + dev-tools/append-init-task-qa.sh extension + skill doc + bats coverage).
+
+## TUNE-0320 — Datarim v2.22.0 release (2026-05-26)
+
+- VERSION 2.21.0 → 2.22.0 (TUNE-0308 epic completion + TUNE-0319 follow-up).
+- Surfaces synced: `code/datarim/VERSION`, `code/datarim/CLAUDE.md` (Version line), `code/datarim/README.md` (badge ×2), `Projects/Datarim/CLAUDE.md` (Текущая версия), `Projects/Datarim/README.md` (Версия), `Projects/Websites/datarim.club/config.php` (version key).
+- Site `datarim.club/pages/changelog.php` — new 2.22.0 release entry: outsider-friendly English instruction surface (164 files), `check-jargon-gloss.sh` validator + manifest, `/dr-archive` body-english fail-hard flip, English-Only mandate in 4 CLAUDE.md, init-task Q&A process-rule disposition, V-AC axis-split Pattern 2.
+- Deploy: `./deploy.sh datarim.club` (operator-authorized via /dr-auto session).
+
+## consumer review reflection — durable handoff-artefact path (2026-05-29)
+
+- **P-1 (skill-update, Class A APPLIED):** `skills/init-task-persistence/SKILL.md` — added rule: deferred-operator-step handoff artefacts MUST live in `datarim/tasks/{TASK-ID}-handoff.<ext>`, never `/tmp/`. Source: consumer review (Arcanada ecosystem) — a the consumer review handoff file vanished between /dr-qa and /dr-archive (session-scratch cleared), breaking the operator's `cp` apply chain on a missing source; second attempt needed after regeneration. Gates: stack-agnostic PASS (--diff-only), body-english clean, init-task bats green (32 tests across 3 files). Cross-ecosystem apply: SPACE task surfaced a framework-runtime improvement.
+
+## consumer review — multi-root success-criterion verification (2026-05-30)
+
+- **P-1 (skill-update, Class A APPLIED):** `skills/compliance/SKILL.md` Infrastructure checklist gains § 9 «Multi-Root Success-Criterion Verification»: when a wish / AC names ≥2 filesystem roots that must all satisfy the same property, the verification MUST grep every named root independently — a repo-local helper proves only its own repo. Source: consumer review (Arcanada ecosystem) — a «no working-branch-auto references anywhere in the project repo AND its space registry» criterion was verified only by the in-repo `check-no-auto-refs.sh` living in the project repo; the sibling registry tree `spaces/<project>/{inventory,runbook}.md` still carried working `git clone -b auto` recipes and reached `/dr-qa` Layer 3b as a BLOCKER. Gates: stack-agnostic PASS (--diff-only), body-english PASS (119 files), bats green (1086 tests, 0 failures). Cross-ecosystem apply: a SPACE task surfaced a framework-runtime improvement.
+
+## TUNE-0328 — release.yml adaptation note for packaged artifacts (2026-05-31)
+
+- **P-1 (skill-update, Class A APPLIED):** `skills/release-verify/SKILL.md` gains a § «Adapting release.yml to a Packaged Artifact»: when a consumer adapts the reference `git archive`-tarball workflow to a registry-packaged artifact, the build backend normalizes the version baked into the artefact filename, so (1) a tag-vs-built version assert MUST compare canonical forms (a literal `!=` across the normalizer false-fails every prerelease and blocks the release), and (2) any prerelease tag-suffix set MUST be re-validated as buildable for the target ecosystem (a suffix that is meaningless for a source tarball may be an invalid version segment that fails to build). Source: TUNE-0328 (Coworker PyPI release pipeline) — both task defects (F1 prerelease false-fail + an unbuildable `test` suffix copied from the tarball reference) stem from ignoring backend normalization. Gates: stack-agnostic PASS (full-file; ecosystem names fenced in `gate:example-only`), body-english PASS (119 files), doc-refs clean (198 files), bats green (1088 tests, 0 failures). Cross-repo apply: a consumer (Coworker) release task surfaced a framework-runtime improvement.
+
+## TUNE-0345 — bats top-level-source false-green + sourced-lib SC2034 pitfalls (2026-05-31)
+
+- **P-1 (skill-update, Class A APPLIED):** `skills/ai-quality/bash-pitfalls.md` gains two pitfalls surfaced while extracting `scripts/lib/schema-regex.sh`. (1) A top-level `. "$lib"` of a missing/about-to-be-created file in a bats suite aborts the entire file at load time and reports `1..0` with exit code 0 — a false green that masks the honest TDD-red; the fix is to source inside `setup()` so a missing dependency fails the individual tests visibly. (2) `shellcheck` without `-x` flags every constant in a sourced-only `lib/*.sh` as SC2034 (unused) because it cannot see the consumers; a file-level `# shellcheck disable=SC2034` is the canonical fix for a constants/regex library. Source: TUNE-0345 — the first TDD-red run reported rc=0 (false green) until the source moved into `setup()`, and the new fragment failed the required CI `shellcheck` job on all four constants until the disable comment was added. Gates: stack-agnostic PASS (--diff-only), body-english PASS, skill-validators green (layout 9 / frontmatter 13 / jargon 7 / reflecting 10), datarim-doctor bats 54/54. A framework-internal refactor surfaced two reusable shell-script pitfalls.
+
+## Fleet Phase 1 reflection — YAML-frontmatter extraction + word-boundary anti-pattern grep (2026-06-07)
+
+- **P-1 (skill-update, Class A APPLIED):** new `skills/utilities/yaml.md` fragment + Fragment Routing entry in `skills/utilities/SKILL.md`. Documents extracting YAML frontmatter from a markdown file via `awk '/^---$/{c++;next} c==1' file | yq` (frontmatter-only), because `yq <file.md>` / `yaml.safe_load` on a whole markdown file fails on the first `:`-bearing prose line ("mapping values are not allowed in this context"). Source: a reflection cycle where naive `yq` on a SKILL.md returned a false-empty `context_budget_tokens`; frontmatter-only extraction fixed it (and the same recipe was then used in the new `check-role-registry.sh` budget gate). The utilities fragment count in the skills reference was corrected 12 → 15.
+- **P-2 (skill-update, Class A APPLIED):** `skills/security-baseline/SKILL.md` § S1 gains rule 10 — anti-pattern greps over prose MUST anchor short dangerous tokens (`eval`, `exec`, `raw`, `tmp`) with `grep -w` / `\b<token>\b`. A bare `grep 'eval '` matched the substring inside "retri**eval** on demand", producing a false-positive security finding. Source: same reflection cycle (a compliance security-grep false-positive cost a triage step).
+- Gates: stack-agnostic PASS (yaml.md full-file; SKILL.md edits --diff-only), body-english PASS (new files clean), task-id-gate PASS, bats `utilities-decomposition` green after T3 count bump 15 → 16 markdown files. Operator approved both Class A proposals.
+
+## Consumer worker-hardening reflection — bats last-command-only verdict caveat (2026-06-08)
+
+- **P-1 (skill-update, Class A APPLIED):** `skills/testing/bats-and-spec-lint.md` gains § «Multi-assertion `@test`: only the LAST command sets the verdict». A bats `@test` passes iff its LAST command exits 0; intermediate `[ … ]` / `[[ … ]]` assertions are advisory unless `&&`-chained, made final, or `bats-assert` is loaded. Consequence: a partial-green suite («9/11») can hide false-green cases whose false assertion is not the final command, and an automated review that does not execute bats never sees the latent. Rules added: one assertion per `@test`, `&&`-chain multi-checks, never trust a bats pass-count alone for the changed surface (read bodies / RED-proof). Source: a consumer worker-hardening merge request — a tracker-sync drift-guard suite reported 9/11; the 2 reds were real but 3 of the «green» cases asserted a «Post-dedup mode»/«Pre-dedup mode» output string the script never printed, as a non-final command, so the latent reached QA; the MR's auto-review (no bats run) passed it. Gates: stack-agnostic PASS (manual --diff-only; added section is pure bash/bats, no stack-specific tokens), body-english PASS (English-only section), task-id-gate clean on the edited file (`bats-and-spec-lint.md` NOT among the gate's flagged files). NOTE: full `bats tests/` shows 1258 ok / 1 not-ok = T11 «skills/ scope is gate-clean» — confirmed **pre-existing** on HEAD (the 6 bare-task-id matches are in compliance/publishing/live-smoke-gates/silent-failure-detection, none in the edited file; `git stash` of the edit leaves T11 red), so it is NOT a regression from this apply. Cross-ecosystem apply: a consumer worker-hardening QA cycle surfaced a reusable framework-runtime testing caveat. Operator approved the Class A proposal.
+
+## TUNE-0378 — Fleet Phase 2 reflection: decompose multi-clause criteria + set-e last-line test-&&-cmd pitfall (2026-06-08)
+
+- **P-1 (skill-update, Class A APPLIED):** `skills/ai-quality/SKILL.md` § FOCUSED WORK gains a practice — «Decompose multi-clause success criteria»: a criterion joined by «and» or listing N independent requirements is N checks; close each sub-clause with its own named test and verify each before marking the wish done. Source: a wish reading «select backend AND inject per-role allowed-tools» had its first clause implemented and the second silently skipped (the role registry declared the tools but no consumer read them); the partial surfaced only at the expectations gate, costing one extra implement→review round. Complements the existing literal-test-name rule (it covers «cite by name», this covers «split conjunctive criteria»).
+- **P-2 (skill-update, Class A APPLIED):** `skills/ai-quality/bash-pitfalls.md` gains a pitfall — «`test && cmd` as the LAST line of a function under `set -e` returns 1 on a false test». A function's exit status is its last command's status; a trailing `[ -n "$x" ] && cmd` evaluates to the (failed) test whenever the optional action is skipped, so the valid no-op path returns rc 1 and the caller aborts under `set -e`. Fix: full `if … fi` (or append `|| true`). Source: an optional per-role injection wired as a trailing one-liner turned every no-argument call red under `set -euo pipefail`; caught by regression, not review.
+- Gates: stack-agnostic PASS (--diff-only on both files), task-id-gate PASS (both files), bats `tests/` green (903 ok / 0 fail after apply). Both bash blocks in P-2 carry `# nosec-extract` (teaching counter-examples, not shipped code). Operator approved both Class A proposals. Implementation landed in origin/main via PR #84 squash-commit 7e57a63.
+
+## TUNE-0392 — coworker read-guard gates documentation only; snapshot-writer entry-point doc fix (2026-06-10)
+
+- **Defect 1 (bugfix, APPLIED):** `dev-tools/coworker-hook-guard.sh` Read/`view` branch denied any over-token file by byte-size alone, ignoring extension. A large program file (`.py`/`.ts`/`.json`/…) got a `deny` whose `delegate` wording steered to `coworker ask --paths <file>` — which rejects non-doc extensions with exit 6, a dead-end. Fix: an allowlist `case` inserted before any byte/token estimation — the gate now applies ONLY to `.md`/`.markdown`/`.txt`; every other extension AND extension-less files pass through silently (`exit 0`). Operator decision (allowlist model): coworker saves tokens on prose + RTK, code the agent reads natively. Accepted consequence: the dense-blob divisor protection (`.b64`/`.min.js`/`.min.css`) and gating of extension-less prose are retired from the deny path.
+- **Defect 2 (doc fix, APPLIED):** `skills/stage-snapshot-writer/SKILL.md` cited the bare function `scripts/lib/snapshot-writer.sh::write_stage_snapshot` as the entry point. That form relies on `BASH_SOURCE[0]` and dies silently under a zsh-parent shell (macOS default), which led an agent to give up and hand-write the snapshot markdown — bypassing overwrite/lock/8 KB-cap/frontmatter guarantees. Fix: Contract, Inputs, and Examples now name `dev-tools/snapshot-writer-wrapper.sh` (bash-forcing wrapper) as the canonical entry point, and a new § Fail-closed contract forbids hand-writing the snapshot — writer unreachable ⇒ warn-and-skip (V-AC-7), never imitate.
+- **Tests:** `tests/test-coworker-hook-guard-token-threshold.bats` migrated to a doc-default fixture extension (`.md`) so threshold/wording/tier cases still exercise estimation, plus new passthrough cases for `.py`/`.ts`/`.sh`/`.json`/`.go`/`.min.js`/`.b64`/extension-less and doc-gate-alive controls for `.markdown`/`.txt`. `tests/test-coworker-hook-guard-codex.bats` Case A/B migrated to `.md` + new Case B2 view-over-code passthrough. Helper default-param bug surfaced and fixed (`${2-.md}` not `${2:-.md}` — `:-` wrongly coerced explicit `""` back to `.md`). Gates: full guard suite 59/59 green; `shellcheck -S warning` clean.
+- **P-1 (skill-update, Class A APPLIED):** `skills/ai-quality/bash-pitfalls.md` gains a pitfall — «`${2:-default}` (colon form) coerces an explicit empty-string argument back to the default; use `${2-default}` (no colon) when an empty value is a meaningful distinct case». Source: a test helper's `${2:-.md}` silently turned a `""`-extension fixture into `.md`, producing a false gate-defect verdict that cost a probe cycle to disambiguate. Stack-agnostic gate PASS (`--diff-only`). Operator approved Class A in-cycle at `/dr-archive`.
+
+## TUNE-0413 — /dr-auto dispatch contract: re-assert promoted to mandatory pre-dispatch MUST-gate + regression lint (2026-06-14)
+
+- **Contract change (imperative wiring, APPLIED):** `commands/dr-auto.md` Step 5 re-assert sub-bullet promoted from advisory "mechanics:" prose to a mandatory pre-dispatch MUST-gate. The orchestrator MUST run `auto-mode-marker.sh reassert --root <workspace> --task-id <TASK-ID>` as the first action of every per-stage dispatch before spawning any stage subagent; the invocation is now in a copyable code block immediately below the imperative prose. The helper's `MARKER_RELPATH` constant is referenced so the step survives a future marker rename. Skipping the gate = skipping the dispatch gate. Source: TUNE-0413 (Proposal 1 of TUNE-0388 reflection — the marker vanished 3× during the TUNE-0388 cycle, re-asserted by hand each time; the advisory prose was not self-enforcing).
+- **New lint (APPLIED):** `dev-tools/check-dr-auto-reassert-wiring.sh` — scans `commands/dr-auto.md` for the co-occurrence of a mandatory cue (MUST/mandatory/Before spawning/pre-dispatch/non-skippable) within 8 lines of the `auto-mode-marker.sh reassert` executable call. Exit 1 + offence line when the wiring regresses to prose-only; exit 0 when properly wired. Registered in `.github/workflows/dev-tools-lint.yml` (which lists lints individually — no glob). Fence-exclusion: mandatory cues are scanned only in prose lines; the invocation is scanned on any line including fenced code blocks (where the copy-runnable call deliberately lives). Sister-tool to `check-dev-tools-path-convention.sh`.
+- **New bats (APPLIED):** `tests/check-dr-auto-reassert-wiring.bats` — 3 tests: (1) lint passes (exit 0) on the wired `dr-auto.md`, (2) lint fails (exit 1) on a prose-only synthetic fixture where the call has no adjacent mandatory cue, (3) lint exits 2 on usage error. Fixture built as a synthetic minimal markdown file (not `git archive` — no `.git` breaks clone-faithful setup).
+- **Reused untouched:** `dev-tools/auto-mode-marker.sh` + `tests/dr-auto-marker-resilience.bats` (6 tests, already green) — not duplicated, re-verified as V-AC-4.
+- **Gates:** task-id PASS, stack-agnostic PASS, body-english PASS (commands scope), shellcheck exit 0, all 9 new+existing tests green. VERSION 2.33.0 → 2.34.0.
+
+### TUNE-0413 archive — Class A applied (plan site-sync presumptive note)
+
+- **Category:** claude-md-update (command-spec) — `commands/dr-plan.md` § Template Structure.
+- **What:** Added a presumptive site-sync call requirement to the plan's Out-of-Scope contract: when a task touches a command/skill/agent with a public docs-site counterpart, the plan MUST pre-resolve `[skip — internal-mechanics | update — user-facing]` so `/dr-compliance` verifies a decision rather than making one from scratch.
+- **Why:** Both TUNE-0411 and TUNE-0413 deferred the site-sync decision to compliance, forcing a last-gate re-read of the site file. The pattern is recognizable at plan time. Source: reflection-TUNE-0413 Proposal 2 (Class A), operator-approved at archive.
+- **Gates:** task-id / stack-agnostic (diff-only) / english-body — all PASS.
+
+## consumer review — Fail-closed dead-IP consumer sweep gate for DB relocation/decommission (2026-06-17)
+
+- **New gate (APPLIED):** `dev-tools/dead-ip-consumer-sweep.sh` — fail-closed post-relocate dead-IP verifier. Scans workspace config surfaces (spaces/*/space.yml, Projects/*/code/**, documentation/**) for live references (class-a: connection strings; class-b: bind/listen directives; class-d: spaces registry). Classifies historical/commented references as non-blocking. Requires an audit document asserting zero live consumers. Exit 0 = PASS, exit 1 = BLOCK, exit 2 = usage error. Defensive invariant guards BLOCK wording against exit 0 decoupling.
+- **New classifier (APPLIED):** `dev-tools/check-db-relocation-class.sh` — mirrors `check-deploy-class.sh` idiom. Two-prong arm: (1) frontmatter `type: db-relocation|db-decommission`; (2) keyword (relocate/repoint/decommission/migrate) + DB-host signal (DB_HOST, :5432, decommissioned_ip, etc.) co-occurrence. Exit 0 = arm, 1 = skip, 2 = usage error.
+- **New archive step (APPLIED):** `/dr-archive` Step 0.35 `DEAD-IP CONSUMER SWEEP GATE` inserted between Step 0.3 (network exposure) and Step 0.4 (prod-merge). Arms on classifier exit 0; reads `decommissioned_ip:` from task frontmatter; invokes sweep with runtime-prefixed path `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/dead-ip-consumer-sweep.sh"`; fail-closed on exit 1.
+- **Mandate update (APPLIED):** `documentation/mandates/operational-resilience.md` gains Principle 4 — every DB relocation/decommission MUST run the dead-IP sweep as a mandatory pre-archive gate.
+- **Skill update (APPLIED, Class A):** `skills/infra-automation/SKILL.md` § SSH Batch Execute gains mesh-health pre-check pattern (~10 lines): before a fleet sweep, ping each Tailscale mesh IP and log reachability + fallback strategy.
+- **Tests (APPLIED):** 22 bats cases across 3 files (`dead-ip-consumer-sweep.bats` 12, `check-db-relocation-class.bats` 7, `dead-ip-sweep-wiring.bats` 3). All 22 green. shellcheck -S warning clean. english-body gate PASS (commands + skills scopes).
+- **Gates:** task-id PASS, body-english PASS (commands + skills scopes), shellcheck exit 0, 22/22 bats green. VERSION 2.39.0 → 2.40.0.
+- **Classifier self-trigger fix (APPLIED at archive):** `check-db-relocation-class.sh` Prong 2 rewritten. The original keyword+port co-occurrence arming fired on a task that merely *describes* the relocation pattern (the gate-building task itself), which would then fail-closed for lack of a `decommissioned_ip:` field and an audit document. Prong 2 now keys on an explicit `decommissioned_ip:` frontmatter field (the authoritative real-relocation signal the sweep needs anyway), not on free-prose keyword/port co-occurrence. Added bats cases for meta-task skip and decommissioned_ip arm. 22 → 25 bats green.
+- **Skill update (APPLIED, Class A):** `skills/infra-automation/SKILL.md` gains an IP-Scanning Script Test Matrix note — any IP scanner MUST test key-value, bare YAML list item, connection string, URI scheme, and ip:port forms; the bare-list form is the one most often forgotten.
+- **Skill update (APPLIED, Class A):** `skills/autonomous-mode/SKILL.md` § Hard-gated Action Boundary gains a workspace-branch-discipline pre-file-edit check — before editing a workspace-root file confirm `git branch` matches the active task, else create a task-named branch or escalate; prevents an edit landing on a sibling task's branch.
+
+## TUNE-0432 — Native deterministic spec-traceability layer (VERSION 2.41.0 → 2.42.0)
+
+A read-only spec-traceability layer native to Datarim. Native names only; no external dependency, no parallel spec tree, no second pipeline, no replacement of expectations-checklist or V-AC (R9 negative-scope charter).
+
+- **D-REQ addressing (R2, APPLIED):** `templates/prd-template.md` gains a `## Requirements (D-REQ)` subsection (`#### D-REQ-NN: ...`, two-digit machine id) and a V-AC `Covers:` binding contract; `templates/task-template.md` documents the `Covers:` shape. `wish_id` stays the canonical operator-intent id — D-REQ is an addressing layer on top. Regex constants `D_REQ_ID_RE` / `COVERS_LINE_RE` / `D_REQ_REF_RE` added to `scripts/lib/schema-regex.sh` (single source of truth).
+- **Shared library + contract (R7, APPLIED):** `scripts/lib/spec-graph.sh` (`emit_finding`, `usage_die`, `parse_common_flags`, registry loader, graph helpers). Parallel-indexed arrays (NOT `declare -A`) for macOS bash 3.2 portability. Common contract documented in `docs/validator-contract.md`: `--format json` JSONL, exit `0` valid / `1` violations / `2` usage-or-configuration error. A mis-configured rule set is exit 2, never "0 violations".
+- **Graph validator (R1, APPLIED):** `dev-tools/dr-spec-lint.sh` — 10 named rules over `wish_id → D-REQ → V-AC → plan-step → evidence`. Integration test reproduces the research probe (bad slug + missing Covers + dangling ref) and proves each defect class is caught.
+- **Coverage report (R5, APPLIED):** `dev-tools/dr-trace.sh` — five buckets (covered/uncovered/dangling/orphaned/explicitly_deferred), json + table, `--strict`.
+- **Floor integration (R6, APPLIED):** `dev-tools/dr-verify-floor.sh` gains a `spec_graph` check on `--stage plan|all`; re-emits dr-spec-lint findings with `source_layer: "floor"` and `check_name: "dr-spec-lint:<rule>"`. No new verdict enum (`error→high`, `warning→medium`, `info→low`).
+- **Umbrella + registry (R4, APPLIED):** `dev-tools/dr-lint.sh` façade over `dev-tools/dr-spec-rules.yaml`; `rules` introspection, `--rules`/`--ignore`; unknown rule / empty effective set / disabling a mandatory rule all exit 2 (fail-closed).
+- **Computed grade (R10, APPLIED, contract-bounded):** `dev-tools/dr-spec-grade.sh` — read-only projection from findings, idempotent, no filesystem writes, no routing token, invoked by no gate. Letter mapping A/B/C/D/F (E intentionally absent, clean-room native).
+- **Rollout + CI (R3/R8, APPLIED):** `docs/spec-traceability-rollout.md` (advisory-first: L1 skip, L2 advisory, L3+ hard after window, `--scope git-diff`); `.github/workflows/spec-traceability.yml` (reusable, advisory-first, SHA-pinned actions); `templates/pre-commit-spec-lint.sample` (opt-in fast feedback). One registry, one mandatory-rule config across CI + pre-commit.
+- **New command doc:** `commands/dr-spec.md` thin façade. 4-surface sync: `docs/commands.md`, `CLAUDE.md`, `README.md` updated; site `data/commands/dr-spec.php` deferred (cross-repo, operator-gated).
+- **Gates:** 71/71 bats green across 8 new test files; shellcheck -S warning exit 0 on all new scripts; body-english PASS; no "SpecScore" string in shipped surface (the one occurrence is a pointer to the source research report path, permitted). VERSION 2.41.0 → 2.42.0.
+
+## 2026-06-21 — TUNE-0441 (v2.44.0)
+
+**/dr-save resume block now carries a deterministic resume command + a human task label.** The resume block prints `/dr-continue {SESSION-ID}` (the session id selects exactly one saved session, defeating the latest-by-mtime collision that let a bare `/dr-continue` resume a foreign agent's session in a shared workspace) with a `↳ {TASK-ID} — {title}` annotation read from the active-task index (truncated + sanitized; stricter than next-action: leading-`/` and newline stripped) and a saved-time derived from the session id. Multi-task saves list only the OTHER active ids; single-task suppresses the line.
+
+**Class A applied:** snapshot-writer ergonomics note in `skills/stage-snapshot-writer/SKILL.md` — invoke the wrapper without swallowing stderr, `--body-file` mandatory (the clear missing-flag message was being hidden by callers piping through a truncating tail).
+
+New: `dev-tools/check-resume-block-mirror.sh` byte-identity gate over the two resume-block mirrors (`commands/dr-save.md` ↔ `skills/session-handoff-writer/SKILL.md`) + bats. Producer-only: consumer `/dr-continue` already accepted `{SESSION-ID}`; no schema change.
+
+## 2026-06-22 — TUNE-0445 + TUNE-0446 (v2.44.0 → v2.45.0)
+
+Two Class B follow-ups from consumer review, shipped together.
+
+**TUNE-0446** — `dev-tools/check-deferral-prose.sh` `--file` path guard widened to accept
+spaces in the path while preserving path-traversal protection. The single regex
+`^[A-Za-z0-9._/-]+\.md$` (which rejected any path with a space, e.g. a report under a
+directory name containing a space) was replaced with three explicit deny-checks:
+`..`-traversal segment reject, control-character reject, and `.md`-suffix require. Regression
+cases added to `tests/check-deferral-prose.bats` (space-accept + traversal-reject +
+control-reject); full suite green; `shellcheck -S warning` clean.
+
+**TUNE-0445** — `/dr-auto` L1 doc-only fast-path. For the narrow class of an L1 task whose
+diff touches a single markdown file with no runtime behaviour, the orchestrator now runs a
+lightweight style/banlist + cross-reference check that writes a minimal `qa-stub` artefact
+instead of silently skipping `/dr-qa`. `skills/compliance/SKILL.md` Documentation Checklist
+gained a "Doc-Only QA Stub" item stating the stub satisfies QA-presence, so compliance no
+longer emits a "QA report absent" advisory for that class; every other class still requires a
+full QA report. The edit also removed a pre-existing duplicate "Operator-Only Runbooks"
+heading in the same checklist (numbering now sequential).
+
+**Consumer API-URL write-back follow-up** (consumer space; applied 2026-06-23) — `skills/compliance/SKILL.md`
+Software Checklist Step 6 (Test Execution) gained a **Report-cited-SHA resolution probe**. When a
+QA/compliance report cites commit SHAs or merge-request numbers, compliance must `git cat-file -t
+<sha>`; a SHA absent both locally and on the remote is a genuine fabrication finding (NON-COMPLIANT),
+while a SHA absent locally but present on the remote branch is the expected stale-clone case in a
+remote-first project — fetch read-only and verify the diff against `FETCH_HEAD` (no checkout, so a
+shared clone parked on another branch stays undisturbed). Class A (content-only, stack-neutral;
+stack-agnostic gate PASS). Recurrence-promoted (`incident_class: report-cites-sha-absent-on-local-clone`;
+two prior consumer occurrences of the fetch-remote-to-verify class). Operator-approved.
+Targeted bats green (check-skill-frontmatter, check-skill-layout, dr-compliance-deferral-gate,
+stack-agnostic-gate, tune-0255-compliance-template-shape, check-frontmatter-english).
+
+**TUNE-0463** — Wired `next-free-id.sh` into `/dr-init` and `/dr-quick` as the mandatory
+ID-assignment mechanism. Previously the helper (created by TUNE-0461) was orphaned: both
+command files instructed agents to compute `max+1` by hand (prose-only formula), which
+caused the TUNE-0461 class to recur on 2026-06-28 — an LLM skipped the archive grep and
+reused an already-archived ID. Fix: `commands/dr-init.md` Step 4 and `commands/dr-quick.md`
+Step 2 now instruct the agent to run
+`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/next-free-id.sh" {PREFIX} "$DATARIM_ROOT"`
+as the canonical step; the prose formula is retained as a documented fallback (helper
+unavailable). The ID-collision probe block is preserved; a clarifying sentence distinguishes
+the helper-handled self-collision path from the prose-handled foreign-entry path. Added
+Group C to `tests/tune-0461-id-collision-autobump.bats`: C01/C02 assert an archived-only ID
+is not reused (AC-3 regression guard); C03 asserts fixture isolation — helper greps only the
+caller-supplied root, not the live workspace (AC-4). VERSION bumped 2.48.0 → 2.48.1 (patch:
+behaviour-correction of an existing mechanism, no new artefact). Second occurrence of the
+ID-collision class; first was TUNE-0461, which shipped the helper orphaned.
+
+**Follow-on within the same cycle (dogfooding the wired helper on the live workspace
+surfaced two latent defects in `next-free-id.sh` that small synthetic fixtures never hit):**
+(1) *octal parse* — the leading-zero strip + bare `(( 0058 ))` read zero-padded numerics
+whose digit is >= 8 as octal, erroring and silently dropping them from the max; fixed by
+pinning base-10 via `(( 10#$num ... ))`. (2) *prose-mention pollution* — Surface 1 used a
+content-grep over archive `.md` bodies, so illustrative IDs cited in archive prose (e.g. a
+fixture id like `TUNE-9999` documented in a write-up) inflated the max; the canonical claim
+surface is the `archive-{ID}.md` FILENAME, so both the max scan and the `is_claimed` probe
+now derive archive IDs from filenames via `find`. Both defects made the helper return
+`TUNE-10000` against the real archive (correct answer: the next free ID after the true max).
+Added Group D regression tests (D01 octal, D02 prose-pollution), mutation-verified to fail
+against the un-fixed helper. Without these the helper would have shipped wired-in but broken
+on any real archive — defeating the task's purpose.
+
+---
+
+## 2026-07-04 — consumer review (Arcanada consumer): compliance §5 Discovery Probe — same-name-repo-is-not-source gate
+
+**Category:** promote-recurring-incident-to-gate · **Class:** A (approved by operator).
+**Target:** `skills/compliance/SKILL.md` § Infrastructure Checklist §5 (Discovery Probe Verification).
+
+**What:** Added a bullet: for site/service source-recovery tasks, the repo NAMED after the
+domain/service may NOT be its source. Prove source via a candidate build compared to the live
+target BEFORE plan-time; search by CONTENT (manifest name, asset set, deploy-script target,
+directory structure) across ALL org repos, not only the same-named one. A byte-identical
+content-hashed bundle filename (e.g. `main.<hash>.js`) shared between candidate build and live
+target is the strongest single parity signal for hash-named SPA output.
+
+**Why (evidence):** In consumer review the live `consumer.example.invalid` was built from a repo named
+`consumer-application`, while the identically-named `consumer.example.invalid` repo was an abandoned 2022
+template. The do-stage candidate build from the wrong (same-named) repo produced a false
+"source-lost" verdict; a content-based org-wide hunt at QA time found the real source and proved
+byte-parity (identical `main.<hash>.js` sha256). This is a recurrence of the "repo ≠ live"
+verify-first lesson first flagged by the parent task consumer review (consumer review) and
+seen again in consumer review — per the anti-self-suppression rule, promoted to a gate rather than
+declined as redundant.
+
+**Verification:** stack-agnostic-gate PASS, task-id-gate PASS, no Cyrillic introduced,
+`bats tests/` → 1652 tests, 0 failures.
+
+---
+
+## 2026-07-10 — TUNE-0173 (P3 sweep, reflection-TUNE-0163.md Class A Proposal 1): task-description line-number smoke check
+
+**Category:** promote-recurring-incident-to-gate · **Class:** A.
+**Target:** `skills/ai-quality/SKILL.md` § Task-Description Line-Reference Smoke Check (new section).
+
+**What:** Added a pre-edit requirement: for every `<file>:<line>` reference cited in a task
+description, run `grep -n '<expected-content>' <file>` before editing — at `/dr-do` startup for
+citations already present, and at any mid-implementation point where a NEW citation is
+introduced (Gap Discovery finding, review comment). Zero matches → ABORT with a diagnostic in
+the shape `line-not-found: expected "<X>" at line N, found zero matches in <file>`; the
+operator/agent corrects the task description before resuming the edit. Chose `skills/ai-quality/`
+over `skills/datarim-system/` — `/dr-do` Step 4 already loads `ai-quality/SKILL.md` and applies
+its stage-mapped rules, and the new gate is a quality/verification practice in the same family
+as the file's existing patterns (Pipeline-Position-Aware AC Formulation, Atomic Multi-Surface
+Plan Amendment), not a path/storage/schema convention.
+
+**Why (evidence):** a task description citing `<file>:<line>` can drift stale between authoring
+and `/dr-do` execution (prior step in the same task, concurrent task, or copy-paste staleness).
+Seen twice: TUNE-0163 Step 4 and an consumer review reflection. Editing against a stale reference is
+worse than a clean failure — a coincidental match at the wrong line silently corrupts unrelated
+content instead of failing loudly.
+
+**Verification:** `scripts/stack-agnostic-gate.sh skills/ai-quality/SKILL.md` → PASS: clean.
+`scripts/task-id-gate.sh skills/ai-quality/SKILL.md` → PASS: clean (first draft inlined
+`TUNE-0163`/a consumer review as bare task-IDs in the shipped skill body — caught by
+`tests/task-id-gate.bats` T11 regression invariant on full-suite run; fixed by rephrasing the
+rationale as history-agnostic prose, consistent with sibling "Source: prior incident" patterns
+already in the same file). No Cyrillic introduced (`grep -RPn '[\x{0400}-\x{04FF}]'` → zero
+matches in the edited skill). New markdown-smoke bats `tests/ai-quality-line-reference-smoke-gate.bats`
+(8 tests) → all green, plus targeted existing bats (`check-skill-frontmatter`, `check-skill-layout`,
+`task-id-gate` T11) green and `dev-tools/check-body-english.sh` → PASS (171 files scanned).
+Full-suite `bats tests/` → 1735/1742 passing; the 7 non-passing are pre-existing failures on the
+unmodified branch tip (fleet-evolution / role-registry subsystems, unrelated to this change) —
+confirmed via `git stash` + targeted re-run against the clean baseline before attributing them.
+## 2026-07-10 — TUNE-0174 — Framework component counts-drift enforcer (repo-self-consistency)
+
+**Category:** add-mechanical-ci-gate. **Target:** new `dev-tools/check-component-counts.sh`
++ `tests/check-component-counts.bats`.
+
+**Context:** TUNE-0154 ("mechanical CI enforcer for repo-vs-site count drift") was archived
+DONE but its scope narrowed during the consumer infrastructure consolidation into
+`dev-tools/check-repo-site-sync.sh`. That script's `feature_count_repo`/`feature_count_site`
+mechanism checks exactly one category (`commands`) against one external site page, driven by
+a cross-repo registry (`documentation/ecosystem-sync/registry.yml`) that lives outside this
+repo. It never checked `skills`/`agents`/`templates` counts, and it never checked this repo's
+OWN `CLAUDE.md`/`README.md` prose claims against the actual on-disk component counts — a
+different, repo-self-consistency class of drift, orthogonal to the repo-vs-site class.
+
+**What:** Added `dev-tools/check-component-counts.sh`, a self-contained (no registry, no
+cross-repo dependency) gate that: (1) counts on-disk components per category — `commands`/
+`agents`/`templates` via `find -maxdepth 1 -name '*.md' | wc -l`, `skills` via
+`find -maxdepth 1 -type d | wc -l` (one directory per skill, `SKILL.md` inside — verified
+this is how the repo actually lays out skills, unlike the flat-`.md` agents/commands/templates
+dirs); (2) extracts the parenthesized count-claim form (`"(NN category)"`, e.g. `(19 agents)`)
+from this repo's own `CLAUDE.md` and `README.md` — chosen over a bare `NN category` grep
+because the repo also uses that wording in illustrative/threshold prose that is NOT a count
+claim (e.g. README's optimizer-example table row "Documentation says 15 agents but disk has
+12", and the `>20 skills` / `>25 commands` health-metric threshold example — neither
+parenthesized, both would have been false positives under a naive grep); (3) exits 1 with a
+per-category diagnostic (file, category, claimed, actual) on any mismatch.
+
+**Found + fixed a real, pre-existing drift while building this:** README.md's Directory
+Structure block claimed `(19 templates)` but the on-disk `templates/` dir actually has 22
+`.md` files (drift accumulated silently — no gate existed to catch it). Fixed the claim to
+22 so the new gate starts green rather than immediately red on merge.
+
+**Explicitly out of scope for this PR (deferred, cross-repo):** extending the repo-vs-site
+check in `check-repo-site-sync.sh` to also compare `skills`/`agents`/`templates` counts
+against `datarim.club`'s `pages/about.php`/`content/en.php`/`content/ru.php`. That requires
+adding fields to `documentation/ecosystem-sync/registry.yml`, which lives in the separate
+`arcanada` workspace — out of reach for a sweep confined to a clone of this repo. Left a
+one-line comment in the new script pointing at the gap; flagged in the PR body as a follow-up
+candidate task.
+
+**Verification:** new `tests/check-component-counts.bats` — 10/10 green (fully-consistent
+fixture passes; one corrupted-claim-per-category fixture fails with exit 1 and the
+category/claimed/actual named in `--report` output, for each of the 4 categories; no-claim
+fixture is a no-op pass; `--root` auto-walk-up verified). `tests/check-repo-site-sync.bats` —
+12/12 green, no regression from the sibling script being read as prior art. Full `bats tests/`
+run — see PR body for the pass/fail count captured at PR-open time.
+
+---
+
+## 2026-08-12 — TUNE-0592: re-land of the INFRA-0394 preserved framework-rules batches (A/C/D), adjudicated against current main
+
+**Category:** batch-reland promote-preserved-work · **Class:** A (point-additions preserved as `zz-archived/rescue/INFRA-0394/batch-{a,c,d}-framework-rules-20260812` tags before the 2026-08-12 branch cleanup; adjudicated item-by-item against current `main` rather than replayed wholesale — a preserved batch is a claim about July's main, not today's).
+
+**Landed (absent from main, applied):**
+
+- batch-A: `CLAUDE.md` "Branch-level sibling switch" paragraph (shared-HEAD recovery guidance); `security.yml` task-id-gate self-dogfood loop now also covers `dev-tools/rules` (shipped policy-data; verified gate-clean before wiring).
+- batch-C: `dev-tools-lint.yml` advisory gate-token-registry-sync step; `/dr-plan`+`/dr-design` deploy-gated plan↔creative cross-reference rule; `/dr-do` long-plan bulk-read extract recommendation; `skills/ai-quality` § Surface-Count vs Host-Count AC Disambiguation and § Exact-Name Selectors for DOM Automation; coworker fragment § Doc-generation self-recursion; regression suites `tests/check-dr-plan-external-target-probe.bats` and `tests/check-dr-do-delegation-flow.bats` (their grep anchors verified present on current command specs).
+- batch-D: `agents/writer.md` LinkedIn-English authoring rule; `network-exposure-gate.sh` word-form priority aliases (`critical`≡P0, `high`≡P1) + skill decision-table rows + `check-gate-token-registry-sync.sh` decide()-scoped word-form scan + word-forms fixtures and bats case; `tests/check-spec-behaviour-drift.bats` (dr-edit arm re-pointed at main's pointer-not-number resolution).
+
+**Superseded on main (deliberately NOT re-landed):** batch-A task-id-gate rules/-segment yaml scan + T18-T21 (main scans *.yaml/*.sh/*.template everywhere — broader; T20 would contradict it) and fb-rules shim-test slimming (shim deleted, `test-fb-rules-core-resolution.bats` replaced it); batch-C TUNE-0355 milestone-regex tightening + its two lint cases (main dropped `Phase` from the pattern entirely — the batch's `Phase2 → exit 1` case would redden main's design) and the `/dr-qa` Deferred-Items table (already on main); batch-D release.yml env-drop + `check-release-env-gate.bats` (main kept `release-auto` and made its policy settings-as-code: `.github/environments-policy.yml` + `provision-release-env.sh` + drift check), `rename-task-prefix.sh` + bats (main ships the evolved TUNE-0368 homograph-protecting tool, #305 — the batch's older contract fails against it), dr-doctor Step-2.4 citations, dr-edit source-count restatement (main defers to factcheck by pointer), fragment fact-verified-creative exemption (main carries the richer vetted-creative-docs text), and the `security` short-form type (already in gate + skill).
+
+**Verification:** targeted bats suites green (see PR); task-id-gate + stack-agnostic gate on touched shipped files; actionlint/yaml parse on touched workflows.
+
+### 2026-10-03 — Human-readable outcomes and standalone distribution (4.2.0)
+
+One reporting policy now connects native commands, agents, schemas and templates.
+The standalone installer uses native client discovery without enabling the workflow
+in unrelated projects. `/dr-explain` reads existing evidence without resuming work.
+The introductory surfaces expose orchestration, autonomous execution, the quick
+task path and JEV advice together. Graph and template checks cover those links.
+Release admission now binds evidence to exact source, verifies a signed tag and
+confirms the one remote tag; publication and install smoke still require actual
+observations. See [the reporting guide](../human-reporting/README.md),
+[standalone installation](install-human-outcome-reporting.md), and
+[the release playbook](release-process.md).

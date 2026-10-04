@@ -1,0 +1,8 @@
+version: "3.9"
+services:
+  api:
+    image: arcanada/api:latest
+    x-exposure-justification: "public HTTPS endpoint behind Cloudflare Spectrum, edge ACL + rate-limit"
+    x-exposure-expires: "2026-08-04"
+    ports:
+      - "203.0.113.10:443:443"

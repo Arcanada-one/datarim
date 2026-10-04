@@ -1,0 +1,5 @@
+{
+  "min_free_disk_gb": 5,
+  "disk_warn_percent": 75,
+  "disk_fail_percent": 85
+}

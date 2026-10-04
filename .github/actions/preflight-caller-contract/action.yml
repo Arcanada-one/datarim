@@ -1,0 +1,42 @@
+name: Preflight Caller Contract
+description: Semantically validate a registered consumer deploy workflow before secret-bearing preflight execution
+author: Arcanada-one
+inputs:
+  vault-addr:
+    required: true
+    description: Resolved non-secret repository VAULT_ADDR variable to validate.
+runs:
+  using: composite
+  steps:
+    - name: Provision pinned yq
+      shell: bash
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        YQ_VERSION: v4.44.3
+        YQ_SHA256: a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7
+      run: |
+        set -euo pipefail
+        [ "${RUNNER_OS:-}" = Linux ] && [ "$(uname -m)" = x86_64 ] || {
+          echo "ERROR: preflight caller contract supports Linux x86_64 runners only" >&2
+          exit 1
+        }
+        yq_dir="${RUNNER_TEMP}/datarim-preflight-caller-contract"
+        mkdir -p "$yq_dir"
+        curl -fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors \
+          --retry-max-time 45 --connect-timeout 10 \
+          -o "${yq_dir}/yq" \
+          "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+        echo "${YQ_SHA256}  ${yq_dir}/yq" | sha256sum --check --strict
+        chmod 0755 "${yq_dir}/yq"
+    - name: Validate caller workflow contract
+      shell: bash
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        PREFLIGHT_CALLER_ACTION_REPOSITORY: ${{ github.action_repository }}
+        PREFLIGHT_CALLER_ACTION_REF: ${{ github.action_ref }}
+        PREFLIGHT_CALLER_GITHUB_REPOSITORY: ${{ github.repository }}
+        PREFLIGHT_CALLER_WORKFLOW_REF: ${{ github.workflow_ref }}
+        PREFLIGHT_CALLER_WORKFLOW_SHA: ${{ github.workflow_sha }}
+        PREFLIGHT_CALLER_VAULT_ADDR: ${{ inputs.vault-addr }}
+        PREFLIGHT_CALLER_YQ_BIN: ${{ runner.temp }}/datarim-preflight-caller-contract/yq
+      run: '"${{ github.action_path }}/../../../dev-tools/preflight-caller-contract.sh"'
