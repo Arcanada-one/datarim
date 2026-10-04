@@ -407,9 +407,12 @@ collect_evidence() {
 collect_expectation_links() {
     local file="$1"
     [ -f "$file" ] || return 0
-    python3 - "$file" <<'PYEOF'
+    python3 - "$file" "${_SPEC_GRAPH_LIB_DIR}" <<'PYEOF'
 import re
 import sys
+
+sys.path.insert(0, sys.argv[2])
+from expectations_labels import normalize_line
 
 path = sys.argv[1]
 items = []
@@ -423,22 +426,23 @@ def flush():
             and len(cur["override"].strip()) >= 10
             and cur["override_by"] == "operator"
         )
-        print("\t".join((
-            cur["wish"],
-            cur["vac"],
-            cur["status"],
-            "yes" if valid_override else "no",
-        )))
+        for vac in cur["vac"] or [""]:
+            print("\t".join((
+                cur["wish"],
+                vac,
+                cur["status"],
+                "yes" if valid_override else "no",
+            )))
 
 with open(path, encoding="utf-8") as fh:
     for raw in fh:
-        line = raw.rstrip("\n")
+        line = normalize_line(raw).rstrip("\n")
         m = re.search(r"\bwish_id:\s*(\S+)", line)
         if m:
             flush()
             cur = {
                 "wish": m.group(1),
-                "vac": "",
+                "vac": [],
                 "status": "pending",
                 "override": "",
                 "override_by": "",
@@ -453,14 +457,13 @@ with open(path, encoding="utf-8") as fh:
         # the shared V_AC_REF_RE grammar so an axis id is no longer silently
         # dropped into a false `no linked V-AC` / `undeclared` grade-F.
         # Source: TUNE-0473.
-        if re.match(r"\s*-\s*(?:linked_ac|Связанный AC из PRD):", line):
-            vm = re.search(r"V-AC-[A-Z]?\d+(?:\.\d+)?", line)
-            cur["vac"] = vm.group(0) if vm else ""
+        if re.match(r"\s*-\s*linked_ac:", line):
+            cur["vac"] = list(dict.fromkeys(re.findall(r"V-AC-[A-Z]?\d+(?:\.\d+)?", line)))
         elif re.match(r"\s*-\s*override:\s*", line):
             cur["override"] = line.split("override:", 1)[1].strip()
         elif re.match(r"\s*-\s*override_by:\s*", line):
             cur["override_by"] = line.split("override_by:", 1)[1].strip()
-        elif re.match(r"\s*-\s*####\s+(?:current_status|Текущий статус)(?:\s|$)", line):
+        elif re.match(r"\s*-\s*####\s+current_status(?:\s|$)", line):
             in_status = True
         elif in_status:
             sm = re.match(r"\s*-\s*(pending|met|partial|missed|n-a|deleted)\s*$", line)

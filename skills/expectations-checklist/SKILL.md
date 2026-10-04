@@ -107,6 +107,14 @@ English presentation is the template default. Localize prose/title/section label
 in the resolved artifact language. Keep field keys and status enums below stable.
 Use `<!-- datarim:expectations -->` on a translated Expectations H2. Legacy
 Russian field/heading aliases remain readable without rewriting history.
+Historical English labels are also accepted: `Operator expectations`,
+`Status history`, `Current status`, `How to verify (success criterion)` and
+`Related AC from PRD`. Both validators normalize only these known labels to
+the canonical keys. New files keep the canonical ASCII keys; arbitrary heading
+translations use the Expectations marker below. A wish may link to several
+acceptance criteria, and every link must resolve in the spec graph. Wishes in
+the exact `Append-log (operator amendments)` and `PRD append-merge` sections
+receive the same structural and status validation as the initial checklist.
 
 
 ```markdown

@@ -4,6 +4,13 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.3.1] — 2026-10-04
+
+### Fixed
+
+- Historical English expectations labels now pass the structural validator and retain their spec-graph edges through one shared normalization helper. Known labels include `Operator expectations`, `Status history`, `Current status`, `How to verify (success criterion)` and `Related AC from PRD`; canonical ASCII keys, Russian legacy labels and localized Expectations markers remain supported.
+- Every acceptance-criterion reference on a wish is checked, including comma-separated links. Wishes appended under `Append-log (operator amendments)` and `PRD append-merge` receive the same structural and status checks as the original checklist. Missing or invalid statuses, empty histories, unresolved links and partial wishes without an authorized override still block their applicable gates.
+
 ## [4.3.0] — 2026-10-04
 
 ### Added

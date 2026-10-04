@@ -381,6 +381,10 @@ if { [ "$LEVEL" = "L3" ] || [ "$LEVEL" = "L4" ]; } && [ -f "$EXP_FILE" ]; then
     # `undeclared` branch with a garbage id. Explicit `%%`/`##` trimming keeps
     # the empty vac empty so it hits the correct `no linked V-AC` branch.
     # Source: TUNE-0473.
+    # Collector errors (including a missing compatibility helper in an
+    # incomplete install) must not look like a checklist with zero wishes.
+    EXPECTATION_LINKS="$(collect_expectation_links "$EXP_FILE")" \
+        || usage_die "failed to collect expectation links from $EXP_FILE"
     while IFS= read -r _rec; do
         wish="${_rec%%$'\t'*}"; _rest="${_rec#*$'\t'}"
         vac="${_rest%%$'\t'*}"; _rest="${_rest#*$'\t'}"
@@ -422,7 +426,7 @@ if { [ "$LEVEL" = "L3" ] || [ "$LEVEL" = "L4" ]; } && [ -f "$EXP_FILE" ]; then
                 fi
                 ;;
         esac
-    done < <(collect_expectation_links "$EXP_FILE")
+    done <<< "$EXPECTATION_LINKS"
 fi
 
 # ---------------------------------------------------------------------------
