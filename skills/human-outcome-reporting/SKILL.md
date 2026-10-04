@@ -5,7 +5,7 @@ current_aal: 1
 target_aal: 2
 license: MIT
 metadata:
-  version: "0.3.0"
+  version: "0.3.1"
   default-language: en
   default-artifact-language: en
 ---

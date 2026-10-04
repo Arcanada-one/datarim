@@ -60,7 +60,7 @@ def test_all_client_entrypoints_and_runtime_support_files():
 
 def test_reusable_archive_matches_allowlisted_sources(tmp_path):
     pack=load(ROOT/'dev-tools/package-human-reporting.py','hr_release_pack')
-    output=tmp_path/'human-outcome-reporting-0.3.0.zip'
+    output=tmp_path/'human-outcome-reporting-0.3.1.zip'
     receipt=pack.build(ROOT,output)
     second=tmp_path/'repeat.zip';pack.build(ROOT,second)
     assert output.read_bytes()==second.read_bytes()
@@ -106,7 +106,7 @@ def test_integration_archive_contains_exact_selected_sources(tmp_path):
     repeat=tmp_path/'integration-repeat.zip'
     pack.build(ROOT,repeat,'integration')
     assert target.read_bytes()==repeat.read_bytes()
-    assert receipt['kind']=='integration' and receipt['version']=='0.3.0'
+    assert receipt['kind']=='integration' and receipt['version']=='0.3.1'
     with zipfile.ZipFile(target) as archive:
         for name in pack.INTEGRATION_FILES:
             assert archive.read('repository-overlay/'+name)==(ROOT/name).read_bytes()
@@ -153,7 +153,7 @@ def test_packager_rejects_source_symlinks(tmp_path):
 def test_release_requires_matching_engine_and_skill_versions(tmp_path,monkeypatch):
     pack=load(ROOT/'dev-tools/package-human-reporting.py','hr_version_pack')
     files=pack.payload(ROOT)
-    files['human-outcome-reporting/SKILL.md']=files['human-outcome-reporting/SKILL.md'].replace(b'0.3.0',b'9.9.9')
+    files['human-outcome-reporting/SKILL.md']=files['human-outcome-reporting/SKILL.md'].replace(b'0.3.1',b'9.9.9')
     monkeypatch.setattr(pack,'payload',lambda *args:files)
     with pytest.raises(ValueError,match='versions differ'):
         pack.build(ROOT,tmp_path/'mismatch.zip')

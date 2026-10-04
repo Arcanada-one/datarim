@@ -36,8 +36,8 @@ with `--receipt /path/to/reporting-install.json`.
 
 | Client | Skill directory | Persistent reporting preference |
 | --- | --- | --- |
-| Claude Code | `~/.claude/skills/human-outcome-reporting/` | `~/.claude/output-styles/human-outcome-reporting.md`, selected through `outputStyle` in user `settings.json`; coding instructions are preserved |
-| Codex | `~/.agents/skills/human-outcome-reporting/` | A marked reporting-only section in `~/.codex/AGENTS.md`; a non-empty existing `AGENTS.override.md` receives the section instead |
+| Claude Code | `~/.claude/skills/human-outcome-reporting/` | `~/.claude/output-styles/human-outcome-reporting.md`, selected through `outputStyle` in user `settings.json`, and a synchronous `SessionStart` callback; coding instructions are preserved |
+| Codex | `~/.agents/skills/human-outcome-reporting/` | A marked reporting-only section in `~/.codex/AGENTS.md` (a non-empty existing `AGENTS.override.md` receives it instead), and a synchronous `SessionStart` callback in `~/.codex/hooks.json` |
 | Cursor | `~/.cursor/skills/human-outcome-reporting/` | A user `sessionStart` hook in `~/.cursor/hooks.json` injects the reporting preference and installed skill path |
 
 The installer merges existing settings and hooks under an account-level transaction lock. It never creates `CLAUDE.md`,
@@ -47,10 +47,30 @@ An installation state with protected before-images is saved in
 These backups may contain existing private client settings; keep them local.
 
 The mechanisms are documented by [Claude output styles](https://code.claude.com/docs/en/output-styles),
+[Claude startup hooks](https://code.claude.com/docs/en/hooks#sessionstart),
+[Codex startup hooks and trust](https://learn.chatgpt.com/docs/hooks),
 [Codex instruction discovery](https://developers.openai.com/codex/guides/agents-md),
 and [Cursor user hooks](https://cursor.com/docs/hooks). Each client must support
 its native feature; client version alone is not a behavior test. Skill discovery
 is separate from guaranteed instruction compliance.
+
+The Codex and Claude callbacks live in the respective user `hooks/` directory.
+They run synchronously with a ten-second timeout, read only the native `cwd`
+metadata field and resolve preferences before the first progress message or
+other human text. They ignore transcript paths, prompts and unrelated payload
+fields. Missing or malformed metadata, an unavailable resolver or invalid
+configuration produces a fixed unresolved-preference notice; it does not claim
+that English defaults or a configured language were applied.
+
+Codex 0.160.0 supports this startup contract. New or changed non-managed hook
+definitions must be reviewed through native `/hooks` before Codex runs them.
+The installer does not modify `config.toml`, `hooks.state`, trusted hashes,
+feature switches, managed policy or native approvals. Existing inline and JSON
+hooks retain their own native configuration and trust. If hooks are disabled,
+unsupported or awaiting review, installing a definition does not activate it.
+Review only the new reporting callback through the client's supported flow;
+never bypass hook trust. A callback timeout or failure also leaves startup
+preferences unmeasured. Verify the first actual reply independently.
 
 Restart existing sessions after installing or updating. In Cursor, create a new
 conversation: resuming an old chat does not rerun its session-start hook. Claude project settings
@@ -77,18 +97,28 @@ inside your client's skill directory. User settings live at
 include shared and private project preferences. Existing native personal choices
 and managed/security rules retain authority. Preferences are read on resolution;
 new native sessions avoid retaining earlier context. Cursor refreshes its context
-when a new conversation starts. See [configure languages](configure-languages.md)
+when a new conversation starts. Codex and Claude refresh preferences at each
+`SessionStart`, including resume; no reinstall is required after a configuration
+change. An already running conversation retains its prior startup context until
+that event runs again. See [configure languages](configure-languages.md)
 and [precedence and catalogs](../reference/language-preferences.md).
 
 ## Check a real session
 
 `check` verifies installed file hashes and reports behavior as `not_measured`.
+Its `startup_context` and Codex trust observations remain `not_measured`; an
+installation receipt reports new Codex definitions as `native_review_required`.
 To test behavior, start a new session in a disposable directory without Datarim.
 Ask the client to explain a task whose files are complete but whose production
 check has not run. Verify that it explains the usable result and explicitly
 states the production uncertainty. Request a clearer explanation and verify that
 it reads or explains existing evidence without resuming edits or deployment.
 Keep the prompt, native client version, answer, and any tool calls as evidence.
+Also select different reply and artifact preferences, start a cold session
+without requesting a language in the prompt, and check the first progress text
+as well as the final answer and generated document. Change the configuration
+without reinstalling and repeat. Check that an explicit document-language
+request and the native permission boundary still hold.
 Then repeat in an explicitly enabled temporary Datarim project using
 [the framework installation guide](../../INSTALL.md). A structural validator or
 simulated fixture does not prove that a person understood the report.
@@ -109,10 +139,12 @@ python3 install.py uninstall
 ```
 
 Uninstall restores previous skill files and the prior Claude output style,
-removes only its Codex section and Cursor hook, and preserves later unrelated
+removes only its Codex section and owned startup handlers, and preserves later unrelated
 settings and rules. If someone changed an owned file or selected another Claude
 style, uninstall refuses to overwrite it. The installer does not remove empty
-client directories. Keep operation receipts separately from the package so they
+client directories. If foreign startup groups were appended after the owned
+group, uninstall leaves an empty group at its index so their Codex trust
+identities stay stable. Keep operation receipts separately from the package so they
 remain available after an update or uninstall.
 
 Inside Datarim, [Human Outcome Reporting](../../skills/human-outcome-reporting/SKILL.md)

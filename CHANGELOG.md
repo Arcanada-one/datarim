@@ -4,6 +4,13 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.3.2] — 2026-10-04
+
+### Fixed
+
+- Standalone Codex and Claude Code installation adds supported synchronous SessionStart callbacks that resolve independent reply and artifact preferences before the first human text. Configuration changes are read on each start or resume without reinstalling; explicit task language and native policy keep precedence. Cursor retains its native startup integration.
+- Startup callbacks accept bounded native JSON metadata and the supplied working directory, never transcript or prompt prose. Malformed input and configuration errors disclose unresolved preferences without injecting diagnostics or claiming a fallback. Existing lifecycle and safety hooks, foreign group indices and Codex trust state are preserved through installation, update and reversal. New Codex definitions require native hook review; installation and file checks explicitly leave activation and actual first-message behavior unmeasured.
+
 ## [4.3.1] — 2026-10-04
 
 ### Fixed
