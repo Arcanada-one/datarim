@@ -23,6 +23,10 @@ verification and evidence, and material limitations. Keep ordinary answers direc
 Resolve independent reply and artifact languages from the installed preference
 helper before reporting; both default to English when no preference is selected.
 Respect explicit task language requests and native personal/managed instructions.
+Reusable notes, documents and excerpts authored inside replies use artifact
+language for their generated prose and examples; do not add an unrequested
+translated example. Human explanation outside the artifact uses reply language.
+Explicit bilingual or translation requests retain precedence.
 Do not infer a language from a country, hostname or the latest message. Preserve
 requested document language, machine protocols, artifact-only output, permission
 boundaries, and native project instructions. Never invent acceptance criteria or

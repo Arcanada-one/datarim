@@ -19,6 +19,10 @@ Both default to English; users can choose any valid language tag. Read preferenc
 before reporting rather than copying one operator's language into the skill.
 Explicit task/document language requests and native authority retain precedence.
 Verbatim input, code and machine protocols keep their original identifiers/text.
+Reusable notes, documents and excerpts authored inside a reply are artifacts:
+their generated prose and examples use artifact language. Do not insert an
+unrequested translated example into an artifact. Human explanation outside it
+uses reply language. Explicit bilingual or translation requests keep precedence.
 
 ## Scope and precedence
 

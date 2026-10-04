@@ -238,8 +238,16 @@ class LanguagePreferencesTests(unittest.TestCase):
     def test_cli_scope_local_and_machine_protocol(self):
         out = subprocess.run([sys.executable, str(SCRIPT), 'configure', '--scope', 'local', '--project', str(self.project), '--replies', 'ar', '--artifacts', 'en'], capture_output=True, text=True, check=True)
         self.assertEqual(json.loads(out.stdout)['language'], {'replies': 'ar', 'artifacts': 'en'})
+        configured = (self.project / 'datarim/config.local.yaml').read_bytes()
         out = subprocess.run([sys.executable, str(SCRIPT), 'resolve', '--project', str(self.project), '--user-config', str(self.home/'absent'), '--format', 'context'], capture_output=True, text=True, check=True)
         self.assertIn('Resolved reply language: ar', out.stdout)
+        self.assertIn('resolved artifact language: en', out.stdout)
+        self.assertIn('authored inside replies use artifact language', out.stdout)
+        self.assertIn('do not add an unrequested translated example', out.stdout)
+        self.assertIn('Human explanation outside the artifact uses reply language', out.stdout)
+        self.assertIn('including bilingual or translation requests', out.stdout)
+        self.assertIn('Preserve verbatim input, code and machine identifiers', out.stdout)
+        self.assertEqual((self.project / 'datarim/config.local.yaml').read_bytes(), configured)
 
 
 if __name__ == '__main__':

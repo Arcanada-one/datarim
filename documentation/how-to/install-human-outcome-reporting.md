@@ -103,6 +103,12 @@ change. An already running conversation retains its prior startup context until
 that event runs again. See [configure languages](configure-languages.md)
 and [precedence and catalogs](../reference/language-preferences.md).
 
+A reusable Markdown note or document excerpt authored inside a chat reply is
+still an artifact. Its generated prose and examples use artifact language;
+the explanation surrounding it uses reply language. Do not add a translated
+example that was not requested. Explicit bilingual or translation requests,
+verbatim input, code and protocol identifiers keep their existing exceptions.
+
 ## Check a real session
 
 `check` verifies installed file hashes and reports behavior as `not_measured`.

@@ -148,6 +148,11 @@ class InstallerTests(unittest.TestCase):
                 self.assertIn('Before the first progress message', context)
                 self.assertIn('Resolved reply language: ru; resolved artifact language: ja', context)
                 self.assertIn('Explicit task language requests', context)
+                self.assertIn('authored inside replies use artifact language', context)
+                self.assertIn('prose and examples; do not add an unrequested translated example', context)
+                self.assertIn('Human explanation outside the artifact uses reply language', context)
+                self.assertIn('including bilingual or translation requests', context)
+                self.assertIn('Preserve verbatim input, code and machine identifiers', context)
                 self.assertNotIn('FORGED', context)
                 self.assertNotIn('DO-NOT-READ', context)
                 before = (self.home / ('.' + agent) / 'hooks/human-outcome-reporting.py').read_bytes()
@@ -311,6 +316,8 @@ class InstallerTests(unittest.TestCase):
             self.assertIn('resolve --project "$PWD" --format context', policy)
             self.assertIn('both default to English', policy)
             self.assertNotIn('Default human text to Russian', policy)
+            self.assertIn('Reusable notes, documents and excerpts authored inside replies', policy)
+            self.assertIn('Explicit bilingual or translation requests retain precedence', policy)
 
     def test_cursor_reads_live_preferences_and_allowlisted_workspace_root(self):
         self.with_language_helper()
