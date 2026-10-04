@@ -12,7 +12,7 @@ target_aal: 2
 
 ## Always-Apply Rules
 
-- Before any human-facing response, load `${DATARIM_RUNTIME:?}/skills/human-outcome-reporting/SKILL.md`. This applies to all commands, plugin execution and delegated work. Explain the requested product result and actual acceptance evidence, not internal agent activity. Preserve exact machine protocols, requested artifact-only output and installation questions; the primary agent emits one human recap. Resolve reply and artifact languages via `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` before output or delegation; both defaults are `en`.
+- Before any human-facing response, load `${DATARIM_RUNTIME:?}/skills/human-outcome-reporting/SKILL.md`. This applies to all commands, plugin execution and delegated work. Explain the requested product result and actual acceptance evidence, not internal agent activity. Preserve exact machine protocols, requested artifact-only output and installation questions; the primary agent emits one human recap. Resolve reply and artifact languages via [language preferences](language-preferences.md) before output or delegation; both defaults are `en`.
 - All Datarim workflow state lives in `datarim/` at the project root.
 - Resolve the correct `datarim/` path before any read/write operation.
 - Never create `datarim/` outside `/dr-init`.

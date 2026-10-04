@@ -1813,6 +1813,14 @@ edges:
   relation: loads
   source: skills/visual-maps/stage-process-flows.md
   to: skill:cta-format
+- from: fragment:skills/visual-maps/utility-and-dependencies.md
+  relation: loads
+  source: skills/visual-maps/utility-and-dependencies.md
+  to: fragment:skills/visual-maps/command-dependencies.md
+- from: fragment:skills/visual-maps/utility-and-dependencies.md
+  relation: loads
+  source: skills/visual-maps/utility-and-dependencies.md
+  to: fragment:skills/visual-maps/framework-architecture.md
 - from: skill:artifact-context
   relation: loads
   source: skills/artifact-context/SKILL.md
@@ -2037,6 +2045,10 @@ edges:
   relation: uses_template
   source: skills/human-summary/SKILL.md
   to: template:compliance-report-template.md
+- from: skill:image-prompting
+  relation: loads
+  source: skills/image-prompting/SKILL.md
+  to: fragment:skills/image-prompting/prompt-templates.md
 - from: skill:immutability
   relation: loads
   source: skills/immutability/SKILL.md
@@ -2269,6 +2281,10 @@ edges:
   relation: loads
   source: skills/tech-stack/SKILL.md
   to: skill:security-baseline
+- from: skill:testing
+  relation: loads
+  source: skills/testing/SKILL.md
+  to: fragment:skills/testing/live-smoke-gates.md
 - from: skill:testing
   relation: uses_template
   source: skills/testing/SKILL.md

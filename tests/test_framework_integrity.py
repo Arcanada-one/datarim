@@ -63,6 +63,45 @@ class IntegrityTests(unittest.TestCase):
         with patch.object(graph, 'ROOT', self.root):
             self.assertEqual(graph.validate(graph.load()), [])
 
+    def test_portable_sibling_link_retains_canonical_edge_and_deduplicates(self):
+        skill = self.root/'skills/testing/SKILL.md'
+        skill.write_text(skill.read_text() +
+                         '[local](language-preferences.md) [anchor](./language-preferences.md#usage)\n'
+                         'Read skills/testing/language-preferences.md too.\n')
+        (skill.parent/'language-preferences.md').write_text('A portable instruction fragment.\n')
+        with patch.object(graph, 'ROOT', self.root):
+            result = graph.load()
+            self.assertEqual(graph.validate(result), [])
+        edge = {'from': 'skill:testing', 'relation': 'loads',
+                'to': 'fragment:skills/testing/language-preferences.md',
+                'source': 'skills/testing/SKILL.md'}
+        self.assertEqual(result['edges'].count(edge), 1)
+
+    def test_sibling_links_in_fragments_resolve_from_the_source_directory(self):
+        fragment = self.root/'skills/testing/entry.md'
+        fragment.write_text('[detail](detail.md)\n')
+        (fragment.parent/'detail.md').write_text('Detailed portable instructions.\n')
+        with patch.object(graph, 'ROOT', self.root):
+            result = graph.load()
+            self.assertEqual(graph.validate(result), [])
+        self.assertIn({'from': 'fragment:skills/testing/entry.md', 'relation': 'loads',
+                       'to': 'fragment:skills/testing/detail.md',
+                       'source': 'skills/testing/entry.md'}, result['edges'])
+
+    def test_missing_and_external_symlink_siblings_remain_broken(self):
+        skill = self.root/'skills/testing/SKILL.md'
+        skill.write_text(skill.read_text() + '[local](missing.md)\n')
+        with patch.object(graph, 'ROOT', self.root):
+            result = graph.load()
+            self.assertTrue(any('missing.md' in error for error in graph.validate(result)))
+        # The basename looks safe; its real target must still stay inside ROOT.
+        (skill.parent/'missing.md').symlink_to(Path(__file__).resolve())
+        with patch.object(graph, 'ROOT', self.root):
+            result = graph.load()
+            self.assertTrue(any('missing.md' in error for error in graph.validate(result)))
+            self.assertFalse(any(edge['to'] == 'fragment:skills/testing/missing.md'
+                                 for edge in result['edges']))
+
     def test_template_dependency_is_in_inventory_and_edge_set(self):
         (self.root/'templates/report.md').write_text('Explain the observed outcome.\n')
         command = self.root/'commands/dr-do.md'

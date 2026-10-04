@@ -4,7 +4,7 @@
 # behaviour it must match, so a future edit that reintroduces the drift fails CI.
 #
 # Covered drifts:
-#   - writer.md must document the LinkedIn-English authoring rule (was operator-memory only).
+#   - writer.md must resolve publication language from author/channel settings, then artifact preference.
 #   - dr-doctor.md must cite the real /dr-init self-heal probe step (Step 2.4), not the
 #     stale "Step 0.6" that never existed in dr-init.md.
 #   - dr-edit.md must defer per-tier source counts to the factcheck skill it loads
@@ -19,11 +19,17 @@ setup() {
     FACTCHECK="$REPO_ROOT/skills/factcheck/SKILL.md"
 }
 
-# --- Drift 2: writer LinkedIn-English rule is documented in the spec ---
+# --- Publication language is configurable, with an explicit artifact fallback ---
 
-@test "writer.md documents the LinkedIn-English authoring rule" {
-    run grep -Eiq 'LinkedIn posts are authored in English' "$WRITER"
+@test "writer.md preserves author/channel language and artifact fallback without a platform language mandate" {
+    run grep -Fq 'Every platform follows the explicit author/channel audience language' "$WRITER"
     [ "$status" -eq 0 ]
+    run grep -Fq 'absent a setting, newly authored prose uses resolved artifact language' "$WRITER"
+    [ "$status" -eq 0 ]
+    run grep -Fq 'No platform name implies a language' "$WRITER"
+    [ "$status" -eq 0 ]
+    run grep -Fqi 'LinkedIn posts are authored in English' "$WRITER"
+    [ "$status" -ne 0 ]
 }
 
 # --- Drift 3: dr-doctor cites the real /dr-init probe step, not the stale one ---

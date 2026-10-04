@@ -47,9 +47,17 @@ def load():
     fragments = sorted(str(p.relative_to(ROOT)) for p in (ROOT/'skills').rglob('*.md') if p.name != 'SKILL.md')
     for path in sorted((ROOT/'skills').rglob('*.md')):
         source = str(path.relative_to(ROOT))
-        targets = set(re.findall(r'(?<!local/)skills/([A-Za-z0-9._/-]+\.md)', path.read_text()))
-        for target in sorted(targets):
-            full = ROOT/'skills'/target
+        text = path.read_text()
+        targets = {ROOT/'skills'/target for target in re.findall(
+            r'(?<!local/)skills/([A-Za-z0-9._/-]+\.md)', text)}
+        # Bare sibling Markdown links are portable with their skill bundle.
+        # Resolve relative to the source file, not the consumer's cwd. Cross-skill
+        # root references retain their existing extraction and edge identity.
+        siblings = re.findall(
+            r'\[[^\]\n]*\]\((?:\./)?([A-Za-z0-9][A-Za-z0-9._-]*\.md)(?:#[A-Za-z0-9._-]+)?\)', text)
+        targets.update(path.parent/name for name in siblings)
+        for full in sorted(targets):
+            target = str(full.relative_to(ROOT/'skills'))
             is_skill = target.endswith('/SKILL.md')
             node = 'skill:'+target.removesuffix('/SKILL.md') if is_skill else 'fragment:skills/'+target
             edge = {'from': 'skill:'+str(path.parent.relative_to(ROOT/'skills')) if path.name == 'SKILL.md' else 'fragment:'+source,
