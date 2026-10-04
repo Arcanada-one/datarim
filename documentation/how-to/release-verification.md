@@ -26,7 +26,7 @@ Datarim releases are signed with [Sigstore cosign](https://docs.sigstore.dev/cos
 
 ```bash
 set -euo pipefail
-TAG=v4.3.1   # replace with the release you are verifying
+TAG=v4.3.2   # replace with the release you are verifying
 
 # 1. Download all artefacts.
 gh release download "$TAG" --repo Arcanada-one/datarim

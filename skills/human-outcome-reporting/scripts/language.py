@@ -229,8 +229,12 @@ def context(preferences):
     return ('Resolved reply language: ' + preferences['replies'] +
             '; resolved artifact language: ' + preferences['artifacts'] + '.\n'
             'Apply these independently to generated presentation and documents. '
+            'Reusable notes, documents and excerpts authored inside replies use artifact language '
+            'for their generated prose and examples; do not add an unrequested translated example. '
+            'Human explanation outside the artifact uses reply language. '
             'Preserve verbatim input, code and machine identifiers. Explicit task language requests '
-            'and native authority retain precedence. Reply direction: ' + preferences['direction']['replies'] + '.')
+            '(including bilingual or translation requests) and native authority retain precedence. '
+            'Reply direction: ' + preferences['direction']['replies'] + '.')
 
 
 def _safe_destination(path):
