@@ -72,6 +72,14 @@ __BUILD_COMMANDS__
 
 1. [TODO: Add gotchas as they are discovered]
 
+## Language Preferences
+
+Before generated output or delegated work, read
+`${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and resolve
+preferences for this project. Reply and artifact defaults are independently
+`en`; private user/project preferences remain outside git. Preserve verbatim
+input and machine identifiers. Carry both resolved tags to children.
+
 ## Datarim Workflow
 
 This project uses [Datarim](https://datarim.club) for structured task execution.

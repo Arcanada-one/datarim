@@ -6,6 +6,9 @@ current_aal: 1
 target_aal: 3
 ---
 
+**Delegated language context:** Resolve replies/artifacts through `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` before dispatch. Pass both validated tags explicitly in the child prompt and via `DATARIM_REPLY_LANG` / `DATARIM_ARTIFACT_LANG` for child processes. Machine-only protocols retain their exact syntax.
+
+
 # Consilium — Multi-Agent Panel Discussions
 
 ## What is Consilium

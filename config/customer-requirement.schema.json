@@ -367,7 +367,7 @@
           "enum": ["CUSTOMER_VERBATIM", "AUTHORIZED_RELAY_VERBATIM", "OPERATOR_VERBATIM"]
         },
         "verbatim_quote": { "type": "string", "minLength": 1 },
-        "locale": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" },
+        "locale": { "type": "string", "maxLength": 63, "pattern": "^(?:[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*|[ixIX](?:-[A-Za-z0-9]{1,8})+)(?![\\s\\S])" },
         "captured_at": { "type": "string", "format": "date-time" },
         "source_ref": { "type": "string", "minLength": 1 },
         "requirement_ids": {
@@ -625,7 +625,7 @@
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" }
+          "items": { "type": "string", "maxLength": 63, "pattern": "^(?:[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*|[ixIX](?:-[A-Za-z0-9]{1,8})+)(?![\\s\\S])" }
         },
         "viewports": {
           "type": "array",
@@ -691,7 +691,7 @@
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" }
+          "items": { "type": "string", "maxLength": 63, "pattern": "^(?:[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*|[ixIX](?:-[A-Za-z0-9]{1,8})+)(?![\\s\\S])" }
         },
         "viewports": {
           "type": "array",

@@ -239,7 +239,7 @@ def _verify_tg_safe_html():
 
 Disallowed tags are dropped and their inner text is preserved as plain escaped data — `<script>alert(1)</script>` becomes `alert(1)`, with no execution path opened. The allowlist of href schemes MUST be enforced operator-side — Telegram's own filter is inconsistent across clients and is not a defence boundary.
 
-**Telegram article bundle (operator-approved contract):** publish exactly two sequential ordinary channel posts to the same `chat_id`. Post 1 is media plus the bold title only. Post 2 is the title, the complete RU article text, and a final linked CTA `Читать статью полностью на example.com` (your site's domain) pointing to the RU URL. The link appears only in post 2. Never set `reply_to_message_id`, `message_thread_id`, discussion-group fields, or any comment/thread relationship. Validate that post 1 fits the media-caption limit and post 2 fits 4096 UTF-16 units before sending; otherwise stop instead of splitting or changing the approved shape. Treat the pair as one publish operation: preserve both ordered `message_id` values, read back both ordinary channel posts, and report partial/UNKNOWN state without blind retry if either request is ambiguous. <!-- allow-non-ascii: literal-russian-cta-string-published-verbatim-to-telegram -->
+**Telegram article bundle (operator-approved contract):** publish exactly two sequential ordinary channel posts to the same `chat_id`. Post 1 is media plus the bold title only. Post 2 is the title, the complete article text in the configured channel language, and a final linked CTA localized in the configured channel language (for example `Read the full article on example.com`) pointing to the matching article URL. The link appears only in post 2. Never set `reply_to_message_id`, `message_thread_id`, discussion-group fields, or any comment/thread relationship. Validate that post 1 fits the media-caption limit and post 2 fits 4096 UTF-16 units before sending; otherwise stop instead of splitting or changing the approved shape. Treat the pair as one publish operation: preserve both ordered `message_id` values, read back both ordinary channel posts, and report partial/UNKNOWN state without blind retry if either request is ambiguous. <!-- allow-non-ascii: literal-russian-cta-string-published-verbatim-to-telegram -->
 
 **Generic photo + caption decision tree (non-article messages only)** (input: `post_text`, optional `photo`):
 
@@ -339,7 +339,7 @@ Caching: `linked_chat_id` is stable per channel — store it in credentials alon
 
 **Test-channel smoke before prod (mandatory for new publisher code / first run after refactor):** before commenting on production posts, replay the full sequence using the configured test channel and test comments group. Pass criterion: returned `comment.message_thread_id == forwarded_msg_id`.
 
-**Telegram article read-back gate:** both responses must belong to the requested channel and be returned in order. Accept real channel sender identity through `sender_chat.id == chat_id` as well as bot-authored responses where applicable. Verify post 1 media and exact bold title; verify post 2 title, complete RU text, final CTA URL, and absence of `reply_to_message`, `message_thread_id`, or discussion-group routing. Channel comments are not part of an article publication and must not be created.
+**Telegram article read-back gate:** both responses must belong to the requested channel and be returned in order. Accept real channel sender identity through `sender_chat.id == chat_id` as well as bot-authored responses where applicable. Verify post 1 media and exact bold title; verify post 2 title, complete article text in the configured channel language, final CTA URL, and absence of `reply_to_message`, `message_thread_id`, or discussion-group routing. Channel comments are not part of an article publication and must not be created.
 
 ## Post title — first line of the body on every platform
 
@@ -358,7 +358,7 @@ lead with the title line — match that shape.
 
 ## Universal rule — links go in the first comment on comment-capable platforms
 
-For **FB, LinkedIn, VK, and Twitter/X threads**, the **post body must not contain a standalone "links block"** — a section header like `Куда смотреть` / `Ссылки` / `Resources` / `Полезное` followed by a bullet-list of URLs is forbidden in the body. Put those CTA links in the the first comment by the author or reply according to the policy for that platform. **Telegram article publication is the explicit exception:** it has no comment/reply; its single RU article URL appears only in the final CTA of ordinary channel post 2. <!-- allow-non-ascii: literal-russian-section-headers-fixture-for-publishing-rule -->
+For **FB, LinkedIn, VK, and Twitter/X threads**, the **post body must not contain a standalone "links block"** — a section header like `Куда смотреть` / `Ссылки` / `Resources` / `Полезное` followed by a bullet-list of URLs is forbidden in the body. Put those CTA links in the the first comment by the author or reply according to the policy for that platform. **Telegram article publication is the explicit exception:** it has no comment/reply; its single article URL in the configured channel language appears only in the final CTA of ordinary channel post 2. <!-- allow-non-ascii: literal-russian-section-headers-fixture-for-publishing-rule -->
 
 Rationale:
 - **FB & LinkedIn algorithms** downrank posts that contain external links in the body — comment-level links bypass that penalty.
@@ -468,19 +468,19 @@ re-publishing, editing, or adding a corrective comment.
 - **Chunking:** keep chunks small (<=600 chars, not the 900 default) — long chunks raise Silero's length-limit 500 even after a split. The chunker self-heals by recursively halving, but small chunks avoid the wasted retry rounds.
 - **Cache:** re-voiced MP3s live on Cloudflare R2 with a 1-year `immutable` cache. After overwriting an audio asset you MUST purge the Cloudflare cache for those URLs (and the listener should hard-refresh the browser), or the old narration keeps playing. Same rule as any content edit — see § Website Publishing.
 
-**Telegram article CTA — one link in ordinary channel post 2.** The final line of post 2 is the linked CTA `Читать статью полностью на example.com` to the RU article URL. Do not create a first comment, reply, discussion-group message, or thread; do not add the EN URL or a channel-self link. <!-- allow-non-ascii: literal-russian-cta-string-published-verbatim-to-telegram -->
+**Telegram article CTA — one link in ordinary channel post 2.** The final line of post 2 is the linked CTA in the configured channel language to the matching article URL. Do not create a first comment, reply, discussion-group message, or thread; do not add an unrequested alternate-language URL or a channel-self link. <!-- allow-non-ascii: literal-russian-cta-string-published-verbatim-to-telegram -->
 
-**X (EN) first-comment — the EN article + the canonical Telegram (RU) post.**
+**X (configured language) first-comment — the matching-language article + the canonical Telegram (configured language) post.**
 On an X post the first reply carries TWO links, each language-labelled: the full
-EN article (`blog (EN)`) and the canonical Telegram (RU) channel post (`Telegram (RU)`).
-The RU Telegram post already exists at this point (TG is published before X per
+matching-language article (labelled with its actual language) and the canonical Telegram (configured language) channel post (`Telegram (configured language)`).
+The configured Telegram post already exists at this point (TG is published before X per
 § Publication Order), so its URL is available. This is wider than the single-link
 Telegram comment and narrower than the FB/LI comment (no X-self link, since we ARE
 on X). Contextual links inside the post body (sources, prior article, standards
 bodies) are fine and are NOT the CTA block — only the CTA cross-links move to the
 first comment (see § Universal rule).
 
-**FB / LinkedIn / VK first-comment — must cross-link both Telegram (RU) and X (EN).** Because these are published **after** TG and X (see § Publication Order), their first comment carries the blog link in the platform's language **+ the canonical Telegram (RU) post link + the X (EN) post link** (plus the product/framework site link for product articles). Label the language on each link (`Telegram (RU)`, `X (EN)`, blog `(RU)`/`(EN)`) so the reader knows the destination language before clicking. This is the reason X is published before FB/LI/VK — those URLs must already exist when their comments are written. All cross-links go in ONE comment; do not post a second comment to add a link.
+**FB / LinkedIn / VK first-comment — must cross-link both Telegram (configured language) and X (configured language).** Because these are published **after** TG and X (see § Publication Order), their first comment carries the blog link in the platform's language **+ the canonical Telegram (configured language) post link + the X (configured language) post link** (plus the product/framework site link for product articles). Label the language on each link (`Telegram (configured language)`, `X (configured language)`, the blog's actual locale) so the reader knows the destination language before clicking. This is the reason X is published before FB/LI/VK — those URLs must already exist when their comments are written. All cross-links go in ONE comment; do not post a second comment to add a link.
 
 <!-- gate:history-allowed -->
 **Retrofit tools (FB):** the consolidated publishing app's Facebook adapter provides post-edit (remove a links-block from an existing post body) and comment-edit/replace (rewrite an existing first-comment) operations. Use the tool's post-edit and comment-edit commands. The standalone `fb-publish` retrofit scripts were retired once their capability was absorbed.
@@ -632,8 +632,8 @@ Required for proper link previews on all social platforms:
 
 ## Per-platform language and Telegram cross-link
 
-- **Language is per-platform, not one language for all.** Russian-audience platforms (Telegram, Facebook, VKontakte) publish in **Russian**; international platforms (**LinkedIn, X/Twitter**) publish in **English**. Posting the wrong language costs a delete+repost cycle.
-- **Every post links back to Telegram in its first comment** (drives traffic to the channel from each platform). Add the canonical Telegram post URL to the first comment of every platform except Telegram itself. On English platforms, tag the language so readers know the linked content is Russian: `Telegram (in Russian): <url>`. On Russian platforms: `Telegram: <url>`.
+- **Language follows the author and target audience.** Use an explicit publication/task language or configured channel audience language; never infer it from a platform name or country. Preserve existing authored content unless translation is requested. For newly generated publication prose with no explicit language/audience setting, use the resolved artifact language from `skills/datarim-system/language-preferences.md`. Different channel variants may use different languages; preserve publication authorization and platform/tool limits.
+- **Every post links back to Telegram in its first comment** (drives traffic to the channel from each platform). Add the canonical Telegram post URL to the first comment of every platform except Telegram itself. When the linked content uses another language, label its actual language in the publication language (for example `Telegram (in French): <url>` in an English post); otherwise use the localized Telegram label.
 - **Image is mandatory** in every social post (a text-only post is a defect). Verify the image is attached BOTH before submit (composer snapshot) AND after (open the published post).
 - **First line = headline, separated by a blank line from the body** on Facebook and LinkedIn. The feed shows only the first line (rest folded under "see more"), so a run-on first line reads as no headline. Always `<headline>\n\n<body>`.
 
@@ -652,6 +652,11 @@ When publishing via browser automation (Playwright) rather than an official API,
 > Full selector tables and the per-platform recipes live in the operator's knowledge base; your publishing tool owns the durable implementation of these rules.
 
 ## Multi-Platform Workflow
+
+Resolve publication languages from the explicit brief/channel audience settings
+before preparing variants; never infer language from the platform. Preserve an
+explicitly requested bilingual bundle (including RU+EN) exactly. The order and
+cross-link checks below cover all requested locales without adding locales.
 
 ### Adapting One Post for Multiple Platforms
 
@@ -677,14 +682,14 @@ When publishing via browser automation (Playwright) rather than an official API,
 
 The platform order is a **hard contract**, not a reach heuristic. Publish in this exact sequence:
 
-1. **Website/blog** first (RU+EN; canonical URL, SEO indexing starts). Capture both URLs.
-2. **Telegram** (RU canonical, instant delivery). Capture `t.me/<channel>/<msg_id>`.
-3. **X/Twitter** (EN premium full-article). Capture `x.com/<handle>/status/<id>`.
+1. **Website/blog** first (all requested locales; canonical URL, SEO indexing starts). Capture every requested locale URL.
+2. **Telegram** (configured channel language, instant delivery). Capture `t.me/<channel>/<msg_id>`.
+3. **X/Twitter** (configured audience full-article). Capture `x.com/<handle>/status/<id>`.
 4. **Facebook / LinkedIn / VK** (in any order among themselves) — all **after** X.
 5. **Instagram** (last — requires the most visual adaptation), when in scope.
 
 **Why X comes before FB/LinkedIn/VK (do not reorder).** The FB / LinkedIn / VK first
-comments must cross-link **both** the canonical **Telegram (RU)** post **and** the **X (EN)**
+comments must cross-link **both** the canonical **Telegram (configured language)** post **and** the **X (configured language)**
 post. Those two URLs only exist once TG and X are already published — so TG and X go first,
 and X is published **before** FB/LI/VK, not alongside or after them. Publishing FB/LI/VK
 before X forces a second pass to back-fill the X link into their comments (a recurring
@@ -762,14 +767,14 @@ if any item fails, fix it before publishing.
 
 ### Publish order + cross-links + back-link gate (multi-platform)
 
-- [ ] Published in the FIXED order — site → Telegram (RU canonical) → X (EN) →
+- [ ] Published in the FIXED order — site → Telegram (configured channel language) → X (configured language) →
   Facebook / LinkedIn / VK. X goes BEFORE FB/LI/VK so its URL exists for their
   comments (see § Publication Order). Reordering is a defect.
-- [ ] FB / LinkedIn / VK first comment carries BOTH the Telegram (RU) link AND
-  the X (EN) link (plus the blog link in the platform language, plus the product
+- [ ] FB / LinkedIn / VK first comment carries BOTH the Telegram (configured language) link AND
+  the X (configured language) link (plus the blog link in the platform language, plus the product
   site for product/framework articles), all in ONE comment.
 - [ ] CLOSING GATE — the blog article's `social` back-link block is present on
-  RU+EN, points at the real permalinks, and is verified live. An article live
+  all requested locales, points at the real permalinks, and is verified live. An article live
   with social posts but no/incomplete `social` block is an incomplete publish;
   the task does not close without it.
 - [ ] Each back-link permalink in the `social` block was OPENED IN A BROWSER and
@@ -781,7 +786,7 @@ if any item fails, fix it before publishing.
   URLs — copy the working permalink verbatim (LinkedIn:
   `posts/<vanity>_<slug>-share-<id>-<code>/`, NOT `feed/update/urn:li:activity:<id>/`;
   Facebook: strip the `?__cft__=…&__tn__=…` tail). Deploy, then re-check the live
-  RU+EN pages that the hrefs shipped.
+  all requested locale pages that the hrefs shipped.
 - [ ] Post video uses the animated-cover cycle; when narration audio exists it
   carries the bottom audio-amplitude strip (default-on). A bare full-frame
   waveform as the whole video is forbidden (see § Video standard).

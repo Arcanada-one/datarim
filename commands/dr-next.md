@@ -3,6 +3,8 @@ name: dr-next
 description: Resume work on current task from last checkpoint with context awareness
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-next - Resume Task
 
 Continue from where you left off.
@@ -23,7 +25,7 @@ Continue from where you left off.
 Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library.
 
 2. **TASK RESOLUTION**: Apply Task Resolution Rule from `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps. If >1 active tasks, show all with their current phase and ask which to resume.
-2.5. **SNAPSHOT-FIRST READ**: Before reading any other state, probe `datarim/snapshots/{TASK-ID}.snapshot.md`. If `"${DATARIM_RUNTIME:?}/dev-tools/check-stage-snapshot-on-exit.sh" --validate-frontmatter --task {TASK-ID}` exits 0 — read the snapshot as primary context and emit the replay-prompt per `${DATARIM_RUNTIME:?}/skills/dr-next-snapshot-replay/SKILL.md` § Replay-prompt template (recommended CTA + bilingual autonomy reminder + `done before:` + snapshot body). STOP the downstream Read pipeline — primary context is the snapshot. If the validator returns non-zero (missing or malformed) — silently fall through to Step 3 with no warning lines (V-AC-7).
+2.5. **SNAPSHOT-FIRST READ**: Before reading any other state, probe `datarim/snapshots/{TASK-ID}.snapshot.md`. If `"${DATARIM_RUNTIME:?}/dev-tools/check-stage-snapshot-on-exit.sh" --validate-frontmatter --task {TASK-ID}` exits 0 — read the snapshot as primary context and emit the replay-prompt per `${DATARIM_RUNTIME:?}/skills/dr-next-snapshot-replay/SKILL.md` § Replay-prompt template (recommended CTA + autonomy reminder with resolved language preferences + `done before:` + snapshot body). STOP the downstream Read pipeline — primary context is the snapshot. If the validator returns non-zero (missing or malformed) — silently fall through to Step 3 with no warning lines (V-AC-7).
 3. Read current state for the resolved task
 4. Determine phase (INIT/PLAN/DESIGN/DO/REFLECT)
 5. Show context summary

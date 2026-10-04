@@ -1,6 +1,6 @@
 # Human outcome report
 
-Use for substantive work. Adapt the length to the task; omit empty headings for a short update. Apply `${DATARIM_RUNTIME:?}/skills/human-outcome-reporting/SKILL.md`. The default human language is Russian unless explicitly requested otherwise.
+Use for substantive work. Adapt the length to the task; omit empty headings for a short update. Apply `${DATARIM_RUNTIME:?}/skills/human-outcome-reporting/SKILL.md`. Use the resolved reply language in chat and the resolved artifact language for a saved document; both default to English.
 
 ## Result and availability
 

@@ -1,3 +1,5 @@
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-continue — Resume from Session Handoff
 
 **Stage:** Session Handoff (consumer)
@@ -108,7 +110,7 @@ If zero active tasks: inform the operator — the artefact may be stale.
 
 ### Step 6 — Emit replay prompt
 
-Emit re-verification banners (if any), then the bilingual replay prompt per
+Emit re-verification banners (if any), then the shared replay prompt per
 `skills/session-handoff-replay/SKILL.md` § Replay-prompt template.
 
 ### Step 7 — Route

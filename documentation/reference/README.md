@@ -28,6 +28,7 @@ Kebab-case `.md` filenames named after the subject, for example `agents.md`,
 
 | File | What it catalogues |
 |------|--------------------|
+| [`language-preferences.md`](language-preferences.md) | Language keys, precedence, resolver and native limits. |
 | [`agents.md`](agents.md) | Every shipped agent — role, tier, primary stages, consilium panels. |
 | [`skills.md`](skills.md) | Every shipped skill — type, model, purpose, and what loads it. |
 | [`commands.md`](commands.md) | Every `/dr-*` slash command with arguments and outputs. |

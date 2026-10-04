@@ -175,3 +175,14 @@ complete, mutation-tested coverage receipt; every required change is deployed
 and live; all originating reviews have evidence-backed dispositions; every
 painted-surface cell carries an explicit operator disposition; and the operator
 accepts the production result. Anything less is in progress.
+
+## Website locale matrix
+
+Website painted evidence covers the explicit locales declared in the signed
+requirement acceptance applicability, independently of reply/artifact preferences.
+Every declared locale requires mobile/desktop and light/dark painted cells.
+The receipt validator requires the exact Cartesian product, with no omitted,
+extra or duplicate identities; all scope, revision, timestamps, signatures and
+evidence-reference checks remain mandatory. Existing signed `ru`/`en` scopes
+continue requiring all eight cells. Changing a locale scope is a signed
+requirement amendment, never inferred from the language of a chat message.

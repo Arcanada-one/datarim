@@ -2,7 +2,7 @@
 #
 # TUNE-0254/TUNE-0298 — next snapshot replay:
 #   (1) Step 2.5 present in commands/dr-next.md and references validator + replay skill
-#   (2) replay-prompt template carries CTA + bilingual autonomy + done before:
+#   (2) replay-prompt template carries CTA + model autonomy + resolved languages + done before:
 #   (3) fallback when snapshot absent — silent (no warning lines)
 
 REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
@@ -22,8 +22,9 @@ VALIDATOR="${REPO_ROOT}/dev-tools/check-stage-snapshot-on-exit.sh"
     grep -F 'dr-next-snapshot-replay/SKILL.md' "$CMD" >/dev/null
 }
 
-@test "replay skill carries canonical RU autonomy line (V-AC-11 RU)" {
-    grep -q 'ищи способ исследовать все проблемы' "$REPLAY"
+@test "replay skill carries resolved language context without requiring Russian" {
+    grep -q 'Carry both resolved language tags' "$REPLAY"
+    ! grep -q 'Russian primary' "$REPLAY"
 }
 
 @test "replay skill carries canonical EN autonomy line (V-AC-11 EN)" {
@@ -34,12 +35,12 @@ VALIDATOR="${REPO_ROOT}/dev-tools/check-stage-snapshot-on-exit.sh"
     grep -q 'done before:' "$REPLAY"
 }
 
-@test "replay-prompt template has 'done before:' below both autonomy lines" {
+@test "replay-prompt template has 'done before:' below the model-facing autonomy instruction" {
     python3 - "$REPLAY" <<'PY'
 import sys, re
 content = open(sys.argv[1]).read()
 m = re.search(
-    r"<recommended-CTA>\s*\n\s*\n.*ищи способ исследовать все проблемы.*\n.*Find a way to investigate all problems.*\n\s*\ndone before:\s*\n<snapshot body>",
+    r"<recommended-CTA>\s*\n\s*\n.*Find a way to investigate all problems.*\n\s*\ndone before:\s*\n<snapshot body>",
     content,
     re.DOTALL,
 )

@@ -12,11 +12,11 @@ VALIDATOR="$BATS_TEST_DIRNAME/../dev-tools/check-banlist-on-prose.sh"
 
 @test "T1 archive-template carries four top-level sections in canonical order" {
     local nach reshili artefakty steps addendum
-    nach=$(grep -n '^## Начальная задача$' "$TEMPLATE" | cut -d: -f1)
-    reshili=$(grep -n '^## Как решили$' "$TEMPLATE" | cut -d: -f1)
-    artefakty=$(grep -n '^## Артефакты задачи$' "$TEMPLATE" | cut -d: -f1)
-    steps=$(grep -n '^## Следующие шаги$' "$TEMPLATE" | cut -d: -f1)
-    addendum=$(grep -n '^## Дополнительно для аудита$' "$TEMPLATE" | cut -d: -f1)
+    nach=$(grep -n '^## .*<!-- datarim:original-request -->$' "$TEMPLATE" | cut -d: -f1)
+    reshili=$(grep -n '^## .*<!-- datarim:resolution -->$' "$TEMPLATE" | cut -d: -f1)
+    artefakty=$(grep -n '^## .*<!-- datarim:artifacts -->$' "$TEMPLATE" | cut -d: -f1)
+    steps=$(grep -n '^## .*<!-- datarim:next-steps -->$' "$TEMPLATE" | cut -d: -f1)
+    addendum=$(grep -n '^## .*<!-- datarim:audit -->$' "$TEMPLATE" | cut -d: -f1)
     [ -n "$nach" ] && [ -n "$reshili" ] && [ -n "$artefakty" ] && [ -n "$steps" ] && [ -n "$addendum" ]
     [ "$nach" -lt "$reshili" ]
     [ "$reshili" -lt "$artefakty" ]
@@ -29,20 +29,20 @@ VALIDATOR="$BATS_TEST_DIRNAME/../dev-tools/check-banlist-on-prose.sh"
 @test "T2 dr-archive Step 2 instructs to map init-task bullets into Kak-reshili" {
     grep -q 'init-task' "$COMMAND"
     grep -q 'Operator brief' "$COMMAND"
-    grep -q 'Как решили' "$COMMAND"
+    grep -q 'How it was resolved' "$COMMAND"
 }
 
 # ---------- T3 expectations fold instruction ----------
 
 @test "T3 dr-archive instructs to fold expectations into Kak-reshili with operator-clarification marker" {
-    grep -q '(уточнение брифа)' "$COMMAND"
+    grep -q '(brief clarification)' "$COMMAND"
     grep -q 'expectations' "$COMMAND"
 }
 
 # ---------- T4 audit addendum invariants ----------
 
 @test "T4 audit addendum carries verification_outcome / Acceptance Criteria / Lessons Learned / Related subsections" {
-    awk '/^## Дополнительно для аудита$/{flag=1; next} /^## /{flag=0} flag' "$TEMPLATE" > "$BATS_TEST_TMPDIR/addendum.txt"
+    awk '/^## .*<!-- datarim:audit -->$/{flag=1; next} /^## /{flag=0} flag' "$TEMPLATE" > "$BATS_TEST_TMPDIR/addendum.txt"
     [ -s "$BATS_TEST_TMPDIR/addendum.txt" ]
     grep -q '^### verification_outcome' "$BATS_TEST_TMPDIR/addendum.txt"
     grep -q '^### Acceptance Criteria' "$BATS_TEST_TMPDIR/addendum.txt"
@@ -53,10 +53,10 @@ VALIDATOR="$BATS_TEST_DIRNAME/../dev-tools/check-banlist-on-prose.sh"
 # ---------- T5 (ported from tune-0210 T9) status word translations in dr-archive ----------
 
 @test "T5 dr-archive declares the four status-word translations" {
-    grep -q 'выполнено' "$COMMAND"
-    grep -q 'частично' "$COMMAND"
-    grep -q 'не выполнено' "$COMMAND"
-    grep -q 'неприменимо' "$COMMAND"
+    grep -q 'fulfilled' "$COMMAND"
+    grep -q 'partly fulfilled' "$COMMAND"
+    grep -q 'unfulfilled' "$COMMAND"
+    grep -q 'not applicable' "$COMMAND"
 }
 
 # ---------- T6 (ported from tune-0210 T10) forbid raw schema enum in rendered section ----------
@@ -65,7 +65,7 @@ VALIDATOR="$BATS_TEST_DIRNAME/../dev-tools/check-banlist-on-prose.sh"
     grep -qE 'never the schema enum|не использовать .*met|без enum' "$COMMAND"
 }
 
-# ---------- T7 (ported from tune-0210 T7) no-tables rule for 'Как решили' ----------
+# ---------- T7 (ported from tune-0210 T7) no-tables rule for 'How it was resolved' ----------
 
 @test "T7 dr-archive declares the no-tables rule for the Kak-reshili section" {
     grep -qE 'No tables in this section|Без таблиц|никаких таблиц' "$COMMAND"
@@ -78,10 +78,10 @@ VALIDATOR="$BATS_TEST_DIRNAME/../dev-tools/check-banlist-on-prose.sh"
     grep -q 'human-summary' "$COMMAND"
 }
 
-# ---------- T9 single-level bullet rule in 'Как решили' template body ----------
+# ---------- T9 single-level bullet rule in 'How it was resolved' template body ----------
 
 @test "T9 archive-template Kak-reshili body has single-level bullets only and no tables" {
-    awk '/^## Как решили$/{flag=1; next} /^## /{flag=0} flag' "$TEMPLATE" > "$BATS_TEST_TMPDIR/section.txt"
+    awk '/^## .*<!-- datarim:resolution -->$/{flag=1; next} /^## /{flag=0} flag' "$TEMPLATE" > "$BATS_TEST_TMPDIR/section.txt"
     [ -s "$BATS_TEST_TMPDIR/section.txt" ]
     ! grep -qE '^\s*\|' "$BATS_TEST_TMPDIR/section.txt"
     ! grep -qE '^[[:space:]]+-[[:space:]]' "$BATS_TEST_TMPDIR/section.txt"
@@ -91,6 +91,6 @@ VALIDATOR="$BATS_TEST_DIRNAME/../dev-tools/check-banlist-on-prose.sh"
 
 @test "T10 check-banlist-on-prose.sh exits 0 on archive-template.md" {
     [ -x "$VALIDATOR" ]
-    run "$VALIDATOR" --file "$TEMPLATE"
+    run "$VALIDATOR" --file "$TEMPLATE" --language en
     [ "$status" -eq 0 ]
 }

@@ -2248,15 +2248,16 @@ PY
 
 prepare_authenticated_prework_fixture() {
     local expression="$1"
+    local allowed_roles="${2:-CUSTOMER}"
     local seed public_key secret_key digests source_digest assertion_digest
     seed="$(test_seed)"
     public_key="$(printf '%s\n' "$seed" | test_public_key)"
     secret_key="$(printf '%s\n' "$seed" | test_private_key)"
     build_test_framework authenticated-prework || return 1
-    env PREWORK_PUBLIC_KEY="$public_key" yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
+    env PREWORK_PUBLIC_KEY="$public_key" PREWORK_ALLOWED_ROLES="$allowed_roles" yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
       "key_id":"key-prework-test-0001",
       "authority_id":"authority-prework-test-0001",
-      "allowed_roles":["CUSTOMER"],
+      "allowed_roles":(strenv(PREWORK_ALLOWED_ROLES) | split(",")),
       "public_key":strenv(PREWORK_PUBLIC_KEY),
       "status":"ACTIVE",
       "valid_from":"2026-01-01T00:00:00Z",
@@ -2337,7 +2338,8 @@ PY
     source_signature="$(printf '%s\n%s\n' "$secret_key" "$source_digest" | test_signature)" || return 1
     assertion_signature="$(printf '%s\n%s\n' "$secret_key" "$assertion_digest" | test_signature)" || return 1
     yq -i ".source_remarks[0].authority_approval.signature = \"${source_signature}\" |
-        .source_remarks[0].tier1_assertions[0].authority_approval.signature = \"${assertion_signature}\"" "$REQUIREMENTS"
+        .source_remarks[0].tier1_assertions[0].authority_approval.signature = \"${assertion_signature}\"" "$REQUIREMENTS" || return 1
+    PREWORK_FIXTURE_PRIVATE_KEY="$secret_key"
 }
 
 prepare_signed_review_fixture() {
@@ -5591,4 +5593,97 @@ PY
     [ "$status" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and d["findings"] == ["unicode_processing_error"]' "$output" \
         && [[ "$output" != *"Traceback"* ]]
+}
+
+
+prepare_signed_generic_locale_fixture() {
+    # Declare this synthetic task's locales before signing its authority. Keep
+    # every scope dimension, trust verification, and delivery edge unchanged.
+    "$PYTHON" - "$REQUIREMENTS" "$RECEIPT" <<'PY_LOCALES' || return 1
+import sys
+import yaml
+
+def localize_scope(value):
+    if isinstance(value, dict):
+        if value.get("locales") == ["ru", "en"]:
+            value["locales"] = ["fr", "ar"]
+        if "locale" in value and "viewport" in value and "theme" in value:
+            value["locale"] = {"ru": "fr", "en": "ar"}[value["locale"]]
+        for nested in value.values():
+            localize_scope(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            localize_scope(nested)
+
+for path in sys.argv[1:]:
+    with open(path, encoding="utf-8") as handle:
+        document = yaml.safe_load(handle)
+    localize_scope(document)
+    with open(path, "w", encoding="utf-8") as handle:
+        yaml.safe_dump(document, handle, allow_unicode=True, sort_keys=False)
+PY_LOCALES
+    prepare_authenticated_prework_fixture '.' 'CUSTOMER,OPERATOR' || return 1
+    GENERIC_LOCALE_SECRET_KEY="$PREWORK_FIXTURE_PRIVATE_KEY"
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.authority_id = "authority-prework-test-0001" |
+        .requirements.req-0001.coverage_chain.customer_disposition.authority_approval.authority_role = "OPERATOR" |
+        .requirements.req-0001.coverage_chain.customer_disposition.authority_approval.key_id = "key-prework-test-0001"' "$RECEIPT" || return 1
+    reseal_and_sign_disposition "$GENERIC_LOCALE_SECRET_KEY" || return 1
+
+    # A new declared task has a fresh synthetic history, rather than altering a
+    # previously accepted historical source record to introduce new locales.
+    local fresh_root="${BATS_TEST_TMPDIR}/generic-consumer"
+    mkdir -p "$fresh_root/datarim/tasks" "$fresh_root/datarim/receipts"
+    cp "$REQUIREMENTS" "$fresh_root/datarim/tasks/${TASK_ID}-customer-requirements.yaml" || return 1
+    cp "$RECEIPT" "$fresh_root/datarim/receipts/${TASK_ID}-customer-delivery.yaml" || return 1
+    cp "$REVIEW" "$fresh_root/datarim/receipts/${TASK_ID}-review-evolution.yaml" || return 1
+    ROOT="$fresh_root"
+    REQUIREMENTS="$ROOT/datarim/tasks/${TASK_ID}-customer-requirements.yaml"
+    RECEIPT="$ROOT/datarim/receipts/${TASK_ID}-customer-delivery.yaml"
+    REVIEW="$ROOT/datarim/receipts/${TASK_ID}-review-evolution.yaml"
+    git -C "$ROOT" init -q || return 1
+    git -C "$ROOT" config user.name test
+    git -C "$ROOT" config user.email test@example.invalid
+    git -C "$ROOT" add datarim || return 1
+    git -C "$ROOT" commit -q -m generic-locale-baseline || return 1
+    run_test_framework_json
+    [ "$status" -eq 0 ] \
+        && "$PYTHON" -c 'import json,sys; result=json.loads(sys.argv[1]); assert result["decision"] == "MET" and result["findings"] == []' "$output" \
+        || { printf 'generic_baseline_status=%s output=%s\n' "$status" "$output"; return 1; }
+}
+
+assert_signed_generic_matrix_rejection() {
+    local mutation="$1"
+    prepare_signed_generic_locale_fixture || return 1
+    case "$mutation" in
+        missing) yq -i 'del(.requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7])' "$RECEIPT" ;;
+        extra) yq -i '.requirements.req-0001.coverage_chain.live_evidence.painted_matrix += [.requirements.req-0001.coverage_chain.live_evidence.painted_matrix[0]] |
+            .requirements.req-0001.coverage_chain.live_evidence.painted_matrix[8].locale = "en"' "$RECEIPT" ;;
+        duplicate) yq -i '.requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7].locale = "fr" |
+            .requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7].viewport = "mobile" |
+            .requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7].theme = "light"' "$RECEIPT" ;;
+        *) return 1 ;;
+    esac || return 1
+    # Authenticate the mutated body, so invalid signatures cannot explain its
+    # failure. The same pre-work scope and trust registry remain in force.
+    reseal_and_sign_disposition "$GENERIC_LOCALE_SECRET_KEY" || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; result=json.loads(sys.argv[1]); assert result["decision"] == "NOT_MET" and result["findings"] == ["painted_matrix_incomplete:req-0001"]' "$output" \
+        || { printf 'generic_%s_status=%s output=%s\n' "$mutation" "$status" "$output"; return 1; }
+}
+
+@test "signed declared French Arabic matrix passes the full delivery wrapper" {
+    prepare_signed_generic_locale_fixture
+}
+
+@test "signed generic locale wrapper rejects a missing painted identity after a passing baseline" {
+    assert_signed_generic_matrix_rejection missing
+}
+
+@test "signed generic locale wrapper rejects an extra painted locale after a passing baseline" {
+    assert_signed_generic_matrix_rejection extra
+}
+
+@test "signed generic locale wrapper rejects duplicate painted identities after a passing baseline" {
+    assert_signed_generic_matrix_rejection duplicate
 }

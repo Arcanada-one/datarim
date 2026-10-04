@@ -8,6 +8,8 @@ current_aal: 2
 target_aal: 4
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # dr-orchestrate-resolver
 
 This agent is the **plugin-backed subagent inference layer** of the `dr-orchestrate` plugin (Phase 2). It activates when the rule-based semantic parser returns `confidence: 0` for a pane line — i.e. nothing in the rules corpus matched.

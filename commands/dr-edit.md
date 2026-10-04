@@ -6,6 +6,8 @@ allowed-tools: Read Write Edit Grep Glob Bash WebSearch WebFetch Agent
 effort: high
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-edit — Editorial Review
 
 **Acceptance and editorial evidence:** apply `skills/immutability/SKILL.md`
@@ -38,7 +40,7 @@ existing QA/archive routing and binds checks to that task's selected route.
     - **Voice-bearing content:** the assigned model performs writing, editing, translation, and factual review directly. Preserve the operator's authorship and publication constraints.
 3.  **READ THE CONTENT**: Read the file at the path provided in `$ARGUMENTS`. If no path given, ask the user.
 4.  **SETUP**:
-    - Detect the primary language (English, Russian, or mixed).
+    - Detect the source language(s), including mixed-language content; preserve that authored language unless the task explicitly requests translation.
     - Identify the content type and target register.
     - Create a backup next to the original: `{name}.backup-{timestamp}.{ext}`
 5.  **EDITORIAL REVIEW** (3 phases):

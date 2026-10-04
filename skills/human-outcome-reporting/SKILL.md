@@ -5,16 +5,20 @@ current_aal: 1
 target_aal: 2
 license: MIT
 metadata:
-  version: "0.2.3"
-  default-language: ru
+  version: "0.3.0"
+  default-language: en
+  default-artifact-language: en
 ---
 
 # Human Outcome Reporting
 
 Make the result understandable without the previous conversation. Explain what the
-person can now do or decide, not how busy an agent was. Instructions are English;
-human-facing reports default to Russian unless the user explicitly selects another
-language. The language of a requested document and machine protocol is unchanged.
+person can now do or decide, not how busy an agent was. Resolve reply and generated
+artifact languages independently using [language preferences](references/language-preferences.md).
+Both default to English; users can choose any valid language tag. Read preferences
+before reporting rather than copying one operator's language into the skill.
+Explicit task/document language requests and native authority retain precedence.
+Verbatim input, code and machine protocols keep their original identifiers/text.
 
 ## Scope and precedence
 

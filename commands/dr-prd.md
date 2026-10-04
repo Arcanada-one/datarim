@@ -7,6 +7,8 @@ globs:
   - ${DATARIM_RUNTIME:?}/templates/prd-template.md
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # PRD Generation Command
 
 This command generates a structured Product Requirements Document (PRD) following the **Enhanced Design Process** (Phases 1-3).
@@ -103,13 +105,13 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
         (a) the init-task `## Operator brief (verbatim)` plus every `## Append-log` entry (one wish per distinct intent), and
         (b) the PRD § Success Criteria list (one wish per V-AC where the criterion reflects an operator-observable outcome — internal-only AC stays in PRD).
     -   **Per-item shape** (Option B schema; full contract in `expectations-checklist.md`):
-        - title in plain Russian, ending with a period;
-        - `wish_id` = kebab-slug of the title (cyrillic allowed);
-        - `Что хочу проверить:` one or two sentences; <!-- allow-non-ascii: russian-expectations-field-name-cited-from-canonical-schema -->
-        - `Как проверить (success criterion):` one concrete signal; <!-- allow-non-ascii: russian-expectations-field-name-cited-from-canonical-schema -->
-        - `Связанный AC из PRD:` `V-AC-<N>` или «—»; <!-- allow-non-ascii: russian-expectations-field-name-cited-from-canonical-schema -->
-        - `#### История статусов` with one initial line `<ISO> / <local> · /dr-prd · pending → pending · reason: пункт создан при формировании PRD`; <!-- allow-non-ascii: russian-status-history-section-name-cited-from-canonical-schema -->
-        - `#### Текущий статус` set to `pending`. <!-- allow-non-ascii: russian-current-status-section-name-cited-from-canonical-schema -->
+        - title in the resolved artifact language, ending with a period;
+        - `wish_id` = stable ASCII kebab-slug identifying the wish; do not translate existing IDs;
+        - `wish:` one or two sentences;
+        - `success_criterion:` one concrete signal;
+        - `linked_ac:` `V-AC-<N>` or `—`;
+        - `#### status_history` with one initial line `<ISO> / <local> · /dr-prd · pending → pending · reason: wish captured during PRD generation`;
+        - `#### current_status` set to `pending`.
     -   **Append-merge if the file already exists.** Load existing items by `wish_id`. New PRD-derived wishes whose slug does not match any existing item are appended at the bottom; existing items are not rewritten. If a previously-linked AC was renamed, append one `stage: append-merge` History line to the affected item.
     -   **Post-write validation gate.** Invoke:
         ```bash

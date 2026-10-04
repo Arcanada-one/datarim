@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 4.2.3
+> **Version:** 4.3.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** `AGENTS.md` is the sole project-instruction format. Install this framework only inside an explicitly enabled project. Codex, Claude Code, and Cursor use their native AGENTS loaders; no alternate instruction files or import adapters are installed. See `documentation/reference/jev-cli.md` for client requirements.
 > **Installing Datarim?** This file holds the framework's runtime rules, which the `/dr-*` commands load after installation; it is not an install guide. To install Datarim (and optionally Jev) into a project, follow `INSTALL.md` at the root of the source repository (https://github.com/Arcanada-one/datarim/blob/main/INSTALL.md), including its section for AI agents. Do not install into, or start task work in, the Datarim source checkout.
@@ -112,7 +112,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 
 **Always loaded (mandatory):**
 - `datarim-system.md` — Core workflow rules, path resolution, file locations
-- `skills/human-outcome-reporting/SKILL.md` — Product-oriented, self-contained human reports in Russian by default; requirements, plan and evidence remain linked. Applies to every Datarim command, including plugin execution and delegated human-facing output. Preserve machine protocols, artifact-only output and mandatory installation questions. Use one report; `human-summary` is the compatibility presentation, not a second authority.
+- `skills/human-outcome-reporting/SKILL.md` — Product-oriented, self-contained human reports in the resolved reply language; requirements, plan and evidence remain linked. Applies to every Datarim command, including plugin execution and delegated human-facing output. Preserve machine protocols, artifact-only output and mandatory installation questions. Use one report; `human-summary` is the compatibility presentation, not a second authority.
 
 **Loaded per stage:**
 - `ai-quality.md` — TDD, decomposition, cognitive load (loaded by: developer, planner)
@@ -372,23 +372,35 @@ Enforced by `dev-tools/check-body-english.sh` (MANDATORY, fail-hard in `/dr-arch
 
 ---
 
-## Artifact Language Policy
+## Reply and Artifact Languages
 
-This governs the language of **runtime artefacts** Datarim generates per task — distinct from the shipped instruction surface above. It closes the gap the English-Only section does not cover: the free-generated body of `creative-*`, `PRD-*`, `plan-*`, and the analytical body of `archive-*` / reflection / compliance-report documents.
+Resolve both preferences before any generated response, artifact or delegation:
 
-**Default rule.** The free-generated body and analysis of those runtime artefacts default to **English**. The native AGENTS loader supplies this policy to the agent; delegated work must carry the resolved project language explicitly.
+```bash
+python3 "${DATARIM_RUNTIME:?}/skills/human-outcome-reporting/scripts/language.py" resolve --project "$PWD" --format context
+```
 
-**Hard exclusions — the English default does NOT touch these; they keep their existing language:**
+Read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` for the
+shared resolution and delegation contract. Both fallback values are `en`.
+`language.replies` governs chat, reports presented in chat and CTA labels;
+`language.artifacts` governs generated document prose and presentation headings,
+including archive, compliance and expectations documents. They are independent.
+The resolver reads personal, shared project and private project preferences on
+invocation; reinstalling is unnecessary. Explicit task language requests and
+native managed policy retain their authority. Message language alone does not
+override a configured preference.
 
-- **Verbatim operator input.** The init-task `## Operator brief (verbatim)` section and its `## Append-log` entries are never translated — they carry the operator's own wording.
-- **Intentionally operator-facing sections** defined by their canonical templates and kept in the operator's language by deliberate decision: the archive / compliance-report sections «Начальная задача» and «Как решили», and the `human-summary` recap «Отчёт оператору». The latter follows the `human-summary` skill's own banlist/whitelist — this policy defers to that skill, it does not override it. <!-- allow-non-ascii: canonical-russian-template-section-names-cited-verbatim-from-archive-compliance-and-human-summary-schema -->
-- **Ordinary user-project content** — the operator's own articles, posts, and prose are never auto-translated. Content-work skills and commands (`humanize`, `publishing`, `writing`, `factcheck`, `dr-write`, `dr-edit`, `dr-publish`, `dr-humanize`) stay exempt, consistent with the English-Only carve-out above.
+Preserve verbatim briefs, quotations, existing content requested for editing,
+code identifiers, paths and schema enums. Templates show English examples;
+localize presentation while keeping their stable keys and semantic markers.
+Legacy Russian artifacts remain readable and are not rewritten automatically.
 
-**Override.** The default is overridable with **no code, no new file, and no schema change**: set one documented line in the consuming project's own `AGENTS.md` § Project-Specific Configuration (`Artifact language: <lang>`). Because `AGENTS.md` is auto-loaded, the override reaches the agent in-context. Native child processes may receive the resolved language through `DATARIM_ARTIFACT_LANG=<lang>`. The override deliberately does **not** add a field to the closed init-task frontmatter schema.
-
-**Canonical home.** This policy is the single source of truth, read by everyone who uses the framework. Native delegated agents inherit the resolved policy; they do not redefine it.
-
-**No enforcement gate.** The load-bearing mechanism is the in-context directive, not a post-hoc validator — runtime `datarim/` artefacts are gitignored, ephemeral, and regenerable, so a gate would be false-positive-prone (against legitimate operator-facing strings) for no proportional benefit. If a future task shows artefacts drifting back to non-English despite this directive, the remedy is to reuse `dev-tools/check-body-english.sh` with a new scope token — not to write a new script.
+`Artifact language: <lang>` in a consuming project's `AGENTS.md` remains a
+legacy artifact preference. Conflicts with explicit project YAML are surfaced
+by the resolver rather than silently chosen. Children receive both resolved
+values through `DATARIM_REPLY_LANG` and `DATARIM_ARTIFACT_LANG` and explicit prompt
+instructions; a remote process does not inherit the caller's environment unless
+transport carries it. Never source or evaluate resolver output as shell code.
 
 ---
 
@@ -617,15 +629,15 @@ Everything below this line is project-specific. When installing Datarim in a new
 
 ---
 
-### Artifact Language
+### Language Preferences
 
-Per § Artifact Language Policy, the free-generated body of runtime artefacts defaults to English. To override for this project, set one line here:
-
-```
-Artifact language: <lang>   # e.g. ru — applies to the free-generated artefact body only; operator-facing and verbatim sections are unaffected
-```
-
-Leave it unset to keep the English default. (Native child processes may also read `DATARIM_ARTIFACT_LANG=<lang>`.)
+Configure `language.replies` and `language.artifacts` with the bundled language
+resolver's `configure` command. Shared defaults live in `datarim/config.yaml`;
+private project overrides in `datarim/config.local.yaml`; personal preferences
+in `$XDG_CONFIG_HOME/datarim/config.yaml` (fallback `~/.config/datarim/config.yaml`).
+Keep private preferences outside git. Unset preferences resolve to `en`/`en`.
+The legacy `Artifact language: <lang>` directive is supported; prefer YAML for
+new configuration. See § Reply and Artifact Languages above.
 
 ### What This Project Is
 

@@ -106,6 +106,7 @@ def main(argv=None):
     parser.add_argument('--snapshot')
     parser.add_argument('--report')
     parser.add_argument('--evidence-root')
+    parser.add_argument('--language', help='Explicit presentation language; use resolved artifacts when saving a document')
     args = parser.parse_args(argv)
     try:
         project = Path(args.project).resolve(strict=True)
@@ -127,8 +128,8 @@ def main(argv=None):
         result = hr.analyse(contract,report,root,expected_hash=manifest['contract_sha256'])
         if not result['valid']:
             print(json.dumps(result,ensure_ascii=False,indent=2));return 2
-        text = hr.render(contract,report,result)
-        findings = hr.lint(text)
+        text = hr.render(contract,report,result,language=args.language,project=project)
+        findings = hr.lint(text,language=hr.preferences(language=args.language,project=project)['replies'])
         if findings:
             print(json.dumps({'language_findings':findings},ensure_ascii=False),file=sys.stderr)
             if hr.has_blocking_lint(findings):return 2

@@ -9,10 +9,10 @@ Reusable Markdown snippet for the canonical "Next Step" CTA block. The authorita
 ```markdown
 ---
 
-**Следующий шаг — {TASK_ID}** (L{LEVEL}, {STATUS})
+**Next step — {TASK_ID}** (L{LEVEL}, {STATUS})
 
-1. `{COMMAND_PRIMARY}` — **рекомендуется** — {PURPOSE_PRIMARY}
-2. `{COMMAND_ALT_1}` — альтернатива — {PURPOSE_ALT_1}
+1. `{COMMAND_PRIMARY}` — **recommended** — {PURPOSE_PRIMARY}
+2. `{COMMAND_ALT_1}` — alternative — {PURPOSE_ALT_1}
 3. `{COMMAND_ALT_2}` — {PURPOSE_ALT_2}
 
 ---
@@ -34,13 +34,13 @@ Placeholders:
 ```markdown
 ---
 
-**Следующий шаг — {TASK_ID}** (L{LEVEL}, {STATUS})
+**Next step — {TASK_ID}** (L{LEVEL}, {STATUS})
 
-1. `{COMMAND_PRIMARY}` — **рекомендуется** — {PURPOSE_PRIMARY}
-2. `{COMMAND_ALT_1}` — альтернатива — {PURPOSE_ALT_1}
+1. `{COMMAND_PRIMARY}` — **recommended** — {PURPOSE_PRIMARY}
+2. `{COMMAND_ALT_1}` — alternative — {PURPOSE_ALT_1}
 3. `/dr-status` — backlog overview
 
-**Другие активные задачи:**
+**Other active tasks:**
 - {OTHER_TASK_ID_1} (L{LEVEL_1}) — `{OTHER_NEXT_CMD_1}` — {OTHER_CONTEXT_1}
 - {OTHER_TASK_ID_2} (L{LEVEL_2}) — `{OTHER_NEXT_CMD_2}` — {OTHER_CONTEXT_2}
 
@@ -57,11 +57,11 @@ Order rules for the variant-B menu of other active tasks (see `cta-format.md`):
 ```markdown
 ---
 
-**{VERDICT_LABEL} для {TASK_ID} — earliest failed layer: Layer {LAYER_NUM} ({LAYER_NAME})**
+**{VERDICT_LABEL} for {TASK_ID} — earliest failed layer: Layer {LAYER_NUM} ({LAYER_NAME})**
 
-1. `{RETURN_COMMAND} {TASK_ID}` — **рекомендуется** — {FIX_HINT}
-2. `{ALTERNATIVE_RETURN} {TASK_ID}` — если {CONDITION}
-3. Эскалация — после 3 same-layer fails (loop guard)
+1. `{RETURN_COMMAND} {TASK_ID}` — **recommended** — {FIX_HINT}
+2. `{ALTERNATIVE_RETURN} {TASK_ID}` — if {CONDITION}
+3. Escalate — after 3 same-layer fails (loop guard)
 
 ---
 ```

@@ -3,6 +3,8 @@ name: dr-help
 description: List all available Datarim commands with descriptions and usage guidance
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-help — Datarim Command Reference
 
 Show the user a complete reference of all available Datarim commands, the pipeline flow, and complexity routing.
@@ -62,7 +64,7 @@ Not every task goes through every stage. Datarim routes tasks based on complexit
 
 | Command | Description |
 |---------|-------------|
-| `/dr-explain` | Explain a result or term again in clear Russian by default. Read-only: no tests, code changes, publication, automatic continuation or acceptance. |
+| `/dr-explain` | Explain a result or term again in the resolved reply language. Read-only: no tests, code changes, publication, automatic continuation or acceptance. |
 | `/dr-status` | Check current task status, pipeline progress, and backlog summary. Read-only. |
 | `/dr-next` | Resume work from the last checkpoint. Restores context and picks up where you left off. |
 | `/dr-save` | Save the current session state to a handoff file before the context window is lost. |

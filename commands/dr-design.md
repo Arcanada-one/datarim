@@ -3,6 +3,8 @@ name: dr-design
 description: Explore architectural and design decisions for complex features (Level 3-4)
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-design - Architecture & Design Mode
 
 **Role**: Architect Agent

@@ -4,6 +4,8 @@ import importlib.util
 import json
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 import zipfile
 
 import pytest
@@ -32,7 +34,9 @@ def test_all_client_entrypoints_and_runtime_support_files():
         manifests=list((host.project/'.datarim-runtime').rglob('human-outcome-reporting/SKILL.md'))
         assert manifests, 'The native installer omitted the reporting skill.'
         installed=manifests[0].parent
-        for name in ('SKILL.md','scripts/hr.py','scripts/native.py','schemas/report.schema.json','references/re-explain.md'):
+        for name in ('SKILL.md','scripts/hr.py','scripts/native.py','scripts/language.py','scripts/presentation.py',
+                     'locales/en.json','locales/ru.json','locales/fr.json','locales/ar.json','locales/ja.json',
+                     'schemas/report.schema.json','references/re-explain.md','references/presentation.md'):
             assert (installed/name).read_bytes()==(SKILL/name).read_bytes()
         for command in (ROOT/'commands').glob('*.md'):
             paths=[host.project/'.claude/commands'/command.name,
@@ -56,7 +60,7 @@ def test_all_client_entrypoints_and_runtime_support_files():
 
 def test_reusable_archive_matches_allowlisted_sources(tmp_path):
     pack=load(ROOT/'dev-tools/package-human-reporting.py','hr_release_pack')
-    output=tmp_path/'human-outcome-reporting-0.2.3.zip'
+    output=tmp_path/'human-outcome-reporting-0.3.0.zip'
     receipt=pack.build(ROOT,output)
     second=tmp_path/'repeat.zip';pack.build(ROOT,second)
     assert output.read_bytes()==second.read_bytes()
@@ -82,7 +86,7 @@ def test_release_example_is_partial_and_matches_renderer():
     assert result['valid'] and not result['ready']
     assert result['coverage']['required_met']==1
     assert result['coverage']['required_total']==2
-    assert hr.render(contract,report,result)==(example/'REPORT_RU.md').read_text()
+    assert hr.render(contract,report,result,language='ru').split('\n\n<!-- human-reporting-presentation')[0]+'\n'==(example/'REPORT_RU.md').read_text()
 
 
 def test_live_evaluations_are_not_claimed_as_executed():
@@ -95,10 +99,14 @@ def test_integration_archive_contains_exact_selected_sources(tmp_path):
     pack=load(ROOT/'dev-tools/package-human-reporting.py','hr_full_release')
     target=tmp_path/'integration.zip'
     receipt=pack.build(ROOT,target,'integration')
+    with zipfile.ZipFile(target) as archive:
+        # Assert a required dependency independently of the packager allowlist.
+        assert archive.read('repository-overlay/skills/datarim-system/language-preferences.md') == \
+            (ROOT/'skills/datarim-system/language-preferences.md').read_bytes()
     repeat=tmp_path/'integration-repeat.zip'
     pack.build(ROOT,repeat,'integration')
     assert target.read_bytes()==repeat.read_bytes()
-    assert receipt['kind']=='integration' and receipt['version']=='0.2.3'
+    assert receipt['kind']=='integration' and receipt['version']=='0.3.0'
     with zipfile.ZipFile(target) as archive:
         for name in pack.INTEGRATION_FILES:
             assert archive.read('repository-overlay/'+name)==(ROOT/name).read_bytes()
@@ -145,10 +153,34 @@ def test_packager_rejects_source_symlinks(tmp_path):
 def test_release_requires_matching_engine_and_skill_versions(tmp_path,monkeypatch):
     pack=load(ROOT/'dev-tools/package-human-reporting.py','hr_version_pack')
     files=pack.payload(ROOT)
-    files['human-outcome-reporting/SKILL.md']=files['human-outcome-reporting/SKILL.md'].replace(b'0.2.3',b'9.9.9')
+    files['human-outcome-reporting/SKILL.md']=files['human-outcome-reporting/SKILL.md'].replace(b'0.3.0',b'9.9.9')
     monkeypatch.setattr(pack,'payload',lambda *args:files)
     with pytest.raises(ValueError,match='versions differ'):
         pack.build(ROOT,tmp_path/'mismatch.zip')
+
+
+@pytest.mark.parametrize('language,heading', [('en','What was required'), ('ar','ما كان مطلوباً'), ('ja','要件')])
+def test_extracted_standalone_archive_renders_without_repository_imports(tmp_path, language, heading):
+    pack=load(ROOT/'dev-tools/package-human-reporting.py','hr_extracted_locale_pack')
+    output=tmp_path/'standalone.zip'
+    pack.build(ROOT,output)
+    extracted=tmp_path/'extracted'
+    # Extract only the test-produced allowlisted archive, never an external ZIP.
+    with zipfile.ZipFile(output) as archive:
+        for name in archive.namelist():
+            destination=extracted/name
+            destination.parent.mkdir(parents=True,exist_ok=True)
+            destination.write_bytes(archive.read(name))
+    example=extracted/'examples/partial'
+    completed=subprocess.run([sys.executable, str(extracted/'human-outcome-reporting/scripts/hr.py'),
+        'render','--contract',str(example/'contract.json'),'--report',str(example/'report.json'),
+        '--evidence-root',str(example),'--project',str(extracted),'--language',language],
+        cwd=extracted,capture_output=True,text=True,timeout=10)
+    assert completed.returncode==0, completed.stderr
+    assert '## '+heading in completed.stdout
+    assert 'catalog='+language in completed.stdout
+    if language=='en':
+        assert 'Подтверждено' not in completed.stdout
     assert not (tmp_path/'mismatch.zip').exists()
 
 

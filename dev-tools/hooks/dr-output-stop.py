@@ -8,8 +8,8 @@ dr-output-stop — Claude Code Stop hook with two validators:
 
 2. Human-Summary contract validator (TUNE-0262 Proposal 6) — when the user
    invoked `/dr-archive`, `/dr-compliance`, or `/dr-qa`, the response MUST
-   contain the canonical `## Отчёт оператору` / `## Operator summary`
-   section with self-identifier preamble and exactly four canonical
+   contain the localized operator-summary section (stable semantic
+   markers), or its legacy Russian/English heading aliases, with self-identifier preamble and exactly four canonical
    sub-headings in order.
 
 Contract sources (canonical):
@@ -41,8 +41,15 @@ DR_CMD_RE = re.compile(r"(?<![A-Za-z])/dr-[a-z][a-z0-9-]*")
 TASK_ID_ANY_RE = re.compile(r"\*\*[A-Z][A-Z0-9]{1,9}-\d{4}\b")
 
 HS_SECTION_RE = re.compile(
-    r"^##\s+(?:Отчёт оператору|Operator summary)\s*$", re.MULTILINE
+    r"^##[ \t]+(?:(?:Отчёт оператору|Operator summary)[ \t]*|"
+    r"[^\n<]+[ \t]*<!--[ \t]*datarim:operator-summary[ \t]*-->[ \t]*)$",
+    re.MULTILINE,
 )
+HS_MARKER_RE = re.compile(
+    r"^(\*\*[^*\n]+\*\*)[ \t]+<!--[ \t]*datarim:summary:"
+    r"(done|worked|open|next)[ \t]*-->[ \t]*$"
+)
+HS_SEMANTIC_IDS = ("done", "worked", "open", "next")
 HS_NEXT_H2_RE = re.compile(r"^##\s+\S", re.MULTILINE)
 HS_BOLD_LINE_RE = re.compile(r"^\*\*[^*\n]+\*\*$")
 HS_SUBHEADINGS = (
@@ -174,26 +181,37 @@ def validate_human_summary(section_text: str) -> list[str]:
 
     found_positions: dict[str, int] = {}
     extra_bold_lines: list[str] = []
+    english_aliases = (
+        "**What was done**", "**What worked**",
+        "**What did not work or remains open**", "**What is next**",
+    )
+    aliases = dict(zip(HS_SUBHEADINGS, HS_SEMANTIC_IDS))
+    aliases.update(zip(english_aliases, HS_SEMANTIC_IDS))
     for idx, line in enumerate(lines):
         stripped = line.strip()
-        if not HS_BOLD_LINE_RE.match(stripped):
-            continue
-        if HEADER_RE.match(stripped):
-            continue  # self-identifier preamble — counted above
-        if stripped in HS_SUBHEADINGS:
-            found_positions.setdefault(stripped, idx)
+        marker = HS_MARKER_RE.fullmatch(stripped)
+        if marker:
+            semantic_id = marker.group(2)
+        elif HS_BOLD_LINE_RE.match(stripped):
+            if HEADER_RE.match(stripped):
+                continue
+            semantic_id = aliases.get(stripped)
+            if semantic_id is None:
+                extra_bold_lines.append(stripped)
+                continue
         else:
-            extra_bold_lines.append(stripped)
+            continue
+        if semantic_id in found_positions:
+            findings.append("duplicate_subheading")
+        found_positions.setdefault(semantic_id, idx)
 
-    for i, sub in enumerate(HS_SUBHEADINGS, start=1):
-        if sub not in found_positions:
+    for i, semantic_id in enumerate(HS_SEMANTIC_IDS, start=1):
+        if semantic_id not in found_positions:
             findings.append(f"missing_subheading_{i}")
-
     if extra_bold_lines:
         findings.append("fifth_subheading")
-
-    if all(sub in found_positions for sub in HS_SUBHEADINGS):
-        order = [found_positions[sub] for sub in HS_SUBHEADINGS]
+    if all(key in found_positions for key in HS_SEMANTIC_IDS):
+        order = [found_positions[key] for key in HS_SEMANTIC_IDS]
         if order != sorted(order):
             findings.append("wrong_order")
 

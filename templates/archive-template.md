@@ -41,38 +41,46 @@ verification_outcome field semantics:
 Canonical contract — skills/self-verification/SKILL.md § Findings Schema.
 -->
 
-<!-- allow-non-ascii-block: canonical operator-facing archive section names and their Russian placeholder prose — a hard exclusion under AGENTS.md § Artifact Language Policy, which keeps these sections in the operator's language by deliberate decision -->
+# Archive: {TASK-ID} — {Title}
 
-# Архив: {TASK-ID} — {Title}
+<!-- Generate prose and display headings in the resolved artifact language.
+     Preserve markers, frontmatter, enum values, evidence and verbatim quotes.
+     Chat uses the independent reply preference. -->
 
-## Начальная задача
+## Original request <!-- datarim:original-request -->
 
-{Одно предложение обычным языком, что требовалось сделать. Источник — `tasks/{TASK-ID}-init-task.md` § Operator brief (verbatim), сжатое до одной фразы.}
+{One plain-language sentence describing the operator's request. Source:
+`tasks/{TASK-ID}-init-task.md` Operator brief (verbatim), paraphrased faithfully.}
 
-## Как решили
+## How it was resolved <!-- datarim:resolution -->
 
-{Маркированный список, по одному пункту на каждый bullet операторского брифа из `tasks/{TASK-ID}-init-task.md` в исходном порядке. Если есть `tasks/{TASK-ID}-expectations.md` — каждый пункт § Ожидания добавляется в тот же список с пометкой «(уточнение брифа)». Без таблиц, без вложенных bullet. Банлист `skills/human-summary/banlist.txt` применяется к комментариям.}
+{Single-level bullet list, one item for each operator-brief bullet in its
+original order. Fold expectations into the same list with a localized
+"brief clarification" marker. No tables or nested bullets. Translate status
+presentation (fulfilled, partly fulfilled, unfulfilled, not applicable) while
+preserving exact schema enums in technical records. Explain evidence and limits.
+Apply the Russian banlist only when this artifact's prose is Russian.}
 
-- **«{цитата пункта 1 из брифа}».** {выполнено / частично / не выполнено / неприменимо.} {Одно-два предложения обычным языком: что сделано, какие доказательства, что осталось.}
-- **«{цитата пункта 2 из брифа}».** {статус.} {комментарий.}
-- **«{цитата пункта из expectations (уточнение брифа)}».** {статус.} {комментарий.}
-- _(и так по каждому пункту в исходном порядке)_
+- **"{verbatim brief item 1}".** {human-readable status}. {Outcome, evidence and remaining limitation.}
+- **"{verbatim brief item 2}".** {human-readable status}. {Explanation.}
+- **"{expectations item}" (brief clarification).** {human-readable status}. {Explanation.}
 
-## Артефакты задачи
+## Task artifacts <!-- datarim:artifacts -->
 
-{Что появилось или изменилось. Свободная проза + bullet. Файлы — относительные пути. Без verdict-таблиц.}
+{What was created, changed or confirmed; relative paths and evidence links.}
 
-## Следующие шаги
+## Next steps <!-- datarim:next-steps -->
 
-{Либо «всё закрыто», либо bullet/проза. Указывать конкретные команды `/dr-*` или операторские действия.}
+{State that all authorized work is complete only when supported; otherwise
+list specific remaining conditions and authorized next actions.}
 
 ---
 
-## Дополнительно для аудита
+## Audit addendum <!-- datarim:audit -->
 
 ### verification_outcome
 
-{Дублирует YAML frontmatter в человеческом представлении: по одному bullet на каждый счётчик (`caught_by_verify`, `missed_by_verify`, `false_positive`, `n_a`) + `dogfood_window`.}
+{Human-readable mirror of each verification_outcome counter and dogfood_window.}
 
 ### Acceptance Criteria
 
@@ -83,13 +91,12 @@ Canonical contract — skills/self-verification/SKILL.md § Findings Schema.
 
 ### Lessons Learned
 
-{Короткая выжимка ≤3 bullet. Полный текст — `reflection-{ID}.md`.}
+{Digest of at most three lessons; full text in `reflection-{ID}.md`.}
 
 ### Operator Handoff
 
-{Любые остаточные следы, отложенные улучшения или операторские шаги для следующего исполнителя. Если пусто — одна строка «всё закрыто».}
+{Remaining artifacts, deferred improvements or next-owner actions; state none only when confirmed.}
 
-<!-- /allow-non-ascii-block -->
 
 ### Related
 

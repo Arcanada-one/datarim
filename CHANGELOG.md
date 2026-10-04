@@ -4,6 +4,28 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.3.0] — 2026-10-04
+
+### Added
+
+- Independent reply and generated artifact language preferences, both defaulting to English. Personal XDG configuration, shared project defaults and private overrides resolve through one portable helper, including standalone reporting without framework activation. Explicit task requests and native authority remain intact; configuration never infers language from a country, hostname or the latest message.
+- Language configuration how-to, precedence reference and tutorial, linked from README, INSTALL and standalone reporting. The configuration template distinguishes private and shared scopes; changing preferences requires no reinstall.
+- Human Outcome Reporting 0.3.0 presentation catalogs for English, Russian, French, Arabic and Japanese. Missing catalogs disclose English label fallback; caller prose, original briefs, code and machine values remain unchanged. Human report stdout follows replies; saved documents pass their artifact language explicitly.
+
+### Changed
+
+- Commands, agents, templates, next-step blocks and delegated work use resolved reply/artifact languages. New expectations use stable English field identifiers and language-neutral presentation markers; legacy Russian records remain readable. The optional Stop hook accepts translated headings without dropping structural checks.
+- Website delivery evidence uses the complete mobile/desktop and light/dark matrix for every signed, declared locale. Existing Russian/English receipts retain their eight-cell schema checks; other languages receive the same mandatory semantic matrix checks.
+- Native reporting installation preserves existing personal language settings and reads preferences through supported agent surfaces. Cursor resolves the allowlisted workspace root at session start; ambiguous workspaces and configuration errors are disclosed.
+
+### Fixed
+
+- Configuration diagnostics cannot promote repository-controlled exception text into Cursor's instruction context. Bounded JSON nesting retains valid diagnostics on supported Python versions; duplicate-key errors never echo untrusted keys.
+- Preference writes use no-follow, descriptor-anchored reads and atomic replacement, preventing symlink or directory substitution from redirecting writes. Independent adversarial reproductions have permanent regression controls.
+- Standalone archives include the preference resolver, presentation engine and every shipped catalog. The reporting CI gate includes preference-resolution tests alongside renderer and installer tests.
+- Local pre-commit ShellCheck uses the documented native executable, removing its Docker dependency. Local and CI Bandit scans share the same threshold and exclude only the intentional unsafe control; mandatory unsafe and clean canaries verify detection while retaining clean-fixture product coverage.
+- Exact CI shard inventories include every new locale-schema case and full signed French/Arabic delivery test. Missing, extra and duplicate locale evidence fails after a passing baseline and valid re-signing, without changing production deadlines or admission rules.
+
 ## [4.2.3] — 2026-10-04
 
 ### Fixed

@@ -20,6 +20,10 @@ SKILL_FILES = (
     'references/re-explain.md', 'references/data-and-trust.md', 'references/datarim.md',
     'schemas/task-contract.schema.json', 'schemas/report.schema.json',
     'schemas/execution-receipt.schema.json', 'scripts/hr.py', 'scripts/native.py',
+    'scripts/language.py', 'scripts/presentation.py',
+    'references/language-preferences.md', 'references/presentation.md',
+    'locales/en.json', 'locales/ru.json', 'locales/fr.json',
+    'locales/ar.json', 'locales/ja.json',
     'tests/test_portable.py',
 )
 DOC_FILES = (
@@ -33,7 +37,8 @@ INTEGRATION_FILES = (
     'commands/dr-qa.md', 'commands/dr-compliance.md', 'commands/dr-archive.md',
     'dev-tools/command-graph.yaml', 'dev-tools/framework-graph.yaml',
     'dev-tools/framework-graph.py', 'dev-tools/package-human-reporting.py',
-    'skills/datarim-system/SKILL.md', 'skills/human-summary/SKILL.md',
+    'skills/datarim-system/SKILL.md', 'skills/datarim-system/language-preferences.md',
+    'skills/human-summary/SKILL.md',
     'skills/visual-maps/command-dependencies.md',
     'skills/visual-maps/framework-architecture.md',
     'tests/test_human_reporting.py', 'tests/test_human_reporting_release.py',

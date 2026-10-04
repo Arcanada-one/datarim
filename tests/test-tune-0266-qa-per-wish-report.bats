@@ -10,7 +10,8 @@
 #
 # Covers:
 #   - Per-Wish Detailed Block Template presence in dr-qa.md Layer 3b
-#   - 3 mandatory sub-headings (Что было сделано / Команда + результат / Verdict)
+#   - 3 mandatory fields (How it was verified / Command and observed result / Verdict)
+#   - Localize presentation in the resolved artifact language, preserving evidence
 #   - evidence_type rules (empirical / static / measurement) declared
 #   - Per-wish block instruction in the per-item walk
 #
@@ -43,12 +44,12 @@ extract_layer_3b() {
     extract_layer_3b | grep -E "\*\*Evidence type:" >/dev/null
 }
 
-@test "Per-Wish block template declares what-was-done sub-heading" {
-    extract_layer_3b | grep -F "Что было сделано для проверки" >/dev/null
+@test "Per-Wish block template declares verification sub-heading" {
+    extract_layer_3b | grep -F "**How it was verified:**" >/dev/null
 }
 
-@test "Per-Wish block template declares command-plus-result sub-heading" {
-    extract_layer_3b | grep -F "Команда + результат" >/dev/null
+@test "Per-Wish block template declares command-and-observed-result sub-heading" {
+    extract_layer_3b | grep -F "**Command and observed result:**" >/dev/null
 }
 
 @test "Per-Wish block template declares 'Verdict' field" {
@@ -67,8 +68,16 @@ extract_layer_3b() {
     extract_layer_3b | grep -iE "static.*(grep|file-check|MAY use|file presence)" >/dev/null
 }
 
-@test "Layer 3b cites operator goal rationale from TUNE-0266 brief" {
-    extract_layer_3b | grep -F "по каждому пункту отчёт" >/dev/null
+@test "Layer 3b ties every operator wish to the observed verification evidence" {
+    extract_layer_3b | grep -F "Each operator wish needs its own record of what was checked" >/dev/null
+    extract_layer_3b | grep -F "a one-to-one link between intent and evidence" >/dev/null
+}
+
+@test "Per-Wish presentation uses resolved artifact language and preserves machine evidence" {
+    extract_layer_3b | tr '\n' ' ' | grep -F \
+        "Localize the following presentation labels and prose in the resolved artifact language." >/dev/null
+    extract_layer_3b | grep -F "Keep wish identifiers, evidence enums, exact commands, stdout/stderr," >/dev/null
+    extract_layer_3b | grep -F "exit codes and measured values unchanged." >/dev/null
 }
 
 @test "Layer 3b declares evidence-type-mismatch finding class" {

@@ -3,6 +3,8 @@ name: dr-compliance
 description: Adaptive post-QA hardening. Detects task type and applies matching verification checklist. Final quality gate before archiving.
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-compliance — Adaptive Post-QA Hardening
 
 **Mandatory evidence loop:** apply `skills/immutability/SKILL.md` § Acceptance
@@ -51,7 +53,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
     - `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` — read the `/dr-compliance Rules` fragment for compliance checklist structure immutability, anti-tautological criterion, and Return-to-Source routing.
 5.  **DETECT TASK TYPE**: Read `datarim/tasks.md` (for the resolved task) and `datarim/activeContext.md`. Determine: code, documentation, research, legal, content, infrastructure, or mixed. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `${DATARIM_RUNTIME:?}/skills/init-task-persistence/SKILL.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the verified output MUST be surfaced in the compliance report § Plain-language summary. Missing init-task is non-blocking — flag as advisory and continue.
 5b. **VERIFY EXPECTATIONS** (mandatory when `datarim/tasks/{TASK-ID}-expectations.md` exists per `${DATARIM_RUNTIME:?}/skills/expectations-checklist/SKILL.md`):
-    -   Re-read the file. For each item under `## Ожидания`, run its `Как проверить (success criterion)` against the implementation and append one transition line to `#### История статусов` in the canonical format `<ISO> / <local> · /dr-compliance · <prior> → <new> · reason: <one-sentence plain ru>`. Update the item's `#### Текущий статус`. <!-- allow-non-ascii: russian-expectations-section-and-field-names-cited-from-canonical-schema -->
+    -   Re-read the file. For each item under `## Expectations`, run its `success_criterion` against the implementation and append one transition line to `#### status_history` in the canonical format `<ISO> / <local> · /dr-compliance · <prior> → <new> · reason: <one-sentence explanation in the resolved artifact language>`. Update the item's `#### current_status`.
     -   Invoke the routing validator:
         ```bash
         "${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}
@@ -116,20 +118,20 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters citing the compliance-standard rationale.
     -   On contradiction with an expectation: add `--conflict-with <wish_id>` (+ optional `--conflict-detail-file`); CTA MUST route back to `/dr-do --focus-items <wish_id>` for closure before the task can be archived.
     -   Skip if no clarification rounds occurred.
-7.  **REPORT**: Output a compliance report file using the canonical structure from `${DATARIM_RUNTIME:?}/templates/compliance-report-template.md` (frontmatter `task_id`, `date`, `verdict`, optional `scope`; four top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги» — followed by the audit addendum under `---` carrying `### Step-by-step verdicts`, `### Remaining risks`, `### Related`). <!-- allow-non-ascii: russian-archive-template-section-names-cited-from-template -->
-    -   `## Начальная задача`: one Russian sentence sourced from `tasks/{TASK-ID}-init-task.md § Operator brief (verbatim)`, compressed to a single phrase. <!-- allow-non-ascii: russian-archive-template-section-name-cited-from-template -->
-    -   `## Как решили`: single-level bullet list, one item per bullet in the operator brief (original order). Each bullet: bold operator-words quotation + Russian status word («выполнено» / «частично» / «не выполнено» / «неприменимо» — never the schema enum `met`/`partial`/`missed`/`n-a`) + one or two plain-language sentences. Expectations from `tasks/{TASK-ID}-expectations.md § Ожидания` are folded into the same list with marker `(уточнение брифа)` appended to the quotation. No tables in this section. <!-- allow-non-ascii: russian-archive-template-section-name-cited-from-template -->
-    -   `## Артефакты задачи`: what was verified or hardened by this compliance pass (reports, modified files, refreshed contracts). Prose + bullets allowed; no verdict tables in this top section. <!-- allow-non-ascii: russian-archive-template-section-name-cited-from-template -->
-    -   `## Следующие шаги`: either «всё закрыто» or concrete `/dr-*` commands / operator actions (including `/dr-archive`). <!-- allow-non-ascii: russian-archive-template-section-name-and-status-token-cited-from-template -->
+7.  **REPORT**: Output a compliance report file using the canonical structure from `${DATARIM_RUNTIME:?}/templates/compliance-report-template.md` (frontmatter `task_id`, `date`, `verdict`, optional `scope`; four top sections in strict order — «Original request», «How it was resolved», «Task artifacts», «Next steps» — followed by the audit addendum under `---` carrying `### Step-by-step verdicts`, `### Remaining risks`, `### Related`).
+    -   `## Original request`: one sentence in the resolved artifact language sourced from `tasks/{TASK-ID}-init-task.md § Operator brief (verbatim)`, compressed to a single phrase.
+    -   Resolution section (marker `datarim:resolution`): single-level bullet list in original brief order. Use the final verified status and most recent `status_history` reason (legacy aliases accepted), preserving the original final-status/evidence source. Preserve operator quotations; translate human-readable status (fulfilled / partly fulfilled / unfulfilled / not applicable), never the schema enum `met`/`partial`/`missed`/`n-a`. Add evidence and limits; fold expectations with a localized brief-clarification marker. No tables in this section.
+    -   `## Task artifacts`: what was verified or hardened by this compliance pass (reports, modified files, refreshed contracts). Prose + bullets allowed; no verdict tables in this top section.
+    -   `## Next steps`: either a localized "nothing outstanding" statement or concrete `/dr-*` commands / operator actions (including `/dr-archive`).
     -   Audit addendum under `---`: `### Step-by-step verdicts` (the 7-step compliance table, wrapped in `<!-- gate:literal -->` fence to bypass the banlist on English column headings), `### Remaining risks`, `### Related`.
     -   Apply the banlist from `skills/human-summary/banlist.txt` to the prose in the top four sections; the audit addendum tables MAY use `<!-- gate:literal -->` fence when they include ASCII technical terms.
 8.  **HUMAN SUMMARY**:
     - Load `${DATARIM_RUNTIME:?}/skills/human-summary/SKILL.md`.
-    - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the verdict / report block and the CTA block ([definition](../skills/cta-format/SKILL.md)). Language follows the most recent operator message. <!-- allow-non-ascii: russian-operator-summary-section-name-cited-from-template -->
+    - Emit the localized operator-summary section with the four semantic sub-sections and markers from `skills/human-summary/SKILL.md`, before the CTA. Use the resolved reply preference.
     - Source material: § Overview of the task description, per-step results from Step 6, and the verdict from Step 7.
-    - Runs on every verdict (COMPLIANT, COMPLIANT_WITH_NOTES, NON-COMPLIANT). On NON-COMPLIANT the «Что не получилось» sub-section carries the failure detail in plain language and «Что дальше» paraphrases the FAIL-Routing CTA without command syntax. <!-- allow-non-ascii: literal-russian-sub-section-name-tokens-from-human-summary-skill -->
+    - Runs on every verdict (COMPLIANT, COMPLIANT_WITH_NOTES, NON-COMPLIANT). On NON-COMPLIANT the open-conditions sub-section carries the failure detail in plain language and the next-actions section paraphrases the FAIL-Routing CTA without command syntax.
     - The summary MUST honour the banlist + whitelist + per-paragraph escape-hatch contract from the skill (`<!-- gate:literal -->` … `<!-- /gate:literal -->` for verbatim quoted blocks only; max two fenced paragraphs per summary).
-    - Output: chat. If `datarim/reports/compliance-report-{task_id}.md` exists, append the same section at the end of that file.
+    - Output: chat. If `datarim/reports/compliance-report-{task_id}.md` exists, append the same facts rendered in the resolved artifact language at the end of that file.
     - Length policy: completeness before brevity; no hard word cap. Preserve all material conditions and limitations total across the four sub-sections. Follow `human-summary` for a clearly labelled short view and an authorized full report.
 
 8.5. **REFLECT ON A PASSING VERDICT** (runs only when the Step 7 verdict is COMPLIANT or COMPLIANT_WITH_NOTES; skipped on NON-COMPLIANT):

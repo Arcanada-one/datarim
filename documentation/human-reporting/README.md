@@ -1,6 +1,6 @@
 # Human Outcome Reporting
 
-Human Outcome Reporting 0.2.3 is integrated into Datarim 4.2.3 and can be installed independently. It explains the original need, the observed user-visible outcome, acceptance evidence, delivery state and material open conditions without requiring the previous conversation.
+Human Outcome Reporting 0.3.0 is integrated into Datarim 4.3.0 and can be installed independently. It explains the original need, the observed user-visible outcome, acceptance evidence, delivery state and material open conditions without requiring the previous conversation.
 
 Natural prose keeps spaces between words and numbers, dates, roles and measured units. Conciseness never means removing word boundaries. The advisory `prose-spacing` lint flags obvious compression outside literal code, paths and identifiers; it never rewrites canonical names. Passing this heuristic does not prove that every report is readable.
 
@@ -13,6 +13,15 @@ The authority is [SKILL.md](../../skills/human-outcome-reporting/SKILL.md). Glob
 `/dr-explain` re-explains a result or one unfamiliar term using authorized original sources. It does not run tests, change code or a glossary, publish a product, or close a task. Acknowledging understanding is not acceptance. An incorrect previous claim is corrected explicitly. The command's read-only boundary is in its body as well as frontmatter so client wrappers preserve it.
 
 Use the [report template](../../templates/human-outcome-report-template.md) for substantive work. `human-summary` remains the four-section presentation for QA, compliance and archive; it is not a competing reporting authority. Its hard word cap is removed so failures and unmeasured conditions cannot disappear for brevity.
+
+## Language preferences
+
+Reply language and generated artifact language resolve independently, with English
+fallbacks. Personal preferences and shared/private project choices are read by one
+[resolver](../reference/language-preferences.md), also shipped in standalone
+reporting. See [configure languages](../how-to/configure-languages.md). Fixed
+renderer labels use validated catalogs and disclose English fallback when a
+catalog is unavailable; source prose, quotations and machine values remain intact.
 
 ## Standalone installation
 

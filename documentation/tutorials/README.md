@@ -30,6 +30,7 @@ Kebab-case `.md` filenames describing the learning goal, for example
 
 | File | What it teaches |
 |------|-----------------|
+| [`language-preferences.md`](language-preferences.md) | Try different conversation and document languages. |
 | [`getting-started.md`](getting-started.md) | Install Datarim, initialise it in a project, and run your first task end to end. |
 | [`initialize-datarim.md`](initialize-datarim.md) | What a project install does and how it behaves afterwards. |
 | [`initialize-datarim-with-jev.md`](initialize-datarim-with-jev.md) | The Jev key, checks and entry points after a project install with Jev. |

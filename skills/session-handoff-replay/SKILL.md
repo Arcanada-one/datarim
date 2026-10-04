@@ -90,11 +90,11 @@ probe does the replay carry `verified:`.
 This template is the **shared renderer** defined in
 `skills/dr-next-snapshot-replay/SKILL.md` § Shared Replay Renderer.
 
-The session-handoff replay emits the same bilingual block and `done before:`
+The session-handoff replay emits the same autonomy block and `done before:`
 structure as the per-task snapshot replay, with these additions:
 
 1. Re-verification banners (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING)
-   emitted BEFORE the bilingual block.
+   emitted BEFORE the autonomy block.
 2. `<recommended-CTA>` from the artefact's `recommended_next` frontmatter field.
 
 <!-- allow-non-ascii-block: canonical-bilingual-replay-prompt-rendered-verbatim-to-agent-runtime -->
@@ -104,7 +104,6 @@ structure as the per-task snapshot replay, with these additions:
 
 <recommended-CTA>
 
-ищи способ исследовать все проблемы и ответить на все вопросы самостоятельно. выполняй за оператора все необходимые шаги и требования, которые можешь сделать сам. не создавай FU подзадачи, если они уровня 1, а решай их в этом же цикле до полного решения.
 Find a way to investigate all problems and answer all questions yourself. Perform on behalf of the operator every step and requirement you can do yourself. Do not spawn FU sub-tasks for Level-1 work — resolve them in the same cycle to completion.
 
 done before:
@@ -151,7 +150,7 @@ current TASK-ID. Apply the Task Resolution Rule:
 ## Related
 
 - `skills/session-handoff-writer/SKILL.md` — the producer side.
-- `skills/dr-next-snapshot-replay/SKILL.md` § Shared Replay Renderer — bilingual template source.
+- `skills/dr-next-snapshot-replay/SKILL.md` § Shared Replay Renderer — shared template source.
 - `dev-tools/check-session-handoff.sh` — the mandatory validator.
 - `dev-tools/reverify-session-claims.sh` — deterministic re-verification banner emitter (the canonical source of the STALE / CLAIM-UNVERIFIED / FILE-MISSING / CONTENT-LANDED strings).
 - `commands/dr-continue.md` — the operator-facing command.

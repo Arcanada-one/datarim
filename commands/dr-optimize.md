@@ -5,6 +5,8 @@ allowed-tools: Read Write Edit Grep Glob Bash WebSearch WebFetch Agent
 effort: high
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-optimize — Framework Optimization
 
 **Role**: Optimizer Agent

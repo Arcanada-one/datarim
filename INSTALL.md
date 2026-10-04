@@ -121,7 +121,7 @@ git checkout "$(git describe --tags --abbrev=0 --match 'v*')"   # latest release
 The 4.2.3 public history begins at a new signed root commit. An older clone has
 unrelated ancestry: do not merge the histories or force-reset a working project.
 Keep local branches and edits, create a separate clean source clone, verify
-`v4.2.3` using [release verification](documentation/how-to/release-verification.md),
+the current release, `v4.3.0`, using [release verification](documentation/how-to/release-verification.md),
 and run `./update.sh --project <PROJECT>` from that clone. The installer checks
 owned files before updating and retains the project's remembered choices.
 See [history transition](documentation/how-to/history-transition.md).
@@ -326,6 +326,25 @@ external adapter would use. Your clients keep their own sign-in. The
 optional plugins and CLI read their own variables (`DR_ORCH_*`, `DR_FLEET_*`,
 `DATARIM_CLI_*`); they are not needed to install, see each plugin's `README.md`
 under `plugins/` and [the CLI reference](documentation/reference/cli.md).
+
+### Reply and artifact languages
+
+Both default to English. To use another conversational language while preserving
+English project documents, configure the independent preferences after installing:
+
+```sh
+python3 .datarim-runtime/skills/human-outcome-reporting/scripts/language.py configure --scope user --replies fr --artifacts en
+python3 .datarim-runtime/skills/human-outcome-reporting/scripts/language.py resolve --project "$PROJECT"
+```
+
+The user file is `$XDG_CONFIG_HOME/datarim/config.yaml`, falling back to
+`~/.config/datarim/config.yaml`. Shared project defaults use `datarim/config.yaml`;
+private project overrides use `datarim/config.local.yaml`. These settings are
+separate from Jev settings and permission mode. Updating a preference needs no
+reinstall; existing sessions can retain old context. See
+[language configuration](documentation/how-to/configure-languages.md) for
+precedence, migration of `Artifact language: <tag>`, standalone paths and
+renderer catalog fallback.
 
 ## Step 5 — Verify
 

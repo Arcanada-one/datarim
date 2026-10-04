@@ -530,20 +530,48 @@
                 "properties": { "painted_matrix_applicable": { "const": true } }
               },
               "painted_matrix": {
-                "minItems": 8,
-                "maxItems": 8,
-                "allOf": [
-                  { "contains": { "$ref": "#/$defs/ruMobileLight" } },
-                  { "contains": { "$ref": "#/$defs/ruMobileDark" } },
-                  { "contains": { "$ref": "#/$defs/ruDesktopLight" } },
-                  { "contains": { "$ref": "#/$defs/ruDesktopDark" } },
-                  { "contains": { "$ref": "#/$defs/enMobileLight" } },
-                  { "contains": { "$ref": "#/$defs/enMobileDark" } },
-                  { "contains": { "$ref": "#/$defs/enDesktopLight" } },
-                  { "contains": { "$ref": "#/$defs/enDesktopDark" } }
-                ]
+                "minItems": 1,
+                "description": "The semantic receipt validator requires exactly every declared signed locale x viewport x theme cell, without omissions, extras or duplicates."
               }
             },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "applicability": {
+                      "properties": {
+                        "locales": {
+                          "minItems": 2,
+                          "maxItems": 2,
+                          "allOf": [
+                            { "contains": { "const": "ru" } },
+                            { "contains": { "const": "en" } }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "painted_matrix": {
+                      "minItems": 8,
+                      "maxItems": 8,
+                      "allOf": [
+                        { "contains": { "$ref": "#/$defs/ruMobileLight" } },
+                        { "contains": { "$ref": "#/$defs/ruMobileDark" } },
+                        { "contains": { "$ref": "#/$defs/ruDesktopLight" } },
+                        { "contains": { "$ref": "#/$defs/ruDesktopDark" } },
+                        { "contains": { "$ref": "#/$defs/enMobileLight" } },
+                        { "contains": { "$ref": "#/$defs/enMobileDark" } },
+                        { "contains": { "$ref": "#/$defs/enDesktopLight" } },
+                        { "contains": { "$ref": "#/$defs/enDesktopDark" } }
+                      ]
+                    }
+                  }
+                }
+              }
+            ],
             "not": { "required": ["not_applicable_reason"] }
           },
           "else": {
@@ -578,7 +606,7 @@
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" }
+          "items": { "type": "string", "maxLength": 63, "pattern": "^(?:[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*|[ixIX](?:-[A-Za-z0-9]{1,8})+)(?![\\s\\S])" }
         },
         "viewports": {
           "type": "array",
@@ -605,7 +633,7 @@
       "additionalProperties": false,
       "required": ["locale", "viewport", "theme", "evidence_ref", "observed_at"],
       "properties": {
-        "locale": { "enum": ["ru", "en"] },
+        "locale": { "type": "string", "maxLength": 63, "pattern": "^(?:[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*|[ixIX](?:-[A-Za-z0-9]{1,8})+)(?![\\s\\S])" },
         "viewport": { "enum": ["mobile", "desktop"] },
         "theme": { "enum": ["light", "dark"] },
         "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },

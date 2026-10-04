@@ -296,7 +296,12 @@ parse_items() {
             # line continues an already-open HTML comment or code span.
             fence_line = fence_candidate($0)
             if (!in_comment && code_span_len == 0 && start_fence(fence_line)) next
+            # A semantic marker identifies localized presentation only on an
+            # active H2, outside an existing comment/code span/fence.
+            marked_expectations = !in_comment && code_span_len == 0 &&
+                fence_candidate($0) ~ /^##[ \t]+[^<]+<!--[ \t]*datarim:expectations[ \t]*-->[ \t]*$/
             $0 = strip_html_comments($0)
+            if (marked_expectations && !suppress_structure) $0 = "## Expectations"
             if (suppress_structure) next
             if ($0 ~ /^[ \t]*$/) next
             fence_line = fence_candidate($0)
@@ -393,7 +398,7 @@ parse_items() {
                     in_history = 0; in_status = 0; next
                 }
                 # Capture success criterion for heuristic-advisory (v3 empirical wishes).
-                if (match($0, /^  - Как проверить \(success criterion\):[ \t]*/)) {
+                if (match($0, /^  - (success_criterion|Как проверить \(success criterion\)):[ \t]*/)) {
                     success_criterion = substr($0, RLENGTH + 1)
                     sub(/[ \t]+$/, "", success_criterion)
                     in_history = 0; in_status = 0; next
@@ -418,10 +423,10 @@ parse_items() {
                     sub(/[ \t]+$/, "", override_artifact)
                     in_history = 0; in_status = 0; next
                 }
-                if ($0 ~ /^  - #### История статусов/) {
+                if ($0 ~ /^  - #### (status_history|История статусов)([ \t]|$)/) {
                     has_history_heading = 1; in_history = 1; in_status = 0; next
                 }
-                if ($0 ~ /^  - #### Текущий статус/) {
+                if ($0 ~ /^  - #### (current_status|Текущий статус)([ \t]|$)/) {
                     has_status_heading = 1; in_history = 0; in_status = 1; next
                 }
                 if (in_history && match($0, /^    - /)) {
@@ -548,7 +553,7 @@ parse_items() {
         }
 
         function is_expectations_heading(line) {
-            return line ~ /^##[ \t]+Ожидания([ \t]+#+)?[ \t]*$/
+            return line ~ /^##[ \t]+(Expectations|Ожидания)([ \t]+#+)?[ \t]*$/
         }
 
         function start_fence(line,    marker, run_len, suffix) {

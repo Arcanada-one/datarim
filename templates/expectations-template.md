@@ -10,81 +10,61 @@ parent_init_task: {TASK-ID}-init-task.md
 parent_prd: ../prd/PRD-{TASK-ID}.md
 ---
 
-<!-- allow-non-ascii-block: canonical expectations schema field and section names plus their Russian placeholder prose — cited verbatim so check-expectations-checklist.sh can string-match them, and an operator-facing hard exclusion under AGENTS.md § Artifact Language Policy -->
+# {TASK-ID} — Operator expectations
 
-# {TASK-ID} — Ожидания оператора
+> Each bullet is one verifiable expectation in the resolved artifact language.
+> Keep machine fields and enums unchanged. `partial` or `missed` without a
+> legitimate `override:` (at least 10 characters) blocks the pipeline and
+> returns to `/dr-do` with the affected `wish_id` values. An override is a
+> sibling wish field indented exactly two spaces, never nested under status.
+> Contract: `skills/expectations-checklist/SKILL.md`.
+> Validator: `"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}`.
+> Translate presentation headings with semantic markers intact; legacy files
+> are read through compatibility aliases and are never silently rewritten.
 
-> **Plain-language operator wishlist.** Каждый пункт — одно проверяемое
-> ожидание, сформулированное обычным русским языком. На стадиях `/dr-qa`,
-> `/dr-compliance`, `/dr-archive` каждому пункту присваивается статус;
-> `partial` или `missed` без `override:` (≥10 символов) блокирует pipeline
-> и возвращает работу в `/dr-do` с указанием конкретных `wish_id`.
-> Строка `override:` — child wish-bullet с отступом **ровно 2 пробела**
-> (`  - override: <текст ≥10 символов>`), на одном уровне с `wish_id`/`evidence_type`,
-> НЕ вложена под `#### Текущий статус` (4 пробела) — иначе валидатор её не видит и держит BLOCKED.
->
-> Контракт схемы: `skills/expectations-checklist/SKILL.md`.
-> Валидатор: `"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}`.
+## Expectations <!-- datarim:expectations -->
 
-## Ожидания
-
-- **1. {Заголовок первого ожидания обычными словами, заканчивается точкой.}**
-  - wish_id: {kebab-slug; допустима кириллица}
-  - Что хочу проверить: {одно-два предложения}
-  - Как проверить (success criterion): {конкретный сигнал — путь к файлу,
-    вывод команды, видимое поведение}
-  - Связанный AC из PRD: {V-AC-N или «—»}
+- **1. {First expectation title in ordinary words, ending with a period.}**
+  - wish_id: {stable ASCII kebab-slug; preserve existing legacy IDs}
+  - wish: {one or two sentences}
+  - success_criterion: {concrete signal: file, command output or visible behavior}
+  - linked_ac: {V-AC-N or the no-link dash}
   - customer_derived: true
   - requirement_id: {req-NNNN}
   - surface_class: {VISITOR_VISIBLE | ENABLING}
   - visitor_visible: {true | false}
   - delivery_receipt: {datarim/receipts/{TASK-ID}-customer-delivery.yaml}
   - evidence_type: {empirical | static | measurement}
-  - #### История статусов
-    - {ISO 8601} / {local-time} · {/dr-init | /dr-prd | /dr-plan} · pending → pending · reason: пункт создан при формировании контракта ожиданий
-  - #### Текущий статус
+  - #### status_history
+    - {ISO 8601} / {local-time} · {/dr-init | /dr-prd | /dr-plan} · pending → pending · reason: wish captured when expectations were created
+  - #### current_status
     - pending
 
-- **2. {Заголовок второго ожидания.}**
+- **2. {Second expectation title.}**
   - wish_id: {kebab-slug}
-  - Что хочу проверить: {…}
-  - Как проверить (success criterion): {…}
-  - Связанный AC из PRD: {V-AC-N или «—»}
+  - wish: {one or two sentences}
+  - success_criterion: {concrete observable signal}
+  - linked_ac: {V-AC-N or the no-link dash}
   - customer_derived: true
   - requirement_id: {req-NNNN}
   - surface_class: {VISITOR_VISIBLE | ENABLING}
   - visitor_visible: {true | false}
   - delivery_receipt: {datarim/receipts/{TASK-ID}-customer-delivery.yaml}
   - evidence_type: {empirical | static | measurement}
-  - #### История статусов
-    - {ISO 8601} / {local-time} · {/dr-init | /dr-prd | /dr-plan} · pending → pending · reason: пункт создан при формировании контракта ожиданий
-  - #### Текущий статус
+  - #### status_history
+    - {ISO 8601} / {local-time} · {/dr-init | /dr-prd | /dr-plan} · pending → pending · reason: wish captured when expectations were created
+  - #### current_status
     - pending
 
-<!-- Добавлять новые ожидания снизу. Сохранять формат полностью —
-     валидатор проверяет наличие wish_id, формат строки История статусов и
-     значение Текущий статус. -->
-
-<!-- OPTIONAL: verification_mode axis (schema v3 and v4).
-     Distinguishes a one-off manual check from a reproducible/wired check.
-     Available in schema v3 and inherited by the v4 default. Add:
-
+<!-- Append new wishes at the bottom, preserving this structure and all existing
+     identifiers/history. Optional v3/v4 fields:
   - verification_mode: reproducible          # one-off | reproducible
-  - evidence_artifact: tests/my-suite.bats   # path, test-id, or CI-job-name
-
-     When verification_mode: reproducible, the validator requires
-     evidence_artifact and resolves it two ways: (1) test -f, (2) grep -rqF
-     across *.bats / *.sh / *.yml / *.yaml under the repo root.
-     Missing or unresolvable → error verification-not-wired (advisory at
-     /dr-qa Layer 3b, hard at /dr-compliance).
-     See skills/expectations-checklist/SKILL.md § verification_mode axis.
--->
+  - evidence_artifact: tests/my-suite.bats    # path, test-id or CI-job-name
+     Reproducible verification requires resolvable evidence; missing evidence
+     remains advisory at QA and a hard compliance error. -->
 
 ## Append-log (operator amendments)
 
-> Дополнения добавляются хронологически. Каждое — отдельная подпись
-> (`### <ISO 8601 timestamp> — amendment by <author>`), без таблиц.
+> Append amendments chronologically under `### <ISO timestamp> — amendment by <author>`.
 
-_(пусто на момент создания)_
-
-<!-- /allow-non-ascii-block -->
+_(empty at creation)_

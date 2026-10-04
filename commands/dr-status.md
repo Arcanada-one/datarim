@@ -3,6 +3,8 @@ name: dr-status
 description: Check current Datarim task status, progress, and Backlog summary
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-status - Check Status
 
 Show current task and Backlog status.

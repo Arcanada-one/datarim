@@ -827,12 +827,6 @@ U4_EDGES = (
 KNOWLEDGE_KINDS = (
     "roles", "skills", "blueprints", "constraints", "policies", "success_criteria"
 )
-PAINTED_MATRIX = {
-    (locale, viewport, theme)
-    for locale in ("ru", "en")
-    for viewport in ("mobile", "desktop")
-    for theme in ("light", "dark")
-}
 APPROVAL_FIELDS = (
     "approved_digest",
     "authority_id",
@@ -3335,9 +3329,8 @@ def validate_live_evidence_edge(requirement_id, acceptance, chain):
     ):
         add(f"painted_matrix_incomplete:{requirement_id}")
     if acceptance["visitor_visible"] and (
-        expected_matrix != PAINTED_MATRIX
-        or matrix != PAINTED_MATRIX
-        or len(live["painted_matrix"]) != 8
+        set(applicability["viewports"]) != {"mobile", "desktop"}
+        or set(applicability["themes"]) != {"light", "dark"}
     ):
         add(f"painted_matrix_incomplete:{requirement_id}")
 

@@ -8,6 +8,8 @@ current_aal: 2
 target_aal: 2
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-auto — Autonomous Execution
 
 **Closed evidence loop:** enforce `skills/immutability/SKILL.md` § Acceptance

@@ -121,6 +121,9 @@ requirements:
         observed_at: "2026-01-02T13:30:00Z"
         evidence_ref: artifacts/live/summary.json
         painted_matrix_applicable: true
+        # Example signed site scope: ru/en. For another explicit site locale
+        # list, include every declared locale x mobile/desktop x light/dark cell.
+        # Reply/artifact preferences never alter signed website acceptance.
         painted_matrix:
           - locale: ru
             viewport: mobile

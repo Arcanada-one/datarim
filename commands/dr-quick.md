@@ -3,6 +3,8 @@ name: dr-quick
 description: Lightweight fast-lane for trivial fixes or quick lookups — assign QCK-XXXX, weak-model KB scan, apply the change, short archive. Skips the heavy init→prd→plan pipeline.
 ---
 
+**Language preferences:** Before output or delegation, read `${DATARIM_RUNTIME:?}/skills/datarim-system/language-preferences.md` and run its resolver for the consuming project. Apply resolved replies/artifacts independently and pass both tags to children; preserve exact machine output.
+
 # /dr-quick — Fast-Lane for Trivial Fixes & Lookups
 
 **Mutating QCK acceptance/evidence floor:** before Step 5, define falsifiable quick-stage
@@ -51,7 +53,7 @@ structured-gate, stage-header, archive, CTA and snapshot steps below.
 /dr-quick "<short task title>"
 ```
 
-Note: title defaults to English unless the operator's configured content language is otherwise.
+Note: new titles use the resolved artifact language (English fallback); preserve an existing task title verbatim.
 
 ## What happens, step by step
 
@@ -91,7 +93,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 ## Stage Header (mandatory)
 
 After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {title}**` as the first line of the post-Step-2 message block, per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header. Do NOT emit the header before the ID is known (before the probe completes). Single occurrence per command invocation.
-3. Append a thin one-liner task line to `tasks.md` and mirror it into `activeContext.md` § Active Tasks. Short English title. By convention the fast-lane uses status `in_progress`, priority `P3`, complexity `L1` (it is for L1-sized work; if the work turns out larger, STOP and recommend `/dr-init` for the full pipeline). Emit the bare VALUES in their positional slots — writing the field NAMES into the line (`· status in_progress · priority P3 · complexity L1 ·`) does not match `ONELINER_RE` and fails the doctor:
+3. Append a thin one-liner task line to `tasks.md` and mirror it into `activeContext.md` § Active Tasks. Short title in the resolved artifact language. By convention the fast-lane uses status `in_progress`, priority `P3`, complexity `L1` (it is for L1-sized work; if the work turns out larger, STOP and recommend `/dr-init` for the full pipeline). Emit the bare VALUES in their positional slots — writing the field NAMES into the line (`· status in_progress · priority P3 · complexity L1 ·`) does not match `ONELINER_RE` and fails the doctor:
 
    For this mutating branch, create the referenced canonical task-description
    from `${DATARIM_RUNTIME:?}/templates/task-template.md`, with the allocated ID,
@@ -99,7 +101,7 @@ After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {t
 
 <!-- gate:history-allowed -->
 ```
-- QCK-0000 · in_progress · P3 · L1 · Short English title → tasks/QCK-0000-task-description.md
+- QCK-0000 · in_progress · P3 · L1 · Short title in the resolved artifact language → tasks/QCK-0000-task-description.md
 ```
 <!-- /gate:history-allowed -->
 
