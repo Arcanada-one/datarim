@@ -28,6 +28,7 @@ Kebab-case `.md` filenames naming the concept, for example `pipeline.md`,
 
 | File | What it explains |
 |------|------------------|
+| [`datarim-for-everyone.md`](datarim-for-everyone.md) | A short introduction to the main capabilities and independent language preferences in 4.3.0. |
 | [`pipeline.md`](pipeline.md) | Each pipeline stage, what it produces, and why the ordering is what it is. |
 | [`consilium.md`](consilium.md) | Why multi-agent panels exist and when a panel beats a single agent. |
 | [`evolution.md`](evolution.md) | The self-evolution loop and why human approval gates it. |

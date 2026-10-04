@@ -24,6 +24,7 @@ All notable changes to the Datarim framework are documented here. Format follows
 - Preference writes use no-follow, descriptor-anchored reads and atomic replacement, preventing symlink or directory substitution from redirecting writes. Independent adversarial reproductions have permanent regression controls.
 - Standalone archives include the preference resolver, presentation engine and every shipped catalog. The reporting CI gate includes preference-resolution tests alongside renderer and installer tests.
 - Local pre-commit ShellCheck uses the documented native executable, removing its Docker dependency. Local and CI Bandit scans share the same threshold and exclude only the intentional unsafe control; mandatory unsafe and clean canaries verify detection while retaining clean-fixture product coverage.
+- Exact CI shard inventories include every new locale-schema case and full signed French/Arabic delivery test. Missing, extra and duplicate locale evidence fails after a passing baseline and valid re-signing, without changing production deadlines or admission rules.
 
 ## [4.2.3] — 2026-10-04
 

@@ -17,6 +17,8 @@ Datarim coordinates AI agents, takes tasks through their required stages autonom
 | **Quick task execution** | `/dr-quick` handles tiny edits and lookups without the full requirements, planning, design, QA and compliance cycle. Changes still require acceptance evidence and confirmation that they reached the shared main branch; larger work returns to the full workflow. | [`/dr-quick "Describe the small task"`](commands/dr-quick.md) |
 | **JEV model classification** | Classifies the task and advises a model tier and reasoning effort; its separate deterministic safety floor checks commands. Routing advice needs a JEV key, while the safety floor works without one. | [`jevcodex`, `jevclaude`, `jevcursor`](documentation/tutorials/initialize-datarim-with-jev.md) |
 
+New to Datarim? Read [Datarim for everyone](documentation/explanation/datarim-for-everyone.md) for a short introduction.
+
 Autonomous execution keeps permission and irreversible-action boundaries. JEV advice is not permission or verification. Install Datarim in the projects where you want the workflow; JEV and the reporting skill can also operate independently.
 
 **New in 4.3.0:** choose your reply language independently from generated document
