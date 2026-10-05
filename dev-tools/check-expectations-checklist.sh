@@ -143,6 +143,12 @@ fi
 [ -z "$TODAY" ] && TODAY="$(date +%Y-%m-%d)"
 
 TASKS_DIR="$ROOT/datarim/tasks"
+# shellcheck source=scripts/lib/task-artifact-path.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib" && pwd)/task-artifact-path.sh" || exit 2
+if [ "$MODE" != "all" ] && ! [[ "$TASK_ID" =~ $TASK_ID_RE ]]; then
+    printf 'ERROR: invalid task id does not match the canonical pattern\n' >&2
+    exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -872,13 +878,19 @@ validate_single_task() {
 
     parent_prd=$(extract_frontmatter_field "$file" "parent_prd")
     if [ -n "$parent_prd" ]; then
-        if [ "$schema_v" = "4" ] && [ "$parent_prd" != "../prd/PRD-${id}.md" ]; then
-            echo "ERROR: $file: parent_prd must equal ../prd/PRD-${id}.md, got '$parent_prd'" >&2
+        local selected_prd selected_relative
+        if ! selected_prd="$(task_artifact_path "$ROOT/datarim" "$id" prd)"; then
             errors=$(( errors + 1 ))
-        elif [ "$schema_v" != "4" ] && [ "$parent_prd" != "../prd/PRD-${id}.md" ] \
-             && [ "$parent_prd" != "datarim/prd/PRD-${id}.md" ]; then
-            echo "ERROR: $file: legacy parent_prd must be task-bound, got '$parent_prd'" >&2
-            errors=$(( errors + 1 ))
+        else
+            selected_relative="prd/$(basename "$selected_prd")"
+            if [ "$schema_v" = "4" ] && [ "$parent_prd" != "../$selected_relative" ]; then
+                echo "ERROR: $file: parent_prd must equal ../$selected_relative, got '$parent_prd'" >&2
+                errors=$(( errors + 1 ))
+            elif [ "$schema_v" != "4" ] && [ "$parent_prd" != "../$selected_relative" ] \
+                 && [ "$parent_prd" != "datarim/$selected_relative" ]; then
+                echo "ERROR: $file: legacy parent_prd must be task-bound, got '$parent_prd'" >&2
+                errors=$(( errors + 1 ))
+            fi
         fi
     fi
 

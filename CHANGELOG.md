@@ -4,6 +4,19 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.3.3] — 2026-10-05
+
+### Fixed
+
+- **macOS strategist validation** now reads identity from the actual opened file descriptor, preserving ownership, permissions and replacement checks instead of comparing BSD virtual descriptor metadata.
+
+- Expectations, specification lint, trace, automatic stage validation and the deterministic verification floor use one shared resolver for the PRD and dedicated plan selected in the task description. Task-bound versioned documents are checked directly; a stale unversioned copy cannot hide errors in the selected revision. Missing pointers retain legacy filenames, and lightweight tasks retain their embedded-plan workflow.
+- Explicit selection rejects missing or cross-task files, ambiguous identities, malformed flat descriptor fields and symlinks within the selected state boundary. Caller-selected host path aliases are normalized to a physical root. Whole-string task validation rejects multiline input before constructing artifact paths; quoted descriptor scalars must have a genuine closing delimiter.
+
+### Added
+
+- Official Datarim brand masters for light and dark wordmarks and the square icon, preserved byte-for-byte with optimized PNG/WebP derivatives. README theme selection, brand usage guidance and website identity use the same supplied artwork.
+
 ## [4.3.2] — 2026-10-04
 
 ### Fixed

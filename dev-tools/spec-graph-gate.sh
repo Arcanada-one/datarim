@@ -54,8 +54,10 @@ while [ "$search" != "/" ] && [ -n "$search" ]; do
 done
 [ -n "$DATARIM_ROOT" ] || usage_die "datarim/ not found from $ROOT"
 
-PRD="$DATARIM_ROOT/prd/PRD-${TASK}.md"
-DEDICATED_PLAN="$DATARIM_ROOT/plans/${TASK}-plan.md"
+# shellcheck source=scripts/lib/task-artifact-path.sh
+. "${SCRIPT_DIR}/../scripts/lib/task-artifact-path.sh" || exit 2
+PRD="$(task_artifact_path "$DATARIM_ROOT" "$TASK" prd)" || exit 2
+DEDICATED_PLAN="$(task_artifact_path "$DATARIM_ROOT" "$TASK" plan)" || exit 2
 PLAN="$DEDICATED_PLAN"
 EXPECTATIONS="$DATARIM_ROOT/tasks/${TASK}-expectations.md"
 TASK_DESC="$DATARIM_ROOT/tasks/${TASK}-task-description.md"

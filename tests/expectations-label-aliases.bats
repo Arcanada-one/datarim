@@ -214,6 +214,7 @@ PY
 @test "missing shared normalization helper fails closed in both validators" {
     mkdir -p "$WORK/incomplete/scripts/lib" "$WORK/incomplete/dev-tools"
     cp "$REPO/scripts/lib/spec-graph.sh" "$REPO/scripts/lib/schema-regex.sh" \
+        "$REPO/scripts/lib/task-artifact-path.sh" \
         "$WORK/incomplete/scripts/lib/"
     cp "$CHECK" "$LINT" "$REPO/dev-tools/dr-spec-rules.yaml" \
         "$WORK/incomplete/dev-tools/"

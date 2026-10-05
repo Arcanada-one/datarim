@@ -66,7 +66,7 @@ if [ -z "$TASK_ID" ]; then
     exit 2
 fi
 . "$(cd "$(dirname "$0")/.." && pwd)/scripts/lib/schema-regex.sh"
-if ! printf '%s' "$TASK_ID" | grep -qE "$TASK_ID_RE"; then
+if ! [[ "$TASK_ID" =~ $TASK_ID_RE ]]; then
     echo "dr-verify-floor: invalid task-id (canonical task-id required): $TASK_ID" >&2
     exit 2
 fi
@@ -98,6 +98,11 @@ if [ -z "$DATARIM_ROOT" ]; then
     echo "dr-verify-floor: datarim/ not found walking up from $WORKSPACE" >&2
     exit 2
 fi
+
+# shellcheck source=scripts/lib/task-artifact-path.sh
+. "$(cd "$(dirname "$0")/.." && pwd)/scripts/lib/task-artifact-path.sh" || exit 2
+SELECTED_PRD="$(task_artifact_path "$DATARIM_ROOT" "$TASK_ID" prd)" || exit 2
+SELECTED_PLAN="$(task_artifact_path "$DATARIM_ROOT" "$TASK_ID" plan)" || exit 2
 
 # ---------------------------------------------------------------------------
 # Finding emission helper. Single python call per finding for robust JSON quoting.
@@ -157,7 +162,7 @@ PYEOF
 # ---------------------------------------------------------------------------
 
 check_ac_coverage() {
-    local prd_file="$DATARIM_ROOT/prd/PRD-${TASK_ID}.md"
+    local prd_file="$SELECTED_PRD"
     if [ ! -f "$prd_file" ]; then
         echo "[ac_coverage_grep] SKIP: $prd_file not found" >&2
         mark_skip; return 0
@@ -211,7 +216,7 @@ check_ac_coverage() {
 # ---------------------------------------------------------------------------
 
 check_file_touched() {
-    local plan_file="$DATARIM_ROOT/plans/${TASK_ID}-plan.md"
+    local plan_file="$SELECTED_PLAN"
     if [ ! -f "$plan_file" ]; then
         echo "[file_touched_audit] SKIP: $plan_file not found" >&2
         mark_skip; return 0
@@ -349,8 +354,8 @@ check_spec_graph() {
         echo "[spec_graph] SKIP: spec-graph-gate.sh not found" >&2
         mark_skip; return 0
     fi
-    local prd_file="$DATARIM_ROOT/prd/PRD-${TASK_ID}.md"
-    local plan_file="$DATARIM_ROOT/plans/${TASK_ID}-plan.md"
+    local prd_file="$SELECTED_PRD"
+    local plan_file="$SELECTED_PLAN"
     if [ ! -f "$prd_file" ] && [ ! -f "$plan_file" ]; then
         echo "[spec_graph] SKIP: no PRD/plan for $TASK_ID" >&2
         mark_skip; return 0
@@ -470,7 +475,7 @@ esac
 # contain PRD/plan files for the target task (e.g. Projects/Datarim/ instead of workspace root).
 if [ "$CHECKS_RUN" -eq 0 ]; then
     echo "[WARN] dr-verify-floor: all checks SKIPped or produced 0 findings." >&2
-    echo "[WARN] Ensure --workspace points to the workspace root containing datarim/prd/PRD-${TASK_ID}.md." >&2
+    echo "[WARN] Ensure --workspace points to the task workspace and its selected PRD/plan." >&2
     echo "[WARN] DATARIM_ROOT resolved to: $DATARIM_ROOT" >&2
 fi
 

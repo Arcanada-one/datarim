@@ -43,6 +43,19 @@ stat_follow() {
     stat -Lf '%d:%i:%u:%Lp:%z:%m' "$target" 2>/dev/null
 }
 
+# Read the actual inherited descriptor. BSD /dev/fd stat describes its virtual
+# entry rather than the opened filesystem object, so it cannot bind identity.
+stat_record_fd() {
+    python3 - <<'PYFD'
+import os
+import stat
+
+metadata = os.fstat(3)
+print(f"{metadata.st_dev}:{metadata.st_ino}:{metadata.st_uid}:"
+      f"{stat.S_IMODE(metadata.st_mode):o}:{metadata.st_size}:{int(metadata.st_mtime)}")
+PYFD
+}
+
 emit_result() {
     printf 'result=%s\nreason=%s\n' "$1" "$2"
 }
@@ -144,9 +157,7 @@ EOF
 [ "$record_mode" = 600 ] || malformed 'record mode mismatch'
 
 exec 3<"$RECORD_ABS" || malformed 'cannot open record'
-FD_PATH="/proc/$$/fd/3"
-[ -e "$FD_PATH" ] || FD_PATH="/dev/fd/3"
-RECORD_META_FD_BEFORE=$(stat_follow "$FD_PATH") || malformed 'cannot stat record descriptor'
+RECORD_META_FD_BEFORE=$(stat_record_fd) || malformed 'cannot stat record descriptor'
 [ "$RECORD_META_FD_BEFORE" = "$RECORD_META_PATH" ] \
     || malformed 'record changed before descriptor open'
 TASK_META_OPEN=$(stat_follow "$TASK_DIR") || malformed 'cannot restat task directory'
@@ -217,7 +228,7 @@ while :; do
         *) malformed 'unknown record key' ;;
     esac
 done
-RECORD_META_FD_AFTER=$(stat_follow "$FD_PATH") || malformed 'cannot restat record descriptor'
+RECORD_META_FD_AFTER=$(stat_record_fd) || malformed 'cannot restat record descriptor'
 exec 3<&-
 
 [ "$line_count" -eq 18 ] || malformed 'record is missing required keys'
