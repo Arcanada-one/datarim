@@ -8,7 +8,7 @@ setup() {
     TASK_ID="TUNE-0141"
     INVOCATION_ID="plan-20260720T011722Z"
     DIGEST="1005d94539506a705895eb61caa2da20c53d55d75b0ae493a96ca46b633f8444"
-    TEST_ROOT="$BATS_TEST_TMPDIR/workspace-$BATS_TEST_NUMBER"
+    TEST_ROOT="$(cd "$BATS_TEST_TMPDIR" && pwd -P)/workspace-$BATS_TEST_NUMBER"
     TASK_DIR="$TEST_ROOT/datarim/.auto/strategist-gate/$TASK_ID"
     RECORD_REL="datarim/.auto/strategist-gate/$TASK_ID/$INVOCATION_ID.record"
     RECORD="$TEST_ROOT/$RECORD_REL"
@@ -377,6 +377,17 @@ replace_field() {
             "$HELPER" --root "$TEST_ROOT" --record "$RECORD_REL" --task "$TASK_ID" \
             --complexity L3 --invocation "$INVOCATION_ID" --scope-digest "$DIGEST"
         [ "$status" -eq 2 ]
+        [ "$(cat "$SWAP_COUNT_FILE")" -ge 5 ]
+        if [ "$swap_kind" = record ]; then
+            [ -f "$RECORD.old" ]
+            # Renaming the record may change parent mtime first; otherwise the
+            # final path-to-descriptor identity comparison detects replacement.
+            [[ "$output" == *"record path changed during validation"* ]] ||
+                [[ "$output" == *"task directory changed before record open"* ]]
+        else
+            [ -d "$TASK_DIR.old" ]
+            [[ "$output" == *"task directory changed before record open"* ]]
+        fi
     done
 }
 

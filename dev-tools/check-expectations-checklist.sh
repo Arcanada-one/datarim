@@ -146,8 +146,8 @@ TASKS_DIR="$ROOT/datarim/tasks"
 # shellcheck source=scripts/lib/task-artifact-path.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib" && pwd)/task-artifact-path.sh" || exit 2
 if [ "$MODE" != "all" ] && ! [[ "$TASK_ID" =~ $TASK_ID_RE ]]; then
-    printf 'ERROR: invalid task id\n' >&2
-    exit 2
+    printf 'ERROR: invalid task id does not match the canonical pattern\n' >&2
+    exit 1
 fi
 
 # ---------------------------------------------------------------------------

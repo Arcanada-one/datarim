@@ -36,7 +36,7 @@ teardown() { rm -rf -- "$WORK"; }
         [[ "$output" == *invalid*task* ]]
     done
     run "$REPO/dev-tools/check-expectations-checklist.sh" --task "$task" --root "$WORK"
-    [ "$status" -eq 2 ]
+    [ "$status" -eq 1 ]
     [[ "$output" == *invalid*task* ]]
     run "$REPO/dev-tools/dr-verify-floor.sh" --task "$task" --workspace "$WORK" --stage plan
     [ "$status" -eq 2 ]
