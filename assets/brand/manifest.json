@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "product": "Datarim",
+  "source": "Operator-supplied approved identity",
+  "originals": {
+    "datarim-logo-light.png": {
+      "sha256": "ef2a503b3ad3f139811c8e667fd8e656f754eb152afc72f1398fcbc400835419",
+      "bytes": 201071
+    },
+    "datarim-logo-dark.png": {
+      "sha256": "b3ca18eb3c2f67520a42ddef3938feef1f64f5afb61b4cbd2c72885a286af0e0",
+      "bytes": 211176
+    },
+    "datarim-logo-1024.png": {
+      "sha256": "e0bad257ef55b2ca571a5967af1fc641f24e501ebb5b6a1418d39572aa66a1f3",
+      "bytes": 535777
+    }
+  },
+  "presentation": {
+    "wordmark_crop": "1240x340+40+30",
+    "icon_crop": "960x960+32+32",
+    "reason": "Keep the full approved mark; remove outer transparent padding and stray edge fragments only in derivatives. Originals remain byte-for-byte unchanged.",
+    "colors": "Preserved",
+    "transparency": "Preserved"
+  },
+  "derivatives": {
+    "datarim-icon-180.png": {
+      "sha256": "332db5b5b6f1d5f62b542165c269402da1fc4c158377610df0931d3d60a7374c",
+      "bytes": 33948,
+      "width": 180,
+      "height": 180,
+      "channels": "srgba"
+    },
+    "datarim-icon-192.png": {
+      "sha256": "7c2d43b6bb6f76f74e6c7c6153b25f3221f06bc5c2951d73eb31a0faf6314b1f",
+      "bytes": 37151,
+      "width": 192,
+      "height": 192,
+      "channels": "srgba"
+    },
+    "datarim-icon-32.png": {
+      "sha256": "f9a4e37d5e900af483a9c243ab97d9253c947164b8c48ad35a187dfca79beb09",
+      "bytes": 1888,
+      "width": 32,
+      "height": 32,
+      "channels": "srgba"
+    },
+    "datarim-icon-512.png": {
+      "sha256": "eeb058787d46a8b38cb5383c3b03b14e99c3eabef594770cce583a3d70c463fa",
+      "bytes": 173377,
+      "width": 512,
+      "height": 512,
+      "channels": "srgba"
+    },
+    "datarim-icon-64.png": {
+      "sha256": "f8cd09581f78879f091e2cb66e0aea20f9e2555e4969ba2c98a904fe044e1b8e",
+      "bytes": 6154,
+      "width": 64,
+      "height": 64,
+      "channels": "srgba"
+    },
+    "datarim-wordmark-dark-620.png": {
+      "sha256": "5ed9c102e42e083bebdba54c86b9c45a4b94766830615b9932a9d57ad707b9f6",
+      "bytes": 72440,
+      "width": 620,
+      "height": 170,
+      "channels": "srgba"
+    },
+    "datarim-wordmark-dark-620.webp": {
+      "sha256": "3e76005d3c44152992e9e6f2a9f850b24132a8d0e78e4283bebcc8217db13188",
+      "bytes": 40340,
+      "width": 620,
+      "height": 170,
+      "channels": "srgba"
+    },
+    "datarim-wordmark-dark.png": {
+      "sha256": "ed58265bcf43caa7e7f9ff759cf066b6275fe92862a9439ce3c389ac4e82d762",
+      "bytes": 157444,
+      "width": 1240,
+      "height": 340,
+      "channels": "srgba"
+    },
+    "datarim-wordmark-dark.webp": {
+      "sha256": "8b55924f551617846df5cbd9b55bf43e02505292c0714743a6c90dc2c29fa2e4",
+      "bytes": 110098,
+      "width": 1240,
+      "height": 340,
+      "channels": "srgba"
+    },
+    "datarim-wordmark-light-620.png": {
+      "sha256": "3bafdf9bd41dfbf2210e6943d828b2640772cb24ffdbbec9cdac562651bcfb3e",
+      "bytes": 59432,
+      "width": 620,
+      "height": 170,
+      "channels": "srgba"
+    },
+    "datarim-wordmark-light-620.webp": {
+      "sha256": "43821e2f8234e7279b5cfb43f95351ffe4f20dae2bf71a9fc0df211fc03eed2c",
+      "bytes": 34134,
+      "width": 620,
+      "height": 170,
+      "channels": "srgba"
+    },
+    "datarim-wordmark-light.png": {
+      "sha256": "6284b9ae170b8abb9e712881a8383dfb96808412d1683faf135ba8bc98dd5660",
+      "bytes": 147006,
+      "width": 1240,
+      "height": 340,
+      "channels": "srgba"
+    },
+    "datarim-wordmark-light.webp": {
+      "sha256": "bf1abef44d7a10bbdcd0e5a2f5d8ffedce8301fee15d4f4adc7577be433bbc46",
+      "bytes": 101950,
+      "width": 1240,
+      "height": 340,
+      "channels": "srgba"
+    }
+  }
+}

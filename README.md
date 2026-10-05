@@ -1,3 +1,11 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/datarim-wordmark-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/brand/datarim-wordmark-light.png">
+    <img src="assets/brand/datarim-wordmark-light.png" alt="Datarim" width="420" height="115">
+  </picture>
+</p>
+
 # Datarim
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
@@ -7,6 +15,8 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
 **Website:** [datarim.club](https://datarim.club) — releases, changelog, and the full command/skill/agent catalogue.
+
+**Identity:** use the approved [Datarim logos and usage guidance](assets/brand/README.md) for project pages and communications.
 
 Datarim coordinates AI agents, takes tasks through their required stages autonomously, offers a fast lane for small tasks, and uses JEV classification to advise the model and reasoning effort. It works with Claude Code, Codex and Cursor.
 
