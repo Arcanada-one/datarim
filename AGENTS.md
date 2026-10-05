@@ -14,6 +14,14 @@ evidence and closure checks. JEV advises model tier and reasoning effort; it doe
 not switch a running model or grant permission. The full autonomous route ends
 after passing compliance and reflection; final archive remains separate.
 
+## Datarim brand identity
+
+When presenting Datarim itself, reuse the approved wordmarks and square icon from
+[`assets/brand/`](https://github.com/Arcanada-one/datarim/tree/main/assets/brand).
+Use dark lettering on light backgrounds and white lettering on dark backgrounds.
+Keep transparency, colors and aspect ratio; do not redraw or replace this identity.
+This rule describes Datarim's identity, not the branding of a consumer project.
+
 ## CLI-Agent Models and Versions
 
 The canonical model, effort, and CLI-version policy is
