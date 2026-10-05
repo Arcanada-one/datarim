@@ -86,6 +86,114 @@ class LanguagePreferencesTests(unittest.TestCase):
         self.assertEqual(got['replies'], 'ko')
         self.assertFalse((nested / 'datarim').exists())
 
+    def local_only_child(self, text='language:\n  replies: fr\n  artifacts: de\n'):
+        child = self.project / 'standalone'
+        child.mkdir()
+        local = self.write(child / 'datarim/config.local.yaml', text)
+        return child, local
+
+    def test_local_only_child_is_anchor_below_framework_ancestor(self):
+        (self.project / '.git').rmdir()
+        (self.project / '.datarim-runtime').mkdir()
+        self.shared('language:\n  replies: en\n  artifacts: en\n')
+        child, local = self.local_only_child()
+        nested = child / 'src/component'
+        nested.mkdir(parents=True)
+        before = local.read_bytes()
+        for start in (child, nested):
+            with self.subTest(start=start):
+                got = language.resolve_preferences(project=start, environ=self.env)
+                self.assertEqual(language.project_root(start), child)
+                self.assertEqual((got['replies'], got['artifacts']), ('fr', 'de'))
+                self.assertEqual(got['sources'], {'replies': 'project_local', 'artifacts': 'project_local'})
+        for cwd, project_args in ((nested, []), (self.project, ['--project', str(child)])):
+            result = subprocess.run([sys.executable, str(SCRIPT), 'resolve', *project_args,
+                                     '--user-config', str(self.home / 'absent.yaml')],
+                                    cwd=cwd, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            got = json.loads(result.stdout)
+            self.assertEqual((got['replies'], got['artifacts']), ('fr', 'de'))
+        self.assertEqual(local.read_bytes(), before)
+
+    def test_cli_local_only_child_configure_preserves_ancestor_configuration(self):
+        ancestor = self.write(self.project / 'datarim/config.local.yaml', 'language:\n  replies: en\n  artifacts: ja\n')
+        before = ancestor.read_bytes()
+        child, local = self.local_only_child()
+        result = subprocess.run([sys.executable, str(SCRIPT), 'configure', '--scope',
+                                 'local', '--project', str(child), '--replies', 'ar'],
+                                capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(ancestor.read_bytes(), before)
+        self.assertEqual(language.parse_config(local.read_text()), {'replies': 'ar', 'artifacts': 'de'})
+        self.assertFalse((child / 'datarim/config.yaml').exists())
+
+    def test_local_only_anchor_keeps_explicit_shared_config_and_precedence(self):
+        self.user('language:\n  replies: ru\n  artifacts: en\n')
+        child, _ = self.local_only_child('language:\n  replies: fr\n')
+        explicit = self.write(self.home / 'selected.yaml', 'language:\n  replies: es\n  artifacts: ja\n')
+        got = language.resolve_preferences(project=child, project_config=explicit, environ=self.env)
+        self.assertEqual((got['replies'], got['artifacts']), ('fr', 'ja'))
+        self.assertEqual(got['sources'], {'replies': 'project_local', 'artifacts': 'project'})
+        got = language.resolve_preferences(project=child, project_config=explicit,
+                                           replies='ko', artifacts='ar', environ=self.env)
+        self.assertEqual((got['replies'], got['artifacts']), ('ko', 'ar'))
+
+    def test_malformed_local_only_child_does_not_fall_back_to_ancestor(self):
+        self.shared('language:\n  replies: en\n  artifacts: en\n')
+        child, _ = self.local_only_child('language:\n  replies: not_a_tag\n')
+        with self.assertRaises(language.PreferenceError):
+            language.resolve_preferences(project=child, environ=self.env)
+
+    def test_invalid_local_only_marker_refuses_ancestor_fallback_and_write(self):
+        ancestor = self.write(self.project / 'datarim/config.local.yaml', 'language:\n  replies: en\n')
+        before = ancestor.read_bytes()
+        for kind in ('broken_symlink', 'directory', 'fifo'):
+            with self.subTest(kind=kind):
+                child = self.project / kind
+                local = child / 'datarim/config.local.yaml'
+                local.parent.mkdir(parents=True)
+                if kind == 'broken_symlink':
+                    local.symlink_to(self.home / 'missing.yaml')
+                elif kind == 'directory':
+                    local.mkdir()
+                else:
+                    language.os.mkfifo(local)
+                with self.assertRaises(language.PreferenceError):
+                    language.resolve_preferences(project=child, environ=self.env)
+                result = subprocess.run([sys.executable, str(SCRIPT), 'configure', '--scope',
+                                         'local', '--project', str(child), '--replies', 'ar'],
+                                        capture_output=True, text=True, timeout=3, check=False)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertEqual(ancestor.read_bytes(), before)
+
+    def test_local_only_child_symlink_configure_refuses_without_ancestor_write(self):
+        ancestor = self.write(self.project / 'datarim/config.local.yaml', 'language:\n  replies: en\n')
+        protected = self.write(self.home / 'protected.yaml', 'language:\n  replies: fr\n')
+        child, local = self.local_only_child()
+        local.unlink()
+        local.symlink_to(protected)
+        before = (ancestor.read_bytes(), protected.read_bytes())
+        result = subprocess.run([sys.executable, str(SCRIPT), 'configure', '--scope',
+                                 'local', '--project', str(child), '--replies', 'ar'],
+                                capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual((ancestor.read_bytes(), protected.read_bytes()), before)
+        self.assertTrue(local.is_symlink())
+
+    def test_nested_directory_without_local_anchor_keeps_existing_project_root(self):
+        self.shared('language:\n  artifacts: ja\n')
+        nested = self.project / 'src/component'
+        nested.mkdir(parents=True)
+        self.assertEqual(language.project_root(nested), self.project)
+        self.assertEqual(language.resolve_preferences(project=nested, environ=self.env)['artifacts'], 'ja')
+
+    def test_local_only_anchor_reads_its_legacy_artifact_directive(self):
+        child, _ = self.local_only_child('language:\n  replies: fr\n')
+        self.write(child / 'AGENTS.md', 'Artifact language: de\n')
+        got = language.resolve_preferences(project=child, environ=self.env)
+        self.assertEqual((got['replies'], got['artifacts']), ('fr', 'de'))
+        self.assertEqual(got['sources']['artifacts'], 'legacy_instruction')
+
     def test_legacy_artifact_instruction_and_explicit_conflict(self):
         self.write(self.project / 'AGENTS.md', '# Project\nArtifact language: de\n')
         self.assertEqual(self.resolve()['artifacts'], 'de')

@@ -36,7 +36,7 @@ with `--receipt /path/to/reporting-install.json`.
 
 | Client | Skill directory | Persistent reporting preference |
 | --- | --- | --- |
-| Claude Code | `~/.claude/skills/human-outcome-reporting/` | `~/.claude/output-styles/human-outcome-reporting.md`, selected through `outputStyle` in user `settings.json`, and a synchronous `SessionStart` callback; coding instructions are preserved |
+| Claude Code | `~/.claude/skills/human-outcome-reporting/` | `~/.claude/output-styles/human-outcome-reporting.md`, selected through `outputStyle` in user `settings.json`, and synchronous `SessionStart` and `UserPromptSubmit` callbacks; coding instructions are preserved |
 | Codex | `~/.agents/skills/human-outcome-reporting/` | A marked reporting-only section in `~/.codex/AGENTS.md` (a non-empty existing `AGENTS.override.md` receives it instead), and a synchronous `SessionStart` callback in `~/.codex/hooks.json` |
 | Cursor | `~/.cursor/skills/human-outcome-reporting/` | A user `sessionStart` hook in `~/.cursor/hooks.json` injects the reporting preference and installed skill path |
 
@@ -98,9 +98,14 @@ include shared and private project preferences. Existing native personal choices
 and managed/security rules retain authority. Preferences are read on resolution;
 new native sessions avoid retaining earlier context. Cursor refreshes its context
 when a new conversation starts. Codex and Claude refresh preferences at each
-`SessionStart`, including resume; no reinstall is required after a configuration
-change. An already running conversation retains its prior startup context until
-that event runs again. See [configure languages](configure-languages.md)
+`SessionStart`, including resume. Claude also resolves current preferences at
+`UserPromptSubmit`, before processing a submitted prompt, using the same installed
+helper. That reminder classifies ordinary visible progress and tool narration as
+reply prose and reusable notes or document excerpts as artifact prose. It does
+not run on every tool continuation and cannot guarantee generated language.
+Preference changes require no reinstall; native hook installation changes still
+require a fresh session to verify activation. Other clients retain their prior
+startup context until their supported startup event runs again. See [configure languages](configure-languages.md)
 and [precedence and catalogs](../reference/language-preferences.md).
 
 A reusable Markdown note or document excerpt authored inside a chat reply is
@@ -112,7 +117,7 @@ verbatim input, code and protocol identifiers keep their existing exceptions.
 ## Check a real session
 
 `check` verifies installed file hashes and reports behavior as `not_measured`.
-Its `startup_context` and Codex trust observations remain `not_measured`; an
+Its `startup_context`, `per_turn_context` and Codex trust observations remain `not_measured`; an
 installation receipt reports new Codex definitions as `native_review_required`.
 To test behavior, start a new session in a disposable directory without Datarim.
 Ask the client to explain a task whose files are complete but whose production

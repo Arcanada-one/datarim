@@ -1,6 +1,6 @@
 # Human Outcome Reporting
 
-Human Outcome Reporting 0.3.1 is integrated into Datarim 4.3.2 and can be installed independently. It explains the original need, the observed user-visible outcome, acceptance evidence, delivery state and material open conditions without requiring the previous conversation.
+Human Outcome Reporting 0.3.2 is integrated into Datarim 4.3.4 and can be installed independently. It explains the original need, the observed user-visible outcome, acceptance evidence, delivery state and material open conditions without requiring the previous conversation.
 
 Natural prose keeps spaces between words and numbers, dates, roles and measured units. Conciseness never means removing word boundaries. The advisory `prose-spacing` lint flags obvious compression outside literal code, paths and identifiers; it never rewrites canonical names. Passing this heuristic does not prove that every report is readable.
 

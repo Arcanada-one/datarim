@@ -33,7 +33,7 @@ presentation = _sibling('presentation')
 def preferences(*, language=None, project=None):
     return _sibling('language').resolve_preferences(project=project, replies=language)
 
-VERSION = '0.3.1'
+VERSION = '0.3.2'
 BASE = Path(__file__).resolve().parents[1]
 MAX_JSON = 2 * 1024 * 1024
 MAX_EVIDENCE = 16 * 1024 * 1024

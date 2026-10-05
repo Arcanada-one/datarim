@@ -4,6 +4,20 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.3.4] — 2026-10-06
+
+### Fixed
+
+- Private-only project language preferences now anchor their own project below a framework ancestor. Child resolution and local configuration writes preserve that boundary; invalid private markers fail closed instead of selecting an ancestor. Existing regular symlink reads remain compatible, while configuration writes through symlinks remain refused.
+- Generated reporting callbacks compile the current installed preference helper source directly, bypassing preexisting Python bytecode caches without creating new cache files. Existing unowned caches are preserved.
+
+### Added
+
+- Claude Code standalone reporting installs an owned synchronous `UserPromptSubmit` callback that refreshes independent reply and artifact preferences before each submitted prompt. Its short trusted reminder classifies ordinary progress and tool narration as reply prose and reusable notes and document excerpts as artifact prose. Existing startup policy, explicit language requests, native authority and unrelated hooks remain preserved.
+- Installer and check receipts leave callback activation and native model behavior unmeasured. Context refresh does not run on every tool continuation or guarantee every generated message follows the selected language. Codex and Cursor retain their supported startup integrations.
+
+Standalone Human Outcome Reporting patch version: **0.3.2**. Existing ownership metadata migrates additively; removal restores the owned integration while preserving later foreign edits.
+
 ## [4.3.3] — 2026-10-05
 
 ### Fixed

@@ -268,7 +268,7 @@ class PortableReportingTests(unittest.TestCase):
         out=StringIO()
         with redirect_stdout(out),redirect_stderr(StringIO()):
             code=native.main(['finalize','--project',str(self.root),'--contract','contract.json',
-                              '--snapshot','snapshot.json','--report','report.json'])
+                              '--snapshot','snapshot.json','--report','report.json','--language','en'])
         self.assertEqual(code,3)
         self.assertIn('Not verified',out.getvalue())
         self.assertEqual(before,{p.name:p.read_bytes() for p in self.root.iterdir()})

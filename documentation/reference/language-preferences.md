@@ -25,8 +25,16 @@ of instructions shipped in the Datarim repository, which remain English.
 
 With `--project PATH`, discovery starts at that directory; otherwise it starts
 at the current working directory. It uses the nearest ancestor with `.git`,
-`.datarim-runtime/` or `datarim/config.yaml`, and otherwise uses the starting
-directory. Configuration does not activate that directory as a Datarim project.
+`.datarim-runtime/`, `datarim/config.yaml` or `datarim/config.local.yaml`, and
+otherwise uses the starting directory. A standalone directory with only a private
+project configuration therefore retains its own preferences, including when a
+parent directory has a framework installation. Resolution and configuration from
+its subdirectories use that same project root. An `AGENTS.md` file alone is not
+a project-discovery marker; its legacy directive is read at the discovered root.
+Configuration does not activate that directory as a Datarim project.
+An existing private configuration with malformed content is an error. A broken
+private configuration symlink, directory or other nonregular marker is also an
+error; it must not redirect resolution or configuration to a parent project.
 
 No preference file is needed for the English defaults. Standalone reporting reads
 the same preferences without creating a Datarim runtime or task directory.
