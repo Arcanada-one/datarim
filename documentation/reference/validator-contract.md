@@ -23,6 +23,43 @@ The adapter accepts `--task`, `--stage`, `--root`, and `--format`. It owns:
 `DATARIM_SPEC_GRAPH_MODE=hard` explicitly activates hard mode. The default is
 `advisory`. The do stage remains advisory in both modes.
 
+## Task-selected PRD and plan
+
+`scripts/lib/task-artifact-path.sh` is the shared read-only resolver used by
+expectations validation, specification lint, trace, the automatic adapter and
+the deterministic `/dr-verify` floor.
+It reads `prd` and `plan` from
+`datarim/tasks/{TASK-ID}-task-description.md`. An explicit pointer requires a
+matching `id` or `task_id` and an existing regular file. Supported paths are
+`prd/PRD-{TASK-ID}[-vN].md` and `plans/{TASK-ID}-plan[-vN].md`, where `N` is a
+positive decimal without leading zeroes. A selected document's declared task
+identity must also match. The resolver never guesses the newest revision or
+falls back from a broken explicit pointer to a different file.
+
+Absent or null pointers preserve `prd/PRD-{TASK-ID}.md` and
+`plans/{TASK-ID}-plan.md`, including callers' existing missing-file decisions.
+L1/L2 planning still uses the task description; L3/L4 use the dedicated plan.
+An expectations `parent_prd` must reference the selected PRD, with the existing
+schema-specific relative-path spelling. Findings name the selected artifact.
+
+Task-description selection accepts flat scalar mappings and simple related-ID
+lists. Duplicate keys, indentation, unclosed fields, unsupported scalar syntax,
+malformed lists and conflicting reserved identities refuse selection. Double
+quotes use JSON-compatible escapes; single quotes use doubled apostrophes.
+Separated trailing comments retain YAML line semantics; quoted values preserve
+literal comment characters. Quote values containing mapping syntax. This selection check does
+not replace the description's complete schema validator. In selected PRD/plan
+frontmatter, only reserved task identities are checked; unrelated document
+metadata is not certified as complete YAML by this helper.
+
+The caller selects the trusted state root. Ancestor host aliases are normalized
+to its physical path; a directly linked state root and symlinks in the descriptor
+or selected artifact path are rejected. Absolute paths, traversal, cross-task
+names and invalid task IDs refuse selection. The helper returns exit `2` for
+selection errors; expectations verification retains its existing blocked result.
+These read-only observations do not provide an atomic lock over concurrent
+document writers or certify the task's substantive requirements.
+
 ## Exit codes
 
 | Code | Meaning |

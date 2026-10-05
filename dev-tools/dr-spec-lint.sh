@@ -77,8 +77,10 @@ while [ "$search" != "/" ] && [ -n "$search" ]; do
 done
 [ -n "$DATARIM_ROOT" ] || usage_die "datarim/ not found from $ROOT"
 
-PRD_FILE="$DATARIM_ROOT/prd/PRD-${SPEC_TASK}.md"
-DEDICATED_PLAN_FILE="$DATARIM_ROOT/plans/${SPEC_TASK}-plan.md"
+# shellcheck source=scripts/lib/task-artifact-path.sh
+. "${SCRIPT_DIR}/../scripts/lib/task-artifact-path.sh" || exit 2
+PRD_FILE="$(task_artifact_path "$DATARIM_ROOT" "$SPEC_TASK" prd)" || exit 2
+DEDICATED_PLAN_FILE="$(task_artifact_path "$DATARIM_ROOT" "$SPEC_TASK" plan)" || exit 2
 EXP_FILE="$DATARIM_ROOT/tasks/${SPEC_TASK}-expectations.md"
 TASK_FILE="$DATARIM_ROOT/tasks/${SPEC_TASK}-task-description.md"
 QA_FILE="$DATARIM_ROOT/qa/qa-report-${SPEC_TASK}.md"
@@ -290,8 +292,8 @@ if [ -n "$DECLARED_UNIQUE" ]; then
     while IFS= read -r id; do
         [ -n "$id" ] || continue
         if ! printf '%s\n' "$REFERENCED_UNIQUE" | grep -qx "$id"; then
-            record warning completeness dreq-orphan "PRD-${SPEC_TASK}.md" "" \
-                absent "PRD-${SPEC_TASK}.md" "requirement $id is referenced by no V-AC (orphan)"
+            record warning completeness dreq-orphan "$(basename "$PRD_FILE")" "" \
+                absent "$(basename "$PRD_FILE")" "requirement $id is referenced by no V-AC (orphan)"
         fi
     done <<< "$DECLARED_UNIQUE"
 fi

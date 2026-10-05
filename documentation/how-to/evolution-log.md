@@ -1,5 +1,21 @@
 # Evolution Log
 
+## 2026-10-05 -- Explicit task artifact selection (v4.3.3)
+
+- **Problem.** Fixed legacy filenames could validate a stale PRD while the task
+  description selected a newer revision, or refuse valid versioned-only files.
+- **Shared contract.** Expectations, lint, trace, stage validation and the
+  deterministic verification floor now resolve
+  the same task-bound PRD/plan pointer. Missing pointers preserve legacy and
+  complexity-dependent behavior. Selection errors never become a clean graph.
+- **Boundary.** Whole-string IDs, flat descriptor syntax, explicit identity,
+  regular-file and state-relative path checks protect selection. Trusted host
+  aliases normalize to a physical root; selected descendant symlinks reject.
+  Unrelated PRD metadata and concurrent-writer atomicity are not certified.
+- **Regression.** Actual consumers exercise selected-only files and a stale
+  clean legacy copy alongside a broken selected revision. Security controls
+  retain positive cases before rejecting malformed IDs and quoted metadata.
+
 ## 2026-08-09 -- TUNE-0574 -- Task-ID provenance gate widened and made fail closed (v2.65.0)
 
 - **Mechanism.** The one-target gate now scans the governed runtime, public

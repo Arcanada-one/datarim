@@ -57,7 +57,9 @@ while [ "$search" != "/" ] && [ -n "$search" ]; do
 done
 [ -n "$DATARIM_ROOT" ] || usage_die "datarim/ not found from $ROOT"
 
-PRD_FILE="$DATARIM_ROOT/prd/PRD-${SPEC_TASK}.md"
+# shellcheck source=scripts/lib/task-artifact-path.sh
+. "${SCRIPT_DIR}/../scripts/lib/task-artifact-path.sh" || exit 2
+PRD_FILE="$(task_artifact_path "$DATARIM_ROOT" "$SPEC_TASK" prd)" || exit 2
 [ -f "$PRD_FILE" ] || usage_die "PRD not found for $SPEC_TASK: $PRD_FILE"
 
 # ---------------------------------------------------------------------------
