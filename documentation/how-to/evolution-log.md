@@ -1,5 +1,13 @@
 # Evolution Log
 
+## 2026-10-06 -- Project language boundaries and current prompt context (v4.3.4)
+
+- **Problem.** A private-only child configuration could resolve to an ancestor framework, and startup-only context could become stale between submitted Claude prompts. Existing bytecode could also supply executed helper code despite verified source files and disabled cache writes.
+- **Shared contract.** Private local preferences anchor their own project, invalid local markers fail closed, and generated callbacks execute current helper source bytes directly. Existing foreign caches are neither executed nor removed.
+- **Owned integration.** Claude receives a synchronous `UserPromptSubmit` callback with a minimal trusted language reminder. Additive ownership migration preserves unrelated groups and exact reversible settings; Codex and Cursor retain startup integration.
+- **Regression.** Causal ancestor-selection controls, local mutation between callback calls, legacy installation migration, duplicate and modified hook refusal, rollback, and real valid foreign bytecode caches exercise the boundaries. Source and cache bytes remain unchanged after execution.
+- **Evidence boundary.** Source fixtures and installation integrity do not establish callback activation, native configuration preservation, or universal language compliance. Actual release, installation and native behavior require separate revision-bound evidence.
+
 ## 2026-10-05 -- Explicit task artifact selection (v4.3.3)
 
 - **Problem.** Fixed legacy filenames could validate a stale PRD while the task

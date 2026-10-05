@@ -160,6 +160,11 @@ def project_root(project=None):
     if not start.is_dir():
         raise PreferenceError('Project must be an existing directory.')
     for parent in (start, *start.parents):
+        local = parent / 'datarim/config.local.yaml'
+        if local.exists() or local.is_symlink():
+            if not local.is_file():
+                raise PreferenceError('Private project language configuration must be an existing regular file.')
+            return parent
         if (parent / '.git').exists() or (parent / '.datarim-runtime').is_dir() or (parent / 'datarim/config.yaml').is_file():
             return parent
     return start

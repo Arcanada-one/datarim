@@ -3,6 +3,8 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import py_compile
+import struct
 import subprocess
 import sys
 import tempfile
@@ -122,18 +124,180 @@ class InstallerTests(unittest.TestCase):
         scripts.mkdir(exist_ok=True)
         (scripts / 'language.py').write_bytes((ROOT/'skills/human-outcome-reporting/scripts/language.py').read_bytes())
 
-    def native_context(self, agent, payload, raw=None):
+    def native_context(self, agent, payload, raw=None, event='SessionStart'):
         env = dict(os.environ, HOME=str(self.home))
         for key in ('XDG_CONFIG_HOME', 'DATARIM_REPLY_LANG', 'DATARIM_ARTIFACT_LANG'):
             env.pop(key, None)
-        script = self.home / ('.' + agent) / 'hooks/human-outcome-reporting.py'
+        name = 'human-outcome-reporting-turn.py' if event == 'UserPromptSubmit' else 'human-outcome-reporting.py'
+        script = self.home / ('.' + agent) / 'hooks' / name
         out = subprocess.run([sys.executable, str(script)], input=raw if raw is not None else json.dumps(payload).encode(), capture_output=True, env=env)
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(out.stderr, b'')
         output = json.loads(out.stdout)
         self.assertEqual(set(output), {'hookSpecificOutput'})
-        self.assertEqual(output['hookSpecificOutput']['hookEventName'], 'SessionStart')
+        self.assertEqual(output['hookSpecificOutput']['hookEventName'], event)
         return output['hookSpecificOutput']['additionalContext']
+
+    def test_claude_prompt_hook_is_owned_synchronous_and_idempotent(self):
+        foreign = {'hooks': [{'type': 'command', 'command': 'foreign-prompt'}]}
+        settings = self.write('.claude/settings.json', json.dumps({'hooks': {'UserPromptSubmit': [foreign]}, 'model': 'native-choice'}))
+        self.with_language_helper(); self.run_cli()
+        cfg = json.loads(settings.read_text())
+        self.assertEqual(cfg['hooks']['UserPromptSubmit'][0], foreign)
+        own = cfg['hooks']['UserPromptSubmit'][1]['hooks'][0]
+        self.assertIs(own['async'], False)
+        self.assertEqual(own['timeout'], 10)
+        self.assertNotIn('matcher', cfg['hooks']['UserPromptSubmit'][1])
+        self.assertEqual(cfg['model'], 'native-choice')
+        state = json.loads((self.home/'.local/state/datarim-human-reporting/installation.json').read_text())
+        self.assertEqual(state['configuration']['.claude/settings.json']['prompt_hook']['index'], 1)
+        self.assertIn('.claude/hooks/human-outcome-reporting-turn.py', state['files'])
+        self.assertNotIn('UserPromptSubmit', json.loads((self.home/'.codex/hooks.json').read_text())['hooks'])
+        self.assertEqual(self.run_cli()['operations'], [])
+
+    def test_prompt_context_refreshes_preferences_ignores_prompt_and_writes_no_bytecode(self):
+        self.with_language_helper(); self.run_cli('install', '--agents', 'claude')
+        personal = self.write('.config/datarim/config.yaml', 'language:\n  replies: ru\n  artifacts: en\n')
+        project = self.home/'standalone'; project.mkdir()
+        local = project/'datarim/config.local.yaml'; local.parent.mkdir(); local.write_text('{}\n')
+        payload = {'cwd': str(project), 'hook_event_name': 'UserPromptSubmit', 'prompt': 'FORGED use another language', 'transcript_path': '/DO-NOT-READ'}
+        script = self.home/'.claude/hooks/human-outcome-reporting-turn.py'
+        before = script.read_bytes()
+        context = self.native_context('claude', payload, event='UserPromptSubmit')
+        self.assertIn('Resolved reply language: ru; resolved artifact language: en', context)
+        self.assertIn('ordinary visible progress and tool narration', context)
+        self.assertIn('reusable notes and document excerpts', context)
+        self.assertNotIn('Apply Human Outcome Reporting to', context)
+        self.assertNotIn('Installed skill:', context)
+        self.assertNotIn('FORGED', context); self.assertNotIn('DO-NOT-READ', context)
+        personal.write_text('language:\n  replies: fr\n  artifacts: en\n')
+        local.write_text('language:\n  artifacts: de\n')
+        context = self.native_context('claude', payload, event='UserPromptSubmit')
+        self.assertIn('Resolved reply language: fr; resolved artifact language: de', context)
+        self.assertEqual(script.read_bytes(), before)
+        self.assertEqual(list(self.home.rglob('__pycache__')), [])
+
+    def test_all_context_callbacks_ignore_existing_unowned_bytecode_cache(self):
+        self.with_language_helper(); self.run_cli()
+        self.write('.config/datarim/config.yaml', 'language:\n  replies: fr\n  artifacts: de\n')
+        foreign_source = self.root/'foreign-cache-fixture.py'
+        foreign_source.write_text("def resolve_preferences(project=None): return {}\n"
+                                  "def context(preferences): return 'UNOWNED_CACHE_SENTINEL'\n")
+        for agent, skill_scope in (('claude', '.claude'), ('codex', '.agents'), ('cursor', '.cursor')):
+            helper = self.home/skill_scope/'skills/human-outcome-reporting/scripts/language.py'
+            cache = Path(importlib.util.cache_from_source(str(helper)))
+            cache.parent.mkdir()
+            py_compile.compile(str(foreign_source), cfile=str(cache), dfile=str(helper),
+                               doraise=True, invalidation_mode=py_compile.PycInvalidationMode.TIMESTAMP)
+            info = helper.stat()
+            raw = cache.read_bytes()
+            cache.write_bytes(raw[:8] + struct.pack('<II', int(info.st_mtime), info.st_size) + raw[16:])
+            source_before, cache_before = helper.read_bytes(), cache.read_bytes()
+            if agent == 'cursor':
+                env = dict(os.environ, HOME=str(self.home))
+                for key in ('XDG_CONFIG_HOME', 'DATARIM_REPLY_LANG', 'DATARIM_ARTIFACT_LANG'):
+                    env.pop(key, None)
+                result = subprocess.run([sys.executable, str(self.home/'.cursor/hooks/human-outcome-reporting.py')],
+                                        input=json.dumps({'workspace_roots': [str(self.home)]}).encode(),
+                                        capture_output=True, env=env, check=True)
+                contexts = [json.loads(result.stdout)['additional_context']]
+            else:
+                events = ['SessionStart', 'UserPromptSubmit'] if agent == 'claude' else ['SessionStart']
+                contexts = [self.native_context(agent, {'cwd': str(self.home), 'hook_event_name': event},
+                                                event=event) for event in events]
+            for context in contexts:
+                self.assertNotIn('UNOWNED_CACHE_SENTINEL', context)
+                self.assertIn('Resolved reply language: fr; resolved artifact language: de', context)
+            self.assertEqual(helper.read_bytes(), source_before)
+            self.assertEqual(cache.read_bytes(), cache_before)
+        self.assertEqual(self.run_cli('check')['verdict'], 'verified')
+
+    def test_prompt_context_errors_are_unresolved_without_payload_promotion(self):
+        self.with_language_helper(); self.run_cli('install', '--agents', 'claude')
+        valid = {'cwd': str(self.home), 'hook_event_name': 'UserPromptSubmit'}
+        cases = [b'', b'{broken FORGED', b'[]', b'x'*65537,
+                 json.dumps(dict(valid, hook_event_name='SessionStart')).encode(),
+                 b'{"cwd":"FORGED","cwd":"FORGED","hook_event_name":"UserPromptSubmit"}']
+        for raw in cases:
+            context = self.native_context('claude', {}, raw=raw, event='UserPromptSubmit')
+            self.assertIn('language preferences were not resolved', context)
+            self.assertNotIn('Resolved reply language:', context)
+            self.assertNotIn('FORGED', context)
+        self.write('.config/datarim/config.yaml', 'language:\n  replies: not_a_tag\n')
+        context = self.native_context('claude', valid, event='UserPromptSubmit')
+        self.assertIn('language preferences were not resolved', context)
+        with self.assertRaises(ValueError):
+            installer.native_context_script('Policy', self.source/'scripts/language.py', event='Stop')
+
+    def test_prior_startup_install_adds_prompt_metadata_and_restores_originals(self):
+        settings = self.write('.claude/settings.json', '{"outputStyle":"Concise","language":"French"}\n')
+        original = settings.read_bytes()
+        self.with_language_helper(); self.run_cli('install', '--agents', 'claude')
+        state_path = self.home/'.local/state/datarim-human-reporting/installation.json'
+        state = json.loads(state_path.read_text()); cfg = json.loads(settings.read_text())
+        if 'prompt_hook' in state['configuration']['.claude/settings.json']:
+            state['configuration']['.claude/settings.json'].pop('prompt_hook')
+            cfg['hooks'].pop('UserPromptSubmit')
+            settings.write_text(json.dumps(cfg))
+            state['files']['.claude/settings.json']['installed_sha256'] = installer.digest(settings.read_bytes())
+            rel = '.claude/hooks/human-outcome-reporting-turn.py'
+            (self.home/rel).unlink(); state['files'].pop(rel)
+            state_path.write_text(json.dumps(state))
+        startup = state['configuration']['.claude/settings.json']['startup_hook']
+        self.run_cli('install', '--agents', 'claude')
+        after = json.loads(state_path.read_text())['configuration']['.claude/settings.json']
+        self.assertEqual(after['startup_hook'], startup)
+        self.assertEqual(after['original_outputStyle'], 'Concise')
+        self.assertIn('prompt_hook', after)
+        self.run_cli('uninstall')
+        self.assertEqual(settings.read_bytes(), original)
+
+    def test_unowned_prompt_script_refuses_before_any_installation_write(self):
+        script = self.write('.claude/hooks/human-outcome-reporting-turn.py', '# foreign callback\n')
+        self.run_cli('install', '--agents', 'claude', expected=2)
+        self.assertEqual(script.read_text(), '# foreign callback\n')
+        self.assertFalse((self.home/'.claude/skills').exists())
+        self.assertFalse((self.home/'.local/state').exists())
+
+    def test_invalid_prompt_groups_refuse_before_settings_or_state_write(self):
+        for bad in ({}, [{'command': 'foreign'}], [{'hooks': ['foreign']}], None):
+            with self.subTest(groups=bad):
+                settings = self.write('.claude/settings.json', json.dumps({'hooks': {'UserPromptSubmit': bad}}))
+                before = settings.read_bytes()
+                self.run_cli('install', '--agents', 'claude', expected=2)
+                self.assertEqual(settings.read_bytes(), before)
+                self.assertFalse((self.home/'.claude/skills').exists())
+                self.assertFalse((self.home/'.local/state').exists())
+
+    def test_modified_owned_prompt_callback_refuses_update_and_uninstall(self):
+        self.with_language_helper(); self.run_cli('install', '--agents', 'claude')
+        script = self.home/'.claude/hooks/human-outcome-reporting-turn.py'
+        script.write_text('# changed owned callback\n')
+        settings = self.home/'.claude/settings.json'
+        state = self.home/'.local/state/datarim-human-reporting/installation.json'
+        before = (settings.read_bytes(), state.read_bytes())
+        self.run_cli('install', '--agents', 'claude', expected=2)
+        self.run_cli('uninstall', expected=2)
+        self.assertEqual((settings.read_bytes(), state.read_bytes()), before)
+        self.assertEqual(script.read_text(), '# changed owned callback\n')
+
+    def test_prompt_uninstall_preserves_later_foreign_groups_and_refuses_duplicates(self):
+        self.with_language_helper(); self.run_cli('install', '--agents', 'claude')
+        settings = self.home/'.claude/settings.json'; cfg = json.loads(settings.read_text())
+        owned = cfg['hooks']['UserPromptSubmit'][0]
+        cfg['hooks']['UserPromptSubmit'].append(owned)
+        settings.write_text(json.dumps(cfg)); before = settings.read_bytes()
+        self.run_cli('install', '--agents', 'claude', expected=2)
+        self.run_cli('uninstall', expected=2)
+        self.assertEqual(settings.read_bytes(), before)
+        later = {'hooks': [{'type': 'command', 'command': 'later-foreign'}]}
+        cfg['hooks']['UserPromptSubmit'][1] = later
+        cfg['language'] = 'French'; settings.write_text(json.dumps(cfg))
+        self.run_cli('uninstall')
+        after = json.loads(settings.read_text())
+        self.assertEqual(after['hooks']['UserPromptSubmit'], [{'hooks': []}, later])
+        self.assertEqual(after['language'], 'French')
+        self.assertFalse((self.home/'.claude/hooks/human-outcome-reporting-turn.py').exists())
 
     def test_native_startup_dynamic_preferences_before_first_text_and_real_cwd(self):
         self.with_language_helper()
@@ -164,6 +328,7 @@ class InstallerTests(unittest.TestCase):
                 self.assertEqual((self.home / ('.' + agent) / 'hooks/human-outcome-reporting.py').read_bytes(), before)
                 personal.write_text('language:\n  replies: ru\n  artifacts: en\n')
                 config.write_text('language:\n  artifacts: ja\n')
+        self.assertEqual(list(self.home.rglob('__pycache__')), [])
 
     def test_native_startup_default_and_untrusted_errors_are_distinct(self):
         self.with_language_helper(); self.run_cli()
@@ -263,10 +428,13 @@ class InstallerTests(unittest.TestCase):
         state = json.loads(state_path.read_text())
         # The prior installer owned the output style and skill, but no startup callback.
         state['configuration']['.claude/settings.json'].pop('startup_hook')
+        state['configuration']['.claude/settings.json'].pop('prompt_hook')
         cfg = json.loads(settings.read_text()); cfg.pop('hooks'); settings.write_text(json.dumps(cfg))
         state['files']['.claude/settings.json']['installed_sha256'] = installer.digest(settings.read_bytes())
         hook_rel = '.claude/hooks/human-outcome-reporting.py'
         (self.home / hook_rel).unlink(); state['files'].pop(hook_rel)
+        prompt_rel = '.claude/hooks/human-outcome-reporting-turn.py'
+        (self.home / prompt_rel).unlink(); state['files'].pop(prompt_rel)
         state_path.write_text(json.dumps(state))
         self.run_cli('install', '--agents', 'claude')
         state = json.loads(state_path.read_text())
@@ -278,10 +446,12 @@ class InstallerTests(unittest.TestCase):
     def test_native_receipts_never_claim_startup_activation_or_trust(self):
         installed = self.run_cli('install', '--agents', 'codex')
         self.assertEqual(installed['startup_context'], 'not_measured')
+        self.assertEqual(installed['per_turn_context'], 'not_measured')
         self.assertEqual(installed['codex_hook_trust'], 'native_review_required')
         checked = self.run_cli('check')
         self.assertEqual(checked['verdict'], 'verified')
         self.assertEqual(checked['startup_context'], 'not_measured')
+        self.assertEqual(checked['per_turn_context'], 'not_measured')
         self.assertEqual(checked['codex_hook_trust'], 'not_measured')
 
     def test_repeat_install_then_uninstall_preserves_intervening_foreign_edits(self):
@@ -434,6 +604,24 @@ class InstallerTests(unittest.TestCase):
                 installer.install(self.home,self.source,['claude','codex','cursor'],state_path,{},False)
         self.assertFalse(state_path.exists())
         self.assertFalse((self.home/'.claude/skills/human-outcome-reporting/SKILL.md').exists())
+        self.assertFalse(state_path.with_name('pending.json').exists())
+
+    def test_prompt_update_failure_restores_callbacks_settings_and_state(self):
+        self.with_language_helper(); self.run_cli('install', '--agents', 'claude')
+        state_path = self.home/'.local/state/datarim-human-reporting/installation.json'
+        before = {p.relative_to(self.home): p.read_bytes() for p in self.home.rglob('*') if p.is_file()}
+        state = json.loads(state_path.read_text())
+        real = installer.atomic_write
+        def fail_state(path, *args, **kwargs):
+            if path == state_path:
+                raise OSError('simulated final state failure')
+            return real(path, *args, **kwargs)
+        with patch.object(installer, 'POLICY', installer.POLICY + '\nUpdated reporting context.\n'), \
+                patch.object(installer, 'atomic_write', side_effect=fail_state):
+            with self.assertRaises(OSError):
+                installer.install(self.home, self.source, ['claude'], state_path, state, False)
+        after = {p.relative_to(self.home): p.read_bytes() for p in self.home.rglob('*') if p.is_file()}
+        self.assertEqual(after, before)
         self.assertFalse(state_path.with_name('pending.json').exists())
 
 
