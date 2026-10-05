@@ -4,6 +4,15 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.3.5] — 2026-10-06
+
+### Fixed
+
+- The single-request orchestrator HTTP router now sends exactly one `Connection: close` header on every final response, including successful HTTP/1.1 requests, OPTIONS preflights and errors. Handler persistence hints cannot contradict the connection lifecycle; normalized CRLF framing preserves other response headers and payloads.
+- UTF-8 response lengths count bytes within the response emitter, without changing the request parser's locale.
+- The version-accountability permission regressions use GNU or BSD `stat` syntax while retaining their strict mode 0600 and mode 0700 checks.
+- A real listener regression exercises repeated successful POSTs through a persistence-capable client without forcing close in client requests. The existing Schemathesis contract, checks and examples remain unchanged.
+
 ## [4.3.4] — 2026-10-06
 
 ### Fixed

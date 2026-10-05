@@ -1,5 +1,12 @@
 # Evolution Log
 
+## 2026-10-06 -- Single-request HTTP connection lifecycle (v4.3.5)
+
+- **Problem.** The per-connection router exited after one response while successful HTTP/1.1 responses advertised keep-alive. A persistence-capable client could reuse the closing connection and lose its next request.
+- **Shared contract.** The common response emitter normalizes CRLF, counts body bytes under a locally scoped C locale and emits exactly one `Connection: close` field for success, preflight and error paths. Handler connection hints cannot override this lifecycle; other headers, bodies, request parser locale and CORS policy remain preserved.
+- **Regression.** Raw response controls cover default and explicit connection requests, HTTP/1.0, OPTIONS, errors and conflicting handler fields. An actual loopback listener accepts three consecutive POSTs from one standard-library client that reconnects on the server's close indication and verifies all three queued payloads.
+- **Evidence boundary.** Local protocol and source checks do not replace successful successor CI, signed release verification, installation or native model evidence. The prior signed tag and its failed contract evidence remain unchanged.
+
 ## 2026-10-06 -- Project language boundaries and current prompt context (v4.3.4)
 
 - **Problem.** A private-only child configuration could resolve to an ancestor framework, and startup-only context could become stale between submitted Claude prompts. Existing bytecode could also supply executed helper code despite verified source files and disabled cache writes.
