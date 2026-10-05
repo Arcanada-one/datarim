@@ -123,10 +123,16 @@ $EDITOR README.md      # update version badge or string if applicable
 $EDITOR AGENTS.md      # update "Version:" line in the framework intro
 
 git add VERSION CHANGELOG.md README.md AGENTS.md
-git commit -m "release: vX.Y.Z"
+git commit -m "fix(release): prepare vX.Y.Z"
 git push origin <branch>
-gh pr create --base main --title "release: vX.Y.Z" --body "Release notes in CHANGELOG.md"
+gh pr create --base main --title "fix(release): prepare vX.Y.Z" --body "Release notes in CHANGELOG.md"
 ```
+
+The example uses a patch-release subject. Choose a Conventional Commit subject
+that describes the actual change: `fix:` or `perf:` for a patch, `feat:` for a
+minor, and the documented breaking-change notation for a major. Use the intended
+subject for the squash commit as well as the PR; feature-branch commit subjects
+and a reviewed PR title do not prove the resulting commit retained that subject.
 
 Wait for required checks and code-owner approval, then merge.
 
@@ -137,6 +143,21 @@ After merge, verify the exact tested-PR/resulting-main tree match and use a clea
 does not publish the signed package release. Record pending main CI truthfully.
 The parity check needs this tag within its documented wait window. If subsequent
 main checks fail, do not dispatch release publication or move the prepared tag.
+
+On the clean resulting `main`, classify the actual range from the previous
+release tag to its exact commit before signing or pushing a tag:
+
+```bash
+dev-tools/release-classify.sh --repo . --from vPREVIOUS --to HEAD --api-diff auto
+```
+
+Replace `vPREVIOUS` with the authenticated previous release tag. Require the
+measured bump to match the intended release and record its escalation verdict;
+`none` does not authorize a patch. A non-Conventional squash subject can produce
+`none` even when VERSION and the tested tree match. Correct a genuine source or
+guide defect through a new reviewed PR with an appropriate Conventional Commit
+subject, then recheck the new resulting commit. Do not amend protected main,
+force a classifier result, or stamp an unsupported bump onto the tag.
 
 On that admitted source:
 

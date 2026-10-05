@@ -2,6 +2,11 @@
 
 Datarim releases are signed with [Sigstore cosign](https://docs.sigstore.dev/cosign/) (keyless, GitHub OIDC) and ship with a [CycloneDX](https://cyclonedx.org/) SBOM and a [SLSA build provenance](https://slsa.dev/) attestation. Verify before extracting or installing — never `curl | bash` on a release tarball.
 
+Release authors must also follow the [maintainer release process](release-process.md):
+classify the actual resulting squash commit range before signing or tagging.
+A tested tree, VERSION match or planned commit subject does not prove the final
+commit classifies as the intended release bump.
+
 ## Prerequisites
 
 - [`cosign`](https://docs.sigstore.dev/cosign/installation/) ≥ 3.0
