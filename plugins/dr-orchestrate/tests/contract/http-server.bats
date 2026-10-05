@@ -199,3 +199,15 @@ _status() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"Connection: close"* ]] || [[ "$output" == *"Connection: Close"* ]]
 }
+
+@test "all final responses advertise one close header with unchanged payloads" {
+  run python3 "$BATS_TEST_DIRNAME/http-persistence.py" RouterResponses
+  [ "$status" -eq 0 ]
+}
+
+@test "persistent-capable client reconnects for repeated successful POSTs" {
+  command -v socat >/dev/null 2>&1 || skip "socat is required for the real listener"
+  command -v jq >/dev/null 2>&1 || skip "jq is required for the real inbound handler"
+  run python3 "$BATS_TEST_DIRNAME/http-persistence.py" PersistentClient
+  [ "$status" -eq 0 ]
+}

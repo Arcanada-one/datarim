@@ -121,7 +121,7 @@ git checkout "$(git describe --tags --abbrev=0 --match 'v*')"   # latest release
 The 4.2.3 public history begins at a new signed root commit. An older clone has
 unrelated ancestry: do not merge the histories or force-reset a working project.
 Keep local branches and edits, create a separate clean source clone, verify
-the current release, `v4.3.4`, using [release verification](documentation/how-to/release-verification.md),
+the current release, `v4.3.5`, using [release verification](documentation/how-to/release-verification.md),
 and run `./update.sh --project <PROJECT>` from that clone. The installer checks
 owned files before updating and retains the project's remembered choices.
 See [history transition](documentation/how-to/history-transition.md).

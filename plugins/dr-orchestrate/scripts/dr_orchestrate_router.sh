@@ -80,9 +80,21 @@ _emit() {
   # Emit HTTP/1.1 response. Args: status, headers-string (multi-line, each CRLF-terminated), body
   local status="$1" hdrs="$2" body="$3"
   local reason; reason="$(_reason "$status")"
+  # Content-Length counts bytes even when the request parser uses a UTF-8 locale.
+  local LC_ALL=C
   local cl=${#body}
   printf 'HTTP/1.1 %s %s\r\n' "$status" "$reason"
-  printf '%s' "$hdrs"
+  # The per-connection process serves one request. Normalize CRLF (command
+  # substitution may strip the final LF) and replace handler persistence hints.
+  local header name
+  while IFS= read -r header || [[ -n "$header" ]]; do
+    header="${header%$'\r'}"
+    [[ -n "$header" ]] || continue
+    name="${header%%:*}"
+    [[ "$(_lc "$name")" == "connection" ]] && continue
+    printf '%s\r\n' "$header"
+  done <<<"$hdrs"
+  printf 'Connection: close\r\n'
   printf 'Content-Length: %d\r\n' "$cl"
   printf '\r\n'
   printf '%s' "$body"
@@ -133,7 +145,7 @@ _error() {
   local body
   body="$(printf '{"error":"%s","status":%s}' "$(_reason "$status")" "$status")"
   local hdrs
-  hdrs="$(printf 'Content-Type: application/problem+json\r\nConnection: close\r\n')"
+  hdrs="$(printf 'Content-Type: application/problem+json\r\n')"
   _emit "$status" "$hdrs" "$body"
 }
 
@@ -234,7 +246,6 @@ main() {
   local content_length=0
   local transfer_encoding=""
   local origin=""
-  local connection=""
   local line name value lower
   while true; do
     line="$(_read_line)" || break
@@ -256,7 +267,6 @@ main() {
         ;;
       transfer-encoding) transfer_encoding="$(_lc "$value")" ;;
       origin) origin="$value" ;;
-      connection) connection="$(_lc "$value")" ;;
     esac
     # Persist for handler consumption.
     printf '%s: %s\r\n' "$name" "$value" >>"$headers_file"
@@ -285,10 +295,6 @@ main() {
   # 4. CORS preflight.
   if [[ "$method" == "OPTIONS" ]]; then
     local hdrs; hdrs="$(_cors_headers "$origin")"
-    # Append connection-close for HTTP/1.0 default.
-    if [[ "$version" == "HTTP/1.0" ]]; then
-      hdrs="${hdrs}$(printf 'Connection: close\r\n')"
-    fi
     _emit 204 "$hdrs" ""
     return 0
   fi
@@ -315,7 +321,7 @@ main() {
 
   if [[ ",$allowed," != *",${method},"* ]]; then
     local hdrs
-    hdrs="$(printf 'Allow: %s\r\nContent-Type: application/problem+json\r\nConnection: close\r\n' "$allowed")"
+    hdrs="$(printf 'Allow: %s\r\nContent-Type: application/problem+json\r\n' "$allowed")"
     local body
     body="$(printf '{"error":"Method Not Allowed","status":405,"allow":"%s"}' "$allowed")"
     _emit 405 "$hdrs" "$body"
@@ -357,13 +363,6 @@ main() {
   # Inject CORS for non-OPTIONS responses when Origin present.
   if [[ -n "$origin" ]]; then
     h_headers="${h_headers}$(_cors_headers "$origin")"
-  fi
-
-  # Connection handling: HTTP/1.0 default close; HTTP/1.1 honor request.
-  if [[ "$version" == "HTTP/1.0" ]] || [[ "$connection" == "close" ]]; then
-    h_headers="${h_headers}$(printf 'Connection: close\r\n')"
-  else
-    h_headers="${h_headers}$(printf 'Connection: keep-alive\r\n')"
   fi
 
   _emit "$h_status" "$h_headers" "$h_body"

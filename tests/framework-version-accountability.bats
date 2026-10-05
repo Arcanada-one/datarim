@@ -84,7 +84,7 @@ write_deferral() {
 @test "capture creates the closed mode-600 INIT baseline" {
   run "$CAPTURE" --task "$TASK_ID" --workspace "$WORKSPACE" --repo "$REPO"
   [ "$status" -eq 0 ] \
-    && [ "$(stat -c '%a' "$WORKSPACE/datarim/.auto/version-accountability/$TASK_ID/baseline.record")" = 600 ] \
+    && [ "$(stat -c '%a' "$WORKSPACE/datarim/.auto/version-accountability/$TASK_ID/baseline.record" 2>/dev/null || stat -f %Lp "$WORKSPACE/datarim/.auto/version-accountability/$TASK_ID/baseline.record")" = 600 ] \
     && grep -qF "base-commit: $BASE_SHA" "$WORKSPACE/datarim/.auto/version-accountability/$TASK_ID/baseline.record"
 }
 
@@ -395,7 +395,9 @@ write_deferral() {
   [ "$status" -eq 0 ]
   rec_dir="$WORKSPACE/datarim/.auto/version-accountability/$TASK_ID"
   [ -d "$rec_dir" ]
-  [ "$(stat -c %a "$rec_dir")" = "700" ]
+  local record_mode
+  record_mode="$(stat -c %a "$rec_dir" 2>/dev/null || stat -f %Lp "$rec_dir")"
+  [ "$record_mode" = "700" ]
   chmod 770 "$rec_dir"
   run "$CAPTURE" --task "$TASK_ID" --workspace "$WORKSPACE" --repo "$REPO"
   [ "$status" -eq 2 ]
