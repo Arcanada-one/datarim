@@ -1,6 +1,7 @@
-schema-version: 1
+schema-version: 2
 consumers:
-  example-org/example-service:
+  '1':
+    example-repository-name: example-org/example-service
     service-name: example-service
     ops-bot-agent: example-service
     ops-bot-key-secret-name: OPSBOT_API_KEY
@@ -8,22 +9,26 @@ consumers:
     binding-status: eligible
     ops-bot-url: https://ops.example.invalid/events
     allowed-hosts: ops.example.invalid
-  Arcanada-one/argana:
+    owner-id: '1'
+  '1276402223':
     binding-status: workflow-only
     source-pr: 51
     source-head: e2a8976aa5631b8da9086b6a9ca86e44c6556387
     source-callers: []
-  Arcanada-one/auth-arcana:
+    owner-id: '275035476'
+  '1220783684':
     binding-status: workflow-only
     source-pr: 203
     source-head: d81fe0b7d6049f713fdaa9f2a151c80f03381e2a
     source-callers: []
-  Arcanada-one/fleet-watcher:
+    owner-id: '275035476'
+  '1278994304':
     binding-status: workflow-only
     source-pr: 59
     source-head: ac277ab84c66664dc9239d3eccebbc9ea9490c15
     source-callers: []
-  Arcanada-one/model-connector:
+    owner-id: '275035476'
+  '1214211159':
     binding-status: incomplete
     source-pr: 185
     source-head: 817ec6351cfec23b63121533ff8fcc897dcbf192
@@ -34,12 +39,14 @@ consumers:
     service-name: stt-whisper
     ops-bot-key-secret-name: OPS_BOT_API_KEY
     deploy-if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-  Arcanada-one/arcana-agent-system:
+    owner-id: '275035476'
+  '1240840164':
     binding-status: workflow-only
     source-pr: 251
     source-head: 6dd848137d336c2985342020e0beeff6aeb58f65
     source-callers: []
-  Arcanada-one/legal-arcana:
+    owner-id: '275035476'
+  '1243337224':
     binding-status: incomplete
     source-pr: 59
     source-head: 6aec683e0c9f98599fae8d5bdaf36c91bb6c59ec
@@ -50,22 +57,26 @@ consumers:
     service-name: legal-arcana
     deploy-if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     ops-bot-url: https://ops.arcanada.ai/events
-  Arcanada-one/billing-arcana:
+    owner-id: '275035476'
+  '1296619738':
     binding-status: workflow-only
     source-pr: 44
     source-head: a413a7d47532a2e4a55ef06121cecbc3212f4f4e
     source-callers: []
-  Arcanada-one/arganize-me-data:
+    owner-id: '275035476'
+  '1360376632':
     binding-status: workflow-only
     source-pr: 14
     source-head: 3d3008820fdf5d4ba38a646e374072b6d95ea60a
     source-callers: []
-  Arcanada-one/capability-registry:
+    owner-id: '275035476'
+  '1320202698':
     binding-status: workflow-only
     source-pr: 53
     source-head: 15826d64c4bc59e956cd5495501acc26e3f1a468
     source-callers: []
-  Arcanada-one/agent-supervisor:
+    owner-id: '275035476'
+  '1318200158':
     binding-status: incomplete
     source-pr: 58
     source-head: 8d7b9de167080904d5373688f4a4e60dbe208aca
@@ -77,7 +88,8 @@ consumers:
     deploy-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main'
       && needs.delivery-integrity.result == 'success' }}
     ops-bot-url: https://ops.arcanada.ai/events
-  Arcanada-one/muneral:
+    owner-id: '275035476'
+  '1209796255':
     binding-status: eligible
     source-pr: 209
     source-head: 6df17a63310872358dd36beb4daa7adbfc0d0a3e
@@ -94,7 +106,8 @@ consumers:
     deploy-if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     ops-bot-url: https://ops.arcanada.ai/events
     allowed-hosts: ops.arcanada.ai
-  Arcanada-one/opsbot:
+    owner-id: '275035476'
+  '1210940117':
     binding-status: incomplete
     source-pr: 111
     source-head: 85fa101fe32fa1ace92173101f26c25f1e4a182d
@@ -106,7 +119,8 @@ consumers:
     ops-bot-key-secret-name: OPSBOT_API_KEY
     deploy-if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     ops-bot-url: https://ops.arcanada.ai/events
-  Arcanada-one/scrutator:
+    owner-id: '275035476'
+  '1214245318':
     binding-status: incomplete
     source-pr: 126
     source-head: 56165322526f6c4bbb46fb3759e2c9d44be0d8d9
@@ -118,7 +132,8 @@ consumers:
     deploy-if: github.ref == 'refs/heads/main' && (github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch')
     ops-bot-url: https://ops.arcanada.ai/events
-  Arcanada-one/wiki-arcana:
+    owner-id: '275035476'
+  '1304171335':
     binding-status: incomplete
     source-pr: 35
     source-head: 1fe7303d7c1fcde98de8d177407c7e4b09854ca3
@@ -128,18 +143,22 @@ consumers:
       job: deploy
     service-name: wiki-arcana
     ops-bot-url: https://ops.arcanada.ai/events
-  Arcanada-one/prompt-assembly:
+    owner-id: '275035476'
+  '1327756457':
     binding-status: workflow-only
     source-pr: 52
     source-head: 897aedf03e8695adfb3e79384d68e275ed18b668
     source-callers: []
-  Arcanada-one/email-agent:
+    owner-id: '275035476'
+  '1213813768':
     binding-status: workflow-only
     source-pr: 39
     source-head: eb8ab612f5af64179acdc3e0f0846e50aea66888
     source-callers: []
-  Arcanada-one/probatio-arcana:
+    owner-id: '275035476'
+  '1388177973':
     binding-status: workflow-only
     source-pr: 3
     source-head: f5a7bfc87f3d554265ef2a57d599e1ee643cd90a
     source-callers: []
+    owner-id: '275035476'

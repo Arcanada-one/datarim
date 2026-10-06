@@ -38,6 +38,8 @@ run_contract() {
         PREFLIGHT_CALLER_ACTION_REPOSITORY="$action_repository" \
         PREFLIGHT_CALLER_ACTION_REF="$action_ref" \
         PREFLIGHT_CALLER_GITHUB_REPOSITORY="$caller_repository" \
+        PREFLIGHT_CALLER_GITHUB_REPOSITORY_ID="${CALLER_REPOSITORY_ID_OVERRIDE-1}" \
+        PREFLIGHT_CALLER_GITHUB_OWNER_ID="${CALLER_OWNER_ID_OVERRIDE-1}" \
         PREFLIGHT_CALLER_WORKFLOW_REF="$workflow_ref" \
         PREFLIGHT_CALLER_WORKFLOW_SHA="$workflow_sha" \
         PREFLIGHT_CALLER_VAULT_ADDR="$vault_addr" \
@@ -99,7 +101,7 @@ assert_rejected() {
         assert_status_is 0 || return 1
     done
 
-    run yq -er '."schema-version" == 1 and .consumers."example-org/example-service"."service-name" == "example-service"' "$REGISTRY"
+    run yq -er '."schema-version" == 2 and .consumers."1"."service-name" == "example-service"' "$REGISTRY"
     assert_status_is 0
 }
 
@@ -355,14 +357,14 @@ assert_rejected() {
 prepare_muneral() {
     mutate '.jobs.deploy.steps[0].with."service-name" = "muneral" | .jobs.deploy.steps[0].with."ops-bot-agent" = "muneral"'
     local endpoint host
-    endpoint="$(yq -r '.consumers."Arcanada-one/muneral"."ops-bot-url"' "$REGISTRY")"
-    host="$(yq -r '.consumers."Arcanada-one/muneral"."allowed-hosts"' "$REGISTRY")"
+    endpoint="$(yq -r '.consumers."1209796255"."ops-bot-url"' "$REGISTRY")"
+    host="$(yq -r '.consumers."1209796255"."allowed-hosts"' "$REGISTRY")"
     ENDPOINT="$endpoint" HOST="$host" yq -i '.jobs.deploy.steps[0].with."ops-bot-url" = strenv(ENDPOINT) | .jobs.deploy.steps[0].with.allowed_hosts = strenv(HOST)' "$WORKFLOW"
 }
 
 @test "Muneral explicit immutable consumer binding accepts matching source-only caller" {
     prepare_muneral
-    CALLER_REPOSITORY_OVERRIDE=Arcanada-one/muneral run_contract
+    CALLER_OWNER_ID_OVERRIDE=275035476 CALLER_REPOSITORY_ID_OVERRIDE=1209796255 CALLER_REPOSITORY_OVERRIDE=Arcanada-one/muneral run_contract
     assert_status_is 0
 }
 
@@ -371,7 +373,7 @@ prepare_muneral() {
     for mutation in '.jobs.deploy.steps[0].with."service-name" = "other"' '.jobs.deploy.steps[0].with."ops-bot-agent" = "other"' '.jobs.deploy.steps[0].with."ops-bot-key" = "foreign-reference"' '.jobs.deploy.if = "true"'; do
         prepare_muneral
         mutate "$mutation"
-        CALLER_REPOSITORY_OVERRIDE=Arcanada-one/muneral run_contract
+        CALLER_OWNER_ID_OVERRIDE=275035476 CALLER_REPOSITORY_ID_OVERRIDE=1209796255 CALLER_REPOSITORY_OVERRIDE=Arcanada-one/muneral run_contract
         assert_status_is 1 || return 1
         restore_fixture
     done
@@ -386,19 +388,20 @@ prepare_muneral() {
 }
 
 @test "seventeen measured entries preserve unknown authority instead of inferred grants" {
-    run yq -er '(.consumers | keys | map(select(test("^Arcanada-one/"))) | length) == 17 and
+    run yq -er '(.consumers | keys | map(select(. != "1")) | length) == 17 and
       ([.consumers[] | select(."binding-status" == "workflow-only")] | length) == 10 and
       ([.consumers[] | select(."binding-status" == "incomplete")] | length) == 6 and
-      .consumers."Arcanada-one/muneral"."binding-status" == "eligible"' "$REGISTRY"
+      .consumers."1209796255"."binding-status" == "eligible"' "$REGISTRY"
     assert_status_is 0
 }
 
 @test "workflow-only and partial consumer entries cannot invoke the secret-bearing contract" {
-    for repo in Arcanada-one/argana Arcanada-one/auth-arcana Arcanada-one/fleet-watcher Arcanada-one/model-connector Arcanada-one/arcana-agent-system Arcanada-one/legal-arcana Arcanada-one/billing-arcana Arcanada-one/arganize-me-data Arcanada-one/capability-registry Arcanada-one/agent-supervisor Arcanada-one/opsbot Arcanada-one/scrutator Arcanada-one/wiki-arcana Arcanada-one/prompt-assembly Arcanada-one/email-agent Arcanada-one/probatio-arcana; do
-        CALLER_REPOSITORY_OVERRIDE="$repo" run_contract
+    local repo_id
+    while IFS= read -r repo_id; do
+        CALLER_OWNER_ID_OVERRIDE=275035476 CALLER_REPOSITORY_ID_OVERRIDE="$repo_id" CALLER_REPOSITORY_OVERRIDE=example-org/incomplete run_contract
         assert_status_is 1 || return 1
         assert_output_has 'consumer binding incomplete or workflow-only' || return 1
-    done
+    done < <(yq -r '.consumers | to_entries[] | select(.value."binding-status" != "eligible") | .key' "$REGISTRY")
 }
 
 @test "malformed immutable registry endpoint refuses without disclosing caller values" {
@@ -407,9 +410,45 @@ prepare_muneral() {
     cp "$SCRIPT" "$isolated/dev-tools/preflight-caller-contract.sh"
     cp "$REPO_ROOT/dev-tools/preflight-validate-url.sh" "$isolated/dev-tools/"
     cp "$REGISTRY" "$isolated/.github/actions/preflight-caller-contract/consumers.yml"
-    yq -i '.consumers."example-org/example-service"."ops-bot-url" = "https://SENTINEL_PRIVATE@ops.example.invalid/events"' "$isolated/.github/actions/preflight-caller-contract/consumers.yml"
+    yq -i '.consumers."1"."ops-bot-url" = "https://SENTINEL_PRIVATE@ops.example.invalid/events"' "$isolated/.github/actions/preflight-caller-contract/consumers.yml"
     SCRIPT="$isolated/dev-tools/preflight-caller-contract.sh" run_contract
     assert_status_is 1 || return 1
     [[ "$output" != *SENTINEL_PRIVATE* ]] || return 1
     assert_output_has 'invalid endpoint policy'
+}
+
+
+@test "native provider repository ID is required and immutable action context is wired" {
+    for id in '' 0 01 -1 unrelated; do
+        CALLER_REPOSITORY_ID_OVERRIDE="$id" run_contract
+        assert_status_is 1 || return 1
+        assert_output_has 'repository_id' || return 1
+    done
+    run grep -F 'PREFLIGHT_CALLER_GITHUB_REPOSITORY_ID: ${{ github.repository_id }}' "$ACTION"
+    assert_status_is 0
+}
+
+@test "repository name cannot substitute for a foreign provider ID" {
+    prepare_muneral
+    CALLER_REPOSITORY_ID_OVERRIDE=9999999999999999999 CALLER_REPOSITORY_OVERRIDE=Arcanada-one/muneral run_contract
+    assert_status_is 1 || return 1
+    assert_output_has 'missing consumer binding'
+}
+
+
+@test "repository transfer to another owner refuses the existing eligible binding" {
+    prepare_muneral
+    CALLER_OWNER_ID_OVERRIDE=2 CALLER_REPOSITORY_ID_OVERRIDE=1209796255 CALLER_REPOSITORY_OVERRIDE=Arcanada-one/muneral run_contract
+    assert_status_is 1 || return 1
+    assert_output_has 'repository owner mismatch'
+}
+
+@test "native provider owner ID refuses malformed values and is context-only" {
+    for id in '' 0 01 -1 unrelated; do
+        CALLER_OWNER_ID_OVERRIDE="$id" run_contract
+        assert_status_is 1 || return 1
+        assert_output_has 'repository_owner_id' || return 1
+    done
+    run grep -F 'PREFLIGHT_CALLER_GITHUB_OWNER_ID: ${{ github.repository_owner_id }}' "$ACTION"
+    assert_status_is 0
 }

@@ -35,6 +35,8 @@ runs:
         PREFLIGHT_CALLER_ACTION_REPOSITORY: ${{ github.action_repository }}
         PREFLIGHT_CALLER_ACTION_REF: ${{ github.action_ref }}
         PREFLIGHT_CALLER_GITHUB_REPOSITORY: ${{ github.repository }}
+        PREFLIGHT_CALLER_GITHUB_REPOSITORY_ID: ${{ github.repository_id }}
+        PREFLIGHT_CALLER_GITHUB_OWNER_ID: ${{ github.repository_owner_id }}
         PREFLIGHT_CALLER_WORKFLOW_REF: ${{ github.workflow_ref }}
         PREFLIGHT_CALLER_WORKFLOW_SHA: ${{ github.workflow_sha }}
         PREFLIGHT_CALLER_VAULT_ADDR: ${{ inputs.vault-addr }}

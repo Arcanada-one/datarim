@@ -57,6 +57,8 @@ for required_name in \
     PREFLIGHT_CALLER_ACTION_REPOSITORY \
     PREFLIGHT_CALLER_ACTION_REF \
     PREFLIGHT_CALLER_GITHUB_REPOSITORY \
+    PREFLIGHT_CALLER_GITHUB_REPOSITORY_ID \
+    PREFLIGHT_CALLER_GITHUB_OWNER_ID \
     PREFLIGHT_CALLER_WORKFLOW_REF \
     PREFLIGHT_CALLER_WORKFLOW_SHA \
     PREFLIGHT_CALLER_VAULT_ADDR \
@@ -75,6 +77,8 @@ yq_version="$("$yq_bin" --version 2>/dev/null)"
 action_repository="$PREFLIGHT_CALLER_ACTION_REPOSITORY"
 action_ref="$PREFLIGHT_CALLER_ACTION_REF"
 github_repository="$PREFLIGHT_CALLER_GITHUB_REPOSITORY"
+repository_id="$PREFLIGHT_CALLER_GITHUB_REPOSITORY_ID"
+owner_id="$PREFLIGHT_CALLER_GITHUB_OWNER_ID"
 workflow_ref="$PREFLIGHT_CALLER_WORKFLOW_REF"
 workflow_sha="$PREFLIGHT_CALLER_WORKFLOW_SHA"
 vault_addr="$PREFLIGHT_CALLER_VAULT_ADDR"
@@ -82,26 +86,33 @@ vault_addr="$PREFLIGHT_CALLER_VAULT_ADDR"
 [ "$action_repository" = "$DATARIM_REPOSITORY" ] || fail "runtime.github.action_repository: unexpected"
 [[ "$action_ref" =~ ^[0-9a-f]{40}$ ]] || fail "runtime.github.action_ref: immutable commit required"
 [[ "$github_repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || fail "runtime.github.repository: invalid"
+[[ "$owner_id" =~ ^[1-9][0-9]{0,18}$ ]] || fail "runtime.github.repository_owner_id: positive provider ID required"
+[[ "$repository_id" =~ ^[1-9][0-9]{0,18}$ ]] || fail "runtime.github.repository_id: positive provider ID required"
 [[ "$workflow_sha" =~ ^[0-9a-f]{40}$ ]] || fail "runtime.github.workflow_sha: immutable commit required"
 
 script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 registry_file="${script_root}/.github/actions/preflight-caller-contract/consumers.yml"
-"$yq_bin" eval -e '."schema-version" == 1 and (.consumers | type == "!!map")' "$registry_file" >/dev/null 2>&1 || \
+"$yq_bin" eval -e '."schema-version" == 2 and (.consumers | type == "!!map")' "$registry_file" >/dev/null 2>&1 || \
     fail "registry: invalid schema"
-export REGISTRY_REPOSITORY="$github_repository"
-registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."binding-status"' "${github_repository}.binding-status"
+export REGISTRY_REPOSITORY_ID="$repository_id"
+# The synthetic public example cannot admit a real repository sharing its ID.
+example_name="$("$yq_bin" eval -r '.consumers[strenv(REGISTRY_REPOSITORY_ID)]."example-repository-name" // ""' "$registry_file")"
+[[ -z "$example_name" || "$example_name" == "$github_repository" ]] || fail "registry.${github_repository}: example repository mismatch"
+registry_read '.consumers[strenv(REGISTRY_REPOSITORY_ID)]."owner-id"' "${github_repository}.owner-id"
+[ "$REGISTRY_VALUE" = "$owner_id" ] || fail "registry.${github_repository}: repository owner mismatch"
+registry_read '.consumers[strenv(REGISTRY_REPOSITORY_ID)]."binding-status"' "${github_repository}.binding-status"
 [ "$REGISTRY_VALUE" = eligible ] || fail "registry.${github_repository}: consumer binding incomplete or workflow-only"
-registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."service-name"' "${github_repository}.service-name"
+registry_read '.consumers[strenv(REGISTRY_REPOSITORY_ID)]."service-name"' "${github_repository}.service-name"
 service_name="$REGISTRY_VALUE"
-registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."ops-bot-agent"' "${github_repository}.ops-bot-agent"
+registry_read '.consumers[strenv(REGISTRY_REPOSITORY_ID)]."ops-bot-agent"' "${github_repository}.ops-bot-agent"
 ops_bot_agent="$REGISTRY_VALUE"
-registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."ops-bot-key-secret-name"' "${github_repository}.ops-bot-key-secret-name"
+registry_read '.consumers[strenv(REGISTRY_REPOSITORY_ID)]."ops-bot-key-secret-name"' "${github_repository}.ops-bot-key-secret-name"
 ops_bot_key_secret_name="$REGISTRY_VALUE"
-registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."deploy-if"' "${github_repository}.deploy-if"
+registry_read '.consumers[strenv(REGISTRY_REPOSITORY_ID)]."deploy-if"' "${github_repository}.deploy-if"
 deploy_if="$REGISTRY_VALUE"
-registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."ops-bot-url"' "${github_repository}.ops-bot-url"
+registry_read '.consumers[strenv(REGISTRY_REPOSITORY_ID)]."ops-bot-url"' "${github_repository}.ops-bot-url"
 ops_bot_url="$REGISTRY_VALUE"
-registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."allowed-hosts"' "${github_repository}.allowed-hosts"
+registry_read '.consumers[strenv(REGISTRY_REPOSITORY_ID)]."allowed-hosts"' "${github_repository}.allowed-hosts"
 allowed_hosts="$REGISTRY_VALUE"
 PREFLIGHT_OPS_BOT_URL="$ops_bot_url" PREFLIGHT_ALLOWED_HOSTS="$allowed_hosts" \
     bash "${script_root}/dev-tools/preflight-validate-url.sh" || fail "registry.${github_repository}: invalid endpoint policy"
