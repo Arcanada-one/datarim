@@ -2,7 +2,7 @@
 
 setup() {
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
-    SCRIPT="$REPO_ROOT/dev-tools/preflight-caller-contract.sh"
+    SCRIPT="${CALLER_CONTRACT_SOURCE_OVERRIDE:-$REPO_ROOT/dev-tools/preflight-caller-contract.sh}"
     ACTION="$REPO_ROOT/.github/actions/preflight-caller-contract/action.yml"
     REGISTRY="$REPO_ROOT/.github/actions/preflight-caller-contract/consumers.yml"
     FIXTURES="$REPO_ROOT/tests/fixtures/preflight-caller-contract"
@@ -349,4 +349,67 @@ assert_rejected() {
         assert_status_is 1 || return 1
         assert_output_has "tool.yq" || return 1
     done
+}
+
+
+prepare_muneral() {
+    mutate '.jobs.deploy.steps[0].with."service-name" = "muneral" | .jobs.deploy.steps[0].with."ops-bot-agent" = "muneral"'
+    local endpoint host
+    endpoint="$(yq -r '.consumers."Arcanada-one/muneral"."ops-bot-url"' "$REGISTRY")"
+    host="$(yq -r '.consumers."Arcanada-one/muneral"."allowed-hosts"' "$REGISTRY")"
+    ENDPOINT="$endpoint" HOST="$host" yq -i '.jobs.deploy.steps[0].with."ops-bot-url" = strenv(ENDPOINT) | .jobs.deploy.steps[0].with.allowed_hosts = strenv(HOST)' "$WORKFLOW"
+}
+
+@test "Muneral explicit immutable consumer binding accepts matching source-only caller" {
+    prepare_muneral
+    CALLER_REPOSITORY_OVERRIDE=Arcanada-one/muneral run_contract
+    assert_status_is 0
+}
+
+@test "Muneral source tuple refuses service agent key or condition substitution" {
+    local mutation
+    for mutation in '.jobs.deploy.steps[0].with."service-name" = "other"' '.jobs.deploy.steps[0].with."ops-bot-agent" = "other"' '.jobs.deploy.steps[0].with."ops-bot-key" = "foreign-reference"' '.jobs.deploy.if = "true"'; do
+        prepare_muneral
+        mutate "$mutation"
+        CALLER_REPOSITORY_OVERRIDE=Arcanada-one/muneral run_contract
+        assert_status_is 1 || return 1
+        restore_fixture
+    done
+}
+
+@test "caller hostname declaration must exactly equal the immutable registry" {
+    for value in '' '*.example.invalid' 'other.example.invalid' $'ops.example.invalid\nevil.example.invalid'; do
+        VALUE="$value" yq -i '.jobs.deploy.steps[0].with.allowed_hosts = strenv(VALUE)' "$WORKFLOW"
+        assert_rejected '.jobs.deploy.steps.with.allowed_hosts' || return 1
+        restore_fixture
+    done
+}
+
+@test "seventeen measured entries preserve unknown authority instead of inferred grants" {
+    run yq -er '(.consumers | keys | map(select(startswith("Arcanada-one/"))) | length) == 17 and
+      ([.consumers[] | select(."binding-status" == "workflow-only")] | length) == 10 and
+      ([.consumers[] | select(."binding-status" == "incomplete")] | length) == 6 and
+      .consumers."Arcanada-one/muneral"."binding-status" == "eligible"' "$REGISTRY"
+    assert_status_is 0
+}
+
+@test "workflow-only and partial consumer entries cannot invoke the secret-bearing contract" {
+    for repo in Arcanada-one/argana Arcanada-one/auth-arcana Arcanada-one/fleet-watcher Arcanada-one/model-connector Arcanada-one/arcana-agent-system Arcanada-one/legal-arcana Arcanada-one/billing-arcana Arcanada-one/arganize-me-data Arcanada-one/capability-registry Arcanada-one/agent-supervisor Arcanada-one/opsbot Arcanada-one/scrutator Arcanada-one/wiki-arcana Arcanada-one/prompt-assembly Arcanada-one/email-agent Arcanada-one/probatio-arcana; do
+        CALLER_REPOSITORY_OVERRIDE="$repo" run_contract
+        assert_status_is 1 || return 1
+        assert_output_has 'consumer binding incomplete or workflow-only' || return 1
+    done
+}
+
+@test "malformed immutable registry endpoint refuses without disclosing caller values" {
+    local isolated="$BATS_TEST_TMPDIR/callee"
+    mkdir -p "$isolated/dev-tools" "$isolated/.github/actions/preflight-caller-contract"
+    cp "$SCRIPT" "$isolated/dev-tools/preflight-caller-contract.sh"
+    cp "$REPO_ROOT/dev-tools/preflight-validate-url.sh" "$isolated/dev-tools/"
+    cp "$REGISTRY" "$isolated/.github/actions/preflight-caller-contract/consumers.yml"
+    yq -i '.consumers."example-org/example-service"."ops-bot-url" = "https://SENTINEL_PRIVATE@ops.example.invalid/events"' "$isolated/.github/actions/preflight-caller-contract/consumers.yml"
+    SCRIPT="$isolated/dev-tools/preflight-caller-contract.sh" run_contract
+    assert_status_is 1 || return 1
+    [[ "$output" != *SENTINEL_PRIVATE* ]] || return 1
+    assert_output_has 'invalid endpoint policy'
 }

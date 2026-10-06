@@ -5,3 +5,141 @@ consumers:
     ops-bot-agent: example-service
     ops-bot-key-secret-name: OPSBOT_API_KEY
     deploy-if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    binding-status: eligible
+    ops-bot-url: https://ops.example.invalid/events
+    allowed-hosts: ops.example.invalid
+  Arcanada-one/argana:
+    binding-status: workflow-only
+    source-pr: 51
+    source-head: e2a8976aa5631b8da9086b6a9ca86e44c6556387
+    source-callers: []
+  Arcanada-one/auth-arcana:
+    binding-status: workflow-only
+    source-pr: 203
+    source-head: d81fe0b7d6049f713fdaa9f2a151c80f03381e2a
+    source-callers: []
+  Arcanada-one/fleet-watcher:
+    binding-status: workflow-only
+    source-pr: 59
+    source-head: ac277ab84c66664dc9239d3eccebbc9ea9490c15
+    source-callers: []
+  Arcanada-one/model-connector:
+    binding-status: incomplete
+    source-pr: 185
+    source-head: 817ec6351cfec23b63121533ff8fcc897dcbf192
+    source-callers:
+    - workflow: .github/workflows/deploy-stt-whisper.yml
+      sha256: 4fa42654b02a271ff6e357061a1ad0f9a102138472cba229444b52d5370d3109
+      job: deploy
+    service-name: stt-whisper
+    ops-bot-key-secret-name: OPS_BOT_API_KEY
+    deploy-if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+  Arcanada-one/arcana-agent-system:
+    binding-status: workflow-only
+    source-pr: 251
+    source-head: 6dd848137d336c2985342020e0beeff6aeb58f65
+    source-callers: []
+  Arcanada-one/legal-arcana:
+    binding-status: incomplete
+    source-pr: 59
+    source-head: 6aec683e0c9f98599fae8d5bdaf36c91bb6c59ec
+    source-callers:
+    - workflow: .github/workflows/ci.yml
+      sha256: 9892140e5c52c84f9716021e8b1f399985a18592857cdbb820a47a4e54bdd9c0
+      job: deploy
+    service-name: legal-arcana
+    deploy-if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    ops-bot-url: https://ops.arcanada.ai/events
+  Arcanada-one/billing-arcana:
+    binding-status: workflow-only
+    source-pr: 44
+    source-head: a413a7d47532a2e4a55ef06121cecbc3212f4f4e
+    source-callers: []
+  Arcanada-one/arganize-me-data:
+    binding-status: workflow-only
+    source-pr: 14
+    source-head: 3d3008820fdf5d4ba38a646e374072b6d95ea60a
+    source-callers: []
+  Arcanada-one/capability-registry:
+    binding-status: workflow-only
+    source-pr: 53
+    source-head: 15826d64c4bc59e956cd5495501acc26e3f1a468
+    source-callers: []
+  Arcanada-one/agent-supervisor:
+    binding-status: incomplete
+    source-pr: 58
+    source-head: 8d7b9de167080904d5373688f4a4e60dbe208aca
+    source-callers:
+    - workflow: .github/workflows/ci.yml
+      sha256: 50a6a5d25ec47dc10fc9955f9236ff35fa264c57dd803234b84efeca2f929486
+      job: deploy-test
+    service-name: agent-supervisor-test
+    deploy-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && needs.delivery-integrity.result == 'success' }}
+    ops-bot-url: https://ops.arcanada.ai/events
+  Arcanada-one/muneral:
+    binding-status: eligible
+    source-pr: 209
+    source-head: 6df17a63310872358dd36beb4daa7adbfc0d0a3e
+    source-callers:
+    - workflow: .github/workflows/ci.yml
+      sha256: ca235f6564e6ccf5baff97e58400be9dc6565d3f134fc87b3d0e9f0637a653b9
+      job: preflight-caller-contract
+    - workflow: .github/workflows/ci.yml
+      sha256: ca235f6564e6ccf5baff97e58400be9dc6565d3f134fc87b3d0e9f0637a653b9
+      job: deploy
+    service-name: muneral
+    ops-bot-agent: muneral
+    ops-bot-key-secret-name: OPSBOT_API_KEY
+    deploy-if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    ops-bot-url: https://ops.arcanada.ai/events
+    allowed-hosts: ops.arcanada.ai
+  Arcanada-one/opsbot:
+    binding-status: incomplete
+    source-pr: 111
+    source-head: 85fa101fe32fa1ace92173101f26c25f1e4a182d
+    source-callers:
+    - workflow: .github/workflows/ci.yml
+      sha256: a6c65e2307b3b804f15d3cc92737496fe389d005a951dcfe3459fdcf78c09361
+      job: deploy
+    service-name: opsbot
+    ops-bot-key-secret-name: OPSBOT_API_KEY
+    deploy-if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    ops-bot-url: https://ops.arcanada.ai/events
+  Arcanada-one/scrutator:
+    binding-status: incomplete
+    source-pr: 126
+    source-head: 56165322526f6c4bbb46fb3759e2c9d44be0d8d9
+    source-callers:
+    - workflow: .github/workflows/deploy.yml
+      sha256: 966429510afa7f6663777374eab278b144a77e30b8dd39120012aedc6270e9be
+      job: deploy
+    service-name: scrutator
+    deploy-if: github.ref == 'refs/heads/main' && (github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch')
+    ops-bot-url: https://ops.arcanada.ai/events
+  Arcanada-one/wiki-arcana:
+    binding-status: incomplete
+    source-pr: 35
+    source-head: 1fe7303d7c1fcde98de8d177407c7e4b09854ca3
+    source-callers:
+    - workflow: .github/workflows/deploy.yml
+      sha256: a315c5a645e0115f690b32e213403e972a5a4f80e794904122984020239e0c19
+      job: deploy
+    service-name: wiki-arcana
+    ops-bot-url: https://ops.arcanada.ai/events
+  Arcanada-one/prompt-assembly:
+    binding-status: workflow-only
+    source-pr: 52
+    source-head: 897aedf03e8695adfb3e79384d68e275ed18b668
+    source-callers: []
+  Arcanada-one/email-agent:
+    binding-status: workflow-only
+    source-pr: 39
+    source-head: eb8ab612f5af64179acdc3e0f0846e50aea66888
+    source-callers: []
+  Arcanada-one/probatio-arcana:
+    binding-status: workflow-only
+    source-pr: 3
+    source-head: f5a7bfc87f3d554265ef2a57d599e1ee643cd90a
+    source-callers: []

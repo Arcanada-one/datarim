@@ -17,7 +17,6 @@ readonly CHECKOUT_ACTION="actions/checkout@3d3c42e5aac5ba805825da76410c181273ba9
 readonly VAULT_ADDR_EXPRESSION='${{ vars.VAULT_ADDR }}'
 # shellcheck disable=SC2016 # GitHub expressions are intentionally literal.
 readonly WORKFLOW_SHA_EXPRESSION='${{ github.workflow_sha }}'
-readonly OPS_BOT_URL="https://ops.example.invalid/events"
 
 fail() {
     printf 'ERROR: %s\n' "$1" >&2
@@ -90,6 +89,8 @@ registry_file="${script_root}/.github/actions/preflight-caller-contract/consumer
 "$yq_bin" eval -e '."schema-version" == 1 and (.consumers | type == "!!map")' "$registry_file" >/dev/null 2>&1 || \
     fail "registry: invalid schema"
 export REGISTRY_REPOSITORY="$github_repository"
+registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."binding-status"' "${github_repository}.binding-status"
+[ "$REGISTRY_VALUE" = eligible ] || fail "registry.${github_repository}: consumer binding incomplete or workflow-only"
 registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."service-name"' "${github_repository}.service-name"
 service_name="$REGISTRY_VALUE"
 registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."ops-bot-agent"' "${github_repository}.ops-bot-agent"
@@ -98,6 +99,12 @@ registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."ops-bot-key-secret-name"
 ops_bot_key_secret_name="$REGISTRY_VALUE"
 registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."deploy-if"' "${github_repository}.deploy-if"
 deploy_if="$REGISTRY_VALUE"
+registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."ops-bot-url"' "${github_repository}.ops-bot-url"
+ops_bot_url="$REGISTRY_VALUE"
+registry_read '.consumers[strenv(REGISTRY_REPOSITORY)]."allowed-hosts"' "${github_repository}.allowed-hosts"
+allowed_hosts="$REGISTRY_VALUE"
+PREFLIGHT_OPS_BOT_URL="$ops_bot_url" PREFLIGHT_ALLOWED_HOSTS="$allowed_hosts" \
+    bash "${script_root}/dev-tools/preflight-validate-url.sh" || fail "registry.${github_repository}: invalid endpoint policy"
 
 [[ "$service_name" =~ ^[a-z0-9-]+$ ]] || fail "registry.${github_repository}.service-name: invalid"
 [[ "$ops_bot_agent" =~ ^[a-z0-9-]+$ ]] || fail "registry.${github_repository}.ops-bot-agent: invalid"
@@ -161,7 +168,8 @@ export EXPECTED_SECRET_NAME="$ops_bot_key_secret_name"
 export EXPECTED_SECRET_EXPRESSION='${{ secrets.'"${ops_bot_key_secret_name}"' }}'
 export EXPECTED_VAULT_EXPRESSION="$VAULT_ADDR_EXPRESSION"
 export EXPECTED_WORKFLOW_SHA_EXPRESSION="$WORKFLOW_SHA_EXPRESSION"
-export EXPECTED_OPS_BOT_URL="$OPS_BOT_URL"
+export EXPECTED_OPS_BOT_URL="$ops_bot_url"
+export EXPECTED_ALLOWED_HOSTS="$allowed_hosts"
 export EXPECTED_DEPLOY_IF="$deploy_if"
 
 yaml_true '(.on | type) == "!!map" and (.on | has("pull_request")) and
@@ -215,6 +223,8 @@ yaml_true '[.jobs.deploy.steps[]? | select(.uses == strenv(EXPECTED_PREFLIGHT_US
     ".jobs.${DEPLOY_JOB}.steps.with.ops-bot-key"
 yaml_true '[.jobs.deploy.steps[]? | select(.uses == strenv(EXPECTED_PREFLIGHT_USE))][0].with."ops-bot-url" == strenv(EXPECTED_OPS_BOT_URL)' \
     ".jobs.${DEPLOY_JOB}.steps.with.ops-bot-url"
+yaml_true '[.jobs.deploy.steps[]? | select(.uses == strenv(EXPECTED_PREFLIGHT_USE))][0].with.allowed_hosts == strenv(EXPECTED_ALLOWED_HOSTS)' \
+    ".jobs.${DEPLOY_JOB}.steps.with.allowed_hosts"
 
 yaml_read '[.jobs.deploy.steps | to_entries[] | select(.value.uses == strenv(EXPECTED_PREFLIGHT_USE))][0].key' \
     ".jobs.${DEPLOY_JOB}.steps.uses"
