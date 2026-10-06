@@ -1,40 +1,30 @@
 #!/usr/bin/env bash
-# preflight-validate-url.sh — ops-bot-url allowlist guard (PROD strict, non-PROD WARN).
-#
-# Inputs (env):
-#   PREFLIGHT_OPS_BOT_URL        — URL string to validate.
-#   PREFLIGHT_IS_PROD_CONTEXT    — 'true' if invoked from PROD trigger context
-#                                  (push on main/master/release/*), else 'false'.
-#
-# Exit:
-#   0  — URL canonical (PROD or non-PROD), or non-PROD non-canonical (WARN to stderr).
-#   1  — PROD non-canonical (block deploy).
-#
-# Canonical URL: https://ops.example.invalid/events
-#
-# Used by .github/actions/preflight-check/action.yml composite step
-# "Validate ops-bot-url against PROD allowlist".
-
+# Exact HTTPS /events endpoint guard. All contexts fail closed before host checks.
+# PREFLIGHT_ALLOWED_HOSTS: caller-controlled newline-separated DNS hostnames.
+# PREFLIGHT_OPS_BOT_URL: endpoint; no credentials, port, query or fragment allowed.
+# No default host or URL is authorized. Diagnostics never echo caller values.
 set -euo pipefail
+export LC_ALL=C
 
-readonly ALLOWLIST_REGEX='^https://ops\.example\.invalid/events$'
-
+reject() { echo "ERR: $1" >&2; exit 1; }
 url="${PREFLIGHT_OPS_BOT_URL:-}"
-is_prod="${PREFLIGHT_IS_PROD_CONTEXT:-false}"
+hosts="${PREFLIGHT_ALLOWED_HOSTS:-}"
+[[ -n "$url" ]] || reject 'PREFLIGHT_OPS_BOT_URL is empty'
+[[ -n "$hosts" && ${#hosts} -le 16384 ]] || reject 'allowed_hosts must be a nonempty bounded DNS hostname list'
 
-if [[ -z "$url" ]]; then
-    echo "ERR: PREFLIGHT_OPS_BOT_URL is empty" >&2
-    exit 1
-fi
-
-if [[ "$url" =~ $ALLOWLIST_REGEX ]]; then
-    exit 0
-fi
-
-if [[ "$is_prod" == "true" ]]; then
-    echo "ERR: ops-bot-url must match canonical https://ops.example.invalid/events for PROD trigger contexts (got: $url)" >&2
-    exit 1
-fi
-
-echo "WARN: ops-bot-url $url does not match canonical; non-PROD context, continuing" >&2
-exit 0
+count=0
+matched=false
+while IFS= read -r host || [[ -n "$host" ]]; do
+    count=$((count + 1))
+    [[ $count -le 64 && ${#host} -le 253 && "$host" =~ ^[a-z0-9.-]+$ && "$host" == *.* && "$host" != *..* ]] || reject 'allowed_hosts contains an invalid DNS hostname'
+    # Alphabetic final label excludes IP literals; no wildcard or suffix matching.
+    [[ "${host##*.}" =~ ^[a-z][a-z0-9-]*$ ]] || reject 'allowed_hosts must contain DNS hostnames, not IP literals'
+    IFS='.' read -r -a labels <<< "$host"
+    for label in "${labels[@]}"; do
+        [[ ${#label} -ge 1 && ${#label} -le 63 && "$label" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] || reject 'allowed_hosts contains an invalid DNS label'
+    done
+    [[ "$host" != *. ]] || reject 'allowed_hosts contains a trailing dot'
+    if [[ "$url" == "https://$host/events" ]]; then matched=true; fi
+    # Validate every entry even after a match: malformed policy must never pass.
+done < <(printf '%s' "$hosts")
+[[ "$matched" == true ]] || reject 'ops-bot-url must match an allowed HTTPS /events endpoint'

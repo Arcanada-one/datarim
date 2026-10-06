@@ -34,7 +34,11 @@ inputs:
   ops-bot-url:
     required: false
     default: https://ops.example.invalid/events
-    description: Ops Bot events endpoint. Validated against canonical allowlist in PROD trigger contexts (strict reject; non-PROD WARN-only).
+    description: Exact HTTPS /events endpoint on a caller-declared allowed_hosts DNS hostname. All contexts fail closed.
+  allowed_hosts:
+    required: false
+    default: ""
+    description: Newline-separated exact lowercase DNS hostnames from trusted caller configuration. Required when ops-bot-emit=true; empty or malformed lists refuse.
   ops-bot-key:
     required: false
     default: ""
@@ -77,13 +81,13 @@ runs:
       run: |
         echo "ERR: preflight-check forbidden on fork PR (head.repo.fork=true)" >&2
         exit 1
-    - name: Validate ops-bot-url against PROD allowlist
+    - name: Validate ops-bot-url against caller allowlist
       id: validate-url
       if: inputs.ops-bot-emit == 'true'
       shell: bash
       env:
         PREFLIGHT_OPS_BOT_URL: ${{ inputs.ops-bot-url }}
-        PREFLIGHT_IS_PROD_CONTEXT: ${{ github.event_name == 'push' && (endsWith(github.ref, '/main') || endsWith(github.ref, '/master') || contains(github.ref, '/release/')) }}
+        PREFLIGHT_ALLOWED_HOSTS: ${{ inputs.allowed_hosts }}
       run: |
         "${{ github.action_path }}/../../../dev-tools/preflight-validate-url.sh"
     - name: Validate and export severity-overrides

@@ -679,7 +679,7 @@ EOF
 
 # ---------- INFRA-0201: action.yml input-validation hardening ----------
 #
-# T23a/T23b — ops-bot-url allowlist guard (PROD strict, non-PROD WARN)
+# T23a/T23b — ops-bot-url allowlist guard (all contexts fail closed)
 # T26-T29   — severity-overrides jq schema gate
 # T30       — ops-bot-key → OPSBOT_KEY env propagation (action.yml literal)
 # T39-T41   — action threshold defaults preserve validated overrides
@@ -694,6 +694,7 @@ ACTION_YML="$BATS_TEST_DIRNAME/../.github/actions/preflight-check/action.yml"
 
 @test "T23a ops-bot-url allowlist: PROD + canonical accepts (exit 0)" {
     run env \
+        PREFLIGHT_ALLOWED_HOSTS=ops.example.invalid \
         PREFLIGHT_OPS_BOT_URL=https://ops.example.invalid/events \
         PREFLIGHT_IS_PROD_CONTEXT=true \
         bash "$VAL_URL"
@@ -702,11 +703,12 @@ ACTION_YML="$BATS_TEST_DIRNAME/../.github/actions/preflight-check/action.yml"
 
 @test "T23b ops-bot-url allowlist: PROD + non-canonical rejects (exit 1)" {
     run env \
+        PREFLIGHT_ALLOWED_HOSTS=ops.example.invalid \
         PREFLIGHT_OPS_BOT_URL=https://evil.example.com/events \
         PREFLIGHT_IS_PROD_CONTEXT=true \
         bash "$VAL_URL"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"must match canonical"* ]]
+    [[ "$output" == *"must match an allowed"* ]]
 }
 
 @test "T26 severity-overrides: valid JSON exports PREFLIGHT_<KEY>=val to GITHUB_ENV" {
