@@ -1,5 +1,12 @@
 # Evolution Log
 
+## 2026-10-06 -- Source-history deadline regression scope (v4.3.6)
+
+- **Problem.** A history-specific timing assertion included dependency imports and earlier document checks, while its slow first subprocess could not distinguish a shared deadline from a deadline reset for each call.
+- **Test contract.** A dedicated fixture clock measures history entry through terminal emission. Cumulative short Git delays with an invocation counter preserve the existing refusal checks and four-second ceiling; the generic global-deadline helper remains unchanged.
+- **Regression.** The correct validator and a delay before history pass. A reset-per-call mutant and a delay inside history fail the corrected oracle. Production validation, source-history budget, security checks and cleanup are unchanged.
+- **Evidence boundary.** Controlled delays prove a fixture scope defect; they do not identify the cause of a particular hosted delay. Local tests do not replace successor CI, signed release verification, installation or native runtime evidence.
+
 ## 2026-10-06 -- Single-request HTTP connection lifecycle (v4.3.5)
 
 - **Problem.** The per-connection router exited after one response while successful HTTP/1.1 responses advertised keep-alive. A persistence-capable client could reuse the closing connection and lose its next request.

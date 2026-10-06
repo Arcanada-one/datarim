@@ -31,7 +31,7 @@ commit classifies as the intended release bump.
 
 ```bash
 set -euo pipefail
-TAG=v4.3.5   # replace with the release you are verifying
+TAG=v4.3.6   # replace with the release you are verifying
 
 # 1. Download all artefacts.
 gh release download "$TAG" --repo Arcanada-one/datarim
