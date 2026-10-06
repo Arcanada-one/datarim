@@ -2,7 +2,7 @@
 
 setup() {
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
-    SCRIPT="$REPO_ROOT/dev-tools/preflight-caller-contract.sh"
+    SCRIPT="${CALLER_CONTRACT_SOURCE_OVERRIDE:-$REPO_ROOT/dev-tools/preflight-caller-contract.sh}"
     ACTION="$REPO_ROOT/.github/actions/preflight-caller-contract/action.yml"
     REGISTRY="$REPO_ROOT/.github/actions/preflight-caller-contract/consumers.yml"
     FIXTURES="$REPO_ROOT/tests/fixtures/preflight-caller-contract"
@@ -38,6 +38,8 @@ run_contract() {
         PREFLIGHT_CALLER_ACTION_REPOSITORY="$action_repository" \
         PREFLIGHT_CALLER_ACTION_REF="$action_ref" \
         PREFLIGHT_CALLER_GITHUB_REPOSITORY="$caller_repository" \
+        PREFLIGHT_CALLER_GITHUB_REPOSITORY_ID="${CALLER_REPOSITORY_ID_OVERRIDE-1}" \
+        PREFLIGHT_CALLER_GITHUB_OWNER_ID="${CALLER_OWNER_ID_OVERRIDE-1}" \
         PREFLIGHT_CALLER_WORKFLOW_REF="$workflow_ref" \
         PREFLIGHT_CALLER_WORKFLOW_SHA="$workflow_sha" \
         PREFLIGHT_CALLER_VAULT_ADDR="$vault_addr" \
@@ -99,7 +101,7 @@ assert_rejected() {
         assert_status_is 0 || return 1
     done
 
-    run yq -er '."schema-version" == 1 and .consumers."example-org/example-service"."service-name" == "example-service"' "$REGISTRY"
+    run yq -er '."schema-version" == 2 and .consumers."1"."service-name" == "example-service"' "$REGISTRY"
     assert_status_is 0
 }
 
@@ -349,4 +351,104 @@ assert_rejected() {
         assert_status_is 1 || return 1
         assert_output_has "tool.yq" || return 1
     done
+}
+
+
+prepare_muneral() {
+    mutate '.jobs.deploy.steps[0].with."service-name" = "muneral" | .jobs.deploy.steps[0].with."ops-bot-agent" = "muneral"'
+    local endpoint host
+    endpoint="$(yq -r '.consumers."1209796255"."ops-bot-url"' "$REGISTRY")"
+    host="$(yq -r '.consumers."1209796255"."allowed-hosts"' "$REGISTRY")"
+    ENDPOINT="$endpoint" HOST="$host" yq -i '.jobs.deploy.steps[0].with."ops-bot-url" = strenv(ENDPOINT) | .jobs.deploy.steps[0].with.allowed_hosts = strenv(HOST)' "$WORKFLOW"
+}
+
+@test "Muneral explicit immutable consumer binding accepts matching source-only caller" {
+    prepare_muneral
+    CALLER_OWNER_ID_OVERRIDE=275035476 CALLER_REPOSITORY_ID_OVERRIDE=1209796255 CALLER_REPOSITORY_OVERRIDE=Arcanada-one/muneral run_contract
+    assert_status_is 0
+}
+
+@test "Muneral source tuple refuses service agent key or condition substitution" {
+    local mutation
+    for mutation in '.jobs.deploy.steps[0].with."service-name" = "other"' '.jobs.deploy.steps[0].with."ops-bot-agent" = "other"' '.jobs.deploy.steps[0].with."ops-bot-key" = "foreign-reference"' '.jobs.deploy.if = "true"'; do
+        prepare_muneral
+        mutate "$mutation"
+        CALLER_OWNER_ID_OVERRIDE=275035476 CALLER_REPOSITORY_ID_OVERRIDE=1209796255 CALLER_REPOSITORY_OVERRIDE=Arcanada-one/muneral run_contract
+        assert_status_is 1 || return 1
+        restore_fixture
+    done
+}
+
+@test "caller hostname declaration must exactly equal the immutable registry" {
+    for value in '' '*.example.invalid' 'other.example.invalid' $'ops.example.invalid\nevil.example.invalid'; do
+        VALUE="$value" yq -i '.jobs.deploy.steps[0].with.allowed_hosts = strenv(VALUE)' "$WORKFLOW"
+        assert_rejected '.jobs.deploy.steps.with.allowed_hosts' || return 1
+        restore_fixture
+    done
+}
+
+@test "seventeen measured entries preserve unknown authority instead of inferred grants" {
+    run yq -er '(.consumers | keys | map(select(. != "1")) | length) == 17 and
+      ([.consumers[] | select(."binding-status" == "workflow-only")] | length) == 10 and
+      ([.consumers[] | select(."binding-status" == "incomplete")] | length) == 6 and
+      .consumers."1209796255"."binding-status" == "eligible"' "$REGISTRY"
+    assert_status_is 0
+}
+
+@test "workflow-only and partial consumer entries cannot invoke the secret-bearing contract" {
+    local repo_id
+    while IFS= read -r repo_id; do
+        CALLER_OWNER_ID_OVERRIDE=275035476 CALLER_REPOSITORY_ID_OVERRIDE="$repo_id" CALLER_REPOSITORY_OVERRIDE=example-org/incomplete run_contract
+        assert_status_is 1 || return 1
+        assert_output_has 'consumer binding incomplete or workflow-only' || return 1
+    done < <(yq -r '.consumers | to_entries[] | select(.value."binding-status" != "eligible") | .key' "$REGISTRY")
+}
+
+@test "malformed immutable registry endpoint refuses without disclosing caller values" {
+    local isolated="$BATS_TEST_TMPDIR/callee"
+    mkdir -p "$isolated/dev-tools" "$isolated/.github/actions/preflight-caller-contract"
+    cp "$SCRIPT" "$isolated/dev-tools/preflight-caller-contract.sh"
+    cp "$REPO_ROOT/dev-tools/preflight-validate-url.sh" "$isolated/dev-tools/"
+    cp "$REGISTRY" "$isolated/.github/actions/preflight-caller-contract/consumers.yml"
+    yq -i '.consumers."1"."ops-bot-url" = "https://SENTINEL_PRIVATE@ops.example.invalid/events"' "$isolated/.github/actions/preflight-caller-contract/consumers.yml"
+    SCRIPT="$isolated/dev-tools/preflight-caller-contract.sh" run_contract
+    assert_status_is 1 || return 1
+    [[ "$output" != *SENTINEL_PRIVATE* ]] || return 1
+    assert_output_has 'invalid endpoint policy'
+}
+
+
+@test "native provider repository ID is required and immutable action context is wired" {
+    for id in '' 0 01 -1 unrelated; do
+        CALLER_REPOSITORY_ID_OVERRIDE="$id" run_contract
+        assert_status_is 1 || return 1
+        assert_output_has 'repository_id' || return 1
+    done
+    run grep -F 'PREFLIGHT_CALLER_GITHUB_REPOSITORY_ID: ${{ github.repository_id }}' "$ACTION"
+    assert_status_is 0
+}
+
+@test "repository name cannot substitute for a foreign provider ID" {
+    prepare_muneral
+    CALLER_REPOSITORY_ID_OVERRIDE=9999999999999999999 CALLER_REPOSITORY_OVERRIDE=Arcanada-one/muneral run_contract
+    assert_status_is 1 || return 1
+    assert_output_has 'missing consumer binding'
+}
+
+
+@test "repository transfer to another owner refuses the existing eligible binding" {
+    prepare_muneral
+    CALLER_OWNER_ID_OVERRIDE=2 CALLER_REPOSITORY_ID_OVERRIDE=1209796255 CALLER_REPOSITORY_OVERRIDE=Arcanada-one/muneral run_contract
+    assert_status_is 1 || return 1
+    assert_output_has 'repository owner mismatch'
+}
+
+@test "native provider owner ID refuses malformed values and is context-only" {
+    for id in '' 0 01 -1 unrelated; do
+        CALLER_OWNER_ID_OVERRIDE="$id" run_contract
+        assert_status_is 1 || return 1
+        assert_output_has 'repository_owner_id' || return 1
+    done
+    run grep -F 'PREFLIGHT_CALLER_GITHUB_OWNER_ID: ${{ github.repository_owner_id }}' "$ACTION"
+    assert_status_is 0
 }

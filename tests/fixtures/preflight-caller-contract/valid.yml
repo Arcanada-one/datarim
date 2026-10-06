@@ -44,5 +44,6 @@ jobs:
           ops-bot-agent: example-service
           ops-bot-key: ${{ secrets.OPSBOT_API_KEY }}
           ops-bot-url: https://ops.example.invalid/events
+          allowed_hosts: ops.example.invalid
       - if: steps.preflight.outputs.status != 'fail'
         run: sudo -n /usr/local/sbin/arcanada-compose-broker example-service up
