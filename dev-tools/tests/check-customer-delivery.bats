@@ -535,6 +535,34 @@ open(path, "w", encoding="utf-8").write(source)
 PY
 }
 
+instrument_test_source_history_elapsed() {
+    local marker="$1"
+    "$PYTHON" - "$TEST_SCRIPT" "$marker" <<'PY' || return 1
+import sys
+
+path, marker = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+anchor = "def validate_source_history():\n    try:\n"
+started = '''def validate_source_history():
+    global _TEST_SOURCE_HISTORY_STARTED
+    _TEST_SOURCE_HISTORY_STARTED = time.monotonic()
+    try:
+'''
+terminal = "    os._exit(result.code)\n"
+instrumented = f'''    time.sleep(0)  # TEST_SOURCE_HISTORY_STALL_MUTATION
+    started = globals().get("_TEST_SOURCE_HISTORY_STARTED")
+    if started is not None:
+        with open({marker!r}, "w", encoding="ascii") as handle:
+            handle.write(str(time.monotonic() - started))
+    os._exit(result.code)
+'''
+if source.count(anchor) != 1 or source.count(terminal) != 1:
+    raise SystemExit("TEST_SOURCE_HISTORY_TIMING_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(anchor, started, 1).replace(terminal, instrumented, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
 instrument_test_inherited_pending_alarm() {
     "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
 import sys
@@ -5200,7 +5228,7 @@ PY
 
 @test "source history subprocesses share one total deadline" {
     local shim="${BATS_TEST_TMPDIR}/slow-git"
-    local real_git elapsed elapsed_marker="${BATS_TEST_TMPDIR}/history-deadline.elapsed"
+    local real_git elapsed call_count elapsed_marker="${BATS_TEST_TMPDIR}/history-deadline.elapsed"
     real_git="$(command -v git)" || return 1
     "$PYTHON" - "$shim" "$real_git" <<'PY' || return 1
 import os
@@ -5209,11 +5237,8 @@ import sys
 path, real_git = sys.argv[1:]
 with open(path, "w", encoding="utf-8") as handle:
     handle.write(f'''#!/usr/bin/env bash
-for argument in "$@"; do
-    if [[ "$argument" == cat-file ]]; then
-        sleep 2
-    fi
-done
+printf 'call\\n' >> "{path}.calls"
+sleep 0.25
 exec "{real_git}" "$@"
 ''')
 os.chmod(path, 0o700)
@@ -5225,13 +5250,21 @@ PY
     replace_test_script_literal \
         'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 10' \
         'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 1' || return 1
-    instrument_test_validator_elapsed "$elapsed_marker" || return 1
+    # Measure history entry through terminal emission; earlier validation has its
+    # own global deadline. Each short Git delay is below the history budget.
+    instrument_test_source_history_elapsed "$elapsed_marker" || return 1
     run_test_framework_json
-    [ -s "$elapsed_marker" ] || return 1
+    [ -s "$elapsed_marker" ] \
+        || { printf 'history_deadline_setup=missing_elapsed status=%s output=%s\n' "$status" "$output"; return 1; }
     elapsed="$(<"$elapsed_marker")"
+    [ -f "${shim}.calls" ] \
+        || { printf 'history_deadline_setup=missing_calls status=%s elapsed=%s output=%s\n' "$status" "$elapsed" "$output"; return 1; }
+    call_count="$(wc -l <"${shim}.calls")"
+    [ "$call_count" -ge 2 ] \
+        || { printf 'history_deadline_setup=insufficient_calls status=%s elapsed=%s count=%s output=%s\n' "$status" "$elapsed" "$call_count" "$output"; return 1; }
     split_bounded_validator_json "$output" || return 1
     [ "$status" -eq 1 ] \
-        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:deadline"]' "$VALIDATOR_JSON" \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == d["status"] == d["epic_status"] == "NOT_MET"; assert d["findings"] == ["source_history_resource_limit:deadline"]' "$VALIDATOR_JSON" \
         && assert_deadline_cleanup_elapsed "$elapsed" 4 \
         || { printf 'history_deadline_output=%s elapsed=%s\n' "$output" "$elapsed"; return 1; }
 }

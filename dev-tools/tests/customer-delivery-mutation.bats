@@ -2318,7 +2318,7 @@ import sys
 
 path, repo_root = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
-stall_old = "    time.sleep(0)  # TEST_DEADLINE_STALL_MUTATION\n"
+stall_old = "    time.sleep(0)  # TEST_SOURCE_HISTORY_STALL_MUTATION\n"
 stall_new = "    time.sleep(8)  # MUTATED:post_deadline_stall\n"
 root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
 root_new = f"    REPO_ROOT={repo_root!r}\n"

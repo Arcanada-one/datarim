@@ -4,6 +4,15 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.3.6] — 2026-10-06
+
+### Fixed
+
+- The source-history deadline regression now measures history entry through terminal emission, excluding earlier validation work that has its own global deadline. The existing four-second ceiling, exact refusal output and exit checks remain unchanged.
+- Short cumulative delays across multiple real Git calls and an invocation counter make the regression distinguish one shared history deadline from a deadline incorrectly reset for each subprocess. Production validation, trust checks and cleanup behavior remain unchanged.
+
+This successor includes the single-request HTTP connection lifecycle, UTF-8 response byte lengths and portable permission checks introduced in 4.3.5. Historical signed releases and their verification records remain separate.
+
 ## [4.3.5] — 2026-10-06
 
 ### Fixed
