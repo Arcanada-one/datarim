@@ -386,7 +386,7 @@ prepare_muneral() {
 }
 
 @test "seventeen measured entries preserve unknown authority instead of inferred grants" {
-    run yq -er '(.consumers | keys | map(select(startswith("Arcanada-one/"))) | length) == 17 and
+    run yq -er '(.consumers | keys | map(select(test("^Arcanada-one/"))) | length) == 17 and
       ([.consumers[] | select(."binding-status" == "workflow-only")] | length) == 10 and
       ([.consumers[] | select(."binding-status" == "incomplete")] | length) == 6 and
       .consumers."Arcanada-one/muneral"."binding-status" == "eligible"' "$REGISTRY"
