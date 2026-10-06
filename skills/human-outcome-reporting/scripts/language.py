@@ -233,10 +233,16 @@ def resolve_preferences(project=None, user_config=None, project_config=None,
 def context(preferences):
     return ('Resolved reply language: ' + preferences['replies'] +
             '; resolved artifact language: ' + preferences['artifacts'] + '.\n'
-            'Apply these independently to generated presentation and documents. '
+            'ALL user-visible prose outside reusable artifacts MUST use the resolved reply language, '
+            'from the first visible sentence through progress messages, narration before and after '
+            'tool calls, explanations, questions and final answers. The incoming prompt language '
+            'does not select either preference. Use the resolved artifact language only for '
+            'generated reusable notes, documents and excerpts. '
             'Reusable notes, documents and excerpts authored inside replies use artifact language '
             'for their generated prose and examples; do not add an unrequested translated example. '
             'Human explanation outside the artifact uses reply language. '
+            'An explicit reply-language request changes only reply prose; an explicit document-language '
+            'request changes only the requested artifact. An override of one scope never changes the other. '
             'Preserve verbatim input, code and machine identifiers. Explicit task language requests '
             '(including bilingual or translation requests) and native authority retain precedence. '
             'Reply direction: ' + preferences['direction']['replies'] + '.')

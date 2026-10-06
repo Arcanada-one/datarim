@@ -84,7 +84,7 @@ def test_success_is_data_coverage_not_human_acceptance(case):
     assert result['valid'] and result['ready']
     assert result['readiness'] == 'checks_complete'
     assert result['coverage'] == {'required_met':1,'required_total':1,'excluded':0,'optional_total':0,'ratio':1.0}
-    assert 'Acceptance remains with the task owner.' in hr.render(case[0],case[1],result)
+    assert 'Acceptance remains with the task owner.' in hr.render(case[0],case[1],result,language='en')
 
 @pytest.mark.parametrize('status,expected', [('failed','failed'),('blocked','blocked'),('not_run','not_verified'),('skipped','not_verified')])
 def test_negative_checks_never_pass(case,status,expected):
@@ -195,7 +195,7 @@ def test_task_graph_links(case):
 def test_cli_read_only(case,capsys):
     c,r,p=case;write_json(p/'contract.json',c);write_json(p/'report.json',r)
     before={x.name:hr.file_hash(x) for x in p.iterdir() if x.is_file()}
-    assert hr.main(['render','--contract',str(p/'contract.json'),'--report',str(p/'report.json'),'--evidence-root',str(p)])==0
+    assert hr.main(['render','--contract',str(p/'contract.json'),'--report',str(p/'report.json'),'--evidence-root',str(p),'--language','en'])==0
     assert 'What was required' in capsys.readouterr().out
     assert before=={x.name:hr.file_hash(x) for x in p.iterdir() if x.is_file()}
 

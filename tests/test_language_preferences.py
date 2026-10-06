@@ -76,6 +76,26 @@ class LanguagePreferencesTests(unittest.TestCase):
         self.env.pop('DATARIM_REPLY_LANG')
         self.assertEqual(self.resolve()['replies'], 'en')
 
+    def test_explicit_language_override_changes_only_requested_scope(self):
+        personal = self.user('language:\n  replies: fr\n  artifacts: de\n')
+        before = personal.read_bytes()
+        document = self.resolve(artifacts='ru')
+        self.assertEqual((document['replies'], document['artifacts']), ('fr', 'ru'))
+        self.assertEqual(document['sources'], {'replies': 'user', 'artifacts': 'explicit'})
+        reply = self.resolve(replies='ar')
+        self.assertEqual((reply['replies'], reply['artifacts']), ('ar', 'de'))
+        self.assertEqual(reply['sources'], {'replies': 'explicit', 'artifacts': 'user'})
+        for preferences in (document, reply):
+            context = language.context(preferences)
+            self.assertIn('ALL user-visible prose outside reusable artifacts MUST', context)
+            self.assertIn('first visible sentence', context)
+            self.assertIn('narration before and after tool calls', context)
+            self.assertIn('incoming prompt language does not select either preference', context)
+            self.assertIn('explicit document-language request changes only the requested artifact', context)
+            self.assertIn('explicit reply-language request changes only reply prose', context)
+            self.assertIn('override of one scope never changes the other', context)
+        self.assertEqual(personal.read_bytes(), before)
+
     def test_xdg_location_and_nested_project_discovery(self):
         xdg = self.home / 'preferences'
         self.env['XDG_CONFIG_HOME'] = str(xdg)

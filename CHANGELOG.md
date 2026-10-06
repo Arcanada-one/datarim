@@ -4,6 +4,21 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.3.7] — 2026-10-06
+
+### Fixed
+
+- Human Outcome Reporting keeps ordinary human-facing prose in the selected reply language before and after tools; reusable notes and documents retain their independent artifact language. An explicit document-language request changes only that artifact, and a reply-language request changes only reply prose.
+- Reporting regression checks with literal English labels select English explicitly rather than depending on the developer account's personal preferences. Production preference precedence and multilingual behavior remain unchanged.
+- The integrity manifest records the updated reporting installer.
+
+### Added
+
+- Claude Code installs owned synchronous `PostToolUse` and `PostToolUseFailure` callbacks using the same preference resolver as startup and prompt submission. They add current language context without modifying tool outputs, permissions or decisions. Foreign hooks, native settings and safety integrations remain preserved through update and uninstall.
+- Post-tool payload parsing is bounded to 1 MiB; startup and prompt parsing retain the 64 KiB bound. Invalid, duplicate or oversized metadata produces an unresolved-preference notice without promoting payload text or inventing a default.
+
+Standalone Human Outcome Reporting patch version: **0.3.3**. Context delivery is guidance, not a guarantee of generated language. Failed-tool callbacks do not cover permission denials, pre-execution validation failures or cancellations; disabled or unsupported hooks can leave a continuation without fresh context. Codex and Cursor retain their supported startup integrations.
+
 ## [4.3.6] — 2026-10-06
 
 ### Fixed
