@@ -36,7 +36,7 @@ with `--receipt /path/to/reporting-install.json`.
 
 | Client | Skill directory | Persistent reporting preference |
 | --- | --- | --- |
-| Claude Code | `~/.claude/skills/human-outcome-reporting/` | `~/.claude/output-styles/human-outcome-reporting.md`, selected through `outputStyle` in user `settings.json`, and synchronous `SessionStart` and `UserPromptSubmit` callbacks; coding instructions are preserved |
+| Claude Code | `~/.claude/skills/human-outcome-reporting/` | `~/.claude/output-styles/human-outcome-reporting.md`, selected through `outputStyle` in user `settings.json`, and synchronous `SessionStart`, `UserPromptSubmit`, `PostToolUse` and `PostToolUseFailure` callbacks; coding instructions are preserved |
 | Codex | `~/.agents/skills/human-outcome-reporting/` | A marked reporting-only section in `~/.codex/AGENTS.md` (a non-empty existing `AGENTS.override.md` receives it instead), and a synchronous `SessionStart` callback in `~/.codex/hooks.json` |
 | Cursor | `~/.cursor/skills/human-outcome-reporting/` | A user `sessionStart` hook in `~/.cursor/hooks.json` injects the reporting preference and installed skill path |
 
@@ -48,6 +48,8 @@ These backups may contain existing private client settings; keep them local.
 
 The mechanisms are documented by [Claude output styles](https://code.claude.com/docs/en/output-styles),
 [Claude startup hooks](https://code.claude.com/docs/en/hooks#sessionstart),
+[Claude successful-tool context](https://code.claude.com/docs/en/hooks#posttooluse),
+[Claude failed-tool context](https://code.claude.com/docs/en/hooks#posttoolusefailure),
 [Codex startup hooks and trust](https://learn.chatgpt.com/docs/hooks),
 [Codex instruction discovery](https://developers.openai.com/codex/guides/agents-md),
 and [Cursor user hooks](https://cursor.com/docs/hooks). Each client must support
@@ -55,10 +57,14 @@ its native feature; client version alone is not a behavior test. Skill discovery
 is separate from guaranteed instruction compliance.
 
 The Codex and Claude callbacks live in the respective user `hooks/` directory.
-They run synchronously with a ten-second timeout, read only the native `cwd`
-metadata field and resolve preferences before the first progress message or
-other human text. They ignore transcript paths, prompts and unrelated payload
-fields. Missing or malformed metadata, an unavailable resolver or invalid
+They run synchronously with a ten-second timeout. They validate the expected
+event and use only the native `cwd` metadata field to resolve preferences.
+Startup and prompt callbacks provide context before human text; Claude post-tool
+callbacks refresh it before the next continuation. Transcript paths, prompts,
+tool inputs, results and error text are never promoted into instructions.
+Payload parsing is bounded to 64 KiB for startup and prompt events and 1 MiB for
+Claude post-tool events. Oversized input is rejected rather than truncated.
+Missing or malformed metadata, an unavailable resolver or invalid
 configuration produces a fixed unresolved-preference notice; it does not claim
 that English defaults or a configured language were applied.
 
@@ -100,9 +106,19 @@ new native sessions avoid retaining earlier context. Cursor refreshes its contex
 when a new conversation starts. Codex and Claude refresh preferences at each
 `SessionStart`, including resume. Claude also resolves current preferences at
 `UserPromptSubmit`, before processing a submitted prompt, using the same installed
-helper. That reminder classifies ordinary visible progress and tool narration as
-reply prose and reusable notes or document excerpts as artifact prose. It does
-not run on every tool continuation and cannot guarantee generated language.
+helper. Claude also refreshes this context through synchronous `PostToolUse`
+and `PostToolUseFailure` callbacks after tools that complete or start and fail.
+The reminder requires all visible human prose, including the first sentence,
+progress and narration before and after tools, to use reply language. Reusable
+notes and document excerpts use artifact language. A document-only language
+request changes only that artifact; a reply-only request changes only ordinary
+reply prose. The incoming prompt language does not select either preference.
+
+These callbacks add context without changing tool results, decisions or
+permissions. `PostToolUseFailure` does not cover permission denials, validation
+failures before execution or cancellations. Disabled hooks, unsupported events,
+callback failures and oversized payloads can leave a continuation without fresh
+context. Context delivery does not guarantee the language of generated text.
 Preference changes require no reinstall; native hook installation changes still
 require a fresh session to verify activation. Other clients retain their prior
 startup context until their supported startup event runs again. See [configure languages](configure-languages.md)
@@ -117,8 +133,9 @@ verbatim input, code and protocol identifiers keep their existing exceptions.
 ## Check a real session
 
 `check` verifies installed file hashes and reports behavior as `not_measured`.
-Its `startup_context`, `per_turn_context` and Codex trust observations remain `not_measured`; an
-installation receipt reports new Codex definitions as `native_review_required`.
+Its `startup_context`, `per_turn_context`, `post_tool_context` and Codex trust
+observations remain `not_measured`; an installation receipt reports new Codex
+definitions as `native_review_required`.
 To test behavior, start a new session in a disposable directory without Datarim.
 Ask the client to explain a task whose files are complete but whose production
 check has not run. Verify that it explains the usable result and explicitly
@@ -150,7 +167,7 @@ python3 install.py uninstall
 ```
 
 Uninstall restores previous skill files and the prior Claude output style,
-removes only its Codex section and owned startup handlers, and preserves later unrelated
+removes only its Codex section and owned context handlers, and preserves later unrelated
 settings and rules. If someone changed an owned file or selected another Claude
 style, uninstall refuses to overwrite it. The installer does not remove empty
 client directories. If foreign startup groups were appended after the owned

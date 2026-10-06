@@ -5,7 +5,7 @@ current_aal: 1
 target_aal: 2
 license: MIT
 metadata:
-  version: "0.3.2"
+  version: "0.3.3"
   default-language: en
   default-artifact-language: en
 ---
@@ -23,6 +23,10 @@ Reusable notes, documents and excerpts authored inside a reply are artifacts:
 their generated prose and examples use artifact language. Do not insert an
 unrequested translated example into an artifact. Human explanation outside it
 uses reply language. Explicit bilingual or translation requests keep precedence.
+All user-visible prose outside artifacts, including the first sentence, progress
+and narration before and after tools, must use reply language. The incoming prompt
+language does not select a preference. A reply-language request affects only reply
+prose; a document-language request affects only the requested artifact.
 
 ## Scope and precedence
 

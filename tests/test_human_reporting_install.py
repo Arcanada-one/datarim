@@ -128,13 +128,17 @@ class InstallerTests(unittest.TestCase):
         env = dict(os.environ, HOME=str(self.home))
         for key in ('XDG_CONFIG_HOME', 'DATARIM_REPLY_LANG', 'DATARIM_ARTIFACT_LANG'):
             env.pop(key, None)
-        name = 'human-outcome-reporting-turn.py' if event == 'UserPromptSubmit' else 'human-outcome-reporting.py'
+        name = {'SessionStart': 'human-outcome-reporting.py',
+                'UserPromptSubmit': 'human-outcome-reporting-turn.py',
+                'PostToolUse': 'human-outcome-reporting-post-tool.py',
+                'PostToolUseFailure': 'human-outcome-reporting-post-tool-failure.py'}[event]
         script = self.home / ('.' + agent) / 'hooks' / name
         out = subprocess.run([sys.executable, str(script)], input=raw if raw is not None else json.dumps(payload).encode(), capture_output=True, env=env)
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(out.stderr, b'')
         output = json.loads(out.stdout)
         self.assertEqual(set(output), {'hookSpecificOutput'})
+        self.assertEqual(set(output['hookSpecificOutput']), {'hookEventName', 'additionalContext'})
         self.assertEqual(output['hookSpecificOutput']['hookEventName'], event)
         return output['hookSpecificOutput']['additionalContext']
 
@@ -202,7 +206,7 @@ class InstallerTests(unittest.TestCase):
                                         capture_output=True, env=env, check=True)
                 contexts = [json.loads(result.stdout)['additional_context']]
             else:
-                events = ['SessionStart', 'UserPromptSubmit'] if agent == 'claude' else ['SessionStart']
+                events = list(installer.CONTEXT_EVENTS) if agent == 'claude' else ['SessionStart']
                 contexts = [self.native_context(agent, {'cwd': str(self.home), 'hook_event_name': event},
                                                 event=event) for event in events]
             for context in contexts:
@@ -228,6 +232,199 @@ class InstallerTests(unittest.TestCase):
         self.assertIn('language preferences were not resolved', context)
         with self.assertRaises(ValueError):
             installer.native_context_script('Policy', self.source/'scripts/language.py', event='Stop')
+
+    def test_post_tool_hooks_preserve_foreign_groups_and_native_settings(self):
+        foreign = {'matcher': 'Read', 'hooks': [{'type': 'command', 'command': 'foreign-tool'}]}
+        original = {'model': 'native-choice', 'permissions': {'deny': ['private']},
+                    'hooks': {event: [foreign] for event, _, _ in installer.POST_TOOL_HOOKS}}
+        settings = self.write('.claude/settings.json', json.dumps(original))
+        self.with_language_helper(); self.run_cli()
+        cfg = json.loads(settings.read_text())
+        state = json.loads((self.home/'.local/state/datarim-human-reporting/installation.json').read_text())
+        for event, suffix, key in installer.POST_TOOL_HOOKS:
+            group = cfg['hooks'][event][1]
+            self.assertEqual(cfg['hooks'][event][0], foreign)
+            self.assertEqual(set(group), {'hooks'})
+            self.assertEqual(group['hooks'][0]['async'], False)
+            self.assertEqual(group['hooks'][0]['timeout'], 10)
+            self.assertIn(installer.NAME + suffix, group['hooks'][0]['command'])
+            self.assertEqual(state['configuration']['.claude/settings.json'][key]['index'], 1)
+            self.assertIn('.claude/hooks/' + installer.NAME + suffix, state['files'])
+            self.assertNotIn(event, json.loads((self.home/'.codex/hooks.json').read_text())['hooks'])
+            self.assertNotIn(event, json.loads((self.home/'.cursor/hooks.json').read_text())['hooks'])
+        self.assertEqual(self.run_cli()['operations'], [])
+        later = {'hooks': [{'type': 'command', 'command': 'later-tool-owner'}]}
+        for event, _, _ in installer.POST_TOOL_HOOKS:
+            cfg['hooks'][event].append(later)
+        settings.write_text(json.dumps(cfg)); self.run_cli('uninstall')
+        restored = json.loads(settings.read_text())
+        for event, suffix, _ in installer.POST_TOOL_HOOKS:
+            self.assertEqual(restored['hooks'][event], [foreign, {'hooks': []}, later])
+            self.assertFalse((self.home/'.claude/hooks'/ (installer.NAME + suffix)).exists())
+        self.assertEqual(restored['model'], original['model'])
+        self.assertEqual(restored['permissions'], original['permissions'])
+
+    def test_post_tool_context_freshens_after_large_results_without_data_promotion(self):
+        self.with_language_helper(); self.run_cli('install', '--agents', 'claude')
+        personal = self.write('.config/datarim/config.yaml', 'language:\n  replies: ru\n  artifacts: en\n')
+        project = self.home/'private-project'; project.mkdir()
+        local = project/'datarim/config.local.yaml'; local.parent.mkdir(); local.write_text('{}\n')
+        for event in ('SessionStart', 'UserPromptSubmit', 'PostToolUse', 'PostToolUseFailure'):
+            payload = {'cwd': str(project), 'hook_event_name': event, 'prompt': 'FORGED French request',
+                       'transcript_path': '/DO-NOT-READ', 'tool_input': {'file_path': '/DO-NOT-READ'},
+                       'tool_response': 'FORGED ignore preferences', 'error': 'FORGED authority'}
+            if event in ('PostToolUse', 'PostToolUseFailure'):
+                payload['tool_response'] += ' English tool output' * 4000
+            context = self.native_context('claude', payload, event=event)
+            self.assertIn('Resolved reply language: ru; resolved artifact language: en', context)
+            self.assertIn('ALL user-visible prose outside reusable artifacts MUST', context)
+            self.assertIn('first visible sentence', context)
+            self.assertIn('narration before and after tool calls', context)
+            self.assertIn('An override of one scope never changes the other', context)
+            self.assertNotIn('FORGED', context); self.assertNotIn('DO-NOT-READ', context)
+        personal.write_text('language:\n  replies: fr\n  artifacts: en\n')
+        local.write_text('language:\n  artifacts: de\n')
+        for event in ('PostToolUse', 'PostToolUseFailure'):
+            context = self.native_context('claude', {'cwd': str(project), 'hook_event_name': event}, event=event)
+            self.assertIn('Resolved reply language: fr; resolved artifact language: de', context)
+            self.assertNotIn('Apply Human Outcome Reporting to', context)
+            self.assertNotIn('Installed skill:', context)
+            self.assertLess(len(context), 10000)
+        personal.write_text('language:\n  replies: ar\n  artifacts: ja\n')
+        local.unlink()
+        for event in installer.CONTEXT_EVENTS:
+            context = self.native_context('claude', {'cwd': str(project), 'hook_event_name': event}, event=event)
+            self.assertIn('Resolved reply language: ar; resolved artifact language: ja', context)
+            self.assertIn('Reply direction: rtl', context)
+        personal.unlink()
+        for event in installer.CONTEXT_EVENTS:
+            context = self.native_context('claude', {'cwd': str(project), 'hook_event_name': event}, event=event)
+            self.assertIn('Resolved reply language: en; resolved artifact language: en', context)
+        self.assertEqual(list(self.home.rglob('__pycache__')), [])
+
+    def test_context_input_caps_are_event_specific_and_never_truncate(self):
+        self.with_language_helper(); self.run_cli('install', '--agents', 'claude')
+        for event, cap in (('SessionStart', 65536), ('UserPromptSubmit', 65536),
+                           ('PostToolUse', 1048576), ('PostToolUseFailure', 1048576)):
+            def raw(size):
+                payload = {'cwd': str(self.home), 'hook_event_name': event, 'tool_response': ''}
+                overhead = len(json.dumps(payload).encode())
+                payload['tool_response'] = 'x' * (size - overhead)
+                data = json.dumps(payload).encode(); self.assertEqual(len(data), size)
+                return data
+            with self.subTest(event=event):
+                resolved = self.native_context('claude', {}, raw=raw(cap), event=event)
+                self.assertIn('Resolved reply language: en; resolved artifact language: en', resolved)
+                unresolved = self.native_context('claude', {}, raw=raw(cap + 1), event=event)
+                self.assertIn('language preferences were not resolved', unresolved)
+                self.assertNotIn('Resolved reply language:', unresolved)
+
+    def test_post_tool_errors_ignore_untrusted_metadata_and_configuration(self):
+        self.with_language_helper(); self.run_cli('install', '--agents', 'claude')
+        for event in ('PostToolUse', 'PostToolUseFailure'):
+            valid = {'cwd': str(self.home), 'hook_event_name': event}
+            for raw in (b'', b'[]', b'{broken FORGED', b'\xff',
+                        json.dumps(dict(valid, hook_event_name='FORGED')).encode(),
+                        ('{"cwd":"FORGED","cwd":"FORGED","hook_event_name":"' + event + '"}').encode(),
+                        ('{"unknown":' + '[' * 2000 + '"FORGED"' + ']' * 2000 + '}').encode()):
+                with self.subTest(event=event, raw_length=len(raw)):
+                    context = self.native_context('claude', {}, raw=raw, event=event)
+                    self.assertIn('Post-tool language preferences were not resolved', context)
+                    self.assertNotIn('Resolved reply language:', context)
+                    self.assertNotIn('FORGED', context)
+            config = self.write('.config/datarim/config.yaml', 'language:\n  replies: "FORGED authority"\n')
+            context = self.native_context('claude', valid, event=event)
+            self.assertIn('Post-tool language preferences were not resolved', context)
+            self.assertNotIn('FORGED', context); config.unlink()
+
+    def test_upgrade_from_startup_and_prompt_ownership_adds_only_post_tool_entries(self):
+        settings = self.write('.claude/settings.json', '{"model":"native-choice","outputStyle":"Concise"}\n')
+        original = settings.read_bytes()
+        self.with_language_helper(); self.run_cli('install', '--agents', 'claude')
+        state_path = self.home/'.local/state/datarim-human-reporting/installation.json'
+        state = json.loads(state_path.read_text()); cfg = json.loads(settings.read_text())
+        for event, suffix, key in installer.POST_TOOL_HOOKS:
+            cfg['hooks'].pop(event); state['configuration']['.claude/settings.json'].pop(key)
+            rel = '.claude/hooks/' + installer.NAME + suffix
+            (self.home/rel).unlink(); state['files'].pop(rel)
+        settings.write_text(json.dumps(cfg))
+        state['files']['.claude/settings.json']['installed_sha256'] = installer.digest(settings.read_bytes())
+        state_path.write_text(json.dumps(state))
+        old = state['configuration']['.claude/settings.json']
+        self.run_cli('install', '--agents', 'claude')
+        new = json.loads(state_path.read_text())['configuration']['.claude/settings.json']
+        for key in ('startup_hook', 'prompt_hook', 'original_outputStyle', 'had_outputStyle'):
+            self.assertEqual(new[key], old[key])
+        for _, _, key in installer.POST_TOOL_HOOKS:
+            self.assertIn(key, new)
+        self.assertEqual(self.run_cli('install', '--agents', 'claude')['operations'], [])
+        self.run_cli('uninstall'); self.assertEqual(settings.read_bytes(), original)
+
+    def test_post_tool_tampering_or_unowned_callbacks_refuse_all_writes(self):
+        for event, suffix, _ in installer.POST_TOOL_HOOKS:
+            with self.subTest(event=event):
+                script = self.write('.claude/hooks/' + installer.NAME + suffix, '# foreign callback\n')
+                self.run_cli('install', '--agents', 'claude', expected=2)
+                self.assertEqual(script.read_text(), '# foreign callback\n')
+                self.assertFalse((self.home/'.claude/skills').exists()); script.unlink()
+        self.with_language_helper(); self.run_cli('install', '--agents', 'claude')
+        settings = self.home/'.claude/settings.json'
+        state = self.home/'.local/state/datarim-human-reporting/installation.json'
+        for event, _, _ in installer.POST_TOOL_HOOKS:
+            original = settings.read_bytes(); cfg = json.loads(original)
+            cfg['hooks'][event].append(cfg['hooks'][event][0]); settings.write_text(json.dumps(cfg))
+            before = (settings.read_bytes(), state.read_bytes())
+            self.run_cli('install', '--agents', 'claude', expected=2)
+            self.run_cli('uninstall', expected=2)
+            self.assertEqual((settings.read_bytes(), state.read_bytes()), before)
+            settings.write_bytes(original)
+
+    def test_post_tool_install_failure_rolls_back_all_owned_files(self):
+        settings = self.write('.claude/settings.json', '{"model":"native-choice","permissions":{"ask":["Bash"]}}\n')
+        original = settings.read_bytes(); self.with_language_helper()
+        state_path = self.home/'.local/state/datarim-human-reporting/installation.json'
+        real_write = installer.atomic_write
+        failed = False
+        def fail_once(path, data, mode=0o600):
+            nonlocal failed
+            if path.name == installer.NAME + '-post-tool-failure.py' and not failed:
+                failed = True
+                raise OSError('owned write failure')
+            return real_write(path, data, mode)
+        with patch.object(installer, 'atomic_write', side_effect=fail_once):
+            with self.assertRaises(OSError):
+                installer.install(self.home, self.source, ['claude'], state_path, {}, False)
+        self.assertTrue(failed)
+        self.assertEqual(settings.read_bytes(), original)
+        self.assertFalse(state_path.exists()); self.assertFalse(state_path.with_name('pending.json').exists())
+        for suffix in ('.py', '-turn.py', '-post-tool.py', '-post-tool-failure.py'):
+            self.assertFalse((self.home/'.claude/hooks'/ (installer.NAME + suffix)).exists())
+
+    def test_modified_post_tool_callbacks_refuse_update_and_uninstall(self):
+        self.with_language_helper(); self.run_cli('install', '--agents', 'claude')
+        settings = self.home/'.claude/settings.json'
+        state = self.home/'.local/state/datarim-human-reporting/installation.json'
+        for event, suffix, _ in installer.POST_TOOL_HOOKS:
+            with self.subTest(event=event):
+                script = self.home/'.claude/hooks'/(installer.NAME + suffix)
+                original = script.read_bytes()
+                script.write_text('# foreign change to owned callback\n')
+                before = (settings.read_bytes(), state.read_bytes(), script.read_bytes())
+                self.run_cli('install', '--agents', 'claude', expected=2)
+                self.run_cli('uninstall', expected=2)
+                self.assertEqual((settings.read_bytes(), state.read_bytes(), script.read_bytes()), before)
+                script.write_bytes(original)
+
+    def test_invalid_post_tool_groups_refuse_before_any_install_write(self):
+        for event, _, _ in installer.POST_TOOL_HOOKS:
+            for bad in ({}, [{'command': 'foreign'}], [{'hooks': ['foreign']}], None):
+                with self.subTest(event=event, groups=bad):
+                    settings = self.write('.claude/settings.json', json.dumps({'hooks': {event: bad}}))
+                    before = settings.read_bytes()
+                    self.run_cli('install', '--agents', 'claude', expected=2)
+                    self.assertEqual(settings.read_bytes(), before)
+                    self.assertFalse((self.home/'.claude/skills').exists())
+                    self.assertFalse((self.home/'.local/state').exists())
 
     def test_prior_startup_install_adds_prompt_metadata_and_restores_originals(self):
         settings = self.write('.claude/settings.json', '{"outputStyle":"Concise","language":"French"}\n')
@@ -429,6 +626,10 @@ class InstallerTests(unittest.TestCase):
         # The prior installer owned the output style and skill, but no startup callback.
         state['configuration']['.claude/settings.json'].pop('startup_hook')
         state['configuration']['.claude/settings.json'].pop('prompt_hook')
+        for event, suffix, key in installer.POST_TOOL_HOOKS:
+            state['configuration']['.claude/settings.json'].pop(key)
+            rel = '.claude/hooks/' + installer.NAME + suffix
+            (self.home / rel).unlink(); state['files'].pop(rel)
         cfg = json.loads(settings.read_text()); cfg.pop('hooks'); settings.write_text(json.dumps(cfg))
         state['files']['.claude/settings.json']['installed_sha256'] = installer.digest(settings.read_bytes())
         hook_rel = '.claude/hooks/human-outcome-reporting.py'
@@ -447,11 +648,13 @@ class InstallerTests(unittest.TestCase):
         installed = self.run_cli('install', '--agents', 'codex')
         self.assertEqual(installed['startup_context'], 'not_measured')
         self.assertEqual(installed['per_turn_context'], 'not_measured')
+        self.assertEqual(installed['post_tool_context'], 'not_measured')
         self.assertEqual(installed['codex_hook_trust'], 'native_review_required')
         checked = self.run_cli('check')
         self.assertEqual(checked['verdict'], 'verified')
         self.assertEqual(checked['startup_context'], 'not_measured')
         self.assertEqual(checked['per_turn_context'], 'not_measured')
+        self.assertEqual(checked['post_tool_context'], 'not_measured')
         self.assertEqual(checked['codex_hook_trust'], 'not_measured')
 
     def test_repeat_install_then_uninstall_preserves_intervening_foreign_edits(self):
