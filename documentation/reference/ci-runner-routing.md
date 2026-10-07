@@ -33,3 +33,15 @@ Linux suite disappears, a fork reaches the self-hosted pool, or a release
 claims macOS acceptance from Linux-only results. Preserve raw failures and
 repair source; do not relabel, grant sudo or cancel unrelated runs. Restore
 automatic macOS gates after a qualified runner route exists.
+
+## Unprivileged toolchain setup
+
+The self-hosted discovery and Linux customer-delivery jobs install the pinned
+bats/yq toolchain under their own RUNNER_TEMP prefixes and export only the
+corresponding bin directory through GITHUB_PATH. Python dependencies use the
+existing isolated venv. The installer receives --no-sudo: it never tries sudo
+or installs system packages in this mode, even when run as root. Missing
+jq/shellcheck/socat prerequisites remain explicit failures; the workflow cannot
+provision shared runner hosts or pretend the missing fixture passed. A current
+customer-delivery failure on a different carrier reported missing socat; that
+runner prerequisite is separate from the demonstrated /usr/local write defect.
