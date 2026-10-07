@@ -113,3 +113,16 @@ setup() {
     run "$SCRIPT" --bogus
     [ "$status" -eq 2 ]
 }
+
+@test "validate-yaml: calendar-day window is timezone independent across DST" {
+    local fixture90 zone
+    fixture90="$(mktemp)"
+    sed 's/2026-04-02/2026-04-01/' "$F/over90d.yml" > "$fixture90"
+    for zone in UTC Europe/Helsinki America/New_York; do
+        run env TZ="$zone" "$SCRIPT" --validate-yaml "$fixture90"
+        [ "$status" -eq 0 ]
+        run env TZ="$zone" "$SCRIPT" --validate-yaml "$F/over90d.yml"
+        [ "$status" -eq 1 ]
+    done
+    rm -f -- "$fixture90"
+}

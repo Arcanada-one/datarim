@@ -7,13 +7,19 @@ records hosted billing unavailable. The exact provider cause of
 those individual job states was not independently measured.
 
 The registry, eight discovery shards, exact Linux customer-delivery shards and
-result-inventory gate use the existing `[self-hosted, linux, X64, ci-general]`
-pool. Inventory found nine online matching carriers and no macOS carrier.
-No runner, label, grant, account or scheduler is changed. Fork PRs are excluded
-from these self-hosted jobs by the registry and aggregate guards; a skipped fork
-run is not admitted coverage. Existing tests and shard policies are preserved.
-Missing Linux results, failed tests and invalid inventories still fail the
-Linux aggregate; an empty inventory is not accepted.
+result-inventory gate use ubuntu-latest for this public repository, following
+Root's updated per-job policy to preserve working public hosted jobs. Historical
+exact-head hosted successes establish that hosted execution is not universally
+unavailable here; they do not prove current queue time or new-head acceptance.
+The earlier self-hosted route exposed a required root wrapper control unavailable
+on the persistent pool. That control remains required; no sudo grant or test
+skip is added. The existing Jev contract job retains its original self-hosted
+route. No runner, label, account or scheduler is changed.
+
+Owned prefixes, isolated Python dependencies and --no-sudo setup still apply.
+Linux source tests and exact result inventories remain mandatory. Missing or
+failed Linux results fail the aggregate; an empty inventory is not accepted.
+Current changed-head natural CI and independent review must qualify the route.
 
 The two real macOS jobs remain in source, but automatic PR/main runs omit them.
 The aggregate reports macOS `NOT_MEASURED`; Linux success does not establish

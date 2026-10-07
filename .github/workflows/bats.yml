@@ -96,7 +96,7 @@ jobs:
   registry:
     name: exclusion registry + inventory
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, linux, X64, ci-general]
+    runs-on: ubuntu-latest
     outputs:
       linux_matrix: ${{ steps.customer_delivery_matrix.outputs.linux }}
       macos_matrix: ${{ steps.customer_delivery_matrix.outputs.macos }}
@@ -145,7 +145,7 @@ jobs:
   suites:
     name: shard ${{ matrix.shard }}/8
     needs: registry
-    runs-on: [self-hosted, linux, X64, ci-general]
+    runs-on: ubuntu-latest
     strategy:
       # Never cancel siblings: one red shard must not hide failures in the
       # other seven. The point of this job is a complete picture.
@@ -178,7 +178,7 @@ jobs:
   customer-delivery-linux:
     name: customer delivery ${{ matrix.suite }} ${{ matrix.shard }} (Linux)
     needs: registry
-    runs-on: [self-hosted, linux, X64, ci-general]
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -378,7 +378,7 @@ jobs:
     name: customer delivery Linux result inventory (macOS conditional)
     if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     needs: [registry, customer-delivery-linux, customer-delivery-macos]
-    runs-on: [self-hosted, linux, X64, ci-general]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
