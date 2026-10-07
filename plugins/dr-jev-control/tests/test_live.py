@@ -481,9 +481,17 @@ class TestLedgerRedaction(unittest.TestCase):
             self.assertEqual(len(rec["sha256"]), 64)
 
     def test_telemetry_failure_never_raises(self):
-        c = cfg()
-        c["telemetry"]["path"] = "/nonexistent-root-dir-xyz/nope/l.jsonl"
-        ledger.log_event(c, "route", "task", {"ok": True})  # must not raise
+        # The unwritable path must be unwritable for EVERY user, root included, and must never touch `/`:
+        # a parent that is a regular file cannot be made a directory. The previous literal
+        # `/nonexistent-root-dir-xyz/...` created that directory in `/` whenever the job user owned `/`
+        # (a CI host, 2026-09-23), turning a negative test into a write to the filesystem root.
+        with tempfile.TemporaryDirectory() as d:
+            blocker = Path(d) / "not-a-dir"
+            blocker.write_text("x")
+            c = cfg()
+            c["telemetry"]["path"] = str(blocker / "nope" / "l.jsonl")
+            ledger.log_event(c, "route", "task", {"ok": True})  # must not raise
+            self.assertTrue(blocker.is_file())
 
 
 class TestObserverPhase(unittest.TestCase):
