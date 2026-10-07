@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -119,8 +120,8 @@ def parse(argv=None):
         p.error('Supervision limits require --live')
     if a.live and (a.model or a.effort or a.resume):
         p.error('Explicit model/effort/resume is currently supported in direct mode only')
-    if (a.max_turns is not None and a.max_turns < 1) or (a.max_seconds is not None and a.max_seconds <= 0):
-        p.error('Supervision limits must be positive')
+    if (a.max_turns is not None and a.max_turns < 1) or (a.max_seconds is not None and (not math.isfinite(a.max_seconds) or a.max_seconds <= 0)):
+        p.error('Supervision limits must be positive and finite')
     # CLI passthrough must not relocate the client outside verified scope.
     for value in extra:
         if value.startswith(('-C', '-w')) or value.split('=', 1)[0] in ('--cwd', '--directory', '--workspace', '--cd', '--worktree', '--add-dir'):
