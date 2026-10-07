@@ -7,6 +7,10 @@ Measured on a consumer host: `jevclaude --dangerously-skip-permissions` stopped 
 from __future__ import annotations
 
 import os
+import io
+import json
+import subprocess
+from contextlib import redirect_stdout
 from pathlib import Path
 import sys
 import tempfile
@@ -173,6 +177,63 @@ class BareWordTasks(unittest.TestCase):
     def test_no_task_at_all_is_not_refused(self):
         self.assertIsNone(parse('jevclaude')[0].task)
 
+
+
+
+class DoctorVersionProbeFailures(unittest.TestCase):
+    def doctor(self, failure):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runtime = root / '.datarim-runtime'
+            runtime.mkdir()
+            (runtime / 'installation.json').write_text(json.dumps({
+                'source_sha': 'fake-source-only', 'files': {}}))
+            scope = {'files': {'codex': root / 'hooks.json'},
+                     'entries': ['synthetic-no-execution-hook'],
+                     'selected': ['claude', 'codex', 'cursor'],
+                     'ledgers': {}, 'telemetry_enabled': False, 'config': None}
+            calls = []
+            def version(argv, **kwargs):
+                calls.append((argv, kwargs))
+                if argv[0] == '/fake/claude':
+                    raise failure
+                return subprocess.CompletedProcess(argv, 0, argv[0] + ' 1.0', '')
+            output = io.StringIO()
+            with mock.patch.object(sys, 'argv', ['jev', 'doctor']), \
+                 mock.patch.object(jev, 'project_root', return_value=root), \
+                 mock.patch.object(jev, 'activate', return_value=runtime), \
+                 mock.patch.object(jev, 'scope_hooks', return_value=scope), \
+                 mock.patch.object(jev, 'binary', side_effect=lambda a: '/fake/' + a), \
+                 mock.patch.object(jev, 'hook_liveness', return_value={}), \
+                 mock.patch.object(jev, 'registration_findings', return_value=[]), \
+                 mock.patch.object(jev, 'codex_hook_trust', return_value={'state': 'trusted'}), \
+                 mock.patch.object(jev, 'datarim_enabled', return_value=False), \
+                 mock.patch.dict(os.environ, {'TYPESAFE_API_KEY_FILE': str(root / 'absent-key')}), \
+                 mock.patch('subprocess.run', side_effect=version), \
+                 redirect_stdout(output):
+                code = jev.main()
+            return code, json.loads(output.getvalue()), calls
+
+    def test_timeout_reports_failed_probe_and_checks_remaining_clients(self):
+        code, report, calls = self.doctor(subprocess.TimeoutExpired(
+            ['/fake/claude', '--version'], 15, output='SYNTHETIC_SECRET'))
+        self.assertEqual(code, 1)
+        self.assertIn('claude: version probe timed out', report['findings'])
+        self.assertEqual(set(report['versions']), {'codex', 'cursor'})
+        self.assertNotIn('SYNTHETIC_SECRET', json.dumps(report))
+        self.assertEqual(len(calls), 3)
+        self.assertTrue(all(args[1] == '--version' and opts['timeout'] == 15
+                            for args, opts in calls))
+        self.assertEqual(report['api'], 'not_measured')
+
+    def test_spawn_error_reports_failed_probe_and_checks_remaining_clients(self):
+        code, report, calls = self.doctor(PermissionError('SYNTHETIC_SECRET'))
+        self.assertEqual(code, 1)
+        self.assertIn('claude: version probe could not execute', report['findings'])
+        self.assertEqual(set(report['versions']), {'codex', 'cursor'})
+        self.assertNotIn('SYNTHETIC_SECRET', json.dumps(report))
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(report['api'], 'not_measured')
 
 if __name__ == '__main__':
     unittest.main()
