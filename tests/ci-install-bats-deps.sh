@@ -14,8 +14,9 @@
 #   - apt packages (jq, shellcheck, socat) are stock distro tooling used only as
 #     test fixtures; they are not part of any shipped artefact.
 #
-# Usage: ci-install-bats-deps.sh [--prefix DIR] [--python-only] [--python-bin PATH] [--python-site DIR]
+# Usage: ci-install-bats-deps.sh [--prefix DIR] [--no-sudo] [--python-only] [--python-bin PATH] [--python-site DIR]
 #   --prefix DIR   where to install bats + yq (default /usr/local)
+#   --no-sudo      never invoke sudo or install system fixture packages
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -41,6 +42,7 @@ PY_CRYPTOGRAPHY="cryptography==43.0.3"
 
 PREFIX="/usr/local"
 PYTHON_ONLY=false
+NO_SUDO=false
 PYTHON_BIN="python3"
 PYTHON_SITE=""
 
@@ -49,6 +51,8 @@ while [ $# -gt 0 ]; do
         --prefix)
             [ $# -ge 2 ] || { echo "ERROR: --prefix requires an argument" >&2; exit 2; }
             PREFIX="$2"; shift ;;
+        --no-sudo)
+            NO_SUDO=true ;;
         --python-only)
             PYTHON_ONLY=true ;;
         --python-bin)
@@ -58,7 +62,7 @@ while [ $# -gt 0 ]; do
             [ $# -ge 2 ] || { echo "ERROR: --python-site requires an argument" >&2; exit 2; }
             PYTHON_SITE="$2"; shift ;;
         --help|-h)
-            echo "Usage: $(basename "$0") [--prefix DIR] [--python-only] [--python-bin PATH] [--python-site DIR]"; exit 0 ;;
+            echo "Usage: $(basename "$0") [--prefix DIR] [--no-sudo] [--python-only] [--python-bin PATH] [--python-site DIR]"; exit 0 ;;
         *)
             echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
     esac
@@ -89,7 +93,7 @@ if [ "$PYTHON_ONLY" != true ]; then
     # apt package is missing. Scoping it to the apt branch left those two
     # commands running unelevated.
     sudo_cmd=()
-    if [ "$(id -u)" -ne 0 ] && sudo -n true 2>/dev/null; then
+    if [ "$NO_SUDO" != true ] && [ "$(id -u)" -ne 0 ] && sudo -n true 2>/dev/null; then
         # `sudo -n` fails rather than prompting, so a runner without passwordless
         # sudo never hangs on a password prompt no one can answer.
         sudo_cmd=(sudo -n)
@@ -98,9 +102,9 @@ if [ "$PYTHON_ONLY" != true ]; then
     if [ "${#missing[@]}" -eq 0 ]; then
         echo "==> apt fixtures (jq, shellcheck, socat): already present"
     else
-        if [ "$(id -u)" -ne 0 ] && [ "${#sudo_cmd[@]}" -eq 0 ]; then
+        if [ "$NO_SUDO" = true ] || { [ "$(id -u)" -ne 0 ] && [ "${#sudo_cmd[@]}" -eq 0 ]; }; then
             echo "ERROR: missing fixtures: ${missing[*]}" >&2
-            echo "       this account cannot apt-get install (no passwordless sudo)." >&2
+            echo "       system fixture installation is unavailable (unprivileged mode or no passwordless sudo)." >&2
             echo "       Install them on the runner, or run as root." >&2
             exit 1
         fi
