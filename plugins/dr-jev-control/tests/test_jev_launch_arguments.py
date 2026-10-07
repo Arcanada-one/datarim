@@ -103,6 +103,40 @@ class FullPermissions(unittest.TestCase):
 
 
 
+class LiveWallClockCaps(unittest.TestCase):
+    def launches(self):
+        return [('jev', ['--agent=codex']), ('jevclaude', []),
+                ('jevcodex', []), ('jevcursor', [])]
+
+    def test_all_entrypoints_refuse_nonfinite_explicit_caps(self):
+        import contextlib
+        import io
+        for launcher, prefix in self.launches():
+            for value in ('nan', 'inf', '-inf'):
+                with self.subTest(launcher=launcher, value=value):
+                    with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as stop:
+                        parse(launcher, *prefix, '--live', '--max-seconds='+value, 'do the thing')
+                    self.assertEqual(stop.exception.code, 2)
+
+    def test_all_entrypoints_accept_positive_finite_caps(self):
+        for launcher, prefix in self.launches():
+            for value in ('0.25', '1', '150', '1e3'):
+                with self.subTest(launcher=launcher, value=value):
+                    args, extra = parse(launcher, *prefix, '--live', '--max-seconds='+value, 'do the thing')
+                    self.assertEqual(args.max_seconds, float(value))
+                    self.assertEqual(extra, [])
+
+    def test_all_entrypoints_keep_nonpositive_cap_refusal(self):
+        import contextlib
+        import io
+        for launcher, prefix in self.launches():
+            for value in ('0', '-1', '-0.25'):
+                with self.subTest(launcher=launcher, value=value):
+                    with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as stop:
+                        parse(launcher, *prefix, '--live', '--max-seconds='+value, 'do the thing')
+                    self.assertEqual(stop.exception.code, 2)
+
+
 class BareWordTasks(unittest.TestCase):
     """`jev status --agent=claude` started a nested client session with the
     prompt "status": a mistyped subcommand became a task."""
