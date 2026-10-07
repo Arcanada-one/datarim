@@ -484,7 +484,7 @@ class TestLedgerRedaction(unittest.TestCase):
         # The unwritable path must be unwritable for EVERY user, root included, and must never touch `/`:
         # a parent that is a regular file cannot be made a directory. The previous literal
         # `/nonexistent-root-dir-xyz/...` created that directory in `/` whenever the job user owned `/`
-        # (arcana-devs, 2026-09-23), turning a negative test into a write to the filesystem root.
+        # (a CI host, 2026-09-23), turning a negative test into a write to the filesystem root.
         with tempfile.TemporaryDirectory() as d:
             blocker = Path(d) / "not-a-dir"
             blocker.write_text("x")
