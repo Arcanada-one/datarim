@@ -69,6 +69,36 @@ while [ $# -gt 0 ]; do
     shift
 done
 
+# Only the measured Ubuntu noble/amd64 socat package is qualified here.
+# Extract data into the caller-owned prefix: no dpkg install or maintainer scripts.
+install_private_socat() {
+    local distro package_root
+    for tool in curl dpkg dpkg-deb sha256sum mktemp install awk tar; do
+        command -v "$tool" >/dev/null 2>&1 || return 1
+    done
+    [[ "$PREFIX" == /* && "$PREFIX" != /usr/local ]] || return 1
+    [[ -r /etc/os-release ]] || return 1
+    distro="$(awk -F= '/^ID=/{gsub(/"/,"",$2); id=$2} /^VERSION_ID=/{gsub(/"/,"",$2); ver=$2} END{printf "%s:%s",id,ver}' /etc/os-release)"
+    [[ "$distro" == ubuntu:24.04 && "$(dpkg --print-architecture)" == amd64 ]] || return 1
+    package_root="$(mktemp -d)" || return 1
+    if ! curl -fsSL --proto '=https' --tlsv1.2 --connect-timeout 10 --max-time 60 \
+        -o "$package_root/socat.deb" \
+        https://archive.ubuntu.com/ubuntu/pool/main/s/socat/socat_1.8.0.0-4ubuntu0.1_amd64.deb \
+        || ! echo "46e854289b6b1c97e28be5d9293bea61e8633d00d6a65d9513f019c7232696fe  $package_root/socat.deb" | sha256sum -c - \
+        || ! dpkg-deb -x "$package_root/socat.deb" "$package_root/extracted" \
+        || ! "$package_root/extracted/usr/bin/socat" -V >/dev/null; then
+        rm -rf -- "$package_root"
+        return 1
+    fi
+    mkdir -p "$PREFIX/bin"
+    if ! install -m 0755 "$package_root/extracted/usr/bin/socat" "$PREFIX/bin/socat"; then
+        rm -rf -- "$package_root"
+        return 1
+    fi
+    rm -rf -- "$package_root"
+    export PATH="$PREFIX/bin:$PATH"
+}
+
 if [ "$PYTHON_ONLY" != true ]; then
     # Install only what is missing, and only when this account can actually
     # install. A self-hosted runner is a long-lived machine whose tools are
@@ -79,6 +109,9 @@ if [ "$PYTHON_ONLY" != true ]; then
     # An array, so the package list carries no leading blank. Built as a string
     # it started with a space, and the unquoted expansion then handed apt-get an
     # empty first argument: "E: Unable to locate package  socat".
+    if [ "$NO_SUDO" = true ] && ! command -v socat >/dev/null 2>&1; then
+        install_private_socat || echo "ERROR: private socat fixture unavailable or unqualified" >&2
+    fi
     missing=()
     for tool in jq shellcheck socat; do
         command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")

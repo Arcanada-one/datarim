@@ -3,7 +3,7 @@
 Root authorized this reversible change on 2026-10-07 after PR497 run
 37663848888 reported Linux jobs 112939349315 and 112939349244 in
 `Install pinned toolchain` for over three hours. The organization CI convention
-records hosted billing unavailable (VERD-0058). The exact provider cause of
+records hosted billing unavailable. The exact provider cause of
 those individual job states was not independently measured.
 
 The registry, eight discovery shards, exact Linux customer-delivery shards and
@@ -45,3 +45,13 @@ jq/shellcheck/socat prerequisites remain explicit failures; the workflow cannot
 provision shared runner hosts or pretend the missing fixture passed. A current
 customer-delivery failure on a different carrier reported missing socat; that
 runner prerequisite is separate from the demonstrated /usr/local write defect.
+
+Missing socat now has one qualified source-only bootstrap: on Ubuntu 24.04
+amd64, download the exact 1.8.0.0-4ubuntu0.1 archive package, verify SHA256
+46e854289b6b1c97e28be5d9293bea61e8633d00d6a65d9513f019c7232696fe,
+extract its data in an owned temporary directory, validate the binary loads,
+and copy only socat into the private tool prefix. No maintainer scripts or
+system package install run. Unsupported distro/architecture, unavailable
+metadata tooling, bad digest or missing runtime libraries remain failures.
+The receiving CI must still prove the actual runner UID/runtime behavior.
+Tool prefixes are unique kernel-created directories within RUNNER_TEMP.
