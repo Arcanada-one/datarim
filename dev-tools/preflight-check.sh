@@ -168,8 +168,7 @@ check_docker_pressure() {
                 (capture("^(?<n>[0-9]+(?:\\.[0-9]+)?)(?<u>B|kB|MB|GB|TB|PB|EB)(?: \\([0-9]+%\\))?$")
                     // error("unsupported reclaimable size")) as $size
                 | ($size.n | tonumber) *
-                    {B:1,kB:1000,MB:1000000,GB:1000000000,TB:1000000000000,
-                     PB:1000000000000000,EB:1000000000000000000}[$size.u]
+                    {B:1,kB:1e3,MB:1e6,GB:1e9,TB:1e12,PB:1e15,EB:1e18}[$size.u]
                 | if isfinite then . else error("invalid reclaimable size") end
             end;
         if (map(.Type) | sort) != ["Build Cache","Containers","Images","Local Volumes"]
