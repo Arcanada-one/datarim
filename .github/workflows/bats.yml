@@ -24,6 +24,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      run_hosted_macos:
+        description: "Run macOS gates only after hosted-runner availability is qualified"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -90,7 +95,8 @@ jobs:
 
   registry:
     name: exclusion registry + inventory
-    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux, X64, ci-general]
     outputs:
       linux_matrix: ${{ steps.customer_delivery_matrix.outputs.linux }}
       macos_matrix: ${{ steps.customer_delivery_matrix.outputs.macos }}
@@ -139,7 +145,7 @@ jobs:
   suites:
     name: shard ${{ matrix.shard }}/8
     needs: registry
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     strategy:
       # Never cancel siblings: one red shard must not hide failures in the
       # other seven. The point of this job is a complete picture.
@@ -169,7 +175,7 @@ jobs:
   customer-delivery-linux:
     name: customer delivery ${{ matrix.suite }} ${{ matrix.shard }} (Linux)
     needs: registry
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     strategy:
       fail-fast: false
       matrix:
@@ -220,6 +226,7 @@ jobs:
           retention-days: 1
 
   macos-portability:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_hosted_macos
     name: portability (macOS / BSD userland)
     needs: registry
     runs-on: macos-latest
@@ -301,6 +308,7 @@ jobs:
         run: bats tests/bats-discovery-coverage.bats
 
   customer-delivery-macos:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_hosted_macos
     name: customer delivery ${{ matrix.suite }} ${{ matrix.shard }} (macOS)
     needs: registry
     runs-on: macos-latest
@@ -364,10 +372,10 @@ jobs:
           retention-days: 1
 
   customer-delivery-aggregate:
-    name: customer delivery exact result inventory
-    if: ${{ always() }}
+    name: customer delivery Linux result inventory (macOS conditional)
+    if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     needs: [registry, customer-delivery-linux, customer-delivery-macos]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -385,6 +393,7 @@ jobs:
           merge-multiple: true
 
       - name: Download macOS shard results
+        if: github.event_name == 'workflow_dispatch' && inputs.run_hosted_macos
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: customer-delivery-macos-*
@@ -392,9 +401,15 @@ jobs:
           merge-multiple: true
 
       - name: Verify exact generated result inventories
+        env:
+          RUN_HOSTED_MACOS: ${{ github.event_name == 'workflow_dispatch' && inputs.run_hosted_macos }}
         run: |
           set -euo pipefail
           /usr/bin/python3 tests/run-customer-delivery-shard.py \
             --check-results linux "$RUNNER_TEMP/customer-delivery-results/linux"
-          /usr/bin/python3 tests/run-customer-delivery-shard.py \
-            --check-results macos "$RUNNER_TEMP/customer-delivery-results/macos"
+          if [[ "$RUN_HOSTED_MACOS" == true ]]; then
+            /usr/bin/python3 tests/run-customer-delivery-shard.py \
+              --check-results macos "$RUNNER_TEMP/customer-delivery-results/macos"
+          else
+            echo "macOS coverage: NOT_MEASURED (hosted lane disabled; see documentation/reference/ci-runner-routing.md)" >> "$GITHUB_STEP_SUMMARY"
+          fi
