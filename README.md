@@ -860,6 +860,8 @@ the contract surface ships with the framework as `skills/diataxis-docs/SKILL.md`
 ### Reference docs
 
 - [`INSTALL.md`](INSTALL.md) — install, configure, update and remove Datarim and Jev (the one install guide).
+- [`Configure and use Jev`](documentation/how-to/configure-and-use-jev.md) — key setup, permission modes, and daily use.
+- [`Jev CLI reference`](documentation/reference/jev-cli.md) — options and examples for `jev`, `jevcodex`, `jevclaude`, and `jevcursor`.
 - [`documentation/tutorials/getting-started.md`](documentation/tutorials/getting-started.md) — first-run tutorial, from an installed project to a first task.
 - [`documentation/reference/commands.md`](documentation/reference/commands.md) — slash-command reference, including `/dr-verify` tri-layer self-verification.
 - [`documentation/reference/skills.md`](documentation/reference/skills.md), [`documentation/reference/agents.md`](documentation/reference/agents.md), [`documentation/explanation/pipeline.md`](documentation/explanation/pipeline.md) — runtime catalogues and pipeline flow.
