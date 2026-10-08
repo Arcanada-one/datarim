@@ -63,12 +63,12 @@ err() {
 date_to_epoch() {
     local d="$1"
     [[ "$d" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || return 1
-    if date -j -f "%Y-%m-%d" "$d" "+%s" >/dev/null 2>&1; then
-        date -j -f "%Y-%m-%d" "$d" "+%s"
+    if TZ=UTC0 date -j -f "%Y-%m-%d %H:%M:%S" "$d 00:00:00" "+%s" >/dev/null 2>&1; then
+        TZ=UTC0 date -j -f "%Y-%m-%d %H:%M:%S" "$d 00:00:00" "+%s"
         return 0
     fi
-    if date -d "$d" "+%s" >/dev/null 2>&1; then
-        date -d "$d" "+%s"
+    if TZ=UTC0 date -d "$d 00:00:00" "+%s" >/dev/null 2>&1; then
+        TZ=UTC0 date -d "$d 00:00:00" "+%s"
         return 0
     fi
     return 1

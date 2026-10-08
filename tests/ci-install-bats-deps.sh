@@ -14,8 +14,9 @@
 #   - apt packages (jq, shellcheck, socat) are stock distro tooling used only as
 #     test fixtures; they are not part of any shipped artefact.
 #
-# Usage: ci-install-bats-deps.sh [--prefix DIR] [--python-only] [--python-bin PATH] [--python-site DIR]
+# Usage: ci-install-bats-deps.sh [--prefix DIR] [--no-sudo] [--python-only] [--python-bin PATH] [--python-site DIR]
 #   --prefix DIR   where to install bats + yq (default /usr/local)
+#   --no-sudo      never invoke sudo or install system fixture packages
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -41,6 +42,7 @@ PY_CRYPTOGRAPHY="cryptography==43.0.3"
 
 PREFIX="/usr/local"
 PYTHON_ONLY=false
+NO_SUDO=false
 PYTHON_BIN="python3"
 PYTHON_SITE=""
 
@@ -49,6 +51,8 @@ while [ $# -gt 0 ]; do
         --prefix)
             [ $# -ge 2 ] || { echo "ERROR: --prefix requires an argument" >&2; exit 2; }
             PREFIX="$2"; shift ;;
+        --no-sudo)
+            NO_SUDO=true ;;
         --python-only)
             PYTHON_ONLY=true ;;
         --python-bin)
@@ -58,12 +62,42 @@ while [ $# -gt 0 ]; do
             [ $# -ge 2 ] || { echo "ERROR: --python-site requires an argument" >&2; exit 2; }
             PYTHON_SITE="$2"; shift ;;
         --help|-h)
-            echo "Usage: $(basename "$0") [--prefix DIR] [--python-only] [--python-bin PATH] [--python-site DIR]"; exit 0 ;;
+            echo "Usage: $(basename "$0") [--prefix DIR] [--no-sudo] [--python-only] [--python-bin PATH] [--python-site DIR]"; exit 0 ;;
         *)
             echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
     esac
     shift
 done
+
+# Only the measured Ubuntu noble/amd64 socat package is qualified here.
+# Extract data into the caller-owned prefix: no dpkg install or maintainer scripts.
+install_private_socat() {
+    local distro package_root
+    for tool in curl dpkg dpkg-deb sha256sum mktemp install awk tar; do
+        command -v "$tool" >/dev/null 2>&1 || return 1
+    done
+    [[ "$PREFIX" == /* && "$PREFIX" != /usr/local ]] || return 1
+    [[ -r /etc/os-release ]] || return 1
+    distro="$(awk -F= '/^ID=/{gsub(/"/,"",$2); id=$2} /^VERSION_ID=/{gsub(/"/,"",$2); ver=$2} END{printf "%s:%s",id,ver}' /etc/os-release)"
+    [[ "$distro" == ubuntu:24.04 && "$(dpkg --print-architecture)" == amd64 ]] || return 1
+    package_root="$(mktemp -d)" || return 1
+    if ! curl -fsSL --proto '=https' --tlsv1.2 --connect-timeout 10 --max-time 60 \
+        -o "$package_root/socat.deb" \
+        https://archive.ubuntu.com/ubuntu/pool/main/s/socat/socat_1.8.0.0-4ubuntu0.1_amd64.deb \
+        || ! echo "46e854289b6b1c97e28be5d9293bea61e8633d00d6a65d9513f019c7232696fe  $package_root/socat.deb" | sha256sum -c - \
+        || ! dpkg-deb -x "$package_root/socat.deb" "$package_root/extracted" \
+        || ! "$package_root/extracted/usr/bin/socat" -V >/dev/null; then
+        rm -rf -- "$package_root"
+        return 1
+    fi
+    mkdir -p "$PREFIX/bin"
+    if ! install -m 0755 "$package_root/extracted/usr/bin/socat" "$PREFIX/bin/socat"; then
+        rm -rf -- "$package_root"
+        return 1
+    fi
+    rm -rf -- "$package_root"
+    export PATH="$PREFIX/bin:$PATH"
+}
 
 if [ "$PYTHON_ONLY" != true ]; then
     # Install only what is missing, and only when this account can actually
@@ -75,6 +109,9 @@ if [ "$PYTHON_ONLY" != true ]; then
     # An array, so the package list carries no leading blank. Built as a string
     # it started with a space, and the unquoted expansion then handed apt-get an
     # empty first argument: "E: Unable to locate package  socat".
+    if [ "$NO_SUDO" = true ] && ! command -v socat >/dev/null 2>&1; then
+        install_private_socat || echo "ERROR: private socat fixture unavailable or unqualified" >&2
+    fi
     missing=()
     for tool in jq shellcheck socat; do
         command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
@@ -89,7 +126,7 @@ if [ "$PYTHON_ONLY" != true ]; then
     # apt package is missing. Scoping it to the apt branch left those two
     # commands running unelevated.
     sudo_cmd=()
-    if [ "$(id -u)" -ne 0 ] && sudo -n true 2>/dev/null; then
+    if [ "$NO_SUDO" != true ] && [ "$(id -u)" -ne 0 ] && sudo -n true 2>/dev/null; then
         # `sudo -n` fails rather than prompting, so a runner without passwordless
         # sudo never hangs on a password prompt no one can answer.
         sudo_cmd=(sudo -n)
@@ -98,9 +135,9 @@ if [ "$PYTHON_ONLY" != true ]; then
     if [ "${#missing[@]}" -eq 0 ]; then
         echo "==> apt fixtures (jq, shellcheck, socat): already present"
     else
-        if [ "$(id -u)" -ne 0 ] && [ "${#sudo_cmd[@]}" -eq 0 ]; then
+        if [ "$NO_SUDO" = true ] || { [ "$(id -u)" -ne 0 ] && [ "${#sudo_cmd[@]}" -eq 0 ]; }; then
             echo "ERROR: missing fixtures: ${missing[*]}" >&2
-            echo "       this account cannot apt-get install (no passwordless sudo)." >&2
+            echo "       system fixture installation is unavailable (unprivileged mode or no passwordless sudo)." >&2
             echo "       Install them on the runner, or run as root." >&2
             exit 1
         fi

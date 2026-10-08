@@ -311,3 +311,40 @@ for job in ("registry", "customer-delivery-linux", "customer-delivery-macos", "c
     assert section.count('test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"') == 1, job
 PY
 }
+
+@test "unprivileged CI install never invokes available sudo" {
+    local scratch
+    scratch="$(mktemp -d)"
+    mkdir -p "$scratch/bin"
+    for tool in jq shellcheck socat; do
+        printf '#!/bin/sh\nexit 0\n' > "$scratch/bin/$tool"
+    done
+    printf '#!/bin/sh\necho 1001\n' > "$scratch/bin/id"
+    printf '#!/bin/sh\nexit 53\n' > "$scratch/bin/git"
+    printf '#!/bin/sh\necho invoked > "$SUDO_MARKER"\nexit 0\n' > "$scratch/bin/sudo"
+    chmod +x "$scratch/bin/"*
+    run env PATH="$scratch/bin:$PATH" SUDO_MARKER="$scratch/sudo-called" \
+        bash "$ROOT/tests/ci-install-bats-deps.sh" --no-sudo --prefix "$scratch/tools"
+    [ "$status" -eq 53 ]
+    [ ! -e "$scratch/sudo-called" ]
+    [[ "$output" == *'bats-core v1.11.1'* ]]
+    rm -rf -- "$scratch"
+}
+
+@test "unprivileged CI install refuses missing system fixtures even for root" {
+    local scratch
+    scratch="$(mktemp -d)"
+    mkdir -p "$scratch/bin"
+    for tool in jq shellcheck; do
+        printf '#!/bin/sh\nexit 0\n' > "$scratch/bin/$tool"
+    done
+    printf '#!/bin/sh\necho 0\n' > "$scratch/bin/id"
+    printf '#!/bin/sh\necho invoked > "$APT_MARKER"\nexit 0\n' > "$scratch/bin/apt-get"
+    chmod +x "$scratch/bin/"*
+    run env PATH="$scratch/bin" APT_MARKER="$scratch/apt-called" \
+        /bin/bash "$ROOT/tests/ci-install-bats-deps.sh" --no-sudo --prefix "$scratch/tools"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'ERROR: missing fixtures: socat'* ]]
+    [ ! -e "$scratch/apt-called" ]
+    rm -rf -- "$scratch"
+}
