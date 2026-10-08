@@ -102,6 +102,57 @@ class ProjectScopeTests(unittest.TestCase):
         self.assertFalse((ROOT/'AGENTS.md').is_symlink())
         self.assertFalse((ROOT/'CLAUDE.md').exists())
 
+    def source_paths(self):
+        source = Path(self.tmp.name).resolve() / 'source'
+        nested = source / 'nested'
+        nested.mkdir(parents=True)
+        return source, nested
+
+    def test_product_source_and_ancestor_are_not_consumer_projects(self):
+        source, _ = self.source_paths()
+        with patch.object(project_install, 'SOURCE', source):
+            for target in (source, source.parent):
+                with self.subTest(target=target), self.assertRaisesRegex(ValueError, 'product source'):
+                    project_install.project_directory(target)
+
+    def test_nested_source_directory_is_not_a_consumer_project(self):
+        source, nested = self.source_paths()
+        with patch.object(project_install, 'SOURCE', source):
+            with self.assertRaisesRegex(ValueError, 'product source'):
+                project_install.project_directory(nested)
+
+    def test_symlink_into_source_is_not_a_consumer_project(self):
+        source, nested = self.source_paths()
+        alias = Path(self.tmp.name) / 'source-alias'
+        alias.symlink_to(nested, target_is_directory=True)
+        with patch.object(project_install, 'SOURCE', source):
+            with self.assertRaisesRegex(ValueError, 'product source'):
+                project_install.project_directory(alias)
+
+    def test_distinct_sibling_project_with_shared_prefix_is_allowed(self):
+        source, _ = self.source_paths()
+        sibling = source.with_name('source-consumer')
+        sibling.mkdir()
+        with patch.object(project_install, 'SOURCE', source):
+            self.assertEqual(project_install.project_directory(sibling), sibling.resolve())
+
+    def test_source_descendant_refusal_precedes_install_and_uninstall_effects(self):
+        source, nested = self.source_paths()
+        args = Namespace(project=str(nested), dry_run=False)
+        with patch.object(project_install, 'SOURCE', source), \
+             patch.object(project_install, 'answers_gate') as answers, \
+             patch.object(project_install, 'project_lock') as lock, \
+             patch.object(project_install, '_install') as install, \
+             patch.object(project_install, '_uninstall') as uninstall:
+            for entrypoint in (project_install.install, project_install.uninstall):
+                with self.subTest(entrypoint=entrypoint.__name__):
+                    with self.assertRaisesRegex(ValueError, 'product source'):
+                        entrypoint(args)
+            answers.assert_not_called()
+            lock.assert_not_called()
+            install.assert_not_called()
+            uninstall.assert_not_called()
+
     #: History that records what earlier releases did; not instructions.
     DOC_HISTORY = ('CHANGELOG.md', 'JEV-V2-NOTES.md', 'JEV-INTEGRATION-REPORT.md',
                    'documentation/archive/', 'documentation/plans/', 'documentation/evolution/',

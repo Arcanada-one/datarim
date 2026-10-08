@@ -323,7 +323,7 @@ def project_directory(value):
         with contextlib.suppress(OSError):
             protected.add(Path(name).resolve())
     if (root in protected or root == Path.home().resolve() or root in Path.home().resolve().parents
-            or root == SOURCE or SOURCE.is_relative_to(root)):
+            or root.is_relative_to(SOURCE) or SOURCE.is_relative_to(root)):
         raise ValueError('Choose a consumer project, not home, a system directory, or product source')
     return root
 
