@@ -654,7 +654,14 @@ def main():
             if not exe:
                 findings.append(agent+': executable missing')
                 continue
-            result = subprocess.run([exe, '--version'], capture_output=True, text=True, timeout=15)
+            try:
+                result = subprocess.run([exe, '--version'], capture_output=True, text=True, timeout=15)
+            except subprocess.TimeoutExpired:
+                findings.append(agent+': version probe timed out')
+                continue
+            except OSError:
+                findings.append(agent+': version probe could not execute')
+                continue
             versions[agent] = result.stdout.strip()
             if result.returncode:
                 findings.append(agent+': version probe failed')
