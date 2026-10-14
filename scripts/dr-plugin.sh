@@ -312,6 +312,10 @@ _validate_overrides_shipped() {
     for ov in $overrides; do
         found=0
         for cat in $cats; do
+            if [ "$cat" = skills ] && [ -d "$src/$cat/$ov" ]; then
+                echo "dr-plugin enable: override '$ov' names a skill bundle; bundles cannot be overrides" >&2
+                return 1
+            fi
             for f in "$src/$cat/$ov".*; do
                 [ -e "$f" ] && { found=1; break; }
             done
@@ -326,16 +330,58 @@ _validate_overrides_shipped() {
 }
 
 _collect_inventory_for() {
-    # Echo basenames of regular files under <src>/<cat>/, skipping dotfiles.
+    # Echo collected assets. Legacy flat files and dotfile skipping are stable;
+    # a bundle is skills/<name>/{SKILL.md,*.md}.
     local src="$1" cat="$2"
     local cat_dir="$src/$cat"
     [ -d "$cat_dir" ] || return 0
-    local f bn
+    local f bn entry en
     for f in "$cat_dir"/*; do
-        [ -f "$f" ] || continue
+        # Empty globs are literal strings in Bash 3.2; ignore only those.
+        [ -e "$f" ] || [ -L "$f" ] || continue
         bn="$(basename "$f")"
-        case "$bn" in .*) continue ;; esac
-        echo "$bn"
+        # Bash's * glob skips dotfiles, preserving the legacy collector rule.
+        if [ -f "$f" ]; then
+            echo "$bn"
+            continue
+        fi
+        if [ -L "$f" ]; then
+            echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: dangling or non-regular root symlink '$f'" >&2
+            return 1
+        fi
+        if [ "$cat" != skills ] || [ ! -d "$f" ]; then
+            echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: uncollected category entry '$f'" >&2
+            return 1
+        fi
+        [ -f "$f/SKILL.md" ] && [ ! -L "$f/SKILL.md" ] || {
+            echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: skill bundle '$f' is missing regular SKILL.md" >&2
+            return 1
+        }
+        [[ "$bn" =~ ^[a-z0-9][a-z0-9-]*$ ]] || {
+            echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: invalid skill bundle name '$bn'" >&2
+            return 1
+        }
+        for entry in "$f"/* "$f"/.[!.]* "$f"/..?*; do
+            [ -e "$entry" ] || [ -L "$entry" ] || continue
+            en="$(basename "$entry")"
+            [ ! -L "$entry" ] || {
+                echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: non-regular skill bundle entry '$entry'" >&2
+                return 1
+            }
+            case "$en" in .*) continue ;; esac
+            [ -f "$entry" ] || {
+                echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: non-regular skill bundle entry '$entry'" >&2
+                return 1
+            }
+            [[ "$en" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.md$ ]] || {
+                echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: unsafe skill bundle entry '$entry'" >&2
+                return 1
+            }
+            case "$en" in
+                *.md) printf '%s/%s\n' "$bn" "$en" ;;
+                *) echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: unsupported skill bundle asset '$entry'" >&2; return 1 ;;
+            esac
+        done
     done
 }
 
@@ -471,16 +517,9 @@ cmd_enable() {
     # shellcheck disable=SC2064
     trap "release_plugin_lock '$lock_dir'" EXIT INT TERM
 
-    # Snapshot pre-mutation state so we can roll back on mid-apply failure
-    # (TUNE-0101 Phase C, V-8). Snapshot is taken after lock acquisition so
-    # concurrent invocations cannot race the snapshot itself.
     local _snap=""
     local runtime_pre
     runtime_pre="$(resolve_runtime_root)"
-    _snap="$(snapshot_create "$ws" "$runtime_pre" "$manifest")" || {
-        echo "dr-plugin enable: snapshot failed" >&2
-        return 2
-    }
 
     if manifest_has_entry "$manifest" "$id"; then
         local existing
@@ -496,7 +535,7 @@ cmd_enable() {
     local runtime
     runtime="$(resolve_runtime_root)"
 
-    local cats cat
+    local cats cat files
     cats="$(parse_yaml_list "$yaml" categories)"
 
     # Validate categories.
@@ -518,7 +557,7 @@ cmd_enable() {
     fi
 
     # Pre-scan conflict.
-    local target_dir target bn target_pos files
+    local target_dir target bn target_pos
     for cat in $cats; do
         target_dir="$runtime/$cat/$id"
         # Reject if a non-directory exists at the target dir path.
@@ -526,7 +565,26 @@ cmd_enable() {
             echo "dr-plugin enable: conflict at $runtime/$cat/$id (regular file blocks plugin namespace)" >&2
             return 1
         fi
-        files="$(_collect_inventory_for "$src" "$cat")"
+        if [ -d "$target_dir" ]; then
+            local owned_entry
+            while IFS= read -r -d '' owned_entry; do
+                [ -d "$owned_entry" ] && [ ! -L "$owned_entry" ] && continue
+                if [ ! -L "$owned_entry" ]; then
+                    echo "dr-plugin enable: conflict: foreign entry in plugin namespace: $owned_entry" >&2
+                    return 1
+                fi
+                local owned_target
+                owned_target="$(readlink "$owned_entry")"
+                case "$owned_target" in
+                    "$src"/*) : ;;
+                    *)
+                        echo "dr-plugin enable: conflict: foreign symlink in plugin namespace: $owned_entry" >&2
+                        return 1
+                        ;;
+                esac
+            done < <(find "$target_dir" -mindepth 1 -print0)
+        fi
+        files="$(_collect_inventory_for "$src" "$cat")" || return 1
         for bn in $files; do
             if _is_override_basename "$bn" "$overrides_list"; then
                 # Override path: root position competes with core via local overlay.
@@ -534,7 +592,9 @@ cmd_enable() {
             else
                 target="$target_dir/$bn"
             fi
-            if [ -e "$target" ] && [ ! -L "$target" ]; then
+            if [ -d "$target" ] && [[ "$bn" == */* ]]; then
+                : # A bundle's runtime directory is the expected parent.
+            elif [ -e "$target" ] && [ ! -L "$target" ]; then
                 echo "dr-plugin enable: conflict: $target already exists (regular file)" >&2
                 return 1
             fi
@@ -553,10 +613,17 @@ cmd_enable() {
         done
     done
 
+    # Snapshot only after source/path/ownership validation so a refused bundle
+    # does not create or change any runtime state.
+    _snap="$(snapshot_create "$ws" "$runtime_pre" "$manifest")" || {
+        echo "dr-plugin enable: snapshot failed" >&2
+        return 2
+    }
+
     # Apply: create symlinks at correct position per override status.
     local src_file
     for cat in $cats; do
-        files="$(_collect_inventory_for "$src" "$cat")"
+        files="$(_collect_inventory_for "$src" "$cat")" || return 1
         [ -n "$files" ] || continue
         target_dir="$runtime/$cat/$id"
         for bn in $files; do
@@ -564,7 +631,7 @@ cmd_enable() {
             if _is_override_basename "$bn" "$overrides_list"; then
                 target_pos="$runtime/$cat/$bn"
             else
-                mkdir -p "$target_dir"
+                mkdir -p "$target_dir/$(dirname "$bn")"
                 target_pos="$target_dir/$bn"
             fi
             ln -sfn "$src_file" "$target_pos"
@@ -582,7 +649,7 @@ cmd_enable() {
 
     # Build inventory strings (for inline list YAML).
     local skills_inv agents_inv commands_inv templates_inv
-    skills_inv="$(_collect_inventory_for "$src" skills | paste -sd ',' - | sed 's/,/, /g')"
+    skills_inv="$(_collect_inventory_for "$src" skills | paste -sd ',' - | sed 's/,/, /g')" || return 1
     agents_inv="$(_collect_inventory_for "$src" agents | paste -sd ',' - | sed 's/,/, /g')"
     commands_inv="$(_collect_inventory_for "$src" commands | paste -sd ',' - | sed 's/,/, /g')"
     templates_inv="$(_collect_inventory_for "$src" templates | paste -sd ',' - | sed 's/,/, /g')"
@@ -818,6 +885,24 @@ cmd_sync() {
             for nlink in "$sub"*; do
                 [ -L "$nlink" ] || [ -e "$nlink" ] || continue
                 nbn="$(basename "$nlink")"
+                if [ "$cat" = skills ] && [ -d "$nlink" ] && [ ! -L "$nlink" ]; then
+                    local bundle_file bundle_rel
+                    if ! grep -Fq "|$sub_id/$nbn/" "$inv_file"; then
+                        rm -rf "$nlink"
+                        removed=$((removed+1))
+                        continue
+                    fi
+                    for bundle_file in "$nlink"/*; do
+                        [ -L "$bundle_file" ] || [ -e "$bundle_file" ] || continue
+                        bundle_rel="$sub_id/$nbn/$(basename "$bundle_file")"
+                        if ! grep -Fq "skills|$bundle_rel|" "$inv_file"; then
+                            [ -L "$bundle_file" ] && rm -f "$bundle_file"
+                            removed=$((removed+1))
+                        fi
+                    done
+                    rmdir "$nlink" 2>/dev/null || true
+                    continue
+                fi
                 if ! grep -qE "^${cat}\|${sub_id}/${nbn}\|" "$inv_file"; then
                     rm -f "$nlink"
                     removed=$((removed+1))
@@ -994,8 +1079,25 @@ _doctor_check_orphan_files() {
             case "$active_ids_padded" in
                 *" $sub_id "*)
                     for nlink in "$sub"*; do
-                        [ -L "$nlink" ] || continue
+                        [ -L "$nlink" ] || [ -d "$nlink" ] || continue
                         nbn="$(basename "$nlink")"
+                        if [ "$cat" = skills ] && [ -d "$nlink" ] && [ ! -L "$nlink" ]; then
+                            local bundle_link bundle_rel
+                            if ! grep -Fq "skills|$sub_id/$nbn/" "$inv_file"; then
+                                _doctor_emit warning "orphan bundle directory: $nlink"
+                                issues=$((issues + 1))
+                                continue
+                            fi
+                            for bundle_link in "$nlink"/*; do
+                                [ -L "$bundle_link" ] || continue
+                                bundle_rel="$sub_id/$nbn/$(basename "$bundle_link")"
+                                if ! grep -Fq "skills|$bundle_rel|" "$inv_file"; then
+                                    _doctor_emit warning "orphan symlink: $bundle_link"
+                                    issues=$((issues + 1))
+                                fi
+                            done
+                            continue
+                        fi
                         if ! grep -qE "^${cat}\|${sub_id}/${nbn}\|" "$inv_file"; then
                             _doctor_emit warning "orphan symlink: $sub$nbn"
                             issues=$((issues + 1))
