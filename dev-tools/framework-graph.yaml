@@ -137,9 +137,11 @@ inventory:
   - writing-plans
   fragments:
   - plugins/product-discovery/skills/decision-record/strategist-scope-modes.md
+  - plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
   - plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md
   - plugins/product-discovery/skills/hypothesis-validation/assumption-map.md
   - plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
+  - plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md
   - plugins/product-discovery/skills/product-framing/builder-brainstorm.md
   - plugins/product-discovery/skills/product-framing/claim-quality.md
   - plugins/product-discovery/skills/product-framing/premise-challenge.md
@@ -469,6 +471,10 @@ edges:
 - from: agent:researcher
   relation: loads
   source: agents/researcher.md
+  to: fragment:plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md
+- from: agent:researcher
+  relation: loads
+  source: agents/researcher.md
   to: skill:datarim-system
 - from: agent:researcher
   relation: loads
@@ -570,6 +576,10 @@ edges:
   relation: loads
   source: AGENTS.md
   to: skill:human-outcome-reporting
+- from: agent:strategist
+  relation: loads
+  source: agents/strategist.md
+  to: fragment:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
 - from: agent:strategist
   relation: loads
   source: agents/strategist.md
@@ -1814,26 +1824,6 @@ edges:
   relation: uses_template
   source: skills/utilities/shell-conventions.md
   to: template:shell-helper-template.sh
-- from: fragment:skills/visual-maps/framework-architecture.md
-  relation: loads
-  source: skills/visual-maps/framework-architecture.md
-  to: fragment:skills/datarim-system/command-and-archive-rules.md
-- from: fragment:skills/visual-maps/framework-architecture.md
-  relation: loads
-  source: skills/visual-maps/framework-architecture.md
-  to: fragment:skills/datarim-system/task-identity-and-context.md
-- from: fragment:skills/visual-maps/framework-architecture.md
-  relation: loads
-  source: skills/visual-maps/framework-architecture.md
-  to: fragment:skills/evolution/stack-agnostic-gate.md
-- from: fragment:skills/visual-maps/framework-architecture.md
-  relation: loads
-  source: skills/visual-maps/framework-architecture.md
-  to: fragment:skills/human-outcome-reporting/references/datarim.md
-- from: fragment:skills/visual-maps/framework-architecture.md
-  relation: loads
-  source: skills/visual-maps/framework-architecture.md
-  to: fragment:skills/utilities/shell-conventions.md
 - from: fragment:skills/visual-maps/pipeline-routing.md
   relation: loads
   source: skills/visual-maps/pipeline-routing.md

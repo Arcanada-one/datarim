@@ -1,0 +1,8 @@
+{
+  "auto": true,
+  "deployables": {},
+  "schema": "VerifyProfile/v1",
+  "shell_fixture_tap": {
+    "code_unit:tests/dr-product-discovery-agent-fragments.bats": "receipts/graph/d5a-t3.6-bats.log"
+  }
+}

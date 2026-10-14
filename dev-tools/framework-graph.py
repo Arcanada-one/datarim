@@ -43,6 +43,19 @@ def refs(text, kind):
     text=re.sub(plugin_pat,'',text)
     pat=r'(?:\$HOME/\.claude/)?skills/([A-Za-z0-9._/-]+)/SKILL\.md'
     return sorted(plugin_refs|set(re.findall(pat,text)))
+
+def runtime_fragment_refs(text):
+    """Map installed local skill paths back to their checked-in plugin assets."""
+    refs = set()
+    pattern = r'\$\{DATARIM_RUNTIME[^}]*\}/local/skills/([A-Za-z0-9._-]+)/([A-Za-z0-9._/-]+\.md)'
+    for plugin, relative in re.findall(pattern, text):
+        if any(part in (".", "..") for part in Path(relative).parts):
+            continue
+        plugin_root = ROOT/'plugins'/plugin/'skills'
+        candidate = plugin_root/relative
+        if candidate.is_file() and candidate.resolve().is_relative_to(plugin_root.resolve()):
+            refs.add(str(candidate.relative_to(ROOT)))
+    return sorted(refs)
 def load():
     commands=names('commands/*.md'); agents=names('agents/*.md'); skills=skill_names()
     templates=sorted(str(p.relative_to(ROOT/'templates')) for p in (ROOT/'templates').rglob('*') if p.is_file())
@@ -64,10 +77,16 @@ def load():
         text=(ROOT/'agents'/f'{a}.md').read_text(errors='replace')
         for s in refs(text,'skill'):
             (edges if s in skills else broken).append({'from':f'agent:{a}','relation':'loads','to':f'skill:{s}','source':f'agents/{a}.md'})
+        for target in runtime_fragment_refs(text):
+            full = ROOT/target
+            node = 'skill:'+skill_name(full) if full.name == 'SKILL.md' else 'fragment:'+target
+            edges.append({'from':f'agent:{a}','relation':'loads','to':node,'source':f'agents/{a}.md'})
     # Skill routers also load fragments and other skills. Keep these edges in
     # the graph rather than reporting only the command/agent subset as complete.
     fragments = sorted(str(p.relative_to(ROOT)) for p in skill_files() if p.name != 'SKILL.md')
     for path in skill_files():
+        if path in (MAP, CMDMAP):
+            continue
         source = str(path.relative_to(ROOT))
         text = path.read_text()
         targets = {ROOT/'skills'/target for target in re.findall(
@@ -148,13 +167,19 @@ def render(g):
     inv=g['inventory']; edges=g['edges']
     ca=[e for e in edges if e['relation']=='delegates_to']; ask=[e for e in edges if e['from'].startswith('agent:') and e['relation']=='loads']
     def id_(x): return re.sub(r'[^A-Za-z0-9_]','_',x)
+    def target(kind_name):
+        kind, name = kind_name.split(':', 1)
+        node_prefix = {'skill': 'S', 'fragment': 'F'}.get(kind, kind.upper())
+        return f'{node_prefix}_{id_(name)}', name
     out=['# Framework Architecture — Generated Map','', '> **GENERATED FILE. DO NOT EDIT.** Source: repository inventory + `dev-tools/command-graph.yaml` + explicit references in commands/agents. Regenerate with `python3 dev-tools/framework-graph.py --write`.','',f"Inventory: **{len(inv['commands'])} commands · {len(inv['agents'])} agents · {len(inv['skills'])} skills · {len(inv['templates'])} template assets**.",'','## Command → Agent graph','','```mermaid','graph LR']
     for e in ca:
         arrow = f'-.->|"{e["condition"]}"|' if e.get('condition') else '-->'
         out.append(f"    C_{id_(e['from'][8:])}[\"/{e['from'][8:]}\"] {arrow} A_{id_(e['to'][6:])}[\"{e['to'][6:]}\"]")
     if not ca: out.append('    none["No explicit command → agent references"]')
     out += ['```','','## Agent → Skill graph','','```mermaid','graph LR']
-    for e in ask: out.append(f"    A_{id_(e['from'][6:])}[\"{e['from'][6:]}\"] --> S_{id_(e['to'][6:])}[\"{e['to'][6:]}\"]")
+    for e in ask:
+        target_id, target_label = target(e['to'])
+        out.append(f"    A_{id_(e['from'][6:])}[\"{e['from'][6:]}\"] --> {target_id}[\"{target_label}\"]")
     out += ['```','','## Complete inventory','','### Commands','',', '.join(f'`/{x}`' for x in inv['commands']),'','### Agents','',', '.join(f'`{x}`' for x in inv['agents']),'','### Skills','',', '.join(f'`{x}`' for x in inv['skills']),'']
     out += ['## Template dependencies', '', '| Consumer | Template |', '|----------|----------|']
     out += [f"| `{e['from']}` | `{e['to'][9:]}` |" for e in edges if e['relation']=='uses_template']
