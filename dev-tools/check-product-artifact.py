@@ -216,6 +216,7 @@ class Checker:
    matched=self.resolve_raw(c.get('provenance_ref'),p,observed=True)
    if kind=='observed' and resolved and matched and not any(ref==c.get('provenance_ref') and entry is matched for ref,entry in resolved): self.add(p,'E_OBSERVED_PROVENANCE_MISMATCH')
    if matched and matched.get('observed_by') and matched.get('observed_at') and matched.get('origin_kind')=='user_reported': self.add(p,'E_USER_REPORTED_AS_OBSERVED')
+   if matched and matched.get('origin_kind') in {'roleplay','simulated','synthetic'}: self.add(p,'E_ROLEPLAY_AS_OBSERVED')
   for key in ('contradicting_refs','input_refs'):
    refs=c.get(key,[])
    if not isinstance(refs,list): self.add(p,'E_REF_INVALID'); continue

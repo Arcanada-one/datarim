@@ -1,18 +1,18 @@
-# Third-Party Notices for `plugins/product-discovery/` (planned content)
+# Third-Party Notices for `plugins/product-discovery/`
 
-This notice file is prepared for the planned Datarim product-discovery plugin. Its scope is the methods listed as `planned` or `blocked-until-slice-2` in `third-party-plan.json`; those statuses do not assert that the plugin files already exist or have shipped. Method content is to be re-expressed in the plugin's own structure and wording. Where a close-derivative is later retained, the applicable license obligations still apply; paraphrasing does not exempt a derivative under Apache License 2.0 Section 4.
+This notice covers the Datarim product-discovery plugin. The product-framing method is re-expressed in the plugin's own structure and wording. Other methods in the program inventory remain planned or blocked for their assigned slices. Where a close derivative is retained, applicable license obligations still apply; paraphrasing does not exempt a derivative under Apache License 2.0 Section 4.
 
 ## gstack material (MIT)
 
-The planned gstack method sources are pinned at commit `15ebd85cdde6c9a1b2fb707e8573aec18e8f7438` (`VERSION 1.91.100.0`), copyright 2026 Garry Tan. The planned product-framing, scope-mode, QA, test-value, findings-resolution, and DX method borrowings are re-expressed and require the MIT notice below.
+The gstack method sources are pinned at commit `15ebd85cdde6c9a1b2fb707e8573aec18e8f7438` (`VERSION 1.91.100.0`), copyright 2026 Garry Tan. Product-framing methods are re-expressed in this plugin and covered by the MIT notice below. The scope-mode, QA, test-value, findings-resolution, and DX methods are separate planned work.
 
 ## Apache-2.0 material (APACHE-1)
 
-No Apache-derived text or code is included in the planned ship manifest. The generated `plan-design-review/sections/review-sections.md` block at the pinned gstack revision (lines 114-222, including visitor modes at 118-123) and generated `review/design-checklist.md` are individually identified as Apache-derived and marked `not-shipped`. `office-hours/SKILL.md` mockup/sketch output is excluded by scope; it is not classified Apache-derived because the pinned output has no markers from the NOTICE-enumerated material. The NOTICE names impeccable source files but does not pin their upstream commit; this original source provenance remains unpinned and excluded. If a future approved target retains an Apache-derived work, ship `licenses/Apache-2.0.txt@15ebd85cdde6c9a1b2fb707e8573aec18e8f7438` (SHA-256 `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`), attribution to Paul Bakaus / impeccable, a pointer to the NOTICE, and a statement that the material was modified before distribution.
+No Apache-derived text or code is included in this plugin. The generated `plan-design-review/sections/review-sections.md` block at the pinned gstack revision (lines 114-222, including visitor modes at 118-123) and generated `review/design-checklist.md` are individually identified as Apache-derived and marked `not-shipped`. `office-hours/SKILL.md` mockup/sketch output is excluded by scope; it is not classified Apache-derived because the pinned output has no markers from the NOTICE-enumerated material. The NOTICE names impeccable source files but does not pin their upstream commit; this original source provenance remains unpinned and excluded. If a future approved target retains an Apache-derived work, ship `licenses/Apache-2.0.txt@15ebd85cdde6c9a1b2fb707e8573aec18e8f7438` (SHA-256 `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`), attribution to Paul Bakaus / impeccable, a pointer to the NOTICE, and a statement that the material was modified before distribution.
 
-## Planned MIT method attribution inventory
+## MIT method attribution inventory
 
-For each target below, the named gstack files are pinned at commit `15ebd85cdde6c9a1b2fb707e8573aec18e8f7438`; hashes and precise use ranges are in `third-party-plan.json` and `provenance-trace.log`. This inventory applies only if the target is later implemented within its status gate.
+For each target below, the named gstack files are pinned at commit `15ebd85cdde6c9a1b2fb707e8573aec18e8f7438`; hashes and precise use ranges are recorded in the program's third-party plan and provenance trace. MIT-1 is implemented in this plugin; the other entries remain scoped to their assigned work.
 
 ### MIT-1 — plugins/product-discovery/skills/product-framing
 
