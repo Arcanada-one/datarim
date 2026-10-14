@@ -138,6 +138,7 @@ inventory:
   - plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md
   - plugins/product-discovery/skills/hypothesis-validation/assumption-map.md
   - plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
+  - plugins/product-discovery/skills/product-framing/claim-quality.md
   - skills/ai-quality/bash-pitfalls.md
   - skills/ai-quality/deployment-patterns.md
   - skills/ai-quality/incident-patterns.md
@@ -2118,6 +2119,10 @@ edges:
   relation: loads
   source: plugins/product-discovery/skills/hypothesis-validation/SKILL.md
   to: fragment:plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
+- from: skill:product-discovery/product-framing
+  relation: loads
+  source: plugins/product-discovery/skills/product-framing/SKILL.md
+  to: fragment:plugins/product-discovery/skills/product-framing/claim-quality.md
 - from: skill:project-init
   relation: loads
   source: skills/project-init/SKILL.md
