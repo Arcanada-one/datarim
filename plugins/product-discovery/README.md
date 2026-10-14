@@ -1,6 +1,6 @@
 # Product Discovery
 
-This opt-in plugin provides six structured product-research artifacts and a bundle of product-framing guidance. It supports research and recording a bounded decision; it does not validate market demand, authorize execution, spending, outreach, publishing, deployment, merge, or task closure.
+This opt-in plugin provides structured product-research artifacts and product-framing guidance, including the Decision Record method and its strategist scope-modes fragment. It supports research and recording a bounded decision; it does not validate market demand, accept evidence on behalf of an owner, authorize execution, spending, outreach, publishing, deployment, merge, or task closure.
 
 ## Enable
 
@@ -13,3 +13,5 @@ Research work stays in the existing `do` stage. A bounded research result is acc
 ## Structural checker
 
 Run `dev-tools/check-product-artifact.sh --root <bundle-root> --artifact <file>` for one artifact or `--root <bundle-root> --bundle <directory>` for cross-reference checks. Exit 0 means the declared structure and local references pass; exit 1 means an invalid artifact; exit 2 means invocation or runtime failure. Passing does not establish that claims are true or that their sources are adequate.
+
+New Decision Records use `product-artifact/2`, which separates evidence acceptance, business outcome, strategist recommendation, and authority to act. Existing `product-artifact/1` records remain readable. A strategist `GO` is advice and never grants execution authority; a v2 `GO` record without counterevidence is structurally refused.

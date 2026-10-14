@@ -1,5 +1,11 @@
 # Evolution Log
 
+## 2026-10-14 -- Decision records and strategist scope modes
+
+- **Change.** Product Discovery adds a versioned DecisionRecord format and an opt-in strategist fragment for `hold`, `selective`, `expand`, and `reduce` scope proposals. Evidence acceptance, business outcome, recommendation, and action authority remain separate; an unmeasured do-nothing cost stays `unknown`.
+- **Compatibility.** The strict reader preserves `product-artifact/1` DecisionRecords and validates the new v2 fields and references. The T2.3 strategist gate accepts the four current scope modes and rejects unknown or retired values.
+- **Evidence boundary.** Synthetic fixtures exercise the structural reader and both refusal controls. They establish neither evidence quality nor execution authority, demand, production readiness, or broad decision quality.
+
 ## 2026-10-06 -- Source-history deadline regression scope (v4.3.6)
 
 - **Problem.** A history-specific timing assertion included dependency imports and earlier document checks, while its slow first subprocess could not distinguish a shared deadline from a deadline reset for each call.

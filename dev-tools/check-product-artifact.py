@@ -27,7 +27,7 @@ TYPES = {
  'source-evidence-ledger': {'entries','search_scope','search_completed_at','source_refs','provenance'},
  'hypothesis-card': {'scope','segment','prediction','alternative_explanation','disconfirming_observation','assumptions','measurement_unit','applicability_criteria','protocol_ref','evidence_refs','source_refs','provenance'},
  'experiment-protocol': {'hypothesis_ref','method','sampling_rule','analysis_unit','randomization_unit','randomization_not_applicable_reason','primary_outcome','secondary_outcomes','sample_rule','threshold_decision_map','exclusion_rule','missing_data_rule','stop_rule','duration_cap','budget_cap','grant_ref','privacy_disclosure','observation_format','analysis_code_pin','source_refs','provenance'},
- 'decision-record': {'question','options','selected_option','business_outcome','evidence_refs','counterevidence_refs','applicable_thresholds','uncertainty','reversal_conditions','owner','approved_scope_delta','source_refs','provenance'},
+ 'decision-record': {'question','options','selected_option','business_outcome','evidence_refs','counterevidence_refs','applicable_thresholds','uncertainty','reversal_conditions','owner','approved_scope_delta','strategist_recommendation','evidence_acceptance','authority_to_act','scope_delta','source_refs','provenance'},
  'product-brief': {'accepted_intent','requirements','risk','scope','non_goals','hypothesis_refs','input_revisions','success_criteria','acceptance_owner','downstream_task_ref','source_refs','provenance'},
 }
 FRONT={'schema_version','id','artifact_type','revision','status','acceptance_state','source_digest','supersedes'}
@@ -40,6 +40,12 @@ REQUIRED = {
  'decision-record': {'question','options','selected_option','business_outcome','evidence_refs','counterevidence_refs','applicable_thresholds','uncertainty','reversal_conditions','owner','approved_scope_delta'},
  'product-brief': {'accepted_intent','requirements','risk','scope','non_goals','hypothesis_refs','input_revisions','success_criteria','acceptance_owner','downstream_task_ref'},
 }
+DECISION_V2_REQUIRED = {
+ 'question','options','selected_option','business_outcome','strategist_recommendation',
+ 'evidence_acceptance','authority_to_act','evidence_refs','counterevidence_refs',
+ 'applicable_thresholds','uncertainty','reversal_conditions','owner','scope_delta',
+}
+DECISION_V2_FIELDS = {'strategist_recommendation','evidence_acceptance','authority_to_act','scope_delta'}
 REF=re.compile(r'^sha256:[0-9a-f]{64}$')
 TS=re.compile(r'^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$')
 MIN_STATUS={'opportunity-brief':'ready_for_research','source-evidence-ledger':'recorded','hypothesis-card':'test_ready','experiment-protocol':'protocol_frozen','decision-record':'submitted','product-brief':'ready_for_delivery'}
@@ -106,12 +112,16 @@ class Checker:
   self.unknown(f,FRONT,p)
   if set(f)-FRONT: pass
   if not FRONT.issubset(f): self.add(p,'E_FIELD_REQUIRED')
-  if f.get('schema_version')!='product-artifact/1': self.add(p,'E_SCHEMA_VERSION')
+  schema=f.get('schema_version')
+  if schema not in {'product-artifact/1','product-artifact/2'} or (schema=='product-artifact/2' and typ!='decision-record'): self.add(p,'E_SCHEMA_VERSION')
   if not isinstance(f.get('id'),str) or not f.get('id','').startswith('artifact:') or not f.get('id','')[9:]: self.add(p,'E_ID_INVALID')
   if type(f.get('revision')) is not int or f.get('revision',0)<1: self.add(p,'E_REVISION_INVALID')
   if typ not in TYPES: self.add(p,'E_TYPE_INVALID'); return
   self.unknown(d,TYPES[typ],p)
-  if not (COMMON|REQUIRED[typ]).issubset(d): self.add(p,'E_FIELD_REQUIRED')
+  required=DECISION_V2_REQUIRED if schema=='product-artifact/2' and typ=='decision-record' else REQUIRED[typ]
+  if not (COMMON|required).issubset(d): self.add(p,'E_FIELD_REQUIRED')
+  if schema=='product-artifact/1' and typ=='decision-record' and set(d).intersection(DECISION_V2_FIELDS): self.add(p,'E_SCHEMA_VERSION')
+  if schema=='product-artifact/2' and typ=='decision-record' and 'approved_scope_delta' in d: self.add(p,'E_SCHEMA_VERSION')
   if typ=='opportunity-brief' and isinstance(d.get('claims'),list):
    for claim in d['claims']: self.unknown(claim,{'id','claim_type','statement','scope','kind','supporting_refs','contradicting_refs','provenance_ref','method','input_refs','code_ref','rationale','unknown_reason','availability'},p)
   if typ=='source-evidence-ledger' and isinstance(d.get('entries'),list) and not d['entries']:
@@ -177,13 +187,35 @@ class Checker:
    if d.get('search_completed_at') is not None and not TS.fullmatch(str(d.get('search_completed_at'))): self.add(p,'E_TIMESTAMP_INVALID')
   if typ=='decision-record':
    opts=d.get('options',[])
-   for option in opts if isinstance(opts,list) else []: self.unknown(option,{'id','description','disposition','rationale'},p)
+   for option in opts if isinstance(opts,list) else []:
+    if not isinstance(option,dict): self.add(p,'E_OPTION_INVALID'); continue
+    self.unknown(option,{'id','description','disposition','rationale'},p)
    if d.get('business_outcome') not in {'continue','pivot','stop','more-evidence'}: self.add(p,'E_OUTCOME_INVALID')
    chosen=[o.get('id') for o in opts if isinstance(o,dict) and o.get('disposition')=='selected']
    if d.get('business_outcome')=='more-evidence' and d.get('selected_option') is None: pass
    elif len(chosen)!=1 or chosen[0]!=d.get('selected_option'): self.add(p,'E_OPTION_SELECTION')
    for option in opts if isinstance(opts,list) else []:
-    if option.get('disposition') not in {'selected','rejected','deferred'} or not {'id','description','disposition','rationale'}.issubset(option): self.add(p,'E_OPTION_INVALID')
+    if not isinstance(option,dict) or option.get('disposition') not in {'selected','rejected','deferred'} or not {'id','description','disposition','rationale'}.issubset(option): self.add(p,'E_OPTION_INVALID')
+    elif any(not isinstance(option.get(key),str) or not option[key].strip() for key in ('id','description','rationale')): self.add(p,'E_OPTION_INVALID')
+   if f.get('schema_version')=='product-artifact/2':
+    if not isinstance(opts,list) or not opts: self.add(p,'E_OPTION_REQUIRED')
+    else:
+     option_ids=[o.get('id') for o in opts if isinstance(o,dict)]
+     if len(option_ids)!=len(opts) or any(not isinstance(i,str) or not i.strip() for i in option_ids) or len(set(option_ids))!=len(option_ids): self.add(p,'E_OPTION_INVALID')
+     if not any(isinstance(o,dict) and o.get('disposition') in {'rejected','deferred'} for o in opts): self.add(p,'E_OPTION_DISPOSITION_REQUIRED')
+    for key in ('evidence_refs','counterevidence_refs','applicable_thresholds','uncertainty','reversal_conditions'):
+     if not isinstance(d.get(key),list): self.add(p,'E_FIELD_TYPE')
+     elif key in {'uncertainty','reversal_conditions'} and (not d[key] or any(not isinstance(item,str) or not item.strip() for item in d[key])): self.add(p,'E_FIELD_REQUIRED')
+    for key in ('question','owner'):
+     if not isinstance(d.get(key),str) or not d[key].strip(): self.add(p,'E_FIELD_REQUIRED')
+    if d.get('strategist_recommendation') not in {'GO','NO_GO','PIVOT','INCOMPLETE','NOT_APPLICABLE'}: self.add(p,'E_RECOMMENDATION_INVALID')
+    if d.get('evidence_acceptance') not in {'pending','accepted','rejected','insufficient'}: self.add(p,'E_EVIDENCE_ACCEPTANCE_INVALID')
+    authority=d.get('authority_to_act')
+    if not isinstance(authority,dict) or set(authority)!={'status','authority_ref'} or authority.get('status') not in {'none','granted'}: self.add(p,'E_AUTHORITY_INVALID')
+    elif authority.get('status')=='granted' and (not isinstance(authority.get('authority_ref'),str) or not authority.get('authority_ref').strip()): self.add(p,'E_AUTHORITY_REF_REQUIRED')
+    elif authority.get('status')=='none' and authority.get('authority_ref') is not None: self.add(p,'E_AUTHORITY_REF_INVALID')
+    if not isinstance(d.get('scope_delta'),str) or not d.get('scope_delta','').strip(): self.add(p,'E_SCOPE_DELTA_INVALID')
+    if d.get('strategist_recommendation')=='GO' and not d.get('counterevidence_refs'): self.add(p,'E_COUNTEREVIDENCE_REQUIRED')
   if typ=='experiment-protocol':
    budget=d.get('budget_cap')
    if not isinstance(budget,dict) or not {'max_calls','max_cash_cost','budget_ref'}.issubset(budget) or type(budget.get('max_calls')) is not int or budget.get('max_calls',-1)<0 or (budget.get('max_cash_cost') is not None and (type(budget.get('max_cash_cost')) not in (int,float) or budget.get('max_cash_cost')<0)) or not isinstance(budget.get('budget_ref'),str) or not budget.get('budget_ref'): self.add(p,'E_BUDGET_INVALID')

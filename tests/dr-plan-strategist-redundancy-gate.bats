@@ -78,7 +78,7 @@ write_v2_record() {
     write_record
     replace_field schema_version 2
     cat >>"$RECORD" <<'EOF'
-scope_mode=selective_expand
+scope_mode=selective
 scope_delta=synthetic fixture only
 do_nothing_cost=unknown
 EOF
@@ -134,7 +134,17 @@ replace_field() {
     write_v2_record
     run_helper
     [ "$status" -eq 0 ]
-    [[ "$output" == *$'scope_mode=selective_expand\nscope_delta=synthetic fixture only\ndo_nothing_cost=unknown' ]]
+    [[ "$output" == *$'scope_mode=selective\nscope_delta=synthetic fixture only\ndo_nothing_cost=unknown' ]]
+}
+
+@test "[validator] all four v2 scope modes validate" {
+    for mode in hold selective expand reduce; do
+        write_v2_record
+        replace_field scope_mode "$mode"
+        run_helper
+        [ "$status" -eq 0 ]
+        [[ "$output" == *"scope_mode=$mode"* ]]
+    done
 }
 
 @test "[validator] schema version 1 with profile fields is malformed" {
@@ -165,9 +175,9 @@ EOF
     [ "$output" = 'check-strategist-gate-record: invalid scope_mode' ]
 }
 
-@test "[validator] superseded scope_mode selective is malformed" {
+@test "[validator] retired scope_mode selective_expand is malformed" {
     write_v2_record
-    replace_field scope_mode selective
+    replace_field scope_mode selective_expand
     run_helper
     [ "$status" -eq 2 ]
     [ "$output" = 'check-strategist-gate-record: invalid scope_mode' ]
@@ -596,6 +606,16 @@ EOF
     grep -qF 'AUTOMATIC SPEC-GRAPH VALIDATION' "$COMMAND"
     grep -qF '## Post-Step Self-Verification Hook (Automatic)' "$COMMAND"
     grep -qF 'Stage Snapshot Emission' "$COMMAND"
+}
+
+@test "[contract] scope modes remain proposals and include uncertain do-nothing cost" {
+    FRAGMENT="$REPO_ROOT/plugins/product-discovery/skills/decision-record/strategist-scope-modes.md"
+    for mode in hold selective expand reduce; do
+        grep -qF "\`$mode\`" "$FRAGMENT"
+    done
+    grep -qF 'A mode is a scope description, not an outcome, approval, permission, or route.' "$FRAGMENT"
+    grep -qF 'record `unknown` when it has not been measured' "$FRAGMENT"
+    grep -qF 'does not authorize execution' "$FRAGMENT"
 }
 
 @test "[docs] shipped references describe the same mandatory redundancy gate" {

@@ -2,6 +2,70 @@
 
 CHECKER="$BATS_TEST_DIRNAME/../../../dev-tools/check-product-artifact.sh"
 FIXTURES="$BATS_TEST_DIRNAME/fixtures"
+DECISION_V2="$FIXTURES/decision-record-v2"
+
+@test "DecisionRecord v2 validates a continue choice with counterevidence and reversal conditions" {
+  run "$CHECKER" --root "$DECISION_V2" --bundle .
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "DecisionRecord v2 refuses GO when the counterevidence section is absent" {
+  local candidate
+  candidate="$BATS_TEST_TMPDIR/decision-no-counterevidence-$BATS_TEST_NUMBER"
+  cp -R "$DECISION_V2" "$candidate"
+  python3 - "$candidate/decision.md" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+lines = path.read_text().splitlines()
+start = lines.index('counterevidence_refs:')
+end = start + 1
+while end < len(lines) and lines[end].startswith('  - '):
+    end += 1
+del lines[start:end]
+path.write_text('\n'.join(lines) + '\n')
+PY
+  run "$CHECKER" --root "$candidate" --bundle .
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"decision.md: E_COUNTEREVIDENCE_REQUIRED"* ]]
+}
+
+@test "DecisionRecord v2 refuses an empty counterevidence list for GO" {
+  local candidate
+  candidate="$BATS_TEST_TMPDIR/decision-empty-counterevidence-$BATS_TEST_NUMBER"
+  cp -R "$DECISION_V2" "$candidate"
+  python3 - "$candidate/decision.md" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = 'counterevidence_refs:\n  - {id: raw:SYN-DECISION-COUNTER-002, revision: 1, digest: sha256:da215666f394ffb789ff084685b89e215b1ffdc2807906ecde905f4cf82c2bcb}\n'
+assert text.count(old) == 1
+path.write_text(text.replace(old, 'counterevidence_refs: []\n'))
+PY
+  run "$CHECKER" --root "$candidate" --bundle .
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"decision.md: E_COUNTEREVIDENCE_REQUIRED"* ]]
+}
+
+@test "DecisionRecord v2 cannot mark authority granted without an authority reference" {
+  local candidate
+  candidate="$BATS_TEST_TMPDIR/decision-unbound-authority-$BATS_TEST_NUMBER"
+  cp -R "$DECISION_V2" "$candidate"
+  python3 - "$candidate/decision.md" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+old = 'authority_to_act:\n  status: none\n  authority_ref: null\n'
+assert text.count(old) == 1
+path.write_text(text.replace(old, 'authority_to_act:\n  status: granted\n  authority_ref: null\n'))
+PY
+  run "$CHECKER" --root "$candidate" --bundle .
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"decision.md: E_AUTHORITY_REF_REQUIRED"* ]]
+}
 
 @test "complete synthetic artifact examples pass together" {
   run "$CHECKER" --root "$FIXTURES/positive/complete" --bundle .

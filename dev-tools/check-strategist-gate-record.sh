@@ -311,7 +311,7 @@ for text_value in "$rationale" "$most_efficient_path" "$safety_assessment"; do
 done
 
 if [ "$schema_version" = 2 ]; then
-    case "$scope_mode" in hold|selective_expand|expand|reduce) ;; *) malformed 'invalid scope_mode' ;; esac
+    case "$scope_mode" in hold|selective|expand|reduce) ;; *) malformed 'invalid scope_mode' ;; esac
     for text_value in "$scope_delta" "$do_nothing_cost"; do
         [ -n "$text_value" ] || malformed 'profile decision text is missing'
         printf '%s' "$text_value" | grep -Eiq \
