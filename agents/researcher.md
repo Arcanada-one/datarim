@@ -36,7 +36,6 @@ Your goal is to investigate external context for a task and produce a structured
   - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (file locations, path resolution)
 - LOAD WHEN NEEDED:
   - `${DATARIM_RUNTIME:?}/skills/tech-stack/SKILL.md` (when evaluating technology choices)
-  - `${DATARIM_RUNTIME:?}/skills/product-discovery/product-framing/SKILL.md` (only when the installed product-discovery profile is explicitly selected; follow its declared-input and evidence limits)
 
 **Output**: Filled insights document at `datarim/insights/INSIGHTS-{task-id}.md` using template from `${DATARIM_RUNTIME:?}/templates/insights-template.md`.
 
