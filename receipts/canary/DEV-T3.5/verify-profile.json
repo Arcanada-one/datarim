@@ -1,0 +1,8 @@
+{
+  "auto": true,
+  "deployables": {},
+  "schema": "VerifyProfile/v1",
+  "shell_fixture_tap": {
+    "code_unit:tests/d5a-t3-5-research-decision-routing.bats": "receipts/canary/DEV-T3.5/test.tap.log"
+  }
+}

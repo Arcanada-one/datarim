@@ -1,0 +1,150 @@
+{
+  "environment": "arcana-devs-test",
+  "id": "DEV-T3.5-shell-routing-c128",
+  "owner": "DEV-T3.5",
+  "probes": [
+    {
+      "argv": [
+        "/usr/bin/bats",
+        "tests/d5a-t3-5-research-decision-routing.bats"
+      ],
+      "capture_limit_bytes": 1048576,
+      "cwd": ".",
+      "entities": [
+        "code_unit:tests/d5a-t3-5-research-decision-routing.bats"
+      ],
+      "env_keys": [
+        "D5A_TEST_ROOT"
+      ],
+      "executable_sha256": "3ea59ec8e4f6deea71865561bb939ad5248e12086140b471f4edeea1cdef2407",
+      "execution_files": [
+        {
+          "path": "/home/dev/aup/claude-work/datarim-source-c128/tests/d5a-t3-5-research-decision-routing.bats",
+          "sha256": "8b1ef48cb239c815584526d23b051b7fc0437d083b7d0bd9e919406836c23636"
+        },
+        {
+          "path": "/home/dev/aup/claude-work/datarim-source-c128/tests/product-decision-routing.py",
+          "sha256": "97b81ef0f208fa27c1bf62b5d22faa3700405000777494860616866239ec9d24"
+        },
+        {
+          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/product-decision-route.py",
+          "sha256": "0870a7a0c4e7ca78e7c6521a6f000ccd89a5b7a1089da8e15a3e413f0f5a3fb6"
+        },
+        {
+          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/check-product-artifact.sh",
+          "sha256": "80b76b77713bcf4cb69966e01a69bd3de75031874247bf9e5b04d1ab1d3a9782"
+        },
+        {
+          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/check-product-artifact.py",
+          "sha256": "1d054df4ddd363dd8244e692c9a7a1093e84c7187cef0b69241673ebcab47d1a"
+        },
+        {
+          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/snapshot-writer-wrapper.sh",
+          "sha256": "fd66d0aef11622c54242fbeeeed533e5c012e59c898191adcda5fd350fc2920b"
+        },
+        {
+          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/check-stage-snapshot-on-exit.sh",
+          "sha256": "18194899a92bb714dfc671350d00534a75eb5d5e71536e3685a2f633e81f68f7"
+        },
+        {
+          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/read-product-profile.sh",
+          "sha256": "fa6d6631f6ff82ffc5997819abde3eb5df827443382c5364d6cdbabb0bba7b01"
+        },
+        {
+          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/lib/execution-host.sh",
+          "sha256": "199c5715784a1bbaa300fdeee95b8b95a1df880e5a65a42020ff8828cbc65b49"
+        },
+        {
+          "path": "/home/dev/aup/claude-work/datarim-source-c128/plugins/product-discovery/skills/product-framing/SKILL.md",
+          "sha256": "bea0eefbb1cc5a06d27c96bee15e6472646d977c750530cf7a6fe921e8d6fe09"
+        },
+        {
+          "path": "/home/dev/aup/claude-work/datarim-source-c128/plugins/product-discovery/tests/fixtures/decision-record-v2/ledger.md",
+          "sha256": "671a33507d6c53de40cceb0b397e2c6bc2e003c525521f3891cb018b21c98765"
+        },
+        {
+          "path": "/home/dev/aup/claude-work/datarim-source-c128/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/support.txt",
+          "sha256": "5783171fe3ae5310d88118ad1813fdbcf13e15088d171933a7a54b62174d5b77"
+        },
+        {
+          "path": "/home/dev/aup/claude-work/datarim-source-c128/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/counterevidence.txt",
+          "sha256": "da215666f394ffb789ff084685b89e215b1ffdc2807906ecde905f4cf82c2bcb"
+        },
+        {
+          "path": "/usr/lib/bats-core/common.bash",
+          "sha256": "f7b6836fffdece831ebabfff7f540a7f3ee98e6ead6f612564a703a33716bf15"
+        },
+        {
+          "path": "/usr/lib/bats-core/formatter.bash",
+          "sha256": "f6ab9be7d3fe9c1e5a0256e0fae3898610e1cb7fd45a93ad06728e39e6514366"
+        },
+        {
+          "path": "/usr/lib/bats-core/preprocessing.bash",
+          "sha256": "1d98f788641566d77fd46119550cae64e1b07ff4c7eadc17d07b2e540a3b4c31"
+        },
+        {
+          "path": "/usr/lib/bats-core/semaphore.bash",
+          "sha256": "c3baf6ba4a9b2f3f95a35c267591ce736af576e5aec06d352484573f3e9fdac4"
+        },
+        {
+          "path": "/usr/lib/bats-core/test_functions.bash",
+          "sha256": "fb95b09020a24956d86def3ac8efff0d7e433161dfc473e369138fb9257334ff"
+        },
+        {
+          "path": "/usr/lib/bats-core/tracing.bash",
+          "sha256": "d632971aa3e8db126187d8df3f46e77dc19fa27447ce97a6de68df8ddcae598f"
+        },
+        {
+          "path": "/usr/lib/bats-core/validator.bash",
+          "sha256": "fbfe9ea2fc38ba96f8bd31084294f3603f14b46fedaa6f316b021e523e9fb988"
+        },
+        {
+          "path": "/usr/lib/bats-core/warnings.bash",
+          "sha256": "4d78f1898130b6f464081a9f6234fa9ae033010315be631359799694ffe0ee32"
+        },
+        {
+          "path": "/usr/bin/bash",
+          "sha256": "bc5945feb8bd26203ebfafea5ce1878bb2e32cb8fb50ab7ae395cfb1e1aaaef1"
+        },
+        {
+          "path": "/usr/bin/env",
+          "sha256": "886e5fa8be716b03eeda48856e0f04493f2969fc148fb7812594ffac647fa050"
+        },
+        {
+          "path": "/usr/bin/python3.12",
+          "sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"
+        },
+        {
+          "path": "/usr/local/bin/yq",
+          "sha256": "a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7"
+        }
+      ],
+      "expect": {
+        "exit_codes": [
+          0
+        ],
+        "stdout_contains": [
+          "1..1",
+          "ok 1 synthetic v2 records drive checker-backed routing, immutable revisions, resume, and red controls"
+        ]
+      },
+      "id": "decision-routing-bats",
+      "kind": "process",
+      "mutating": false,
+      "timeout_seconds": 60
+    }
+  ],
+  "producer_repository": "/home/dev/aup/claude-work/datarim-source-c128",
+  "read_only": true,
+  "schema": "CanaryPlan/v2",
+  "subject": {
+    "commit": "c128221f61c938ecd6f8883c529de7ea3567db03",
+    "evidence": {
+      "path": "source.json",
+      "sha256": "c375c2d9807316d1b2f89d76a4604bd0276e10ab173be8a916e3975f6166beae",
+      "source_field": "commit"
+    },
+    "schema": "GitCanarySubject/v1",
+    "tree": "6f97ca4d1749378c4b03808426b013358621ba2d"
+  }
+}
