@@ -2,7 +2,7 @@
   "environment": "arcana-devs-test",
   "id": "decision-routing-and-files-bats",
   "owner": "implementation_lane",
-  "producer_repository": "/var/tmp/datarim-t3-5/canary-subject",
+  "producer_repository": "/var/tmp/datarim-t35/subject",
   "probes": [
     {
       "argv": [
@@ -496,7 +496,7 @@
     "commit": "07b84f4a7e135db2ba2edfc2ca9e6b3ad9b2427a",
     "evidence": {
       "path": "source.json",
-      "sha256": "a0f1c5aec5d3666c18921548e5c31eefc88c177ae3f189a19ab51bdd5adbf803",
+      "sha256": "4ffe20db06b7a99be53e3c5d426e41da290e01c9dca56df5744ec10eb413374a",
       "source_field": "commit"
     },
     "schema": "GitCanarySubject/v1",
