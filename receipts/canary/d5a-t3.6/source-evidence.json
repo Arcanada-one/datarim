@@ -1,11 +1,11 @@
 {
-  "captured_at_utc": "2026-10-14T10:14:07Z",
-  "commit": "e6a9b2aad1c9ed57315d64fe7e2222d22961fe46",
+  "captured_at_utc": "2026-10-14T10:54:23Z",
+  "commit": "c9f001d7c30cc4b4f5b8cd14683d978f795f458b",
   "dirty": false,
   "producer": {
     "tool": "D5A-T3.6 source pin capture",
     "version": "1.0.0"
   },
   "schema": "MeasuredGitSource/v1",
-  "tree": "56a14e65eb65e5b89fdbda05e7e9fa8d8bb30a62"
+  "tree": "620f580d3af544496e4da832481dbe5deede78fe"
 }
