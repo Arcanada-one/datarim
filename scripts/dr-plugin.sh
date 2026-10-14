@@ -330,33 +330,24 @@ _validate_overrides_shipped() {
 }
 
 _collect_inventory_for() {
-    # Echo every supported asset. A bundle is skills/<name>/{SKILL.md,*.md};
-    # any category entry outside that inventory fails closed.
+    # Echo collected assets. Legacy flat files and dotfile skipping are stable;
+    # a bundle is skills/<name>/{SKILL.md,*.md}.
     local src="$1" cat="$2"
     local cat_dir="$src/$cat"
-    if [ ! -e "$cat_dir" ] && [ ! -L "$cat_dir" ]; then return 0; fi
-    if [ -L "$cat_dir" ] || [ ! -d "$cat_dir" ]; then
-        echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: unsupported category path '$cat_dir'" >&2
-        return 1
-    fi
+    [ -d "$cat_dir" ] || return 0
     local f bn entry en
-    for f in "$cat_dir"/* "$cat_dir"/.[!.]* "$cat_dir"/..?*; do
+    for f in "$cat_dir"/*; do
         # Empty globs are literal strings in Bash 3.2; ignore only those.
         [ -e "$f" ] || [ -L "$f" ] || continue
         bn="$(basename "$f")"
-        case "$bn" in
-            .*)
-                echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: hidden category entry is unsupported '$f'" >&2
-                return 1
-                ;;
-        esac
-        if [ -L "$f" ]; then
-            echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: symlinked category entry is unsupported '$f'" >&2
-            return 1
-        fi
+        # Bash's * glob skips dotfiles, preserving the legacy collector rule.
         if [ -f "$f" ]; then
             echo "$bn"
             continue
+        fi
+        if [ -L "$f" ]; then
+            echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: dangling or non-regular root symlink '$f'" >&2
+            return 1
         fi
         if [ "$cat" != skills ] || [ ! -d "$f" ]; then
             echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: uncollected category entry '$f'" >&2
@@ -373,7 +364,12 @@ _collect_inventory_for() {
         for entry in "$f"/* "$f"/.[!.]* "$f"/..?*; do
             [ -e "$entry" ] || [ -L "$entry" ] || continue
             en="$(basename "$entry")"
-            [ -f "$entry" ] && [ ! -L "$entry" ] || {
+            [ ! -L "$entry" ] || {
+                echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: non-regular skill bundle entry '$entry'" >&2
+                return 1
+            }
+            case "$en" in .*) continue ;; esac
+            [ -f "$entry" ] || {
                 echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: non-regular skill bundle entry '$entry'" >&2
                 return 1
             }
@@ -546,22 +542,6 @@ cmd_enable() {
     for cat in $cats; do
         if ! _categories_allowed "$cat"; then
             echo "dr-plugin enable: unknown category: $cat" >&2
-            return 1
-        fi
-    done
-
-    # Refuse assets hidden in supported category directories that the manifest
-    # does not declare; no shipped category content may be silently omitted.
-    local declared_cat declared
-    for cat in skills agents commands templates; do
-        files="$(_collect_inventory_for "$src" "$cat")" || return 1
-        [ -n "$files" ] || continue
-        declared=0
-        for declared_cat in $cats; do
-            [ "$declared_cat" = "$cat" ] && declared=1
-        done
-        if [ "$declared" -ne 1 ]; then
-            echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: assets in undeclared category '$cat'" >&2
             return 1
         fi
     done
