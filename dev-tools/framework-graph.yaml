@@ -138,7 +138,10 @@ inventory:
   - plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md
   - plugins/product-discovery/skills/hypothesis-validation/assumption-map.md
   - plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
+  - plugins/product-discovery/skills/product-framing/builder-brainstorm.md
   - plugins/product-discovery/skills/product-framing/claim-quality.md
+  - plugins/product-discovery/skills/product-framing/premise-challenge.md
+  - plugins/product-discovery/skills/product-framing/startup-diagnostic.md
   - skills/ai-quality/bash-pitfalls.md
   - skills/ai-quality/deployment-patterns.md
   - skills/ai-quality/incident-patterns.md
@@ -2122,7 +2125,19 @@ edges:
 - from: skill:product-discovery/product-framing
   relation: loads
   source: plugins/product-discovery/skills/product-framing/SKILL.md
+  to: fragment:plugins/product-discovery/skills/product-framing/builder-brainstorm.md
+- from: skill:product-discovery/product-framing
+  relation: loads
+  source: plugins/product-discovery/skills/product-framing/SKILL.md
   to: fragment:plugins/product-discovery/skills/product-framing/claim-quality.md
+- from: skill:product-discovery/product-framing
+  relation: loads
+  source: plugins/product-discovery/skills/product-framing/SKILL.md
+  to: fragment:plugins/product-discovery/skills/product-framing/premise-challenge.md
+- from: skill:product-discovery/product-framing
+  relation: loads
+  source: plugins/product-discovery/skills/product-framing/SKILL.md
+  to: fragment:plugins/product-discovery/skills/product-framing/startup-diagnostic.md
 - from: skill:project-init
   relation: loads
   source: skills/project-init/SKILL.md
