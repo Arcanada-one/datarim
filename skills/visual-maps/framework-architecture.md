@@ -8,7 +8,8 @@ Inventory: **29 commands · 19 agents · 82 skills · 43 template assets**.
 
 ```mermaid
 graph LR
-    C_dr_plan["/dr-plan"] -.->|"L3-4 or reductive/ambiguous scope"| A_strategist["strategist"]
+    C_dr_prd["/dr-prd"] -.->|"L2+ research; product-discovery guidance only when the plugin is enabled and the task selector is present"| A_researcher["researcher"]
+    C_dr_plan["/dr-plan"] -.->|"L3-4 or reductive/ambiguous scope; product-discovery fields only when the plugin is enabled and task selector is present"| A_strategist["strategist"]
     C_dr_addskill["/dr-addskill"] --> A_skill_creator["skill-creator"]
     C_dr_compliance["/dr-compliance"] --> A_compliance["compliance"]
     C_dr_design["/dr-design"] --> A_architect["architect"]
@@ -24,7 +25,6 @@ graph LR
     C_dr_plan["/dr-plan"] --> A_peer_reviewer["peer-reviewer"]
     C_dr_plugin["/dr-plugin"] --> A_developer["developer"]
     C_dr_prd["/dr-prd"] --> A_peer_reviewer["peer-reviewer"]
-    C_dr_prd["/dr-prd"] --> A_researcher["researcher"]
     C_dr_publish["/dr-publish"] --> A_writer["writer"]
     C_dr_qa["/dr-qa"] --> A_reviewer["reviewer"]
     C_dr_quick["/dr-quick"] --> A_developer["developer"]

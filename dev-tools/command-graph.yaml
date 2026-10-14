@@ -42,6 +42,8 @@ commands:
     requires: [dr-init]
     precedes: [dr-plan]
     optional_at: [L1, L2]
+    delegates_when:
+      researcher: "L2+ research; product-discovery guidance only when the plugin is enabled and the task selector is present"
 
   dr-wizard:
     stage: requirements
@@ -56,7 +58,7 @@ commands:
     precedes: [dr-design, dr-do]
     optional_at: [L1]
     delegates_when:
-      strategist: "L3-4 or reductive/ambiguous scope"
+      strategist: "L3-4 or reductive/ambiguous scope; product-discovery fields only when the plugin is enabled and task selector is present"
 
   dr-design:
     stage: design

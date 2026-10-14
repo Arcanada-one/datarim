@@ -108,6 +108,23 @@ class IntegrityTests(unittest.TestCase):
                        'to':'fragment:plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md',
                        'source':'plugins/product-discovery/skills/hypothesis-validation/SKILL.md'}, result['edges'])
 
+    def test_command_source_link_resolves_to_plugin_scoped_skill(self):
+        skill = self.root/'plugins/product-discovery/skills/product-framing'
+        skill.mkdir(parents=True)
+        (skill/'SKILL.md').write_text(
+            '---\nname: product-framing\ndescription: Frame customer problems and opportunities.\n---\n')
+        command = self.root/'commands/dr-do.md'
+        command.write_text(
+            '[Product framing](../plugins/product-discovery/skills/product-framing/SKILL.md)\n'
+            'Runtime entry: `${DATARIM_RUNTIME:?}/skills/product-discovery/product-framing/SKILL.md`.\n')
+        with patch.object(graph, 'ROOT', self.root):
+            result = graph.load()
+            self.assertEqual(graph.validate(result), [])
+        edge = {'from':'command:dr-do','relation':'loads',
+                'to':'skill:product-discovery/product-framing',
+                'source':'commands/dr-do.md'}
+        self.assertEqual(result['edges'].count(edge), 1)
+
     def test_missing_and_external_symlink_siblings_remain_broken(self):
         skill = self.root/'skills/testing/SKILL.md'
         skill.write_text(skill.read_text() + '[local](missing.md)\n')

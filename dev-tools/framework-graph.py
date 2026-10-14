@@ -35,9 +35,14 @@ def skill_path(name):
     return ROOT/'skills'/name
 def skill_names(): return sorted(skill_name(p) for p in skill_files() if p.name=='SKILL.md')
 def refs(text, kind):
-    if kind=='agent': pat=r'(?:\$HOME/\.claude/)?agents/([A-Za-z0-9._-]+)\.md'
-    else: pat=r'(?:\$HOME/\.claude/)?skills/([A-Za-z0-9._/-]+)/SKILL\.md'
-    return sorted(set(re.findall(pat,text)))
+    if kind=='agent':
+        pat=r'(?:\$HOME/\.claude/)?agents/([A-Za-z0-9._-]+)\.md'
+        return sorted(set(re.findall(pat,text)))
+    plugin_pat=r'plugins/([A-Za-z0-9._-]+)/skills/([A-Za-z0-9._/-]+)/SKILL\.md'
+    plugin_refs={plugin+'/'+relative for plugin,relative in re.findall(plugin_pat,text)}
+    text=re.sub(plugin_pat,'',text)
+    pat=r'(?:\$HOME/\.claude/)?skills/([A-Za-z0-9._/-]+)/SKILL\.md'
+    return sorted(plugin_refs|set(re.findall(pat,text)))
 def load():
     commands=names('commands/*.md'); agents=names('agents/*.md'); skills=skill_names()
     templates=sorted(str(p.relative_to(ROOT/'templates')) for p in (ROOT/'templates').rglob('*') if p.is_file())

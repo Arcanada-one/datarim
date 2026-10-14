@@ -19,7 +19,7 @@ Usage: check-strategist-gate-record.sh \
 
 Exit 0: advancing or normal-route record
 Exit 1: valid non-advancing record
-Exit 2: malformed or untrusted record
+Exit 2: malformed or untrusted record, including unsupported schema version
 Exit 64: command-line misuse
 EOF
 }
@@ -181,6 +181,9 @@ most_efficient_path=__UNSET__
 safety_assessment=__UNSET__
 gate_status=__UNSET__
 route=__UNSET__
+scope_mode=__UNSET__
+scope_delta=__UNSET__
+do_nothing_cost=__UNSET__
 seen='|'
 line_count=0
 parsed_bytes=0
@@ -197,7 +200,7 @@ while :; do
     line_count=$((line_count + 1))
     parsed_bytes=$((parsed_bytes + ${#line} + line_had_newline))
     last_line_had_newline=$line_had_newline
-    [ "$line_count" -le 18 ] || malformed 'unexpected or duplicate key'
+    [ "$line_count" -le 21 ] || malformed 'unexpected or duplicate key'
     printf '%s' "$line" | grep -q '[^ -~]' && malformed 'record contains non-ascii or control bytes'
     case "$line" in *=*) ;; *) malformed 'record line is not key=value' ;; esac
     key=${line%%=*}
@@ -225,13 +228,15 @@ while :; do
         safety_assessment) safety_assessment=$value ;;
         gate_status) gate_status=$value ;;
         route) route=$value ;;
+        scope_mode) scope_mode=$value ;;
+        scope_delta) scope_delta=$value ;;
+        do_nothing_cost) do_nothing_cost=$value ;;
         *) malformed 'unknown record key' ;;
     esac
 done
 RECORD_META_FD_AFTER=$(stat_record_fd) || malformed 'cannot restat record descriptor'
 exec 3<&-
 
-[ "$line_count" -eq 18 ] || malformed 'record is missing required keys'
 [ "$parsed_bytes" -eq "$record_size" ] || malformed 'record contains NUL bytes'
 [ "$last_line_had_newline" -eq 1 ] || malformed 'record lacks a final newline'
 [ "$RECORD_META_FD_AFTER" = "$RECORD_META_FD_BEFORE" ] \
@@ -250,7 +255,24 @@ TASK_PHYSICAL_AFTER=$(cd -P "$TASK_DIR" 2>/dev/null && pwd -P) \
     || malformed 'cannot re-resolve task directory'
 [ "$TASK_PHYSICAL_AFTER" = "$TASK_PHYSICAL" ] || malformed 'task directory escaped during validation'
 
-[ "$schema_version" = 1 ] || malformed 'schema version mismatch'
+case "$schema_version" in
+    1)
+        [ "$line_count" -eq 18 ] || malformed 'schema version 1 requires exactly 18 keys'
+        if [ "$scope_mode" != __UNSET__ ] || [ "$scope_delta" != __UNSET__ ] \
+            || [ "$do_nothing_cost" != __UNSET__ ]; then
+            malformed 'schema version 1 does not allow profile fields'
+        fi
+        ;;
+    2)
+        [ "$line_count" -eq 21 ] || malformed 'schema version 2 requires exactly 21 keys'
+        if [ "$scope_mode" = __UNSET__ ] || [ "$scope_delta" = __UNSET__ ] \
+            || [ "$do_nothing_cost" = __UNSET__ ]; then
+            malformed 'schema version 2 requires all profile fields'
+        fi
+        ;;
+    __UNSET__|'') malformed 'schema version is missing' ;;
+    *) malformed "unsupported schema version: $schema_version" ;;
+esac
 [ "$task_id" = "$TASK" ] || malformed 'task binding mismatch'
 [ "$invocation_id" = "$INVOCATION" ] || malformed 'invocation binding mismatch'
 [ "$scope_digest" = "$SCOPE_DIGEST" ] || malformed 'scope digest binding mismatch'
@@ -287,6 +309,20 @@ for text_value in "$rationale" "$most_efficient_path" "$safety_assessment"; do
     printf '%s' "$text_value" | grep -Eq '(^|[^A-Za-z0-9_.-])\.\./|(^|[^A-Za-z0-9_.-])/[A-Za-z0-9._/-]|(^|[^A-Za-z0-9_.-])path[[:space:]_/-]*=' \
         && malformed 'unsafe path in decision text'
 done
+
+if [ "$schema_version" = 2 ]; then
+    case "$scope_mode" in hold|selective_expand|expand|reduce) ;; *) malformed 'invalid scope_mode' ;; esac
+    for text_value in "$scope_delta" "$do_nothing_cost"; do
+        [ -n "$text_value" ] || malformed 'profile decision text is missing'
+        printf '%s' "$text_value" | grep -Eiq \
+            '(secret|password|token|credential)[[:space:]_/-]*[:=]|authorization[[:space:]_/-]*:[[:space:]]*bearer|(^|[^A-Za-z0-9])bearer[[:space:]]+[A-Za-z0-9._-]+|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|-----BEGIN [A-Z ]*PRIVATE KEY-----|api[[:space:]_/-]*key[[:space:]_/-]*[:=]|(^|[^A-Za-z0-9])route[[:space:]_/-]*[:=]|next[[:space:]_/-]*step[[:space:]_/-]*[:=]|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|(^|[^0-9])\+?[0-9][0-9 ()-]{7,}[0-9]' \
+            && malformed 'unsafe profile decision text'
+        printf '%s' "$text_value" | grep -Eq '(^|[^A-Za-z0-9_.-])\.\./|(^|[^A-Za-z0-9_.-])/[A-Za-z0-9._/-]|(^|[^A-Za-z0-9_.-])path[[:space:]_/-]*=' \
+            && malformed 'unsafe path in profile decision text'
+    done
+    case "$scope_delta" in none) ;; *) [ "${#scope_delta}" -gt 0 ] || malformed 'scope_delta is missing' ;; esac
+    case "$do_nothing_cost" in unknown) ;; *) [ "${#do_nothing_cost}" -gt 0 ] || malformed 'do_nothing_cost is missing' ;; esac
+fi
 
 case "$positive_scope_test/$no_new_behavior_test" in
     pass/pass) PREDICATE_CLASS=reductive ;;
@@ -364,4 +400,8 @@ case "$classification" in
 esac
 
 emit_result "$RESULT" "$REASON"
+if [ "$schema_version" = 2 ]; then
+    printf 'scope_mode=%s\nscope_delta=%s\ndo_nothing_cost=%s\n' \
+        "$scope_mode" "$scope_delta" "$do_nothing_cost"
+fi
 exit "$EXIT_CODE"
