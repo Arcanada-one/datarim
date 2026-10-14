@@ -1,6 +1,6 @@
 {
   "environment": "arcana-devs-test",
-  "id": "DEV-T3.5-shell-routing-c128",
+  "id": "DEV-T3.5-shell-routing-07b",
   "owner": "DEV-T3.5",
   "probes": [
     {
@@ -19,55 +19,55 @@
       "executable_sha256": "3ea59ec8e4f6deea71865561bb939ad5248e12086140b471f4edeea1cdef2407",
       "execution_files": [
         {
-          "path": "/home/dev/aup/claude-work/datarim-source-c128/tests/d5a-t3-5-research-decision-routing.bats",
-          "sha256": "8b1ef48cb239c815584526d23b051b7fc0437d083b7d0bd9e919406836c23636"
+          "path": "/home/dev/aup/claude-work/datarim-source-07b/tests/d5a-t3-5-research-decision-routing.bats",
+          "sha256": "8c9c0201be83e1b16fd952c0cc2b393ba73c0d68b5c06aace9dd3b28933013b0"
         },
         {
-          "path": "/home/dev/aup/claude-work/datarim-source-c128/tests/product-decision-routing.py",
-          "sha256": "97b81ef0f208fa27c1bf62b5d22faa3700405000777494860616866239ec9d24"
+          "path": "/home/dev/aup/claude-work/datarim-source-07b/tests/product-decision-routing.py",
+          "sha256": "a362cf180696083d098b742b0fe1b1a31854b10df20b51254ff4f45612ec746d"
         },
         {
-          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/product-decision-route.py",
+          "path": "/home/dev/aup/claude-work/datarim-source-07b/dev-tools/product-decision-route.py",
           "sha256": "0870a7a0c4e7ca78e7c6521a6f000ccd89a5b7a1089da8e15a3e413f0f5a3fb6"
         },
         {
-          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/check-product-artifact.sh",
+          "path": "/home/dev/aup/claude-work/datarim-source-07b/dev-tools/check-product-artifact.sh",
           "sha256": "80b76b77713bcf4cb69966e01a69bd3de75031874247bf9e5b04d1ab1d3a9782"
         },
         {
-          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/check-product-artifact.py",
+          "path": "/home/dev/aup/claude-work/datarim-source-07b/dev-tools/check-product-artifact.py",
           "sha256": "1d054df4ddd363dd8244e692c9a7a1093e84c7187cef0b69241673ebcab47d1a"
         },
         {
-          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/snapshot-writer-wrapper.sh",
+          "path": "/home/dev/aup/claude-work/datarim-source-07b/dev-tools/snapshot-writer-wrapper.sh",
           "sha256": "fd66d0aef11622c54242fbeeeed533e5c012e59c898191adcda5fd350fc2920b"
         },
         {
-          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/check-stage-snapshot-on-exit.sh",
+          "path": "/home/dev/aup/claude-work/datarim-source-07b/dev-tools/check-stage-snapshot-on-exit.sh",
           "sha256": "18194899a92bb714dfc671350d00534a75eb5d5e71536e3685a2f633e81f68f7"
         },
         {
-          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/read-product-profile.sh",
+          "path": "/home/dev/aup/claude-work/datarim-source-07b/dev-tools/read-product-profile.sh",
           "sha256": "fa6d6631f6ff82ffc5997819abde3eb5df827443382c5364d6cdbabb0bba7b01"
         },
         {
-          "path": "/home/dev/aup/claude-work/datarim-source-c128/dev-tools/lib/execution-host.sh",
+          "path": "/home/dev/aup/claude-work/datarim-source-07b/dev-tools/lib/execution-host.sh",
           "sha256": "199c5715784a1bbaa300fdeee95b8b95a1df880e5a65a42020ff8828cbc65b49"
         },
         {
-          "path": "/home/dev/aup/claude-work/datarim-source-c128/plugins/product-discovery/skills/product-framing/SKILL.md",
+          "path": "/home/dev/aup/claude-work/datarim-source-07b/plugins/product-discovery/skills/product-framing/SKILL.md",
           "sha256": "bea0eefbb1cc5a06d27c96bee15e6472646d977c750530cf7a6fe921e8d6fe09"
         },
         {
-          "path": "/home/dev/aup/claude-work/datarim-source-c128/plugins/product-discovery/tests/fixtures/decision-record-v2/ledger.md",
+          "path": "/home/dev/aup/claude-work/datarim-source-07b/plugins/product-discovery/tests/fixtures/decision-record-v2/ledger.md",
           "sha256": "671a33507d6c53de40cceb0b397e2c6bc2e003c525521f3891cb018b21c98765"
         },
         {
-          "path": "/home/dev/aup/claude-work/datarim-source-c128/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/support.txt",
+          "path": "/home/dev/aup/claude-work/datarim-source-07b/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/support.txt",
           "sha256": "5783171fe3ae5310d88118ad1813fdbcf13e15088d171933a7a54b62174d5b77"
         },
         {
-          "path": "/home/dev/aup/claude-work/datarim-source-c128/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/counterevidence.txt",
+          "path": "/home/dev/aup/claude-work/datarim-source-07b/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/counterevidence.txt",
           "sha256": "da215666f394ffb789ff084685b89e215b1ffdc2807906ecde905f4cf82c2bcb"
         },
         {
@@ -134,17 +134,17 @@
       "timeout_seconds": 60
     }
   ],
-  "producer_repository": "/home/dev/aup/claude-work/datarim-source-c128",
+  "producer_repository": "/home/dev/aup/claude-work/datarim-source-07b",
   "read_only": true,
   "schema": "CanaryPlan/v2",
   "subject": {
-    "commit": "c128221f61c938ecd6f8883c529de7ea3567db03",
+    "commit": "07b84f4a7e135db2ba2edfc2ca9e6b3ad9b2427a",
     "evidence": {
       "path": "source.json",
-      "sha256": "c375c2d9807316d1b2f89d76a4604bd0276e10ab173be8a916e3975f6166beae",
+      "sha256": "f13a674b5641b9253275df7c8fe1d9d5eef439d0c613299da81a3c16a05127f9",
       "source_field": "commit"
     },
     "schema": "GitCanarySubject/v1",
-    "tree": "6f97ca4d1749378c4b03808426b013358621ba2d"
+    "tree": "f0715c544e26511e07f8617b77b79d0566c637f6"
   }
 }

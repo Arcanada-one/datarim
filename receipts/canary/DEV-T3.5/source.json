@@ -1,9 +1,9 @@
 {
-  "captured_at_utc": "2026-10-14T10:38:07Z",
-  "commit": "c128221f61c938ecd6f8883c529de7ea3567db03",
+  "captured_at_utc": "2026-10-14T10:43:42Z",
+  "commit": "07b84f4a7e135db2ba2edfc2ca9e6b3ad9b2427a",
   "dirty": false,
   "producer": "clean exact-head checkout inspected before and after bounded Bats process observation",
-  "repository_path": "/home/dev/aup/claude-work/datarim-source-c128",
+  "repository_path": "/home/dev/aup/claude-work/datarim-source-07b",
   "schema": "MeasuredGitSource/v1",
-  "tree": "6f97ca4d1749378c4b03808426b013358621ba2d"
+  "tree": "f0715c544e26511e07f8617b77b79d0566c637f6"
 }
