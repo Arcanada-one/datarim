@@ -79,7 +79,7 @@ The heuristic picks `/dr-archive`. Rationale: per `cta-format.md` § Authoring R
 
 ### Research projection revalidation
 
-A research projection in the snapshot body is context, not authority. Before following its CTA, reread the authoritative task acceptance/evidence records, establish the latest DecisionRecord revision and digest (including the `supersedes` chain), validate the accepted ProductBrief's exact input revisions, and verify any `authorization_ref` and authorized scope in the authoritative task record. If the source or latest revision cannot be established, treat the projection as stale and route to `/dr-do` or `/dr-status`; never advance based on snapshot fields alone. Preserve the parent acceptance contract and lineage when emitting the replay prompt.
+A research projection in the snapshot body is context, not authority. Before following its CTA, run `${DATARIM_RUNTIME:?}/dev-tools/product-decision-route.py --root <workspace-root> --task <TASK-ID>` and follow only its fresh route and typed token. The helper rereads the authoritative task acceptance/evidence records, validates the latest DecisionRecord revision and digest (including the `supersedes` chain), validates the ProductBrief exact input revisions, and verifies the authorization reference and scope advance against the parent contract hash. If the helper refuses or cannot establish current state, do not advance from the snapshot. Preserve the parent acceptance contract and lineage when emitting the replay prompt.
 
 ```
 1. Resolve TASK-ID per Task Resolution Rule.

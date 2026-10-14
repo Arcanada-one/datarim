@@ -1,24 +1,14 @@
 #!/usr/bin/env bats
-# D5A-T3.5 — research decision routing stays within existing lifecycle.
 
-REPO_ROOT="${BATS_TEST_DIRNAME}/.."
-
-@test "profile-active PRD route requires current accepted DecisionRecord, ProductBrief, and explicit scope authorization" {
-    grep -q 'D5A research decision handoff' "$REPO_ROOT/commands/dr-prd.md"
-    grep -q 'authorization_ref' "$REPO_ROOT/commands/dr-prd.md"
-    grep -q 'ProductBrief' "$REPO_ROOT/commands/dr-prd.md"
-    grep -q 'superseded' "$REPO_ROOT/commands/dr-prd.md"
-}
-
-@test "research routing preserves outcomes and never lets snapshots grant authority" {
-    grep -q 'stop.*archive' "$REPO_ROOT/commands/dr-auto.md"
-    grep -q 'more-evidence' "$REPO_ROOT/commands/dr-auto.md"
-    grep -q 'delivery_authorized' "$REPO_ROOT/skills/stage-snapshot-writer/SKILL.md"
-    grep -q 'context, not authority' "$REPO_ROOT/skills/dr-next-snapshot-replay/SKILL.md"
-    grep -q 'revalidate' "$REPO_ROOT/commands/dr-next.md"
-}
-
-@test "missing DecisionRecord or scope-advance storage convention is disclosed for review" {
-    grep -q 'reviewer confirmation' "$REPO_ROOT/commands/dr-prd.md"
-    grep -q 'proposes, pending reviewer confirmation' "$REPO_ROOT/plugins/product-discovery/README.md"
+@test "synthetic v2 decision and brief fixtures drive checked routes and resume safely" {
+  run python3 "${BATS_TEST_DIRNAME}/product-decision-routing.py"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"TRANSCRIPT continue:"*"PRODUCT_ROUTE_CONTINUE"* ]]
+  [[ "$output" == *"TRANSCRIPT stop:"*"PRODUCT_ROUTE_STOP"* ]]
+  [[ "$output" == *"TRANSCRIPT more-evidence:"*"PRODUCT_ROUTE_MORE_EVIDENCE"* ]]
+  [[ "$output" == *"TRANSCRIPT superseded:"*"PRODUCT_ROUTE_SUPERSEDED"* ]]
+  [[ "$output" == *"TRANSCRIPT auto-interrupt:"*"TRANSCRIPT dr-next-resume:"* ]]
+  [[ "$output" == *"PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISSING"*"PRODUCT_REFUSE_PARENT_CONTRACT_MISMATCH"* ]]
+  [[ "$output" == *"PRODUCT_ROUTE_EVIDENCE_PENDING"*"rejected-is-not-an-outcome"*"E_OUTCOME_INVALID"* ]]
+  [[ "$output" == *"red-control:"*"detected=true"* ]]
 }
