@@ -6,6 +6,8 @@ import re
 import shutil
 import subprocess
 import tempfile
+import os
+from contextlib import contextmanager
 from pathlib import Path
 
 import yaml
@@ -127,6 +129,21 @@ def route(root, router=ROUTER):
     return subprocess.run(["python3", str(router), "--root", str(root), "--task", TASK], text=True, capture_output=True)
 
 
+@contextmanager
+def sandbox_root(name):
+    fixed_base = os.environ.get("D5A_TEST_ROOT")
+    if fixed_base:
+        root = Path(fixed_base) / name
+        root.mkdir(parents=True, exist_ok=False)
+        try:
+            yield root
+        finally:
+            shutil.rmtree(root)
+    else:
+        with tempfile.TemporaryDirectory(prefix="sandbox-dr-prd-") as temp:
+            yield Path(temp)
+
+
 def case(name, setup, expected_route, expected_token, verify=None, allow_error=False):
     with tempfile.TemporaryDirectory(prefix="d5a-route-") as temp:
         root = Path(temp)
@@ -197,8 +214,7 @@ def run_resume_case(outcome):
 
 
 def sandbox_prd_run(name, latest, *, history=(), brief_revision=None, include_brief=True):
-    with tempfile.TemporaryDirectory(prefix="sandbox-dr-prd-") as temp:
-        root = Path(temp)
+    with sandbox_root(f"sandbox-dr-prd-{name}") as root:
         bundle, _, _, _, _, _ = make_task(root, latest, history=history, include_brief=include_brief, brief_revision=brief_revision)
         task_file = root / "datarim/tasks" / f"{TASK}-task-description.md"
         with task_file.open("a", encoding="utf-8") as stream:
