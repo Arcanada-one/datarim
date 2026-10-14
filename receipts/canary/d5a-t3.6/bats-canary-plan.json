@@ -12,8 +12,7 @@
       "capture_limit_bytes": 262144,
       "cwd": ".",
       "entities": [
-        "code_unit:tests/dr-product-discovery-agent-fragments.bats",
-        "code_unit:tests/framework-graph-consistency.bats"
+        "code_unit:tests/dr-product-discovery-agent-fragments.bats"
       ],
       "env_keys": [
         "HOME",
@@ -661,10 +660,9 @@
           0
         ],
         "stdout_contains": [
-          "1..9",
+          "1..8",
           "ok 1 enabled and selected profile reads both installed fragments with receipts",
-          "ok 5 agent references stay inside the product-discovery profile gate",
-          "ok 7 framework map renders fragment targets without truncating their kind prefix"
+          "ok 5 agent fragments stay gated and render complete graph labels"
         ]
       },
       "id": "profile-gate-bats-complete-tap",
@@ -676,13 +674,13 @@
   "read_only": false,
   "schema": "CanaryPlan/v2",
   "subject": {
-    "commit": "d188d7b841542d41bc2af3a95d1e0c326f84d43d",
+    "commit": "d16a1ae356074ec158295765bfa6cdb3b8a27b21",
     "evidence": {
       "path": "source-evidence.json",
-      "sha256": "cb7d235d9e631ec3b6ff2e17b5f94473655510b48c035a32efc2bdefdf57c0f3",
+      "sha256": "fe1ad4ccfcf678bd3f185466f9f91c92bc0f3a80489bc297e53bcc3761bcc59a",
       "source_field": "commit"
     },
     "schema": "GitCanarySubject/v1",
-    "tree": "6cda8307fe61bb1a6a17318fb1d3cd20c7308392"
+    "tree": "6b6c1644e47d6e69a0cda7b46db7f132cd71c71a"
   }
 }
