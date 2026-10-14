@@ -616,6 +616,13 @@ EOF
     grep -qF 'A mode is a scope description, not an outcome, approval, permission, or route.' "$FRAGMENT"
     grep -qF 'record `unknown` when it has not been measured' "$FRAGMENT"
     grep -qF 'does not authorize execution' "$FRAGMENT"
+    grep -qF 'scope_mode` must be `expand`, `selective`, `hold`, or `reduce`' \
+        "$REPO_ROOT/commands/dr-plan.md"
+    ! grep -qF 'selective_expand' "$REPO_ROOT/commands/dr-plan.md"
+    grep -qF '(`expand` | `selective` | `hold` | `reduce`)' \
+        "$REPO_ROOT/documentation/explanation/product-discovery-pack-boundaries.md"
+    ! grep -qF 'selective_expand' \
+        "$REPO_ROOT/documentation/explanation/product-discovery-pack-boundaries.md"
 }
 
 @test "[docs] shipped references describe the same mandatory redundancy gate" {
