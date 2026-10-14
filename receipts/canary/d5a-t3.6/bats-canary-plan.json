@@ -6,12 +6,14 @@
     {
       "argv": [
         "/usr/bin/bats",
-        "tests/dr-product-discovery-agent-fragments.bats"
+        "tests/dr-product-discovery-agent-fragments.bats",
+        "tests/framework-graph-consistency.bats"
       ],
       "capture_limit_bytes": 262144,
       "cwd": ".",
       "entities": [
-        "code_unit:tests/dr-product-discovery-agent-fragments.bats"
+        "code_unit:tests/dr-product-discovery-agent-fragments.bats",
+        "code_unit:tests/framework-graph-consistency.bats"
       ],
       "env_keys": [
         "HOME",
@@ -648,6 +650,10 @@
         {
           "path": "/usr/libexec/bats-core/bats-preprocess",
           "sha256": "dec3aa0d77c5b87bb94c67412cf4b59211802dd4c0a651e31d03e7af044a2934"
+        },
+        {
+          "path": "/var/tmp/datarim-t36/subject/tests/framework-graph-consistency.bats",
+          "sha256": "2443b03f8a1c8aa4841a28b5181fb4b2d69e8ec570bd37a53dcd849173fe8375"
         }
       ],
       "expect": {
@@ -655,9 +661,10 @@
           0
         ],
         "stdout_contains": [
-          "1..5",
+          "1..9",
           "ok 1 enabled and selected profile reads both installed fragments with receipts",
-          "ok 5 agent references stay inside the product-discovery profile gate"
+          "ok 5 agent references stay inside the product-discovery profile gate",
+          "ok 7 framework map renders fragment targets without truncating their kind prefix"
         ]
       },
       "id": "profile-gate-bats-complete-tap",
@@ -672,7 +679,7 @@
     "commit": "d188d7b841542d41bc2af3a95d1e0c326f84d43d",
     "evidence": {
       "path": "source-evidence.json",
-      "sha256": "16a634687aea8fb141ba210dbe05ae6dbbebea43acb981511cf47bc5656e08d8",
+      "sha256": "cb7d235d9e631ec3b6ff2e17b5f94473655510b48c035a32efc2bdefdf57c0f3",
       "source_field": "commit"
     },
     "schema": "GitCanarySubject/v1",
