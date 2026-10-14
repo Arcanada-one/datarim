@@ -1,4 +1,4 @@
-1..29
+1..32
 ok 1 synthetic v2 records drive checker-backed routing, immutable revisions, resume, and red controls
 ok 2 DecisionRecord v2 validates a continue choice with counterevidence and reversal conditions
 ok 3 DecisionRecord v2 refuses GO when the counterevidence section is absent
@@ -12,19 +12,22 @@ ok 10 SK04 rejects a conflict-group counter-source omitted from the claim
 ok 11 SK04 rejects a publication date without a matching raw basis reference
 ok 12 SK04 keeps an unavailable source distinct from a completed no-match search
 ok 13 KC boundary disclaimer is accepted
-ok 14 affirmative KC self-label phrasings are refused
-ok 15 observed claim without raw ref emits only E_OBSERVED_RAW_REQUIRED
-ok 16 user-reported evidence cannot be labeled observed
-ok 17 accepted protocol cannot consume a draft hypothesis
-ok 18 input reference to a superseded revision emits E_INPUT_SUPERSEDED
-ok 19 draft artifact with observed claim emits E_DRAFT_OBSERVED_CLAIM
-ok 20 KC self-label fixture is refused
-ok 21 checker reports usage errors as exit 2
-ok 22 checker refuses an artifact path outside the declared root
-ok 23 --files validates an explicit valid subset
-ok 24 --files refuses duplicate entries with usage exit
-ok 25 --files refuses a missing entry with usage exit
-ok 26 --files refuses a parent traversal entry with usage exit
-ok 27 --files refuses an absolute path outside the declared root
-ok 28 --files cannot be combined with --bundle
-ok 29 --files cannot be combined with --artifact
+ok 14 affirmative KC self-label phrasing one is refused
+ok 15 affirmative KC self-label phrasing two is refused
+ok 16 affirmative KC self-label phrasing three is refused
+ok 17 affirmative KC self-label phrasing four is refused
+ok 18 observed claim without raw ref emits only E_OBSERVED_RAW_REQUIRED
+ok 19 user-reported evidence cannot be labeled observed
+ok 20 accepted protocol cannot consume a draft hypothesis
+ok 21 input reference to a superseded revision emits E_INPUT_SUPERSEDED
+ok 22 draft artifact with observed claim emits E_DRAFT_OBSERVED_CLAIM
+ok 23 KC self-label fixture is refused
+ok 24 checker reports usage errors as exit 2
+ok 25 checker refuses an artifact path outside the declared root
+ok 26 --files validates an explicit valid subset
+ok 27 --files refuses duplicate entries with usage exit
+ok 28 --files refuses a missing entry with usage exit
+ok 29 --files refuses a parent traversal entry with usage exit
+ok 30 --files refuses an absolute path outside the declared root
+ok 31 --files cannot be combined with --bundle
+ok 32 --files cannot be combined with --artifact
