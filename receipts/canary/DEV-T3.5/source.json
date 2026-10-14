@@ -1,1 +1,9 @@
-{"captured_at_utc":"2026-10-14T11:16:06.094987Z","commit":"ba2eda28aefe55716cb249efebecfbb4351554de","dirty":false,"producer":"clean exact-head checkout inspected before and after bounded Bats process observations","repository_path":"/var/tmp/datarim-t35/subject","schema":"MeasuredGitSource/v1","tree":"61097a25c61859cf58f00940ccdbdef36aef0125"}
+{
+  "captured_at_utc": "2026-10-14T11:56:24.803681Z",
+  "commit": "8ba54b9b3862aa3b786d082789030ee79acd06cc",
+  "dirty": false,
+  "producer": "clean exact-head checkout inspected before and after bounded Bats process observations",
+  "repository_path": "/var/tmp/datarim-t35/subject",
+  "schema": "MeasuredGitSource/v1",
+  "tree": "5d1f8cef62b8abe013d95861eed08f9c929570e7"
+}
