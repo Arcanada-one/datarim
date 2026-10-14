@@ -250,7 +250,13 @@ inventory:
   - task-template.md
   - version-consistency-fanout-checklist.md
 edges:
-- condition: L3-4 or reductive/ambiguous scope
+- condition: L2+ research; product-discovery guidance only when the plugin is enabled and the task selector is present
+  from: command:dr-prd
+  relation: delegates_to
+  source: commands/dr-prd.md
+  to: agent:researcher
+- condition: L3-4 or reductive/ambiguous scope; product-discovery fields only when the plugin is enabled and task selector
+    is present
   from: command:dr-plan
   relation: delegates_to
   source: commands/dr-plan.md
@@ -1292,10 +1298,6 @@ edges:
   source: commands/dr-prd.md
   to: agent:peer-reviewer
 - from: command:dr-prd
-  relation: delegates_to
-  source: commands/dr-prd.md
-  to: agent:researcher
-- from: command:dr-prd
   relation: loads
   source: AGENTS.md
   to: skill:human-outcome-reporting
@@ -2327,4 +2329,8 @@ edges:
   relation: loads
   source: skills/verification-before-completion/SKILL.md
   to: skill:using-git-worktrees
-broken_references: []
+broken_references:
+- from: command:dr-prd
+  relation: loads
+  to: skill:product-framing
+  source: commands/dr-prd.md
