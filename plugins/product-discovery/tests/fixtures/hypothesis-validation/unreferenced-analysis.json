@@ -1,0 +1,8 @@
+{
+  "synthetic": true,
+  "protocol_revision": 1,
+  "raw_observation_refs": [],
+  "reported_counts": {"A":{"successes":1,"n":4},"B":{"successes":3,"n":4}},
+  "claimed_state": "supported",
+  "expected_disposition": "rejected: no raw observations can substantiate the counts"
+}

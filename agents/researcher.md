@@ -38,3 +38,7 @@ Your goal is to investigate external context for a task and produce a structured
   - `${DATARIM_RUNTIME:?}/skills/tech-stack/SKILL.md` (when evaluating technology choices)
 
 **Output**: Filled insights document at `datarim/insights/INSIGHTS-{task-id}.md` using template from `${DATARIM_RUNTIME:?}/templates/insights-template.md`.
+
+### Product discovery profile gate
+
+When the selected profile includes hypothesis validation, load `${DATARIM_RUNTIME:?}/skills/product-discovery/hypothesis-validation/SKILL.md` and its linked method fragments. Design a proportionate observation method and preserve raw observation references, missingness, and scope limits. Do not use model-generated prose in place of counts or claim that a protocol authorizes collection or side effects.
