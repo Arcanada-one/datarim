@@ -232,6 +232,15 @@ class Checker:
    support_groups={entry.get('conflict_group') for ref in supporting if (entry:=self.source_for_raw(ref)) and entry.get('conflict_group')}
    counter_groups={entry.get('conflict_group') for ref in contradicting if (entry:=self.source_for_raw(ref)) and entry.get('conflict_group')}
    if not support_groups.intersection(counter_groups): self.add(p,'E_CONFLICT_LINK')
+  # A declared source conflict cannot disappear because a claim omits its
+  # contradicting_refs or places both sides among supporting_refs. For every
+  # represented conflict group, require exactly one supported member and every
+  # other member on the contradicting side.
+  for conflict_group in {entry.get('conflict_group') for ref in supporting if (entry:=self.source_for_raw(ref)) and entry.get('conflict_group')}:
+   support_refs={json.dumps(ref,sort_keys=True) for ref in supporting if (entry:=self.source_for_raw(ref)) and entry.get('conflict_group')==conflict_group}
+   conflict_refs={json.dumps(entry.get('raw_ref'),sort_keys=True) for entry,_ in self.sources if entry.get('conflict_group')==conflict_group}
+   counter_refs={json.dumps(ref,sort_keys=True) for ref in contradicting if (entry:=self.source_for_raw(ref)) and entry.get('conflict_group')==conflict_group}
+   if len(support_refs)!=1 or counter_refs!=(conflict_refs-support_refs): self.add(p,'E_CONFLICT_COUNTEREVIDENCE_REQUIRED')
  def source_for_raw(self,ref):
   return next((entry for entry,_ in self.sources if entry.get('raw_ref')==ref),None)
  def validate_source_groups(self):

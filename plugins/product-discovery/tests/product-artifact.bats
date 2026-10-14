@@ -18,7 +18,19 @@ FIXTURES="$BATS_TEST_DIRNAME/fixtures"
 @test "SK04 rejects contradictory references collapsed onto one source" {
   run "$CHECKER" --root "$FIXTURES/sk04/negative-collapsed-conflict" --bundle .
   [ "$status" -eq 1 ]
-  [ "$output" = "opportunity.md: E_COUNTEREVIDENCE_DUPLICATE" ]
+  [ "$output" = $'opportunity.md: E_CONFLICT_COUNTEREVIDENCE_REQUIRED\nopportunity.md: E_COUNTEREVIDENCE_DUPLICATE' ]
+}
+
+@test "SK04 rejects conflict-group members collapsed onto the supporting side" {
+  run "$CHECKER" --root "$FIXTURES/sk04/negative-conflict-same-side" --bundle .
+  [ "$status" -eq 1 ]
+  [ "$output" = "opportunity.md: E_CONFLICT_COUNTEREVIDENCE_REQUIRED" ]
+}
+
+@test "SK04 rejects a conflict-group counter-source omitted from the claim" {
+  run "$CHECKER" --root "$FIXTURES/sk04/negative-conflict-dropped-counterevidence" --bundle .
+  [ "$status" -eq 1 ]
+  [ "$output" = "opportunity.md: E_CONFLICT_COUNTEREVIDENCE_REQUIRED" ]
 }
 
 @test "SK04 rejects a publication date without a matching raw basis reference" {

@@ -11,7 +11,7 @@ Use these rules for source-evidence-ledger entries and claims in product artifac
 ## Conflicts and counterevidence
 
 - Keep each conflicting source as its own ledger entry and assign the entries a shared non-empty `conflict_group`. A conflict group must contain at least two distinct raw references.
-- Link evidence against a claim through `contradicting_refs`; do not replace it with a summary that hides the disagreement. A claim that has both supporting and contradicting references must link those references to a shared conflict group, and one raw reference cannot appear on both sides.
+- Link evidence against a claim through `contradicting_refs`; do not replace it with a summary that hides the disagreement. For every conflict group represented in a claim’s `supporting_refs`, exactly one member may be listed as supporting and every other member must be listed in `contradicting_refs`. The checker enforces this coverage even when `contradicting_refs` would otherwise be empty. One raw reference cannot appear on both sides.
 - Preserve the provenance and disclosure limits for every source. A structural check can verify references and group membership, but cannot decide whether source content actually contradicts a claim.
 
 ## Availability and search results
