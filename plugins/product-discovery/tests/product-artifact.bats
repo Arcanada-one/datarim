@@ -9,6 +9,42 @@ FIXTURES="$BATS_TEST_DIRNAME/fixtures"
   [ -z "$output" ]
 }
 
+@test "SK04 groups duplicate source families and preserves an explicit conflict" {
+  run "$CHECKER" --root "$FIXTURES/sk04/positive-grouped-conflict" --bundle .
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "SK04 rejects contradictory references collapsed onto one source" {
+  run "$CHECKER" --root "$FIXTURES/sk04/negative-collapsed-conflict" --bundle .
+  [ "$status" -eq 1 ]
+  [ "$output" = $'opportunity.md: E_CONFLICT_COUNTEREVIDENCE_REQUIRED\nopportunity.md: E_COUNTEREVIDENCE_DUPLICATE' ]
+}
+
+@test "SK04 rejects conflict-group members collapsed onto the supporting side" {
+  run "$CHECKER" --root "$FIXTURES/sk04/negative-conflict-same-side" --bundle .
+  [ "$status" -eq 1 ]
+  [ "$output" = "opportunity.md: E_CONFLICT_COUNTEREVIDENCE_REQUIRED" ]
+}
+
+@test "SK04 rejects a conflict-group counter-source omitted from the claim" {
+  run "$CHECKER" --root "$FIXTURES/sk04/negative-conflict-dropped-counterevidence" --bundle .
+  [ "$status" -eq 1 ]
+  [ "$output" = "opportunity.md: E_CONFLICT_COUNTEREVIDENCE_REQUIRED" ]
+}
+
+@test "SK04 rejects a publication date without a matching raw basis reference" {
+  run "$CHECKER" --root "$FIXTURES/sk04/negative-guessed-published-at" --bundle .
+  [ "$status" -eq 1 ]
+  [ "$output" = "ledger.md: E_PUBLISHED_AT_BASIS_INVALID" ]
+}
+
+@test "SK04 keeps an unavailable source distinct from a completed no-match search" {
+  run "$CHECKER" --root "$FIXTURES/sk04/negative-unavailable-as-no-match" --bundle .
+  [ "$status" -eq 1 ]
+  [ "$output" = "ledger.md: E_SOURCE_UNAVAILABLE_INVALID" ]
+}
+
 @test "KC boundary disclaimer is accepted" {
   run "$CHECKER" --root "$FIXTURES/positive/disclaimer" --bundle .
   [ "$status" -eq 0 ]

@@ -149,19 +149,31 @@ class Checker:
    for claim in d.get('claims',[]) if isinstance(d.get('claims'),list) else []: self.claim(claim,f,p)
   if typ=='source-evidence-ledger':
    for entry in d.get('entries',[]) if isinstance(d.get('entries'),list) else []:
-    self.unknown(entry,{'id','revision','locator','origin_kind','publisher_or_actor','observed_by','observed_at','published_at','retrieved_at','purpose','raw_ref','availability','search_status','disclosure','unavailable_reason','search_method','media_type'},p)
+    self.unknown(entry,{'id','revision','locator','origin_kind','origin_family','duplicate_group','conflict_group','publisher_or_actor','observed_by','observed_at','published_at','published_at_basis_ref','retrieved_at','purpose','raw_ref','availability','search_status','disclosure','unavailable_reason','search_method','media_type'},p)
     if not {'id','revision','locator','origin_kind','publisher_or_actor','observed_by','observed_at','published_at','retrieved_at','purpose','raw_ref','availability','search_status','disclosure','unavailable_reason','search_method','media_type'}.issubset(entry): self.add(p,'E_SOURCE_ENTRY_INVALID')
     if not isinstance(entry.get('id'),str) or not entry.get('id','').startswith('source:') or type(entry.get('revision')) is not int or entry.get('revision',0)<1: self.add(p,'E_SOURCE_ENTRY_INVALID')
+    if 'origin_family' in entry and (not isinstance(entry.get('origin_family'),str) or not entry.get('origin_family','').strip()): self.add(p,'E_SOURCE_FAMILY_INVALID')
+    for group_key in ('duplicate_group','conflict_group'):
+     if entry.get(group_key) is not None and (not isinstance(entry.get(group_key),str) or not entry[group_key].strip()): self.add(p,'E_SOURCE_GROUP_INVALID')
     if entry.get('raw_ref') is not None:
      if not isinstance(entry['raw_ref'],dict) or set(entry['raw_ref'])!={'id','revision','digest'} or not str(entry['raw_ref'].get('id','')).startswith('raw:'): self.add(p,'E_REF_INVALID')
      else: self.resolve_raw(entry['raw_ref'],p)
     for k in ('observed_at','published_at','retrieved_at'):
      if entry.get(k) is not None and not TS.fullmatch(str(entry[k])): self.add(p,'E_TIMESTAMP_INVALID')
-    if entry.get('availability')=='unavailable' and (not entry.get('locator') or not entry.get('unavailable_reason') or entry.get('search_status')=='no_match'): self.add(p,'E_SOURCE_UNAVAILABLE_INVALID')
+    if entry.get('availability')=='unavailable' and (not entry.get('locator') or not entry.get('unavailable_reason') or not entry.get('search_method') or entry.get('search_status')!='incomplete' or entry.get('raw_ref') is not None): self.add(p,'E_SOURCE_UNAVAILABLE_INVALID')
+    if entry.get('availability')=='available' and entry.get('search_status')=='incomplete' and entry.get('raw_ref') is None: self.add(p,'E_SOURCE_UNAVAILABLE_INVALID')
     if entry.get('search_status')=='no_match' and (not d.get('search_scope') or not d.get('search_completed_at') or not entry.get('search_method')): self.add(p,'E_NO_MATCH_INCOMPLETE')
     if entry.get('availability') not in {'available','unavailable'} or entry.get('search_status') not in {'not_searched','match_found','no_match','incomplete'}: self.add(p,'E_SOURCE_ENTRY_INVALID')
     if entry.get('availability')=='available' and not entry.get('locator'): self.add(p,'E_SOURCE_ENTRY_INVALID')
     if entry.get('raw_ref') is None and entry.get('search_status') not in {'no_match','incomplete'} and entry.get('availability')!='unavailable': self.add(p,'E_SOURCE_ENTRY_INVALID')
+    if entry.get('published_at') is None:
+     if entry.get('published_at_basis_ref') is not None: self.add(p,'E_PUBLISHED_AT_BASIS_INVALID')
+    elif entry.get('published_at_basis_ref') != entry.get('raw_ref') or entry.get('raw_ref') is None:
+     # A non-null publication date is structurally supported only when it is
+     # pinned to this source's raw bytes. This does not assess what those bytes say.
+     self.add(p,'E_PUBLISHED_AT_BASIS_INVALID')
+    elif not isinstance(entry.get('published_at_basis_ref'),dict): self.add(p,'E_PUBLISHED_AT_BASIS_INVALID')
+    elif not self.resolve_raw(entry.get('published_at_basis_ref'),p): self.add(p,'E_PUBLISHED_AT_BASIS_INVALID')
    if d.get('search_completed_at') is not None and not TS.fullmatch(str(d.get('search_completed_at'))): self.add(p,'E_TIMESTAMP_INVALID')
   if typ=='decision-record':
    opts=d.get('options',[])
@@ -213,6 +225,46 @@ class Checker:
      target=self.byid.get((ref.get('id'),ref.get('revision')))
      if not target or 'sha256:'+hashlib.sha256(target['bytes']).hexdigest()!=ref.get('digest'): self.add(p,'E_REF_MISSING')
     else: self.add(p,'E_REF_INVALID')
+  supporting=c.get('supporting_refs',[]) if isinstance(c.get('supporting_refs',[]),list) else []
+  contradicting=c.get('contradicting_refs',[]) if isinstance(c.get('contradicting_refs',[]),list) else []
+  if contradicting:
+   if any(ref in supporting for ref in contradicting): self.add(p,'E_COUNTEREVIDENCE_DUPLICATE')
+   support_groups={entry.get('conflict_group') for ref in supporting if (entry:=self.source_for_raw(ref)) and entry.get('conflict_group')}
+   counter_groups={entry.get('conflict_group') for ref in contradicting if (entry:=self.source_for_raw(ref)) and entry.get('conflict_group')}
+   if not support_groups.intersection(counter_groups): self.add(p,'E_CONFLICT_LINK')
+  # A declared source conflict cannot disappear because a claim omits its
+  # contradicting_refs or places both sides among supporting_refs. For every
+  # represented conflict group, require exactly one supported member and every
+  # other member on the contradicting side.
+  for conflict_group in {entry.get('conflict_group') for ref in supporting if (entry:=self.source_for_raw(ref)) and entry.get('conflict_group')}:
+   support_refs={json.dumps(ref,sort_keys=True) for ref in supporting if (entry:=self.source_for_raw(ref)) and entry.get('conflict_group')==conflict_group}
+   conflict_refs={json.dumps(entry.get('raw_ref'),sort_keys=True) for entry,_ in self.sources if entry.get('conflict_group')==conflict_group}
+   counter_refs={json.dumps(ref,sort_keys=True) for ref in contradicting if (entry:=self.source_for_raw(ref)) and entry.get('conflict_group')==conflict_group}
+   if len(support_refs)!=1 or counter_refs!=(conflict_refs-support_refs): self.add(p,'E_CONFLICT_COUNTEREVIDENCE_REQUIRED')
+ def source_for_raw(self,ref):
+  return next((entry for entry,_ in self.sources if entry.get('raw_ref')==ref),None)
+ def validate_source_groups(self):
+  entries=[(entry,doc) for entry,doc in self.sources]
+  families={}
+  duplicates={}
+  conflicts={}
+  for entry,doc in entries:
+   family=entry.get('origin_family')
+   if isinstance(family,str) and family: families.setdefault(family,[]).append((entry,doc))
+   duplicate=entry.get('duplicate_group')
+   conflict=entry.get('conflict_group')
+   if duplicate: duplicates.setdefault(duplicate,[]).append((entry,doc))
+   if conflict: conflicts.setdefault(conflict,[]).append((entry,doc))
+  for group in duplicates.values():
+   if len(group)<2 or len({item.get('origin_family') for item,_ in group})!=1:
+    for _,doc in group: self.add(doc['path'],'E_DUPLICATE_GROUP_INVALID')
+  for family,group in families.items():
+   if len(group)>1 and (not all(item.get('duplicate_group') for item,_ in group) or len({item.get('duplicate_group') for item,_ in group})!=1):
+    for _,doc in group: self.add(doc['path'],'E_DUPLICATE_GROUP_REQUIRED')
+  for group in conflicts.values():
+   raw_refs=[item.get('raw_ref') for item,_ in group]
+   if len(group)<2 or any(ref is None for ref in raw_refs) or len({json.dumps(ref,sort_keys=True) for ref in raw_refs})!=len(raw_refs):
+    for _,doc in group: self.add(doc['path'],'E_CONFLICT_GROUP_INVALID')
  def resolve_raw(self,ref,p,observed=False):
   if not isinstance(ref,dict) or set(ref)!={'id','revision','digest'} or type(ref.get('revision')) is not int or not REF.fullmatch(str(ref.get('digest',''))) or not str(ref.get('id','')).startswith('raw:'):
    self.add(p,'E_REF_INVALID'); return None
@@ -280,6 +332,7 @@ class Checker:
  def run(self,files):
   for p in files:self.parse(p)
   for d in list(self.docs):self.validate_doc(d)
+  self.validate_source_groups()
   for path,code in sorted(set(self.diags),key=lambda x:(x[0].encode(),x[1])): print(f'{path}: {code}')
   return bool(self.diags)
 
