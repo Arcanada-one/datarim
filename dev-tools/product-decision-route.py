@@ -63,10 +63,20 @@ def revisions(directory, prefix):
     return [path for _, path in found]
 
 
-def check_artifacts(bundle, checker):
-    """Validate the complete immutable bundle so local raw evidence can resolve."""
+def current_closure(bundle, decision_path, brief_path=None):
+    """Select current artifacts plus non-revision evidence in their actual bundle."""
+    revisioned = re.compile(r"(?:decision|product-brief)-r[1-9][0-9]*\.md\Z")
+    files = [path for path in bundle.rglob("*.md") if not revisioned.fullmatch(path.name)]
+    files = [path for path in files if path != decision_path and path != brief_path]
+    files.extend(path for path in (decision_path, brief_path) if path is not None)
+    return sorted({path.relative_to(bundle).as_posix() for path in files})
+
+
+def check_artifacts(bundle, checker, decision_path, brief_path=None):
+    """Validate only the active decision closure, preserving evidence paths in place."""
+    closure = current_closure(bundle, decision_path, brief_path)
     checked = subprocess.run(
-        ["bash", str(checker), "--root", str(bundle), "--bundle", "."],
+        ["bash", str(checker), "--root", str(bundle), "--files", *closure],
         capture_output=True, text=True, check=False,
     )
     return checked.returncode, checked.stdout.strip() or checked.stderr.strip()
@@ -123,6 +133,7 @@ def main():
         refuse("missing_decision", task_id=args.task)
         return 0
     decision_docs = validate_revision_chain(decisions, "decision-record")
+    latest_path = decisions[-1]
     latest_raw, latest_front, latest_data = decision_docs[-1]
     decision_digest = digest(latest_raw)
     if latest_front.get("schema_version") != "product-artifact/2":
@@ -140,7 +151,7 @@ def main():
         return 0
     outcome = latest_data.get("business_outcome")
     if outcome != "continue":
-        check_rc, check_text = check_artifacts(bundle, checker)
+        check_rc, check_text = check_artifacts(bundle, checker, latest_path)
         if check_rc:
             refuse("invalid_artifact", **lineage(decision_ref, latest_front), detail=check_text)
             return 0
@@ -170,6 +181,7 @@ def main():
         refuse("brief_missing", decision_ref=decision_ref, parent_acceptance_contract_sha256=parent_hash)
         return 0
     brief_docs = validate_revision_chain(briefs, "product-brief")
+    latest_brief_path = briefs[-1]
     brief_raw, brief_front, brief_data = brief_docs[-1]
     brief_digest = digest(brief_raw)
     brief_ref = {"id": brief_front.get("id"), "revision": brief_front.get("revision"), "digest": brief_digest}
@@ -186,7 +198,7 @@ def main():
         else:
             refuse("brief_mismatch", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref)
         return 0
-    check_rc, check_text = check_artifacts(bundle, checker)
+    check_rc, check_text = check_artifacts(bundle, checker, latest_path, latest_brief_path)
     if check_rc:
         refuse("invalid_artifact", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref, detail=check_text)
         return 0

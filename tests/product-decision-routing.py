@@ -53,7 +53,7 @@ def decision_data(outcome="continue", authority=None, evidence="accepted", front
 def make_task(root, latest, *, history=(), include_brief=True, brief_revision=None,
               brief_acceptance="accepted", brief_status="ready_for_delivery", advance_revision=None,
               advance_auth="AUTH-SYN-001", advance_scope=None, parent_hash_override=None, broken_chain=False,
-              force_advance=False):
+              force_advance=False, brief_revisions=1):
     bundle = root / "datarim/insights/decisions" / TASK
     bundle.mkdir(parents=True, exist_ok=True)
     shutil.copy2(EVIDENCE_FIXTURE / "ledger.md", bundle / "ledger.md")
@@ -91,19 +91,25 @@ def make_task(root, latest, *, history=(), include_brief=True, brief_revision=No
     current_ref = decision_refs[current_revision]
     brief_raw = None
     if include_brief:
-        brief_decision_revision = brief_revision or current_revision
-        brief_front = {
-            "schema_version": "product-artifact/1", "id": "artifact:SYN-BRIEF-001", "artifact_type": "product-brief",
-            "revision": 1, "status": brief_status, "acceptance_state": brief_acceptance, "source_digest": None, "supersedes": None,
-        }
-        brief_data = {
-            "accepted_intent": "Exercise a synthetic decision route.", "requirements": ["Preserve the exact decision lineage."],
-            "risk": ["Synthetic results do not establish live outcomes."], "scope": ["Synthetic route fixture only."], "non_goals": ["No live user action."],
-            "hypothesis_refs": [], "input_revisions": [decision_refs[brief_decision_revision]], "success_criteria": ["Expected typed route is emitted."],
-            "acceptance_owner": "fixture-owner", "downstream_task_ref": None, "source_refs": [],
-            "provenance": {"recorder": "fixture-author", "recorded_at": "2026-10-14T00:00:00Z", "origin_kind": "synthetic_fixture"},
-        }
-        brief_raw = write_artifact(bundle / "product-brief-r1.md", brief_front, brief_data)
+        previous_brief = None
+        for brief_revision_number in range(1, brief_revisions + 1):
+            is_latest_brief = brief_revision_number == brief_revisions
+            brief_decision_revision = (brief_revision or current_revision) if is_latest_brief else min(brief_revision or current_revision, brief_revision_number)
+            brief_front = {
+                "schema_version": "product-artifact/1", "id": "artifact:SYN-BRIEF-001", "artifact_type": "product-brief",
+                "revision": brief_revision_number, "status": brief_status if is_latest_brief else "superseded",
+                "acceptance_state": brief_acceptance, "source_digest": None,
+                "supersedes": ({"id": "artifact:SYN-BRIEF-001", "revision": brief_revision_number - 1, "digest": sha(previous_brief)} if previous_brief else None),
+            }
+            brief_data = {
+                "accepted_intent": "Exercise a synthetic decision route.", "requirements": ["Preserve the exact decision lineage."],
+                "risk": ["Synthetic results do not establish live outcomes."], "scope": ["Synthetic route fixture only."], "non_goals": ["No live user action."],
+                "hypothesis_refs": [], "input_revisions": [decision_refs[brief_decision_revision]], "success_criteria": ["Expected typed route is emitted."],
+                "acceptance_owner": "fixture-owner", "downstream_task_ref": None, "source_refs": [],
+                "provenance": {"recorder": "fixture-author", "recorded_at": "2026-10-14T00:00:00Z", "origin_kind": "synthetic_fixture"},
+            }
+            brief_raw = write_artifact(bundle / f"product-brief-r{brief_revision_number}.md", brief_front, brief_data)
+            previous_brief = brief_raw
     parent_hash = sha((acceptance + "\n").encode())
     advance_revision = current_revision if advance_revision is None else advance_revision
     for revision, (data, _, _) in enumerate(history_specs, 1):
@@ -121,8 +127,13 @@ def make_task(root, latest, *, history=(), include_brief=True, brief_revision=No
     return bundle, task_path, decision_fronts[current_revision], current_ref, brief_raw, parent_hash
 
 
-def run_checker(bundle):
-    return subprocess.run(["bash", str(CHECKER), "--root", str(bundle), "--bundle", "."], text=True, capture_output=True)
+def run_checker(bundle, decision_path, brief_path=None):
+    revisioned = re.compile(r"(?:decision|product-brief)-r[1-9][0-9]*\.md\Z")
+    files = [path for path in bundle.rglob("*.md") if not revisioned.fullmatch(path.name)]
+    files = [path for path in files if path != decision_path and path != brief_path]
+    files.extend(path for path in (decision_path, brief_path) if path is not None)
+    relative = sorted({path.relative_to(bundle).as_posix() for path in files})
+    return subprocess.run(["bash", str(CHECKER), "--root", str(bundle), "--files", *relative], text=True, capture_output=True)
 
 
 def route(root, router=ROUTER):
@@ -150,7 +161,8 @@ def case(name, setup, expected_route, expected_token, verify=None, allow_error=F
         bundle, _, front, decision_ref, brief_raw, parent_hash = setup(root)
         current_record = bundle / f"decision-r{decision_ref['revision']}.md"
         latest_data = yaml.safe_load(re.search(r"```product-artifact-data\n(.*?)\n```", current_record.read_text(), re.S).group(1))
-        checker_result = run_checker(bundle)
+        brief_path = bundle / f"product-brief-r{len(list(bundle.glob('product-brief-r*.md')))}.md" if expected_token == "PRODUCT_ROUTE_CONTINUE" and list(bundle.glob("product-brief-r*.md")) else None
+        checker_result = run_checker(bundle, current_record, brief_path)
         assert checker_result.returncode in (0, 1), checker_result.stderr
         routed = route(root)
         assert (routed.returncode == 1 if allow_error else routed.returncode == 0), f"{name} failed: {routed.stdout}{routed.stderr}"
@@ -175,7 +187,7 @@ def assert_continue_lineage(result, front, decision_ref, brief_raw, parent_hash)
     assert result["product_brief_ref"]["digest"] == sha(brief_raw)
     assert result["parent_acceptance_contract_sha256"] == parent_hash
     assert result["authorization_ref"] == "AUTH-SYN-001"
-    assert result["scope_advance_id"] == "SYN-SCOPE-001"
+    assert result["scope_advance_id"] == f"SYN-SCOPE-{decision_ref['revision']:03d}"
 
 
 def run_resume_case(outcome):
@@ -277,6 +289,9 @@ def main():
     case("r2-stop-over-authorized-r1", lambda root: make_task(root, decision_data("stop"), history=[prior]), "/dr-archive", "PRODUCT_ROUTE_STOP", assert_revision_two)
     case("r2-continue-with-r1-brief", lambda root: make_task(root, decision_data("continue", authority=granted), history=[prior], brief_revision=1, advance_revision=1), "/dr-do", "PRODUCT_ROUTE_SUPERSEDED")
     case("r2-continue-with-r1-advance", lambda root: make_task(root, decision_data("continue", authority=granted), history=[prior], advance_revision=1), "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
+    case("B-r2-continue-with-current-brief-and-historical-brief", lambda root: make_task(root, decision_data("continue", authority=granted), history=[prior], brief_revisions=2), "/dr-prd", "PRODUCT_ROUTE_CONTINUE", assert_continue_lineage)
+    case("C-r2-stop-with-historical-brief", lambda root: make_task(root, decision_data("stop"), history=[prior]), "/dr-archive", "PRODUCT_ROUTE_STOP")
+    case("D-r2-more-evidence-with-historical-brief", lambda root: make_task(root, decision_data("more-evidence"), history=[prior]), "/dr-do", "PRODUCT_ROUTE_MORE_EVIDENCE")
     case("latest-status-superseded", lambda root: make_simple(root, "continue", authority=granted, status="superseded"), "/dr-do", "PRODUCT_ROUTE_SUPERSEDED")
 
     def duplicate_advance_ids(root):
@@ -301,7 +316,7 @@ def main():
     def invalid_checker_artifact(root):
         result = make_simple(root, "rejected")
         bundle = result[0]
-        checked = run_checker(bundle)
+        checked = run_checker(bundle, bundle / "decision-r1.md")
         assert checked.returncode == 1 and "E_OUTCOME_INVALID" in checked.stdout
         return result
     def assert_checker_diagnostic(result, front, ref, brief, parent):
