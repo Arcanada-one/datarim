@@ -554,6 +554,7 @@ EOF
     done
     grep -qF 'profile: product-discovery' "$REPO_ROOT/commands/dr-prd.md"
     grep -qF 'profile: product-discovery' "$REPO_ROOT/commands/dr-plan.md"
+    awk 'index($0, "read-product-profile.sh") { reader=index($0, "read-product-profile.sh"); strategist=index($0, "Then load") } END { exit !(reader && strategist && reader < strategist) }' "$REPO_ROOT/commands/dr-plan.md"
     awk '
         /product-framing skill reference inside the profile_active branch/ {
             if (getline > 0 && /only for `profile_active`/ && /plugins\/product-discovery\/skills\/product-framing\/SKILL\.md/) found=1
