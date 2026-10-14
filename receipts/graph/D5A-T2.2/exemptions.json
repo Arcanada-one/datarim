@@ -1,0 +1,137 @@
+{
+  "exemptions": [
+    {
+      "code": "v-workflow-config-152a40343efd93ad",
+      "entity": "code_unit:.github/workflows/bats.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-152a40343efd93ad: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-2fe48d1021006468",
+      "entity": "code_unit:.github/workflows/dependabot-auto-merge.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-2fe48d1021006468: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-5ff5fa17404fc7d3",
+      "entity": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-5ff5fa17404fc7d3: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-85b0e5f19e1ca680",
+      "entity": "code_unit:.github/workflows/dr-orchestrate-contract.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-85b0e5f19e1ca680: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-6c171afc799257da",
+      "entity": "code_unit:.github/workflows/framework-gates.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-6c171afc799257da: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-ac18f02b39b4d139",
+      "entity": "code_unit:.github/workflows/frontmatter-mirror.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-ac18f02b39b4d139: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-09c562dacfcf9489",
+      "entity": "code_unit:.github/workflows/gate-token-registry-sync.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-09c562dacfcf9489: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-6e4f603fa997f347",
+      "entity": "code_unit:.github/workflows/network-exposure-lint.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-6e4f603fa997f347: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-71ec1c1168844989",
+      "entity": "code_unit:.github/workflows/node-tests.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-71ec1c1168844989: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-07b8843df453ad3f",
+      "entity": "code_unit:.github/workflows/personal-id-lint.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-07b8843df453ad3f: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-73a331778caeec7d",
+      "entity": "code_unit:.github/workflows/public-surface-lint.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-73a331778caeec7d: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-87db21a973eed4fe",
+      "entity": "code_unit:.github/workflows/release.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-87db21a973eed4fe: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-ed61203228de3f00",
+      "entity": "code_unit:.github/workflows/reusable-security-audit.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-ed61203228de3f00: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-64f89239b966dac9",
+      "entity": "code_unit:.github/workflows/sanity-dual-copy.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-64f89239b966dac9: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-2e3112f4e81a9c47",
+      "entity": "code_unit:.github/workflows/scorecard.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-2e3112f4e81a9c47: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-552822c6dbc3fece",
+      "entity": "code_unit:.github/workflows/security-stale-trigger.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-552822c6dbc3fece: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-6102d4f2cddb56c4",
+      "entity": "code_unit:.github/workflows/security.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-6102d4f2cddb56c4: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-workflow-config-fd7ca5e632c8dbe8",
+      "entity": "code_unit:.github/workflows/token-health-probe.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-fd7ca5e632c8dbe8: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    },
+    {
+      "code": "v-shell-behavior-3e1715bb660a1cbc",
+      "entity": "code_unit:tests/framework-graph-consistency.bats",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-shell-syntax-3e1715bb660a1cbc: shell syntax/closure: not_measured; v-shell-behavior-3e1715bb660a1cbc: SHELL_DYNAMIC_CLOSURE_NOT_MEASURED: Bats conditional execution membership is not statically resolved; Bats run lacks an immediate unconditional child status assertion; line 107: heredoc data/generation closure not measured; line 10: heredoc data/generation closure not measured; line 120: heredoc data/generation closure not measured; line 13: heredoc data/generation closure not measured; line 149: heredoc data/generation closure not measured; line 169: heredoc data/generation closure not meas ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+    }
+  ]
+}
