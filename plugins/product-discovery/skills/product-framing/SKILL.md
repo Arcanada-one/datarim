@@ -10,7 +10,13 @@ target_aal: 2
 
 Use this skill only when the product-discovery pack is enabled and selected for the task. Work only from the task brief, repository, artifacts and other inputs the caller explicitly supplies. Do not browse, fetch market data, contact people, spend money, publish, deploy or infer demand from absent data. If an input is missing or unavailable, record that state; it does not mean no evidence exists.
 
-Apply the source-family, duplicate, counterevidence, conflict-group, availability, and publication-date rules in [Claim Quality](claim-quality.md). Preserve distinct source records when sources conflict; never combine them into one neutral or majority claim. A source family records common origin, while a duplicate group explicitly groups records that repeat that origin. `unavailable` means the source could not be accessed or checked; it does not mean a completed search found nothing. Use `published_at: null` when publication time is unknown, and do not infer it from retrieval or observation time.
+Apply the source-family, duplicate, counterevidence, conflict-group, availability, and publication-date rules in [Claim Quality](claim-quality.md).
+
+For conflicting sources, follow its **Conflicts and counterevidence** rules: keep each source in a separate ledger entry, use one shared non-empty `conflict_group`, and for every conflict group represented in a claim, link exactly one member in `supporting_refs` and every other member in `contradicting_refs`. Do not repeat one raw reference on both sides or summarize away the disagreement.
+
+When a source cannot be retrieved or inspected, follow its **Availability and search results** rules: record the attempted `locator`, `unavailable_reason`, and `search_method`; set `availability: unavailable` and `search_status: incomplete`; leave `raw_ref: null`. Use `search_status: no_match` only for a completed scoped search with its scope, completion time, and method. An unavailable source does not mean a completed search found nothing.
+
+A source family records common origin, while a duplicate group explicitly groups records that repeat that origin. Use `published_at: null` when publication time is unknown, and do not infer it from retrieval or observation time.
 
 ## Modes and routing
 
