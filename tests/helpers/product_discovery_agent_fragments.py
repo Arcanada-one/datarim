@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -145,17 +146,20 @@ def missing_fragment() -> None:
 
 def prompt_gates() -> None:
     expected = {
-        REPO_ROOT / "agents/researcher.md": (
+        "researcher": (
             "${DATARIM_RUNTIME:?}/local/skills/product-discovery/"
-            "hypothesis-validation/researcher.product-discovery.md"
+            "hypothesis-validation/researcher.product-discovery.md",
+            "hypothesis-validation/researcher.product-discovery.md",
         ),
-        REPO_ROOT / "agents/strategist.md": (
+        "strategist": (
             "${DATARIM_RUNTIME:?}/local/skills/product-discovery/"
-            "decision-record/strategist.product-discovery.md"
+            "decision-record/strategist.product-discovery.md",
+            "decision-record/strategist.product-discovery.md",
         ),
     }
-    for path, reference in expected.items():
-        lines = path.read_text(encoding="utf-8").splitlines()
+
+    def check_prompt(path: Path, prompt: str, reference: str, fragment_name: str) -> None:
+        lines = prompt.splitlines()
         active = False
         inside = []
         outside = []
@@ -168,7 +172,54 @@ def prompt_gates() -> None:
             if reference in line:
                 (inside if active else outside).append(line)
         assert len(inside) == 1 and not outside, f"profile gate mismatch: {path}"
-    print("gated references verified")
+        gate = inside[0]
+        assert "profile is selected" in gate, f"missing selected-profile gate: {path}"
+        assert "plugin is enabled" in gate, f"missing enabled-plugin gate: {path}"
+        assert "If either condition is false, do not load product-discovery method content." in gate, (
+            f"missing off-clause: {path}"
+        )
+        assert "stop this product-specific" in gate and "never silently skip it" in gate, (
+            f"missing missing-fragment stop clause: {path}"
+        )
+        fragment = REPO_ROOT / "plugins/product-discovery/skills" / fragment_name
+        body = fragment.read_text(encoding="utf-8").split("---", 2)[2]
+        for line in body.splitlines():
+            if line.strip() and not line.startswith("#"):
+                assert line not in prompt, f"fragment method body drifted into {path}"
+
+    for agent, (reference, fragment_name) in expected.items():
+        path = REPO_ROOT / f"agents/{agent}.md"
+        prompt = path.read_text(encoding="utf-8")
+        check_prompt(path, prompt, reference, fragment_name)
+        # Keep the positive control meaningful: each required clause mutation
+        # must be rejected for each agent, not just pass on the checked-in text.
+        line = next(line for line in prompt.splitlines() if reference in line)
+        rejected = 0
+        for mutant in (
+            line.replace(" and the `product-discovery` plugin is enabled", ""),
+            line.replace("If the required agent fragment is missing or unreadable while the profile is active, stop this product-specific research path and report its exact runtime path; never silently skip it.", ""),
+            line.replace("If the profile is active and this fragment is missing or unreadable, stop this product-specific strategy path and report its exact runtime path; never silently skip it.", ""),
+        ):
+            if mutant == line:
+                continue
+            mutated_prompt = prompt.replace(line, mutant, 1)
+            try:
+                check_prompt(path, mutated_prompt, reference, fragment_name)
+            except AssertionError:
+                rejected += 1
+                pass
+            else:
+                raise AssertionError(f"prompt-gates accepted a required-clause mutant: {path}")
+        assert rejected == 2, f"both required-clause mutants were not exercised: {path}"
+        print(f"{agent}: killed plugin-enabled and missing-fragment-stop mutants")
+
+    graph = yaml.safe_load((REPO_ROOT / "dev-tools/framework-graph.yaml").read_text())
+    edges = graph["edges"]
+    for agent, (_, fragment_name) in expected.items():
+        target = "fragment:plugins/product-discovery/skills/" + fragment_name
+        assert any(edge["from"] == f"agent:{agent}" and edge["relation"] == "loads" and edge["to"] == target
+                   for edge in edges), f"missing agent-to-fragment graph edge: {agent} -> {target}"
+    print("profile clauses, both mutation controls, fragment drift checks, and graph edges verified")
 
 
 CASES = {

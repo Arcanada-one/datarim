@@ -43,6 +43,19 @@ def refs(text, kind):
     text=re.sub(plugin_pat,'',text)
     pat=r'(?:\$HOME/\.claude/)?skills/([A-Za-z0-9._/-]+)/SKILL\.md'
     return sorted(plugin_refs|set(re.findall(pat,text)))
+
+def runtime_fragment_refs(text):
+    """Map installed local skill paths back to their checked-in plugin assets."""
+    refs = set()
+    pattern = r'\$\{DATARIM_RUNTIME[^}]*\}/local/skills/([A-Za-z0-9._-]+)/([A-Za-z0-9._/-]+\.md)'
+    for plugin, relative in re.findall(pattern, text):
+        if any(part in (".", "..") for part in Path(relative).parts):
+            continue
+        plugin_root = ROOT/'plugins'/plugin/'skills'
+        candidate = plugin_root/relative
+        if candidate.is_file() and candidate.resolve().is_relative_to(plugin_root.resolve()):
+            refs.add(str(candidate.relative_to(ROOT)))
+    return sorted(refs)
 def load():
     commands=names('commands/*.md'); agents=names('agents/*.md'); skills=skill_names()
     templates=sorted(str(p.relative_to(ROOT/'templates')) for p in (ROOT/'templates').rglob('*') if p.is_file())
@@ -64,10 +77,16 @@ def load():
         text=(ROOT/'agents'/f'{a}.md').read_text(errors='replace')
         for s in refs(text,'skill'):
             (edges if s in skills else broken).append({'from':f'agent:{a}','relation':'loads','to':f'skill:{s}','source':f'agents/{a}.md'})
+        for target in runtime_fragment_refs(text):
+            full = ROOT/target
+            node = 'skill:'+skill_name(full) if full.name == 'SKILL.md' else 'fragment:'+target
+            edges.append({'from':f'agent:{a}','relation':'loads','to':node,'source':f'agents/{a}.md'})
     # Skill routers also load fragments and other skills. Keep these edges in
     # the graph rather than reporting only the command/agent subset as complete.
     fragments = sorted(str(p.relative_to(ROOT)) for p in skill_files() if p.name != 'SKILL.md')
     for path in skill_files():
+        if path in (MAP, CMDMAP):
+            continue
         source = str(path.relative_to(ROOT))
         text = path.read_text()
         targets = {ROOT/'skills'/target for target in re.findall(
