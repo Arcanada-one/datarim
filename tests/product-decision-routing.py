@@ -11,6 +11,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+EVIDENCE_FIXTURE = ROOT / "plugins/product-discovery/tests/fixtures/decision-record-v2"
 ROUTER = ROOT / "dev-tools/product-decision-route.py"
 CHECKER = ROOT / "dev-tools/check-product-artifact.sh"
 WRITER = ROOT / "dev-tools/snapshot-writer-wrapper.sh"
@@ -52,16 +53,23 @@ def make_task(root, latest, *, history=(), include_brief=True, brief_revision=No
               advance_auth="AUTH-SYN-001", advance_scope=None, parent_hash_override=None, broken_chain=False,
               force_advance=False):
     bundle = root / "datarim/insights/decisions" / TASK
+    bundle.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(EVIDENCE_FIXTURE / "ledger.md", bundle / "ledger.md")
+    shutil.copytree(EVIDENCE_FIXTURE / "fixtures", bundle / "fixtures")
     task_path = root / "datarim/tasks" / f"{TASK}-task-description.md"
     task_path.parent.mkdir(parents=True, exist_ok=True)
     acceptance = "- Synthetic route is authorized only for its exact bounded scope.\n- Parent criteria remain unchanged.\n"
     task_path.write_text("# Task\n\n## Acceptance Criteria\n" + acceptance + "\n## Scope Advance Records\n", encoding="utf-8")
     history_specs = [*history, latest]
+    ledger_text = (EVIDENCE_FIXTURE / "ledger.md").read_text(encoding="utf-8")
+    ledger_data = yaml.safe_load(re.search(r"```product-artifact-data\n(.*?)\n```", ledger_text, re.S).group(1))
     decision_refs = {}
     decision_fronts = {}
     previous = None
     for revision, spec in enumerate(history_specs, 1):
         data, status, front_acceptance = spec
+        data["evidence_refs"] = [ledger_data["entries"][0]["raw_ref"]]
+        data["counterevidence_refs"] = [ledger_data["entries"][1]["raw_ref"]]
         supersedes = None
         if previous:
             previous_raw, previous_front = previous
@@ -111,12 +119,8 @@ def make_task(root, latest, *, history=(), include_brief=True, brief_revision=No
     return bundle, task_path, decision_fronts[current_revision], current_ref, brief_raw, parent_hash
 
 
-def run_checker(paths):
-    with tempfile.TemporaryDirectory(prefix="route-check-case-") as temp:
-        bundle = Path(temp)
-        for path in paths:
-            (bundle / path.name).write_bytes(path.read_bytes())
-        return subprocess.run(["bash", str(CHECKER), "--root", temp, "--bundle", "."], text=True, capture_output=True)
+def run_checker(bundle):
+    return subprocess.run(["bash", str(CHECKER), "--root", str(bundle), "--bundle", "."], text=True, capture_output=True)
 
 
 def route(root, router=ROUTER):
@@ -128,11 +132,8 @@ def case(name, setup, expected_route, expected_token, verify=None, allow_error=F
         root = Path(temp)
         bundle, _, front, decision_ref, brief_raw, parent_hash = setup(root)
         current_record = bundle / f"decision-r{decision_ref['revision']}.md"
-        checked_paths = [current_record]
         latest_data = yaml.safe_load(re.search(r"```product-artifact-data\n(.*?)\n```", current_record.read_text(), re.S).group(1))
-        if latest_data.get("business_outcome") == "continue" and (bundle / "product-brief-r1.md").is_file():
-            checked_paths.append(bundle / "product-brief-r1.md")
-        checker_result = run_checker(checked_paths)
+        checker_result = run_checker(bundle)
         assert checker_result.returncode in (0, 1), checker_result.stderr
         routed = route(root)
         assert (routed.returncode == 1 if allow_error else routed.returncode == 0), f"{name} failed: {routed.stdout}{routed.stderr}"
@@ -237,7 +238,7 @@ def sandbox_prd_run(name, latest, *, history=(), brief_revision=None, include_br
         else:
             assert result["token"] != "PRODUCT_ROUTE_CONTINUE" and not prd_path.exists()
         assert sha(map_path.read_bytes()) == map_hash
-        print(f"TRANSCRIPT sandbox-dr-prd-{name}: profile_active; host=0/on-host; foreign-host=10/off-host; execution-map-sha256={map_hash}; route={result['token']}; " + (f"PRD discovery includes decision digest {result['decision_ref']['digest']}" if discovery else "no PRD or delivery text"))
+        print(f"TRANSCRIPT sandbox-dr-prd-{name}: profile_active; host=0/on-host; foreign-host=10/off-host; host-hash-before={map_hash}; host-hash-after={sha(map_path.read_bytes())}; stable=true; agent-produced-prd=NOT_MEASURED; route={result['token']}; " + (f"PRD discovery includes decision digest {result['decision_ref']['digest']}" if discovery else "no PRD or delivery text"))
         return result
 
 
@@ -260,6 +261,22 @@ def main():
     case("r2-stop-over-authorized-r1", lambda root: make_task(root, decision_data("stop"), history=[prior]), "/dr-archive", "PRODUCT_ROUTE_STOP", assert_revision_two)
     case("r2-continue-with-r1-brief", lambda root: make_task(root, decision_data("continue", authority=granted), history=[prior], brief_revision=1, advance_revision=1), "/dr-do", "PRODUCT_ROUTE_SUPERSEDED")
     case("r2-continue-with-r1-advance", lambda root: make_task(root, decision_data("continue", authority=granted), history=[prior], advance_revision=1), "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
+    case("latest-status-superseded", lambda root: make_simple(root, "continue", authority=granted, status="superseded"), "/dr-do", "PRODUCT_ROUTE_SUPERSEDED")
+
+    def duplicate_advance_ids(root):
+        made = make_task(root, decision_data("continue", authority=granted))
+        task_path = made[1]
+        record = json.loads(re.findall(r"```json\s*\n(.*?)\n```", task_path.read_text(), re.S)[-1])
+        with task_path.open("a", encoding="utf-8") as stream:
+            stream.write("```json\n" + json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n```\n")
+        return made
+    case("duplicate-scope-advance-id", duplicate_advance_ids, "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
+
+    def checker_pair_refusal(root):
+        made = make_task(root, decision_data("continue", authority=granted))
+        (made[0] / "fixtures/counterevidence.txt").write_text("mutated counterevidence\n", encoding="utf-8")
+        return made
+    case("checker-pair-refusal", checker_pair_refusal, "/dr-status", "PRODUCT_REFUSE_ARTIFACT_INVALID")
 
     def broken_chain(root):
         return make_task(root, decision_data("stop"), history=[decision_data("continue")], broken_chain=True)
@@ -268,7 +285,7 @@ def main():
     def invalid_checker_artifact(root):
         result = make_simple(root, "rejected")
         bundle = result[0]
-        checked = run_checker([bundle / "decision-r1.md"])
+        checked = run_checker(bundle)
         assert checked.returncode == 1 and "E_OUTCOME_INVALID" in checked.stdout
         return result
     def assert_checker_diagnostic(result, front, ref, brief, parent):

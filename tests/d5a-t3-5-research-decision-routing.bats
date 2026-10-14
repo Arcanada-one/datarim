@@ -11,7 +11,14 @@
   [[ "$output" == *"broken-supersedes-chain"*"PRODUCT_REFUSE_ARTIFACT_INVALID"* ]]
   [[ "$output" == *"PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISSING"*"PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH"* ]]
   [[ "$output" == *"PRODUCT_REFUSE_PRODUCT_BRIEF_MISSING"*"PRODUCT_REFUSE_PARENT_CONTRACT_MISMATCH"* ]]
+  [[ "$output" == *"latest-status-superseded"*"PRODUCT_ROUTE_SUPERSEDED"* ]]
+  [[ "$output" == *"duplicate-scope-advance-id"*"PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH"* ]]
+  [[ "$output" == *"checker-pair-refusal: checker=exit1"*"PRODUCT_REFUSE_ARTIFACT_INVALID"* ]]
   [[ "$output" == *"writer=exit0; validator=exit0"*"decision_ref-and-supersedes-identical=true"* ]]
   [[ "$output" == *"red-control:"*"detected=true"* ]]
-  [[ "$output" == *"sandbox-dr-prd-continue: profile_active"*"execution-map-sha256="*"PRD discovery includes decision digest"* ]]
+  printf '%s\n' "$output" | grep -Fq 'sandbox-dr-prd-continue: profile_active'
+  printf '%s\n' "$output" | grep -Fq 'host-hash-before='
+  printf '%s\n' "$output" | grep -Fq 'host-hash-after='
+  printf '%s\n' "$output" | grep -Fq 'agent-produced-prd=NOT_MEASURED'
+  printf '%s\n' "$output" | grep -Fq 'PRD discovery includes decision digest'
 }

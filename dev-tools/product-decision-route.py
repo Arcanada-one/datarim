@@ -6,7 +6,6 @@ import json
 import re
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import yaml
@@ -64,16 +63,12 @@ def revisions(directory, prefix):
     return [path for _, path in found]
 
 
-def check_artifacts(paths, checker):
-    """Validate only the current revision pair; historical immutable versions may be superseded by references."""
-    with tempfile.TemporaryDirectory(prefix="product-route-check-") as temp:
-        bundle = Path(temp)
-        for path in paths:
-            (bundle / path.name).write_bytes(path.read_bytes())
-        checked = subprocess.run(
-            ["bash", str(checker), "--root", str(bundle), "--bundle", "."],
-            capture_output=True, text=True, check=False,
-        )
+def check_artifacts(bundle, checker):
+    """Validate the complete immutable bundle so local raw evidence can resolve."""
+    checked = subprocess.run(
+        ["bash", str(checker), "--root", str(bundle), "--bundle", "."],
+        capture_output=True, text=True, check=False,
+    )
     return checked.returncode, checked.stdout.strip() or checked.stderr.strip()
 
 
@@ -128,17 +123,12 @@ def main():
         refuse("missing_decision", task_id=args.task)
         return 0
     decision_docs = validate_revision_chain(decisions, "decision-record")
-    latest_path = decisions[-1]
     latest_raw, latest_front, latest_data = decision_docs[-1]
     decision_digest = digest(latest_raw)
     if latest_front.get("schema_version") != "product-artifact/2":
         refuse("invalid_artifact", detail="latest record is not DecisionRecord product-artifact/2")
         return 0
     decision_ref = {"id": latest_front.get("id"), "revision": latest_front.get("revision"), "digest": decision_digest}
-    check_rc, check_text = check_artifacts([latest_path], checker)
-    if check_rc:
-        refuse("invalid_artifact", **lineage(decision_ref, latest_front), detail=check_text)
-        return 0
     if latest_front.get("status") == "superseded":
         result("/dr-do", TOKENS["superseded"], **lineage(decision_ref, latest_front), research_status="stale", delivery_work_created=False)
         return 0
@@ -149,6 +139,11 @@ def main():
         result("/dr-qa", TOKENS["evidence_pending"], **lineage(decision_ref, latest_front), research_status="incomplete", delivery_work_created=False)
         return 0
     outcome = latest_data.get("business_outcome")
+    if outcome != "continue":
+        check_rc, check_text = check_artifacts(bundle, checker)
+        if check_rc:
+            refuse("invalid_artifact", **lineage(decision_ref, latest_front), detail=check_text)
+            return 0
     if outcome == "stop":
         result("/dr-archive", TOKENS["stop"], **lineage(decision_ref, latest_front), research_status="accepted", delivery_work_created=False)
         return 0
@@ -191,7 +186,7 @@ def main():
         else:
             refuse("brief_mismatch", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref)
         return 0
-    check_rc, check_text = check_artifacts([latest_path, briefs[-1]], checker)
+    check_rc, check_text = check_artifacts(bundle, checker)
     if check_rc:
         refuse("invalid_artifact", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref, detail=check_text)
         return 0
