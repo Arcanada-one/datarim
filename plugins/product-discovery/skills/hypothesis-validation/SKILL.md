@@ -42,7 +42,7 @@ Before freeze, check that each outcome has a raw observation format, the missing
 
 ## Deterministic analysis
 
-Use the rules in [analysis-rules.md](analysis-rules.md). Include a raw observation reference for every count used in a conclusion. If references are absent, unresolved, or do not cover the frozen sample rule, reject the proposed analysis as unsupported; where required observations are missing, the result is `inconclusive`. Show integer counts and denominators first, then any derived rates and the exact decision-map comparison. Keep model-generated narrative separate from those values.
+Use the rules in [analysis-rules.md](analysis-rules.md). Include a raw observation reference for every count used in a conclusion. If references are absent, unresolved, or do not cover the frozen sample rule, reject the proposed analysis as unsupported; where required observations are missing, the result is `inconclusive`. Show integer counts and denominators first, then any derived rates and the exact decision-map comparison. Keep model-generated narrative separate from those values. The test-only reference parser exercises these rules against supplied synthetic fixtures; it is not installed as a runtime or live-experiment adapter.
 
 ## Output
 
