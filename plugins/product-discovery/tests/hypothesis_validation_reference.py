@@ -36,6 +36,22 @@ def analyze_bundle(payload: dict[str, Any], raw_bytes: bytes | None,
         return rejected("frozen protocol is not valid JSON")
     if any(protocol.get(key) != protocol_doc.get(key) for key in ("id", "revision", "status")):
         return rejected("protocol identity does not match supplied bytes")
+    frozen_sample = protocol_doc.get("sample_rule")
+    frozen_decision = protocol_doc.get("decision_rule")
+    if (not isinstance(frozen_sample, dict) or set(frozen_sample) != {"expected_per_variant", "outcome"}
+            or type(frozen_sample.get("expected_per_variant")) is not int
+            or frozen_sample["expected_per_variant"] < 1
+            or not isinstance(frozen_sample.get("outcome"), str)
+            or not isinstance(frozen_decision, dict)
+            or set(frozen_decision) != {"b_min_successes", "a_max_successes", "max_new_critical_errors"}
+            or any(type(frozen_decision.get(key)) is not int for key in frozen_decision)
+            or frozen_decision["b_min_successes"] < 0
+            or frozen_decision["a_max_successes"] < 0
+            or frozen_decision["max_new_critical_errors"] < 0):
+        return rejected("frozen protocol does not contain valid structured analysis rules")
+    if (payload.get("sample_rule") != frozen_sample
+            or payload.get("decision_rule") != frozen_decision):
+        return rejected("payload analysis rules do not match the frozen protocol")
 
     lines = raw_bytes.splitlines(keepends=True)
     if not lines or any(not line.endswith(b"\n") for line in lines):
@@ -78,11 +94,7 @@ def analyze_bundle(payload: dict[str, Any], raw_bytes: bytes | None,
     if set(refs_by_id) != expected_refs:
         return rejected("raw observation references do not match row ids")
 
-    sample = payload.get("sample_rule") or {}
-    decision = payload.get("decision_rule") or {}
-    expected_per_variant = sample.get("expected_per_variant")
-    if type(expected_per_variant) is not int or expected_per_variant < 1:
-        return rejected("frozen sample rule is invalid")
+    expected_per_variant = frozen_sample["expected_per_variant"]
     counts = {}
     for variant in ("A", "B"):
         arm = [row for row in rows if row["variant"] == variant]
@@ -102,10 +114,10 @@ def analyze_bundle(payload: dict[str, Any], raw_bytes: bytes | None,
 
     complete = missing_total == 0 and received_total == expected_total
     supported = (complete
-                 and counts["B"]["successes"] >= decision.get("b_min_successes", expected_total + 1)
-                 and counts["A"]["successes"] <= decision.get("a_max_successes", -1)
+                 and counts["B"]["successes"] >= frozen_decision["b_min_successes"]
+                 and counts["A"]["successes"] <= frozen_decision["a_max_successes"]
                  and sum(row["critical_error"] for row in rows)
-                     <= decision.get("max_new_critical_errors", -1))
+                     <= frozen_decision["max_new_critical_errors"])
     return {
         "counts": counts,
         "expected_total": expected_total,

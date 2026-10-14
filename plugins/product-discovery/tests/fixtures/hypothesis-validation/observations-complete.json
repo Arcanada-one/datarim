@@ -3,7 +3,7 @@
   "protocol": {
     "id": "artifact:EXP-SYN-HV-001",
     "revision": 1,
-    "digest": "sha256:e8b7032fd320d9f7bbae33010595db13fff1ea47a8b909bb88839c2f40f40550",
+    "digest": "sha256:7dc68f39b9fd38ca2a42030ee9d34baae8181bc63d2fa6d876db8dedec6fcead",
     "status": "protocol_frozen"
   },
   "sample_rule": {
@@ -140,7 +140,7 @@
     "protocol_ref": {
       "id": "artifact:EXP-SYN-HV-001",
       "revision": 1,
-      "digest": "sha256:e8b7032fd320d9f7bbae33010595db13fff1ea47a8b909bb88839c2f40f40550"
+      "digest": "sha256:7dc68f39b9fd38ca2a42030ee9d34baae8181bc63d2fa6d876db8dedec6fcead"
     }
   },
   "expected_hypothesis_state": "supported"

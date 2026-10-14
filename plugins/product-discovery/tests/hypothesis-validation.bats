@@ -44,6 +44,23 @@ assert result == {
 PY
 }
 
+@test "payload cannot lower the frozen sample size to turn missing rows into supported" {
+  python3 - "$ANALYZER" "$FIXTURES/observations-missing.json" "$FIXTURES/observations-missing.jsonl" "$FIXTURES/protocol-frozen-v1.json" <<'PY'
+import json, sys
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]).parent))
+from hypothesis_validation_reference import analyze_bundle
+d = json.loads(Path(sys.argv[2]).read_text())
+d["sample_rule"]["expected_per_variant"] = 3
+d["observations"] = [row for row in d["observations"] if row["id"] != "HV-A-004"]
+d["raw_observation_refs"] = [ref for ref in d["raw_observation_refs"] if ref["id"] != "raw:HV-A-004"]
+raw = b"".join(line for line in Path(sys.argv[3]).read_bytes().splitlines(keepends=True)
+               if json.loads(line)["id"] != "HV-A-004")
+result = analyze_bundle(d, raw, Path(sys.argv[4]).read_bytes())
+assert result == {"status": "rejected", "reason": "payload analysis rules do not match the frozen protocol"}
+PY
+}
+
 @test "unreferenced synthetic analysis is rejected by the deterministic reference parser" {
   python3 - "$ANALYZER" "$FIXTURES/unreferenced-analysis.json" <<'PY'
 import json, sys
