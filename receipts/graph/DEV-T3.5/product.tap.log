@@ -1,0 +1,32 @@
+1..31
+ok 1 DecisionRecord v2 validates a continue choice with counterevidence and reversal conditions
+ok 2 DecisionRecord v2 refuses GO when the counterevidence section is absent
+ok 3 DecisionRecord v2 refuses an empty counterevidence list for GO
+ok 4 DecisionRecord v2 cannot mark authority granted without an authority reference
+ok 5 complete synthetic artifact examples pass together
+ok 6 SK04 groups duplicate source families and preserves an explicit conflict
+ok 7 SK04 rejects contradictory references collapsed onto one source
+ok 8 SK04 rejects conflict-group members collapsed onto the supporting side
+ok 9 SK04 rejects a conflict-group counter-source omitted from the claim
+ok 10 SK04 rejects a publication date without a matching raw basis reference
+ok 11 SK04 keeps an unavailable source distinct from a completed no-match search
+ok 12 KC boundary disclaimer is accepted
+ok 13 affirmative KC self-label phrasing one is refused
+ok 14 affirmative KC self-label phrasing two is refused
+ok 15 affirmative KC self-label phrasing three is refused
+ok 16 affirmative KC self-label phrasing four is refused
+ok 17 observed claim without raw ref emits only E_OBSERVED_RAW_REQUIRED
+ok 18 user-reported evidence cannot be labeled observed
+ok 19 accepted protocol cannot consume a draft hypothesis
+ok 20 input reference to a superseded revision emits E_INPUT_SUPERSEDED
+ok 21 draft artifact with observed claim emits E_DRAFT_OBSERVED_CLAIM
+ok 22 KC self-label fixture is refused
+ok 23 checker reports usage errors as exit 2
+ok 24 checker refuses an artifact path outside the declared root
+ok 25 --files validates an explicit valid subset
+ok 26 --files refuses duplicate entries with usage exit
+ok 27 --files refuses a missing entry with usage exit
+ok 28 --files refuses a parent traversal entry with usage exit
+ok 29 --files refuses an absolute path outside the declared root
+ok 30 --files cannot be combined with --bundle
+ok 31 --files cannot be combined with --artifact

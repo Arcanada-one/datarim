@@ -1,0 +1,1113 @@
+{
+  "environment": "neutral-process-canary",
+  "id": "decision-routing-and-files-bats",
+  "owner": "implementation_lane",
+  "probes": [
+    {
+      "argv": [
+        "/usr/bin/bats",
+        "tests/d5a-t3-5-research-decision-routing.bats"
+      ],
+      "capture_limit_bytes": 1048576,
+      "cwd": ".",
+      "entities": [
+        "code_unit:tests/d5a-t3-5-research-decision-routing.bats",
+        "code_unit:tests/product-decision-routing.py"
+      ],
+      "env_keys": [
+        "D5A_TEST_ROOT"
+      ],
+      "executable_sha256": "3ea59ec8e4f6deea71865561bb939ad5248e12086140b471f4edeea1cdef2407",
+      "execution_files": [
+        {
+          "path": "/usr/bin/bash",
+          "sha256": "bc5945feb8bd26203ebfafea5ce1878bb2e32cb8fb50ab7ae395cfb1e1aaaef1"
+        },
+        {
+          "path": "/usr/bin/bats",
+          "sha256": "3ea59ec8e4f6deea71865561bb939ad5248e12086140b471f4edeea1cdef2407"
+        },
+        {
+          "path": "/usr/bin/env",
+          "sha256": "886e5fa8be716b03eeda48856e0f04493f2969fc148fb7812594ffac647fa050"
+        },
+        {
+          "path": "/usr/bin/python3.12",
+          "sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"
+        },
+        {
+          "path": "/usr/lib/bats-core/common.bash",
+          "sha256": "f7b6836fffdece831ebabfff7f540a7f3ee98e6ead6f612564a703a33716bf15"
+        },
+        {
+          "path": "/usr/lib/bats-core/formatter.bash",
+          "sha256": "f6ab9be7d3fe9c1e5a0256e0fae3898610e1cb7fd45a93ad06728e39e6514366"
+        },
+        {
+          "path": "/usr/lib/bats-core/preprocessing.bash",
+          "sha256": "1d98f788641566d77fd46119550cae64e1b07ff4c7eadc17d07b2e540a3b4c31"
+        },
+        {
+          "path": "/usr/lib/bats-core/semaphore.bash",
+          "sha256": "c3baf6ba4a9b2f3f95a35c267591ce736af576e5aec06d352484573f3e9fdac4"
+        },
+        {
+          "path": "/usr/lib/bats-core/test_functions.bash",
+          "sha256": "fb95b09020a24956d86def3ac8efff0d7e433161dfc473e369138fb9257334ff"
+        },
+        {
+          "path": "/usr/lib/bats-core/tracing.bash",
+          "sha256": "d632971aa3e8db126187d8df3f46e77dc19fa27447ce97a6de68df8ddcae598f"
+        },
+        {
+          "path": "/usr/lib/bats-core/validator.bash",
+          "sha256": "fbfe9ea2fc38ba96f8bd31084294f3603f14b46fedaa6f316b021e523e9fb988"
+        },
+        {
+          "path": "/usr/lib/bats-core/warnings.bash",
+          "sha256": "4d78f1898130b6f464081a9f6234fa9ae033010315be631359799694ffe0ee32"
+        },
+        {
+          "path": "/usr/local/bin/yq",
+          "sha256": "a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/check-product-artifact.py",
+          "sha256": "1d054df4ddd363dd8244e692c9a7a1093e84c7187cef0b69241673ebcab47d1a"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/check-product-artifact.sh",
+          "sha256": "80b76b77713bcf4cb69966e01a69bd3de75031874247bf9e5b04d1ab1d3a9782"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/check-stage-snapshot-on-exit.sh",
+          "sha256": "18194899a92bb714dfc671350d00534a75eb5d5e71536e3685a2f633e81f68f7"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/lib/execution-host.sh",
+          "sha256": "199c5715784a1bbaa300fdeee95b8b95a1df880e5a65a42020ff8828cbc65b49"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/product-decision-route.py",
+          "sha256": "0870a7a0c4e7ca78e7c6521a6f000ccd89a5b7a1089da8e15a3e413f0f5a3fb6"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/read-product-profile.sh",
+          "sha256": "fa6d6631f6ff82ffc5997819abde3eb5df827443382c5364d6cdbabb0bba7b01"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/snapshot-writer-wrapper.sh",
+          "sha256": "fd66d0aef11622c54242fbeeeed533e5c012e59c898191adcda5fd350fc2920b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/skills/product-framing/SKILL.md",
+          "sha256": "bea0eefbb1cc5a06d27c96bee15e6472646d977c750530cf7a6fe921e8d6fe09"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-record-v2/decision.md",
+          "sha256": "760fea67ea1f7ef697b897a7bca1fb0797d55d9445972ec2bbc011651acd7af3"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/counterevidence.txt",
+          "sha256": "da215666f394ffb789ff084685b89e215b1ffdc2807906ecde905f4cf82c2bcb"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/support.txt",
+          "sha256": "5783171fe3ae5310d88118ad1813fdbcf13e15088d171933a7a54b62174d5b77"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-record-v2/ledger.md",
+          "sha256": "671a33507d6c53de40cceb0b397e2c6bc2e003c525521f3891cb018b21c98765"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-complete.json",
+          "sha256": "e91317f38e83e795c50013b545e1f703292bdcaa6d855e947add36a292772391"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-complete.jsonl",
+          "sha256": "40c2d16c5bd772d592a16838a8f9a94a41c88e4552d6372d009c64370b4282d0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-missing.json",
+          "sha256": "2f32a19a575c6ce47c71ceb1f1fcfb03d3cb418ed1f7713c17010122b56696e5"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-missing.jsonl",
+          "sha256": "1a0f21a144ebf1791cf3dfbe88bddf38e980f4b66d7735600d803fd87940dbe0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/product-artifact-freeze/decision.md",
+          "sha256": "20521ef759f038b4d47814a0e20f9dd4e7ad8f898d061443e95fac6d7622d7d5"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/product-artifact-freeze/hypothesis.md",
+          "sha256": "1ab45e60cba22d7985ec42251c2ff4acf76dec581c0cb52144d79c93bbc7a93b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/product-artifact-freeze/protocol.md",
+          "sha256": "0bb3fa4a16482efed5ea558d12faaeec2270db04a5a8d25b271baece5bcf44ab"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/protocol-amended-v2.json",
+          "sha256": "85445e48338c233db9d65cb36958f551ff94f3030c7cb69f219f53ce7bc289ef"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/protocol-frozen-v1.json",
+          "sha256": "7dc68f39b9fd38ca2a42030ee9d34baae8181bc63d2fa6d876db8dedec6fcead"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/unreferenced-analysis.json",
+          "sha256": "2d059b9cbe1aeef90fc34a1113826f8e68e71c24265b512a4cfb9a569e900bc1"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-5/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-5/ledger.md",
+          "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-5/opportunity.md",
+          "sha256": "336ad52489e39159309d8dc2b6982414d1976764bbefb190be25ce4deeadf479"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-6/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-6/ledger.md",
+          "sha256": "df9f8da26f053cdf850f3963187f4552cc05eec17e99298181bfb833cc3c6125"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-6/opportunity.md",
+          "sha256": "8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-7/hypothesis.md",
+          "sha256": "6667013af34f31e0ec9894f5652a332d98d21f1d38db878b30072704e922d5d5"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-7/protocol.md",
+          "sha256": "839d02c8e778d9f6a82bcdcb77605358fb36f55272e15486fba28857f60beb46"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/ct12-kc-self-label/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/ct12-kc-self-label/ledger.md",
+          "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/ct12-kc-self-label/opportunity.md",
+          "sha256": "6244707135f0fa09ff92ef2d6025b22c3d6dda0265f04c59276932971569c236"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/draft-observed/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/draft-observed/ledger.md",
+          "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/draft-observed/opportunity.md",
+          "sha256": "68ca098cfa18c77bed3d23eaaa26865fdff5723da16fddaefe540cae22a241a6"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/decision.md",
+          "sha256": "fc9abe8811b0aefd65aabeb3afec01e5d8ea5fdf469ccc99bc8be2e044f7d84f"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/hypothesis.md",
+          "sha256": "1ab45e60cba22d7985ec42251c2ff4acf76dec581c0cb52144d79c93bbc7a93b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/ledger.md",
+          "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/opportunity-r2.md",
+          "sha256": "e0aa21ca434f281daeb9dd41c7728d3e310140b67bcc575350d585083951e9b7"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/opportunity.md",
+          "sha256": "8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/product-brief.md",
+          "sha256": "9a1b926e09c2e40b56d59e94a07c2aa211dc03bd3843333dceb4d2f77917c18f"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/protocol.md",
+          "sha256": "0bb3fa4a16482efed5ea558d12faaeec2270db04a5a8d25b271baece5bcf44ab"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/5-1/decision.md",
+          "sha256": "fc9abe8811b0aefd65aabeb3afec01e5d8ea5fdf469ccc99bc8be2e044f7d84f"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/5-1/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/5-1/ledger.md",
+          "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/5-1/opportunity.md",
+          "sha256": "8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/5-2/hypothesis.md",
+          "sha256": "1ab45e60cba22d7985ec42251c2ff4acf76dec581c0cb52144d79c93bbc7a93b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/decision.md",
+          "sha256": "fc9abe8811b0aefd65aabeb3afec01e5d8ea5fdf469ccc99bc8be2e044f7d84f"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/hypothesis.md",
+          "sha256": "1ab45e60cba22d7985ec42251c2ff4acf76dec581c0cb52144d79c93bbc7a93b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/ledger.md",
+          "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/opportunity.md",
+          "sha256": "8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/product-brief.md",
+          "sha256": "9a1b926e09c2e40b56d59e94a07c2aa211dc03bd3843333dceb4d2f77917c18f"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/protocol.md",
+          "sha256": "0bb3fa4a16482efed5ea558d12faaeec2270db04a5a8d25b271baece5bcf44ab"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/disclaimer/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/disclaimer/opportunity.md",
+          "sha256": "279646575f69316ebc00f8d86ad228fa9aedefeec457ff7b604a46a21a605546"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/README.md",
+          "sha256": "411b8f08257deb58bdfbc6005d2078b2299aa9cdc415f035b49dac260ce6245d"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/contradictory-sources/case.md",
+          "sha256": "851b199d8873d1870b5542c37ecf434c0be1eb0c7795b604a8b55cea98c4ab90"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/contradictory-sources/opportunity.md",
+          "sha256": "a13ccd6a69632d0362801e89ac8d811be022c7d24599fc8f7d8a72617b5e47ae"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/multilingual-ru-en/case.md",
+          "sha256": "cf47f7ed38236d4e1df8132ad3b3a9e8446af5667ecd672a4b76df8010bce15a"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/multilingual-ru-en/opportunity.md",
+          "sha256": "1f2260fd80e58ee1f05ebaa1b4cb50f7ba7c863e8d09dbfecbc573dae1b68262"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/no-demand/case.md",
+          "sha256": "f56e5f381ce7e5ac4403faee04855cac60793f7cf29f8adc29c9cbff3ea1df27"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/no-demand/opportunity.md",
+          "sha256": "401f3c677afeb0f51320caf27b337037f777f5d87e5b06c036c40e740d58cfd2"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/positive-demand/case.md",
+          "sha256": "bbb4670f8ad1cb4b2ea138f2f48aa0471dc8e65139e4bac7ba0c41d865febbc0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/positive-demand/opportunity.md",
+          "sha256": "7749cfca5c42e35f86da9f4dd5bc791a94c3b9d614ca9b9f34bfdf5439487115"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/case.txt",
+          "sha256": "aaf8856bfb7e46b2365312c903f77fcfbd8b669aa49d19051c7772df7c960211"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/fixtures/SYN-EV-001.txt",
+          "sha256": "b09cfb320a5a71d501168ca435f6daa43d278c2c570b957b701182860e681be1"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/ledger.md",
+          "sha256": "02f0c9e152aa757bd2ef1aff31a1126bb65e2c28d1237523facc057565288822"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/opportunity.md",
+          "sha256": "54799472500115d03e9749598e3a2117d7292aaf3910db391846957113c87eb6"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/unavailable-source/case.md",
+          "sha256": "2aa277a173026335300779464c489be9c2884dec5b664338c37536f8444f5622"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/unavailable-source/opportunity.md",
+          "sha256": "3bea8e2443c3a70be761aed9bcb739c4867af4e70a50a5fdbb74534040cc12bc"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/fixtures/SYN-A.txt",
+          "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/fixtures/SYN-B.txt",
+          "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/ledger.md",
+          "sha256": "6e512029b1d0fc2bb7758857abd5082a07938cc6be3c9157fe6507cf882dbe44"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/opportunity.md",
+          "sha256": "38d22f9f6cc8fe49bfd2e57e1759076074826b23c6e57f5371c63e61e253d475"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/fixtures/SYN-A.txt",
+          "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/fixtures/SYN-B.txt",
+          "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/ledger.md",
+          "sha256": "6e512029b1d0fc2bb7758857abd5082a07938cc6be3c9157fe6507cf882dbe44"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/opportunity.md",
+          "sha256": "0be9cbc5918fbd4f28680e3e6f48bc13b5ce0668d70d8faba0ea74ac7b7997f2"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/fixtures/SYN-A.txt",
+          "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/fixtures/SYN-B.txt",
+          "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/ledger.md",
+          "sha256": "6e512029b1d0fc2bb7758857abd5082a07938cc6be3c9157fe6507cf882dbe44"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/opportunity.md",
+          "sha256": "6bdc502870dab6631a8d5d4d87a228271fac1a5ffb9dc7b87728f792eeb673ad"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/fixtures/SYN-A.txt",
+          "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/fixtures/SYN-B.txt",
+          "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/ledger.md",
+          "sha256": "5ba00968f120c19bbbfc75f0695debc445f4abc23fa96e81df12f2091a0eef50"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/opportunity.md",
+          "sha256": "b67f04445ff71e0ac974b00a69f372b6a5d3cb845296d183f360bbffc4667abf"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/fixtures/SYN-A.txt",
+          "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/fixtures/SYN-B.txt",
+          "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/ledger.md",
+          "sha256": "b1e9c3773b08910bf37b90a081729bca6d3f98de425e90ba4898ce4b41215e6b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/opportunity.md",
+          "sha256": "b67f04445ff71e0ac974b00a69f372b6a5d3cb845296d183f360bbffc4667abf"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/fixtures/SYN-A.txt",
+          "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/fixtures/SYN-B.txt",
+          "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/ledger.md",
+          "sha256": "6e512029b1d0fc2bb7758857abd5082a07938cc6be3c9157fe6507cf882dbe44"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/opportunity.md",
+          "sha256": "b67f04445ff71e0ac974b00a69f372b6a5d3cb845296d183f360bbffc4667abf"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/product-artifact.bats",
+          "sha256": "ef321a0b33e4b2c8b7285da09aed00e409b93c5996c1bad8f13d1bf81d896643"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/tests/d5a-t3-5-research-decision-routing.bats",
+          "sha256": "8c9c0201be83e1b16fd952c0cc2b393ba73c0d68b5c06aace9dd3b28933013b0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/tests/product-decision-routing.py",
+          "sha256": "a362cf180696083d098b742b0fe1b1a31854b10df20b51254ff4f45612ec746d"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-empty-counterevidence/decision.md",
+          "sha256": "9c77dcae35b64ea43c3010c189f97c536a8e2a88f2ca2e31532a661bfa5bd257"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-empty-counterevidence/fixtures/counterevidence.txt",
+          "sha256": "da215666f394ffb789ff084685b89e215b1ffdc2807906ecde905f4cf82c2bcb"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-empty-counterevidence/fixtures/support.txt",
+          "sha256": "5783171fe3ae5310d88118ad1813fdbcf13e15088d171933a7a54b62174d5b77"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-empty-counterevidence/ledger.md",
+          "sha256": "671a33507d6c53de40cceb0b397e2c6bc2e003c525521f3891cb018b21c98765"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-no-counterevidence/decision.md",
+          "sha256": "09f98f4015649199293875b89681537e6f3926350b6f9efc493d1d7bc48dbc3a"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-no-counterevidence/fixtures/counterevidence.txt",
+          "sha256": "da215666f394ffb789ff084685b89e215b1ffdc2807906ecde905f4cf82c2bcb"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-no-counterevidence/fixtures/support.txt",
+          "sha256": "5783171fe3ae5310d88118ad1813fdbcf13e15088d171933a7a54b62174d5b77"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-no-counterevidence/ledger.md",
+          "sha256": "671a33507d6c53de40cceb0b397e2c6bc2e003c525521f3891cb018b21c98765"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-unbound-authority/decision.md",
+          "sha256": "3a02851b62091a8ee3860eedca0d4583f2e8ebac879b7110237dcdfdc48b8b3a"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-unbound-authority/fixtures/counterevidence.txt",
+          "sha256": "da215666f394ffb789ff084685b89e215b1ffdc2807906ecde905f4cf82c2bcb"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-unbound-authority/fixtures/support.txt",
+          "sha256": "5783171fe3ae5310d88118ad1813fdbcf13e15088d171933a7a54b62174d5b77"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-unbound-authority/ledger.md",
+          "sha256": "671a33507d6c53de40cceb0b397e2c6bc2e003c525521f3891cb018b21c98765"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/disclaimer-self-label-1/opportunity.md",
+          "sha256": "152d63c04bafe09c76fb1e82bd2938e0bc6706c59210dce02c6b071ab354f4c0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/disclaimer-self-label-2/opportunity.md",
+          "sha256": "c910f9cd455d5d7ce5e571c167ff63f82f59f63b43167d5a6065aff4e3c18430"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/disclaimer-self-label-3/opportunity.md",
+          "sha256": "4c0e78ce3f07acb891a7e6e548c8a5f4bb512c9a2d92b49f7a9e20ec01f7dac0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/disclaimer-self-label-4/opportunity.md",
+          "sha256": "8799b21cb5d5031c5261b1ad5d3a759240d2036f650aa9ed954c466031bc23db"
+        }
+      ],
+      "expect": {
+        "exit_codes": [
+          0
+        ],
+        "stdout_contains": [
+          "1..1",
+          "ok 1 synthetic v2 records drive checker-backed routing, immutable revisions, resume, and red controls"
+        ]
+      },
+      "id": "decision-routing-bats",
+      "kind": "process",
+      "mutating": false,
+      "timeout_seconds": 90
+    },
+    {
+      "argv": [
+        "/usr/bin/bats",
+        "plugins/product-discovery/tests/product-artifact.bats"
+      ],
+      "capture_limit_bytes": 1048576,
+      "cwd": ".",
+      "entities": [
+        "code_unit:plugins/product-discovery/tests/product-artifact.bats"
+      ],
+      "env_keys": [
+        "D5A_TEST_ROOT"
+      ],
+      "executable_sha256": "3ea59ec8e4f6deea71865561bb939ad5248e12086140b471f4edeea1cdef2407",
+      "execution_files": [
+        {
+          "path": "/usr/bin/bash",
+          "sha256": "bc5945feb8bd26203ebfafea5ce1878bb2e32cb8fb50ab7ae395cfb1e1aaaef1"
+        },
+        {
+          "path": "/usr/bin/bats",
+          "sha256": "3ea59ec8e4f6deea71865561bb939ad5248e12086140b471f4edeea1cdef2407"
+        },
+        {
+          "path": "/usr/bin/env",
+          "sha256": "886e5fa8be716b03eeda48856e0f04493f2969fc148fb7812594ffac647fa050"
+        },
+        {
+          "path": "/usr/bin/python3.12",
+          "sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"
+        },
+        {
+          "path": "/usr/lib/bats-core/common.bash",
+          "sha256": "f7b6836fffdece831ebabfff7f540a7f3ee98e6ead6f612564a703a33716bf15"
+        },
+        {
+          "path": "/usr/lib/bats-core/formatter.bash",
+          "sha256": "f6ab9be7d3fe9c1e5a0256e0fae3898610e1cb7fd45a93ad06728e39e6514366"
+        },
+        {
+          "path": "/usr/lib/bats-core/preprocessing.bash",
+          "sha256": "1d98f788641566d77fd46119550cae64e1b07ff4c7eadc17d07b2e540a3b4c31"
+        },
+        {
+          "path": "/usr/lib/bats-core/semaphore.bash",
+          "sha256": "c3baf6ba4a9b2f3f95a35c267591ce736af576e5aec06d352484573f3e9fdac4"
+        },
+        {
+          "path": "/usr/lib/bats-core/test_functions.bash",
+          "sha256": "fb95b09020a24956d86def3ac8efff0d7e433161dfc473e369138fb9257334ff"
+        },
+        {
+          "path": "/usr/lib/bats-core/tracing.bash",
+          "sha256": "d632971aa3e8db126187d8df3f46e77dc19fa27447ce97a6de68df8ddcae598f"
+        },
+        {
+          "path": "/usr/lib/bats-core/validator.bash",
+          "sha256": "fbfe9ea2fc38ba96f8bd31084294f3603f14b46fedaa6f316b021e523e9fb988"
+        },
+        {
+          "path": "/usr/lib/bats-core/warnings.bash",
+          "sha256": "4d78f1898130b6f464081a9f6234fa9ae033010315be631359799694ffe0ee32"
+        },
+        {
+          "path": "/usr/local/bin/yq",
+          "sha256": "a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/check-product-artifact.py",
+          "sha256": "1d054df4ddd363dd8244e692c9a7a1093e84c7187cef0b69241673ebcab47d1a"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/check-product-artifact.sh",
+          "sha256": "80b76b77713bcf4cb69966e01a69bd3de75031874247bf9e5b04d1ab1d3a9782"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/check-stage-snapshot-on-exit.sh",
+          "sha256": "18194899a92bb714dfc671350d00534a75eb5d5e71536e3685a2f633e81f68f7"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/lib/execution-host.sh",
+          "sha256": "199c5715784a1bbaa300fdeee95b8b95a1df880e5a65a42020ff8828cbc65b49"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/product-decision-route.py",
+          "sha256": "0870a7a0c4e7ca78e7c6521a6f000ccd89a5b7a1089da8e15a3e413f0f5a3fb6"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/read-product-profile.sh",
+          "sha256": "fa6d6631f6ff82ffc5997819abde3eb5df827443382c5364d6cdbabb0bba7b01"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/dev-tools/snapshot-writer-wrapper.sh",
+          "sha256": "fd66d0aef11622c54242fbeeeed533e5c012e59c898191adcda5fd350fc2920b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/skills/product-framing/SKILL.md",
+          "sha256": "bea0eefbb1cc5a06d27c96bee15e6472646d977c750530cf7a6fe921e8d6fe09"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-record-v2/decision.md",
+          "sha256": "760fea67ea1f7ef697b897a7bca1fb0797d55d9445972ec2bbc011651acd7af3"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/counterevidence.txt",
+          "sha256": "da215666f394ffb789ff084685b89e215b1ffdc2807906ecde905f4cf82c2bcb"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/support.txt",
+          "sha256": "5783171fe3ae5310d88118ad1813fdbcf13e15088d171933a7a54b62174d5b77"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-record-v2/ledger.md",
+          "sha256": "671a33507d6c53de40cceb0b397e2c6bc2e003c525521f3891cb018b21c98765"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-complete.json",
+          "sha256": "e91317f38e83e795c50013b545e1f703292bdcaa6d855e947add36a292772391"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-complete.jsonl",
+          "sha256": "40c2d16c5bd772d592a16838a8f9a94a41c88e4552d6372d009c64370b4282d0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-missing.json",
+          "sha256": "2f32a19a575c6ce47c71ceb1f1fcfb03d3cb418ed1f7713c17010122b56696e5"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-missing.jsonl",
+          "sha256": "1a0f21a144ebf1791cf3dfbe88bddf38e980f4b66d7735600d803fd87940dbe0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/product-artifact-freeze/decision.md",
+          "sha256": "20521ef759f038b4d47814a0e20f9dd4e7ad8f898d061443e95fac6d7622d7d5"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/product-artifact-freeze/hypothesis.md",
+          "sha256": "1ab45e60cba22d7985ec42251c2ff4acf76dec581c0cb52144d79c93bbc7a93b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/product-artifact-freeze/protocol.md",
+          "sha256": "0bb3fa4a16482efed5ea558d12faaeec2270db04a5a8d25b271baece5bcf44ab"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/protocol-amended-v2.json",
+          "sha256": "85445e48338c233db9d65cb36958f551ff94f3030c7cb69f219f53ce7bc289ef"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/protocol-frozen-v1.json",
+          "sha256": "7dc68f39b9fd38ca2a42030ee9d34baae8181bc63d2fa6d876db8dedec6fcead"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/hypothesis-validation/unreferenced-analysis.json",
+          "sha256": "2d059b9cbe1aeef90fc34a1113826f8e68e71c24265b512a4cfb9a569e900bc1"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-5/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-5/ledger.md",
+          "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-5/opportunity.md",
+          "sha256": "336ad52489e39159309d8dc2b6982414d1976764bbefb190be25ce4deeadf479"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-6/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-6/ledger.md",
+          "sha256": "df9f8da26f053cdf850f3963187f4552cc05eec17e99298181bfb833cc3c6125"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-6/opportunity.md",
+          "sha256": "8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-7/hypothesis.md",
+          "sha256": "6667013af34f31e0ec9894f5652a332d98d21f1d38db878b30072704e922d5d5"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/5-7/protocol.md",
+          "sha256": "839d02c8e778d9f6a82bcdcb77605358fb36f55272e15486fba28857f60beb46"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/ct12-kc-self-label/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/ct12-kc-self-label/ledger.md",
+          "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/ct12-kc-self-label/opportunity.md",
+          "sha256": "6244707135f0fa09ff92ef2d6025b22c3d6dda0265f04c59276932971569c236"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/draft-observed/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/draft-observed/ledger.md",
+          "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/draft-observed/opportunity.md",
+          "sha256": "68ca098cfa18c77bed3d23eaaa26865fdff5723da16fddaefe540cae22a241a6"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/decision.md",
+          "sha256": "fc9abe8811b0aefd65aabeb3afec01e5d8ea5fdf469ccc99bc8be2e044f7d84f"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/hypothesis.md",
+          "sha256": "1ab45e60cba22d7985ec42251c2ff4acf76dec581c0cb52144d79c93bbc7a93b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/ledger.md",
+          "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/opportunity-r2.md",
+          "sha256": "e0aa21ca434f281daeb9dd41c7728d3e310140b67bcc575350d585083951e9b7"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/opportunity.md",
+          "sha256": "8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/product-brief.md",
+          "sha256": "9a1b926e09c2e40b56d59e94a07c2aa211dc03bd3843333dceb4d2f77917c18f"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/negative/input-superseded/protocol.md",
+          "sha256": "0bb3fa4a16482efed5ea558d12faaeec2270db04a5a8d25b271baece5bcf44ab"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/5-1/decision.md",
+          "sha256": "fc9abe8811b0aefd65aabeb3afec01e5d8ea5fdf469ccc99bc8be2e044f7d84f"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/5-1/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/5-1/ledger.md",
+          "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/5-1/opportunity.md",
+          "sha256": "8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/5-2/hypothesis.md",
+          "sha256": "1ab45e60cba22d7985ec42251c2ff4acf76dec581c0cb52144d79c93bbc7a93b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/decision.md",
+          "sha256": "fc9abe8811b0aefd65aabeb3afec01e5d8ea5fdf469ccc99bc8be2e044f7d84f"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/hypothesis.md",
+          "sha256": "1ab45e60cba22d7985ec42251c2ff4acf76dec581c0cb52144d79c93bbc7a93b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/ledger.md",
+          "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/opportunity.md",
+          "sha256": "8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/product-brief.md",
+          "sha256": "9a1b926e09c2e40b56d59e94a07c2aa211dc03bd3843333dceb4d2f77917c18f"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/complete/protocol.md",
+          "sha256": "0bb3fa4a16482efed5ea558d12faaeec2270db04a5a8d25b271baece5bcf44ab"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/disclaimer/fixtures/SYN-EV-001.txt",
+          "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/disclaimer/opportunity.md",
+          "sha256": "279646575f69316ebc00f8d86ad228fa9aedefeec457ff7b604a46a21a605546"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/README.md",
+          "sha256": "411b8f08257deb58bdfbc6005d2078b2299aa9cdc415f035b49dac260ce6245d"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/contradictory-sources/case.md",
+          "sha256": "851b199d8873d1870b5542c37ecf434c0be1eb0c7795b604a8b55cea98c4ab90"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/contradictory-sources/opportunity.md",
+          "sha256": "a13ccd6a69632d0362801e89ac8d811be022c7d24599fc8f7d8a72617b5e47ae"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/multilingual-ru-en/case.md",
+          "sha256": "cf47f7ed38236d4e1df8132ad3b3a9e8446af5667ecd672a4b76df8010bce15a"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/multilingual-ru-en/opportunity.md",
+          "sha256": "1f2260fd80e58ee1f05ebaa1b4cb50f7ba7c863e8d09dbfecbc573dae1b68262"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/no-demand/case.md",
+          "sha256": "f56e5f381ce7e5ac4403faee04855cac60793f7cf29f8adc29c9cbff3ea1df27"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/no-demand/opportunity.md",
+          "sha256": "401f3c677afeb0f51320caf27b337037f777f5d87e5b06c036c40e740d58cfd2"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/positive-demand/case.md",
+          "sha256": "bbb4670f8ad1cb4b2ea138f2f48aa0471dc8e65139e4bac7ba0c41d865febbc0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/positive-demand/opportunity.md",
+          "sha256": "7749cfca5c42e35f86da9f4dd5bc791a94c3b9d614ca9b9f34bfdf5439487115"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/case.txt",
+          "sha256": "aaf8856bfb7e46b2365312c903f77fcfbd8b669aa49d19051c7772df7c960211"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/fixtures/SYN-EV-001.txt",
+          "sha256": "b09cfb320a5a71d501168ca435f6daa43d278c2c570b957b701182860e681be1"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/ledger.md",
+          "sha256": "02f0c9e152aa757bd2ef1aff31a1126bb65e2c28d1237523facc057565288822"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/opportunity.md",
+          "sha256": "54799472500115d03e9749598e3a2117d7292aaf3910db391846957113c87eb6"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/unavailable-source/case.md",
+          "sha256": "2aa277a173026335300779464c489be9c2884dec5b664338c37536f8444f5622"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/product-framing/unavailable-source/opportunity.md",
+          "sha256": "3bea8e2443c3a70be761aed9bcb739c4867af4e70a50a5fdbb74534040cc12bc"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/fixtures/SYN-A.txt",
+          "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/fixtures/SYN-B.txt",
+          "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/ledger.md",
+          "sha256": "6e512029b1d0fc2bb7758857abd5082a07938cc6be3c9157fe6507cf882dbe44"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/opportunity.md",
+          "sha256": "38d22f9f6cc8fe49bfd2e57e1759076074826b23c6e57f5371c63e61e253d475"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/fixtures/SYN-A.txt",
+          "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/fixtures/SYN-B.txt",
+          "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/ledger.md",
+          "sha256": "6e512029b1d0fc2bb7758857abd5082a07938cc6be3c9157fe6507cf882dbe44"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/opportunity.md",
+          "sha256": "0be9cbc5918fbd4f28680e3e6f48bc13b5ce0668d70d8faba0ea74ac7b7997f2"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/fixtures/SYN-A.txt",
+          "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/fixtures/SYN-B.txt",
+          "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/ledger.md",
+          "sha256": "6e512029b1d0fc2bb7758857abd5082a07938cc6be3c9157fe6507cf882dbe44"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/opportunity.md",
+          "sha256": "6bdc502870dab6631a8d5d4d87a228271fac1a5ffb9dc7b87728f792eeb673ad"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/fixtures/SYN-A.txt",
+          "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/fixtures/SYN-B.txt",
+          "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/ledger.md",
+          "sha256": "5ba00968f120c19bbbfc75f0695debc445f4abc23fa96e81df12f2091a0eef50"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/opportunity.md",
+          "sha256": "b67f04445ff71e0ac974b00a69f372b6a5d3cb845296d183f360bbffc4667abf"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/fixtures/SYN-A.txt",
+          "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/fixtures/SYN-B.txt",
+          "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/ledger.md",
+          "sha256": "b1e9c3773b08910bf37b90a081729bca6d3f98de425e90ba4898ce4b41215e6b"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/opportunity.md",
+          "sha256": "b67f04445ff71e0ac974b00a69f372b6a5d3cb845296d183f360bbffc4667abf"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/fixtures/SYN-A.txt",
+          "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/fixtures/SYN-B.txt",
+          "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/ledger.md",
+          "sha256": "6e512029b1d0fc2bb7758857abd5082a07938cc6be3c9157fe6507cf882dbe44"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/opportunity.md",
+          "sha256": "b67f04445ff71e0ac974b00a69f372b6a5d3cb845296d183f360bbffc4667abf"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/product-artifact.bats",
+          "sha256": "ef321a0b33e4b2c8b7285da09aed00e409b93c5996c1bad8f13d1bf81d896643"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/tests/d5a-t3-5-research-decision-routing.bats",
+          "sha256": "8c9c0201be83e1b16fd952c0cc2b393ba73c0d68b5c06aace9dd3b28933013b0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/tests/product-decision-routing.py",
+          "sha256": "a362cf180696083d098b742b0fe1b1a31854b10df20b51254ff4f45612ec746d"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-empty-counterevidence/decision.md",
+          "sha256": "9c77dcae35b64ea43c3010c189f97c536a8e2a88f2ca2e31532a661bfa5bd257"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-empty-counterevidence/fixtures/counterevidence.txt",
+          "sha256": "da215666f394ffb789ff084685b89e215b1ffdc2807906ecde905f4cf82c2bcb"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-empty-counterevidence/fixtures/support.txt",
+          "sha256": "5783171fe3ae5310d88118ad1813fdbcf13e15088d171933a7a54b62174d5b77"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-empty-counterevidence/ledger.md",
+          "sha256": "671a33507d6c53de40cceb0b397e2c6bc2e003c525521f3891cb018b21c98765"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-no-counterevidence/decision.md",
+          "sha256": "09f98f4015649199293875b89681537e6f3926350b6f9efc493d1d7bc48dbc3a"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-no-counterevidence/fixtures/counterevidence.txt",
+          "sha256": "da215666f394ffb789ff084685b89e215b1ffdc2807906ecde905f4cf82c2bcb"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-no-counterevidence/fixtures/support.txt",
+          "sha256": "5783171fe3ae5310d88118ad1813fdbcf13e15088d171933a7a54b62174d5b77"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-no-counterevidence/ledger.md",
+          "sha256": "671a33507d6c53de40cceb0b397e2c6bc2e003c525521f3891cb018b21c98765"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-unbound-authority/decision.md",
+          "sha256": "3a02851b62091a8ee3860eedca0d4583f2e8ebac879b7110237dcdfdc48b8b3a"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-unbound-authority/fixtures/counterevidence.txt",
+          "sha256": "da215666f394ffb789ff084685b89e215b1ffdc2807906ecde905f4cf82c2bcb"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-unbound-authority/fixtures/support.txt",
+          "sha256": "5783171fe3ae5310d88118ad1813fdbcf13e15088d171933a7a54b62174d5b77"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/decision-unbound-authority/ledger.md",
+          "sha256": "671a33507d6c53de40cceb0b397e2c6bc2e003c525521f3891cb018b21c98765"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/disclaimer-self-label-1/opportunity.md",
+          "sha256": "152d63c04bafe09c76fb1e82bd2938e0bc6706c59210dce02c6b071ab354f4c0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/disclaimer-self-label-2/opportunity.md",
+          "sha256": "c910f9cd455d5d7ce5e571c167ff63f82f59f63b43167d5a6065aff4e3c18430"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/disclaimer-self-label-3/opportunity.md",
+          "sha256": "4c0e78ce3f07acb891a7e6e548c8a5f4bb512c9a2d92b49f7a9e20ec01f7dac0"
+        },
+        {
+          "path": "/var/tmp/datarim-t35/subject/plugins/product-discovery/tests/fixtures/positive/disclaimer-self-label-4/opportunity.md",
+          "sha256": "8799b21cb5d5031c5261b1ad5d3a759240d2036f650aa9ed954c466031bc23db"
+        }
+      ],
+      "expect": {
+        "exit_codes": [
+          0
+        ],
+        "stdout_contains": [
+          "1..31",
+          "ok 31 --files cannot be combined with --artifact"
+        ]
+      },
+      "id": "product-artifact-bats",
+      "kind": "process",
+      "mutating": false,
+      "timeout_seconds": 90
+    }
+  ],
+  "producer_repository": "/var/tmp/datarim-t35/subject",
+  "read_only": true,
+  "schema": "CanaryPlan/v2",
+  "subject": {
+    "commit": "8ba54b9b3862aa3b786d082789030ee79acd06cc",
+    "evidence": {
+      "path": "source.json",
+      "sha256": "4f908f381cd3ef3ff675e0b0beb76dfa7a1052d37209c751c721a31771262954",
+      "source_field": "commit"
+    },
+    "schema": "GitCanarySubject/v1",
+    "tree": "5d1f8cef62b8abe013d95861eed08f9c929570e7"
+  }
+}

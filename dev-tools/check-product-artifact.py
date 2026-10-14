@@ -371,7 +371,7 @@ class Checker:
 
 def main():
  ap=argparse.ArgumentParser(add_help=False)
- ap.add_argument('--root',required=True); group=ap.add_mutually_exclusive_group(required=True); group.add_argument('--artifact'); group.add_argument('--bundle')
+ ap.add_argument('--root',required=True); group=ap.add_mutually_exclusive_group(required=True); group.add_argument('--artifact'); group.add_argument('--bundle'); group.add_argument('--files',nargs='+')
  ap.add_argument('--help',action='help')
  try: args=ap.parse_args()
  except SystemExit as e: return 0 if e.code==0 else 2
@@ -394,6 +394,13 @@ def main():
   p=input_path(args.artifact)
   if p is None or not p.is_file(): print('check-product-artifact: invalid --artifact',file=sys.stderr); return 2
   files=[p]
+ elif args.files:
+  files=[]
+  for raw in args.files:
+   p=input_path(raw)
+   if p is None or not p.is_file(): print('check-product-artifact: invalid --files entry',file=sys.stderr); return 2
+   files.append(p)
+  if len(set(files))!=len(files): print('check-product-artifact: duplicate --files entry',file=sys.stderr); return 2
  else:
   p=input_path(args.bundle)
   if p is None or not p.is_dir(): print('check-product-artifact: invalid --bundle',file=sys.stderr); return 2
