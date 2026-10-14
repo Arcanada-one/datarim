@@ -88,6 +88,26 @@ class IntegrityTests(unittest.TestCase):
                        'to': 'fragment:skills/testing/detail.md',
                        'source': 'skills/testing/entry.md'}, result['edges'])
 
+    def test_plugin_skill_and_agent_profile_reference_are_in_graph(self):
+        skill = self.root/'plugins/product-discovery/skills/hypothesis-validation'
+        skill.mkdir(parents=True)
+        (skill/'SKILL.md').write_text(
+            '---\nname: hypothesis-validation\ndescription: Map assumptions and analyze bounded observations.\n---\n'
+            '[Rules](analysis-rules.md)\n')
+        (skill/'analysis-rules.md').write_text('Count raw observations before interpretation.\n')
+        (self.root/'agents/developer.md').write_text(
+            'Load `${DATARIM_RUNTIME:?}/skills/product-discovery/hypothesis-validation/SKILL.md`.\n')
+        with patch.object(graph, 'ROOT', self.root):
+            result = graph.load()
+            self.assertEqual(graph.validate(result), [])
+        self.assertIn('product-discovery/hypothesis-validation', result['inventory']['skills'])
+        self.assertIn({'from':'agent:developer','relation':'loads',
+                       'to':'skill:product-discovery/hypothesis-validation',
+                       'source':'agents/developer.md'}, result['edges'])
+        self.assertIn({'from':'skill:product-discovery/hypothesis-validation','relation':'loads',
+                       'to':'fragment:plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md',
+                       'source':'plugins/product-discovery/skills/hypothesis-validation/SKILL.md'}, result['edges'])
+
     def test_missing_and_external_symlink_siblings_remain_broken(self):
         skill = self.root/'skills/testing/SKILL.md'
         skill.write_text(skill.read_text() + '[local](missing.md)\n')

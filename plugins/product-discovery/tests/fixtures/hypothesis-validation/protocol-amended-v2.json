@@ -1,0 +1,16 @@
+{
+  "synthetic": true,
+  "id": "artifact:EXP-SYN-HV-001",
+  "revision": 2,
+  "status": "protocol_frozen",
+  "supersedes": {"id":"artifact:EXP-SYN-HV-001","revision":1,"digest":"sha256:e8b7032fd320d9f7bbae33010595db13fff1ea47a8b909bb88839c2f40f40550"},
+  "method": "fixed synthetic fixture comparison",
+  "sample_rule": "six rows per variant",
+  "primary_outcome": "link found within 10 seconds",
+  "threshold_decision_map": "support only at B >= 5/6, A <= 3/6, zero new critical errors",
+  "missing_data_rule": "any missing required row yields inconclusive",
+  "stop_rule": "stop after twelve rows or on a critical error",
+  "grant_ref": null,
+  "side_effect_grant": "none",
+  "amendment_reason": "Synthetic control showing a new revision is required when sample rule changes."
+}

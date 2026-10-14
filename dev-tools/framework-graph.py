@@ -16,7 +16,24 @@ MAP=ROOT/'skills/visual-maps/framework-architecture.md'
 CMDMAP=ROOT/'skills/visual-maps/command-dependencies.md'
 
 def names(pattern): return sorted(p.stem for p in ROOT.glob(pattern) if p.is_file())
-def skill_names(): return sorted(str(p.parent.relative_to(ROOT/'skills')) for p in (ROOT/'skills').glob('**/SKILL.md'))
+def skill_roots():
+    return [ROOT/'skills'] + sorted(p for p in (ROOT/'plugins').glob('*/skills') if p.is_dir())
+def skill_files():
+    return sorted((p for root in skill_roots() for p in root.rglob('*.md')), key=lambda p: str(p))
+def skill_name(path):
+    if path.is_relative_to(ROOT/'skills'):
+        return str(path.parent.relative_to(ROOT/'skills'))
+    for root in skill_roots()[1:]:
+        if path.is_relative_to(root):
+            return root.parent.name+'/'+str(path.parent.relative_to(root))
+    raise ValueError(f'not a skill asset: {path}')
+def skill_path(name):
+    if '/' in name:
+        plugin, relative = name.split('/', 1)
+        candidate=ROOT/'plugins'/plugin/'skills'/relative
+        if candidate.is_dir(): return candidate
+    return ROOT/'skills'/name
+def skill_names(): return sorted(skill_name(p) for p in skill_files() if p.name=='SKILL.md')
 def refs(text, kind):
     if kind=='agent': pat=r'(?:\$HOME/\.claude/)?agents/([A-Za-z0-9._-]+)\.md'
     else: pat=r'(?:\$HOME/\.claude/)?skills/([A-Za-z0-9._/-]+)/SKILL\.md'
@@ -44,8 +61,8 @@ def load():
             (edges if s in skills else broken).append({'from':f'agent:{a}','relation':'loads','to':f'skill:{s}','source':f'agents/{a}.md'})
     # Skill routers also load fragments and other skills. Keep these edges in
     # the graph rather than reporting only the command/agent subset as complete.
-    fragments = sorted(str(p.relative_to(ROOT)) for p in (ROOT/'skills').rglob('*.md') if p.name != 'SKILL.md')
-    for path in sorted((ROOT/'skills').rglob('*.md')):
+    fragments = sorted(str(p.relative_to(ROOT)) for p in skill_files() if p.name != 'SKILL.md')
+    for path in skill_files():
         source = str(path.relative_to(ROOT))
         text = path.read_text()
         targets = {ROOT/'skills'/target for target in re.findall(
@@ -57,10 +74,10 @@ def load():
             r'\[[^\]\n]*\]\((?:\./)?([A-Za-z0-9][A-Za-z0-9._-]*\.md)(?:#[A-Za-z0-9._-]+)?\)', text)
         targets.update(path.parent/name for name in siblings)
         for full in sorted(targets):
-            target = str(full.relative_to(ROOT/'skills'))
+            target = skill_name(full)+'/SKILL.md' if full.name=='SKILL.md' and full.is_file() else str(full.relative_to(ROOT))
             is_skill = target.endswith('/SKILL.md')
-            node = 'skill:'+target.removesuffix('/SKILL.md') if is_skill else 'fragment:skills/'+target
-            edge = {'from': 'skill:'+str(path.parent.relative_to(ROOT/'skills')) if path.name == 'SKILL.md' else 'fragment:'+source,
+            node = 'skill:'+target.removesuffix('/SKILL.md') if is_skill else 'fragment:'+target
+            edge = {'from': 'skill:'+skill_name(path) if path.name == 'SKILL.md' else 'fragment:'+source,
                     'relation': 'loads', 'to': node, 'source': source}
             (edges if full.is_file() and full.resolve().is_relative_to(ROOT.resolve()) else broken).append(edge)
     # Templates are real runtime dependencies, not a separate decorative catalog.
@@ -68,7 +85,7 @@ def load():
     # inventory. Match known names so punctuation/prose cannot become a path.
     sources = [(ROOT/'commands'/f'{c}.md', 'command:'+c) for c in commands]
     sources += [(ROOT/'agents'/f'{a}.md', 'agent:'+a) for a in agents]
-    sources += [(p, 'skill:'+str(p.parent.relative_to(ROOT/'skills')) if p.name=='SKILL.md' else 'fragment:'+str(p.relative_to(ROOT))) for p in (ROOT/'skills').rglob('*.md') if p not in (MAP,CMDMAP)]
+    sources += [(p, 'skill:'+skill_name(p) if p.name=='SKILL.md' else 'fragment:'+str(p.relative_to(ROOT))) for p in skill_files() if p not in (MAP,CMDMAP)]
     sources += [(ROOT/'templates'/n, 'template:'+n) for n in templates if n.endswith(('.md','.sh','.yml','.yaml','.template'))]
     for path, node in sources:
         text=path.read_text(errors='replace')
@@ -105,13 +122,16 @@ def validate(g):
         if edge['from'] not in nodes or edge['to'] not in nodes:
             errs.append('edge references unknown node: '+str(edge))
     for skill in inv['skills']:
-        text=(ROOT/'skills'/skill/'SKILL.md').read_text()
+        skill_file=skill_path(skill)/'SKILL.md'
+        text=skill_file.read_text()
         parts=text.split('---',2)
         metadata=yaml.safe_load(parts[1]) if len(parts)==3 and not parts[0].strip() else {}
         if not isinstance(metadata,dict):
             errs.append(f'{skill}: invalid frontmatter')
             continue
-        if metadata.get('name') != skill.replace('/', '-'):
+        plugin_names={root.parent.name for root in skill_roots()[1:]}
+        expected_name=skill.rsplit('/',1)[-1] if skill.split('/',1)[0] in plugin_names else skill.replace('/', '-')
+        if metadata.get('name') != expected_name:
             errs.append(f'{skill}: frontmatter name does not match directory')
         if not isinstance(metadata.get('description'),str) or len(metadata['description'].strip())<40:
             errs.append(f'{skill}: description must have at least 40 characters')

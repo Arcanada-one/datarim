@@ -1,0 +1,147 @@
+{
+  "synthetic": true,
+  "protocol": {
+    "id": "artifact:EXP-SYN-HV-001",
+    "revision": 1,
+    "digest": "sha256:e8b7032fd320d9f7bbae33010595db13fff1ea47a8b909bb88839c2f40f40550",
+    "status": "protocol_frozen"
+  },
+  "sample_rule": {
+    "expected_per_variant": 4,
+    "outcome": "link_found_within_10_seconds"
+  },
+  "decision_rule": {
+    "b_min_successes": 3,
+    "a_max_successes": 2,
+    "max_new_critical_errors": 0
+  },
+  "raw_observation_refs": [
+    {
+      "id": "raw:HV-A-001",
+      "revision": 1,
+      "digest": "sha256:78c8a567aca737aa113b46efcb171642c497f75deb4e45aff818e8f2d54e183c"
+    },
+    {
+      "id": "raw:HV-A-002",
+      "revision": 1,
+      "digest": "sha256:6d1a9e35a061b2f6dcdb74578a80de064602fd223d84b7b652a73aafa1e3a37c"
+    },
+    {
+      "id": "raw:HV-A-003",
+      "revision": 1,
+      "digest": "sha256:cbd608e04fabc6e6778a7d9d033bbfe7e88663bd91d78c47a52d77e69e82ae6a"
+    },
+    {
+      "id": "raw:HV-A-004",
+      "revision": 1,
+      "digest": "sha256:891a14da458d6bebad3d8cb3f2481c19bb1f5741f989ab090165bfc39d5be0b8"
+    },
+    {
+      "id": "raw:HV-B-001",
+      "revision": 1,
+      "digest": "sha256:080dc35f892cff4082330d3fdc93d02af21bda3bf16d99369a19559f2325cf58"
+    },
+    {
+      "id": "raw:HV-B-002",
+      "revision": 1,
+      "digest": "sha256:1019b1458ce9a27d0c4ee34d606131e4fee9080a9859c1781107819c35d1942f"
+    },
+    {
+      "id": "raw:HV-B-003",
+      "revision": 1,
+      "digest": "sha256:fd71b3cf2d29136e70e3a4962f595062c1c633a1658f0fb846cfbfe29b2d54d5"
+    },
+    {
+      "id": "raw:HV-B-004",
+      "revision": 1,
+      "digest": "sha256:c4ceb3138dc2a64ef4915596e2a6be16e65178bc05697b003744ee23f14e40d2"
+    }
+  ],
+  "observations": [
+    {
+      "id": "HV-A-001",
+      "variant": "A",
+      "outcome": 1,
+      "critical_error": false
+    },
+    {
+      "id": "HV-A-002",
+      "variant": "A",
+      "outcome": 0,
+      "critical_error": false
+    },
+    {
+      "id": "HV-A-003",
+      "variant": "A",
+      "outcome": 0,
+      "critical_error": false
+    },
+    {
+      "id": "HV-A-004",
+      "variant": "A",
+      "outcome": 0,
+      "critical_error": false
+    },
+    {
+      "id": "HV-B-001",
+      "variant": "B",
+      "outcome": 1,
+      "critical_error": false
+    },
+    {
+      "id": "HV-B-002",
+      "variant": "B",
+      "outcome": 1,
+      "critical_error": false
+    },
+    {
+      "id": "HV-B-003",
+      "variant": "B",
+      "outcome": 1,
+      "critical_error": false
+    },
+    {
+      "id": "HV-B-004",
+      "variant": "B",
+      "outcome": 0,
+      "critical_error": false
+    }
+  ],
+  "expected_analysis": {
+    "A": {
+      "successes": 1,
+      "failures": 3,
+      "missing": 0,
+      "n": 4
+    },
+    "B": {
+      "successes": 3,
+      "failures": 1,
+      "missing": 0,
+      "n": 4
+    },
+    "a_rate": "1/4 = 25%",
+    "b_rate": "3/4 = 75%",
+    "difference_percentage_points": 50,
+    "state": "supported",
+    "limits": "fixed synthetic guide scenarios only"
+  },
+  "hypothesis_at_protocol": {
+    "id": "artifact:HYP-SYN-HV-001",
+    "revision": 1,
+    "status": "test_ready",
+    "acceptance_state": "accepted"
+  },
+  "hypothesis_at_analysis": {
+    "id": "artifact:HYP-SYN-HV-001",
+    "revision": 1,
+    "status": "under_test",
+    "acceptance_state": "accepted",
+    "protocol_ref": {
+      "id": "artifact:EXP-SYN-HV-001",
+      "revision": 1,
+      "digest": "sha256:e8b7032fd320d9f7bbae33010595db13fff1ea47a8b909bb88839c2f40f40550"
+    }
+  },
+  "expected_hypothesis_state": "supported"
+}
