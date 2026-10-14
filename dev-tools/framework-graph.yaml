@@ -137,9 +137,11 @@ inventory:
   - writing-plans
   fragments:
   - plugins/product-discovery/skills/decision-record/strategist-scope-modes.md
+  - plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
   - plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md
   - plugins/product-discovery/skills/hypothesis-validation/assumption-map.md
   - plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
+  - plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md
   - plugins/product-discovery/skills/product-framing/builder-brainstorm.md
   - plugins/product-discovery/skills/product-framing/claim-quality.md
   - plugins/product-discovery/skills/product-framing/premise-challenge.md
