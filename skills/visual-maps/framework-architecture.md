@@ -38,19 +38,10 @@ graph LR
 graph LR
     A_researcher["researcher"] --> F_plugins_product_discovery_skills_hypothesis_validation_researcher_product_discovery_md["plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md"]
     A_researcher["researcher"] --> PLUGIN_product_discovery["product-discovery"]
-    A_researcher["researcher"] --> PLUGIN_product_discovery["product-discovery"]
-    A_researcher["researcher"] --> PLUGIN_product_discovery["product-discovery"]
-    A_researcher["researcher"] --> S_product_discovery_hypothesis_validation["product-discovery/hypothesis-validation"]
     A_researcher["researcher"] --> S_product_discovery_hypothesis_validation["product-discovery/hypothesis-validation"]
     A_strategist["strategist"] --> F_plugins_product_discovery_skills_decision_record_strategist_product_discovery_md["plugins/product-discovery/skills/decision-record/strategist.product-discovery.md"]
     A_strategist["strategist"] --> PLUGIN_product_discovery["product-discovery"]
-    A_strategist["strategist"] --> PLUGIN_product_discovery["product-discovery"]
-    A_strategist["strategist"] --> PLUGIN_product_discovery["product-discovery"]
-    A_strategist["strategist"] --> PLUGIN_product_discovery["product-discovery"]
-    A_strategist["strategist"] --> PLUGIN_product_discovery["product-discovery"]
     A_strategist["strategist"] --> S_product_discovery_decision_record["product-discovery/decision-record"]
-    A_strategist["strategist"] --> S_product_discovery_decision_record["product-discovery/decision-record"]
-    A_strategist["strategist"] --> S_product_discovery_hypothesis_validation["product-discovery/hypothesis-validation"]
     A_strategist["strategist"] --> S_product_discovery_hypothesis_validation["product-discovery/hypothesis-validation"]
     A_architect["architect"] --> S_human_outcome_reporting["human-outcome-reporting"]
     A_architect["architect"] --> S_cta_format["cta-format"]
@@ -170,20 +161,10 @@ graph LR
 
 | Consumer | Template |
 |----------|----------|
-| `fragment:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/decision-record.md` |
-| `fragment:plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/decision-record.md` |
-| `fragment:plugins/product-discovery/skills/hypothesis-validation/experiment-design.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/experiment-protocol.md` |
-| `fragment:plugins/product-discovery/skills/product-framing/builder-brainstorm.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/opportunity-brief.md` |
-| `fragment:plugins/product-discovery/skills/product-framing/claim-quality.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/source-evidence-ledger.md` |
-| `fragment:skills/datarim-system/task-identity-and-context.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/decision-record.md` |
-| `skill:dr-next-snapshot-replay` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/decision-record.md` |
-| `skill:dr-next-snapshot-replay` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/product-brief.md` |
-| `skill:product-discovery/decision-record` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/decision-record.md` |
+| `plugins/product-discovery/skills/hypothesis-validation/experiment-design.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/experiment-protocol.md` |
 | `skill:product-discovery/hypothesis-validation` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/experiment-protocol.md` |
 | `skill:product-discovery/hypothesis-validation` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/hypothesis-card.md` |
 | `skill:product-discovery/product-framing` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/opportunity-brief.md` |
-| `skill:stage-snapshot-writer` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/decision-record.md` |
-| `skill:stage-snapshot-writer` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/product-brief.md` |
 | `agent:researcher` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/insights-template.md` |
 | `command:dr-archive` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md` |
 | `command:dr-compliance` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/compliance-report-template.md` |

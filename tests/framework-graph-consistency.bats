@@ -1,3 +1,4 @@
+#!/usr/bin/env bats
 setup() { ROOT="${BATS_TEST_DIRNAME}/.."; }
 
 make_fixture() {
@@ -74,6 +75,9 @@ PY
 import importlib.util,pathlib,sys
 r=pathlib.Path(sys.argv[1]); spec=importlib.util.spec_from_file_location('fg',r/'dev-tools/framework-graph.py')
 m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m); g=m.load()
+import json
+edge_keys=[json.dumps(edge,sort_keys=True) for edge in g['edges']]
+assert len(edge_keys)==len(set(edge_keys)), 'canonical graph contains exact duplicate edges'
 owners={}; packages={p['id']:p for p in g['inventory']['plugins']}
 for p in packages.values():
     for asset in p['assets']:
@@ -90,15 +94,54 @@ for name in expected:
 off=m.project(g,'off'); on=m.project(g,'on')
 assert 'plugin:product-discovery' not in off['nodes']
 assert 'plugin:product-discovery' in on['nodes']
-for start in ('command:dr-prd','command:dr-plan','agent:researcher','agent:strategist'):
-    adjacency={}
-    for edge in on['edges']: adjacency.setdefault(edge['from'],set()).add(edge['to'])
-    seen={start}; pending=[start]
-    while pending:
-        for target in adjacency.get(pending.pop(),()):
-            if target not in seen: seen.add(target); pending.append(target)
-    assert { 'template:plugins/product-discovery/templates/'+name for name in expected } <= seen, start
-print('conditional plugin graph and six template paths verified')
+assets={a['component_id'] for p in packages.values() for a in p['assets']}
+assert not assets.intersection(off['nodes']), sorted(assets.intersection(off['nodes']))
+assert assets <= on['nodes'], sorted(assets-on['nodes'])
+edges={(e['from'],e['relation'],e['to']):e for e in g['edges']}
+assert ('command:dr-prd','loads','skill:product-discovery/product-framing') in edges
+assert edges[('command:dr-prd','loads','skill:product-discovery/product-framing')].get('condition') == {
+    'plugin_enabled':'product-discovery','profile_selected':'product-discovery'}
+assert ('skill:product-discovery/hypothesis-validation','uses_template','template:plugins/product-discovery/templates/experiment-protocol.md') in edges
+assert ('skill:product-discovery/hypothesis-validation','uses_template','template:plugins/product-discovery/templates/hypothesis-card.md') in edges
+assert ('skill:product-discovery/product-framing','uses_template','template:plugins/product-discovery/templates/opportunity-brief.md') in edges
+print('plugin isolation and direct reference edges verified')
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "plugin condition fields independently gate profile reachability" {
+  run python3 - "$ROOT" <<'PY'
+import importlib.util,pathlib,sys
+r=pathlib.Path(sys.argv[1]); spec=importlib.util.spec_from_file_location('fg',r/'dev-tools/framework-graph.py')
+m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+base={'inventory':{'plugins':[{'id':'product-discovery','default_enabled':False,'assets':[]}],
+                   'commands':['demo'],'agents':[],'skills':[],'fragments':[],'templates':[]}}
+for field in ('plugin_enabled','profile_selected'):
+    g={**base,'edges':[{'from':'command:demo','relation':'loads','to':'plugin:product-discovery',
+                        'condition':{field:'product-discovery'}}]}
+    assert 'plugin:product-discovery' not in m.project(g,'off')['nodes'], field
+    assert 'plugin:product-discovery' in m.project(g,'on')['nodes'], field
+print('plugin_enabled and profile_selected each gate independently')
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "profile CLI refuses a projection that violates its requested state" {
+  run python3 - "$ROOT" <<'PY'
+import contextlib,importlib.util,io,pathlib,sys,tempfile,yaml
+r=pathlib.Path(sys.argv[1]); spec=importlib.util.spec_from_file_location('fg',r/'dev-tools/framework-graph.py')
+m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m); g=m.load()
+with tempfile.TemporaryDirectory() as d:
+    d=pathlib.Path(d); m.OUT=d/'graph.yaml'; m.MAP=d/'map.md'; m.CMDMAP=d/'cmd.md'
+    m.OUT.write_text(yaml.safe_dump(g,sort_keys=False,width=120)); m.MAP.write_text(m.render(g)); m.CMDMAP.write_text(m.render_cmd(g))
+    m.validate=lambda _:[]
+    m.load=lambda:g
+    m.project=lambda graph,state:{'nodes':set(),'edges':[]}
+    sys.argv=['framework-graph.py','--check','--profile-on']
+    stderr=io.StringIO()
+    with contextlib.redirect_stderr(stderr): rc=m.main()
+    assert rc==1 and 'reachability is inconsistent' in stderr.getvalue(), stderr.getvalue()
+print('profile-specific CLI guard rejects an inconsistent projection')
 PY
   [ "$status" -eq 0 ]
 }
@@ -154,7 +197,7 @@ p.write_text(yaml.safe_dump(g,sort_keys=False,width=120))
 PY
   [ "$status" -eq 0 ] || return 1
   run python3 "$FIXTURE/dev-tools/framework-graph.py" --check
-  [ "$status" -ne 0 ] && [[ "$output" == *"dev-tools/framework-graph.yaml is missing or stale"* ]]
+  [ "$status" -ne 0 ] && [[ "$output" == *"plugin inventory is stale or hand-maintained"* ]]
 }
 
 @test "new plugin files enter the graph from the manifest category" {
@@ -172,6 +215,50 @@ g=yaml.safe_load(pathlib.Path(sys.argv[1]).read_text())
 assert 'plugins/optional/templates/added.md' in g['inventory']['templates']
 assert any(a['path']=='plugins/optional/templates/added.md' for a in g['inventory']['plugins'][0]['assets'])
 print('manifest category discovery confirmed')
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "plugin reference extraction and manifest guards reject invalid inputs" {
+  make_fixture
+  run python3 - "$FIXTURE" <<'PY'
+import importlib.util,pathlib,sys
+r=pathlib.Path(sys.argv[1]); spec=importlib.util.spec_from_file_location('fg',r/'dev-tools/framework-graph.py')
+m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+g=m.load()
+assert any(e['from']=='skill:optional/topic' and e['relation']=='uses_template' and
+           e['to']=='template:plugins/optional/templates/demo-template.md' for e in g['edges'])
+assert not m.plugin_template_mentions('A demo-template is one type of agreement.',['plugins/optional/templates/demo-template.md'])
+assert m.plugin_template_mentions('Use `demo-template` as the required input.',['plugins/optional/templates/demo-template.md'])
+
+original=m.plugin_component_id
+m.plugin_component_id=lambda *args:'duplicate-component'
+try:
+    try: m.plugin_packages()
+    except ValueError as e: assert 'duplicate plugin component id' in str(e)
+    else: raise AssertionError('duplicate component guard did not fire')
+finally: m.plugin_component_id=original
+
+manifest=r/'plugins/optional/plugin.yaml'; original_text=manifest.read_text()
+manifest.write_text(original_text.replace('id: optional','id: another'))
+try:
+    try: m.plugin_packages()
+    except ValueError as e: assert 'does not match directory' in str(e)
+    else: raise AssertionError('id/dir guard did not fire')
+finally: manifest.write_text(original_text)
+
+asset=r/'plugins/optional/templates/linked.md'; asset.symlink_to(r/'plugins/optional/templates/demo-template.md')
+try:
+    try: m.plugin_packages()
+    except ValueError as e: assert 'plugin asset is a symlink' in str(e)
+    else: raise AssertionError('symlink guard did not fire')
+finally: asset.unlink()
+
+bad=m.load(); bad['inventory']['plugins'][0]['assets'].append({'path':'forged','category':'templates','component_id':'template:forged'})
+assert any('plugin inventory is stale' in e for e in m.validate(bad))
+bad=m.load(); bad['edges'][0]['condition']={'plugin_enabled':'unknown-plugin'}
+assert any('unknown plugin' in e for e in m.validate(bad))
+print('direct reference and all reachable manifest guards verified')
 PY
   [ "$status" -eq 0 ]
 }

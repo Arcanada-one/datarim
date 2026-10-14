@@ -992,27 +992,6 @@ edges:
   from: agent:researcher
   relation: loads
   source: agents/researcher.md
-  to: plugin:product-discovery
-- condition:
-    plugin_enabled: product-discovery
-    profile_selected: product-discovery
-  from: agent:researcher
-  relation: loads
-  source: agents/researcher.md
-  to: plugin:product-discovery
-- condition:
-    plugin_enabled: product-discovery
-    profile_selected: product-discovery
-  from: agent:researcher
-  relation: loads
-  source: agents/researcher.md
-  to: skill:product-discovery/hypothesis-validation
-- condition:
-    plugin_enabled: product-discovery
-    profile_selected: product-discovery
-  from: agent:researcher
-  relation: loads
-  source: agents/researcher.md
   to: skill:product-discovery/hypothesis-validation
 - condition:
     plugin_enabled: product-discovery
@@ -1034,49 +1013,7 @@ edges:
   from: agent:strategist
   relation: loads
   source: agents/strategist.md
-  to: plugin:product-discovery
-- condition:
-    plugin_enabled: product-discovery
-    profile_selected: product-discovery
-  from: agent:strategist
-  relation: loads
-  source: agents/strategist.md
-  to: plugin:product-discovery
-- condition:
-    plugin_enabled: product-discovery
-    profile_selected: product-discovery
-  from: agent:strategist
-  relation: loads
-  source: agents/strategist.md
-  to: plugin:product-discovery
-- condition:
-    plugin_enabled: product-discovery
-    profile_selected: product-discovery
-  from: agent:strategist
-  relation: loads
-  source: agents/strategist.md
-  to: plugin:product-discovery
-- condition:
-    plugin_enabled: product-discovery
-    profile_selected: product-discovery
-  from: agent:strategist
-  relation: loads
-  source: agents/strategist.md
   to: skill:product-discovery/decision-record
-- condition:
-    plugin_enabled: product-discovery
-    profile_selected: product-discovery
-  from: agent:strategist
-  relation: loads
-  source: agents/strategist.md
-  to: skill:product-discovery/decision-record
-- condition:
-    plugin_enabled: product-discovery
-    profile_selected: product-discovery
-  from: agent:strategist
-  relation: loads
-  source: agents/strategist.md
-  to: skill:product-discovery/hypothesis-validation
 - condition:
     plugin_enabled: product-discovery
     profile_selected: product-discovery
@@ -1100,40 +1037,10 @@ edges:
   to: skill:product-discovery/product-framing
 - condition:
     plugin_enabled: product-discovery
-  from: fragment:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
-  relation: uses_template
-  source: plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
-  to: template:plugins/product-discovery/templates/decision-record.md
-- condition:
-    plugin_enabled: product-discovery
-  from: fragment:plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md
-  relation: uses_template
-  source: plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md
-  to: template:plugins/product-discovery/templates/decision-record.md
-- condition:
-    plugin_enabled: product-discovery
   from: fragment:plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
   relation: uses_template
   source: plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
   to: template:plugins/product-discovery/templates/experiment-protocol.md
-- condition:
-    plugin_enabled: product-discovery
-  from: fragment:plugins/product-discovery/skills/product-framing/builder-brainstorm.md
-  relation: uses_template
-  source: plugins/product-discovery/skills/product-framing/builder-brainstorm.md
-  to: template:plugins/product-discovery/templates/opportunity-brief.md
-- condition:
-    plugin_enabled: product-discovery
-  from: fragment:plugins/product-discovery/skills/product-framing/claim-quality.md
-  relation: uses_template
-  source: plugins/product-discovery/skills/product-framing/claim-quality.md
-  to: template:plugins/product-discovery/templates/source-evidence-ledger.md
-- condition:
-    plugin_enabled: product-discovery
-  from: fragment:skills/datarim-system/task-identity-and-context.md
-  relation: uses_template
-  source: skills/datarim-system/task-identity-and-context.md
-  to: template:plugins/product-discovery/templates/decision-record.md
 - condition:
     plugin_enabled: product-discovery
   from: plugin:product-discovery
@@ -1250,24 +1157,6 @@ edges:
   to: template:plugins/product-discovery/templates/source-evidence-ledger.md
 - condition:
     plugin_enabled: product-discovery
-  from: skill:dr-next-snapshot-replay
-  relation: uses_template
-  source: skills/dr-next-snapshot-replay/SKILL.md
-  to: template:plugins/product-discovery/templates/decision-record.md
-- condition:
-    plugin_enabled: product-discovery
-  from: skill:dr-next-snapshot-replay
-  relation: uses_template
-  source: skills/dr-next-snapshot-replay/SKILL.md
-  to: template:plugins/product-discovery/templates/product-brief.md
-- condition:
-    plugin_enabled: product-discovery
-  from: skill:product-discovery/decision-record
-  relation: uses_template
-  source: plugins/product-discovery/skills/decision-record/SKILL.md
-  to: template:plugins/product-discovery/templates/decision-record.md
-- condition:
-    plugin_enabled: product-discovery
   from: skill:product-discovery/hypothesis-validation
   relation: uses_template
   source: plugins/product-discovery/skills/hypothesis-validation/SKILL.md
@@ -1284,18 +1173,6 @@ edges:
   relation: uses_template
   source: plugins/product-discovery/skills/product-framing/SKILL.md
   to: template:plugins/product-discovery/templates/opportunity-brief.md
-- condition:
-    plugin_enabled: product-discovery
-  from: skill:stage-snapshot-writer
-  relation: uses_template
-  source: skills/stage-snapshot-writer/SKILL.md
-  to: template:plugins/product-discovery/templates/decision-record.md
-- condition:
-    plugin_enabled: product-discovery
-  from: skill:stage-snapshot-writer
-  relation: uses_template
-  source: skills/stage-snapshot-writer/SKILL.md
-  to: template:plugins/product-discovery/templates/product-brief.md
 - from: agent:architect
   relation: loads
   source: AGENTS.md

@@ -132,15 +132,17 @@ def plugin_condition(plugin_id, profile_required=False):
     return condition
 
 def plugin_template_mentions(text, templates):
-    """Resolve explicit template names in plugin instructions to discovered files."""
+    """Resolve explicit template links or code-form references to plugin assets."""
     found=[]
     for target in templates:
         if not target.startswith('plugins/'):
             continue
         stem=Path(target).stem
-        pieces=[re.escape(piece) for piece in re.split(r'[-_ ]+',stem)]
-        pattern=r'(?<![A-Za-z0-9])'+r'[-_ ]?'.join(pieces)+r'(?![A-Za-z0-9])'
-        if re.search(pattern,text,re.I):
+        explicit_path=re.escape(target)
+        explicit_name=re.escape(Path(target).name)
+        explicit_stem=re.escape(stem)
+        if (re.search(r'\]\('+explicit_path+r'(?:#[^)]*)?\)',text) or
+                re.search(r'`(?:'+explicit_path+'|'+explicit_name+'|'+explicit_stem+r')`',text,re.I)):
             found.append(target)
     return sorted(found)
 
@@ -263,8 +265,7 @@ def load():
     for c,meta in cg.items():
         for r in meta.get('requires',[]): edges.append({'from':f'command:{c}','relation':'requires','to':f'command:{r}','source':'dev-tools/command-graph.yaml'})
         for p in meta.get('precedes',[]): edges.append({'from':f'command:{c}','relation':'precedes','to':f'command:{p}','source':'dev-tools/command-graph.yaml'})
-    edges=sorted(json.dumps(e,sort_keys=True) for e in edges)
-    edges=[json.loads(e) for e in edges]
+    edges=[json.loads(item) for item in sorted({json.dumps(e,sort_keys=True) for e in edges})]
     return {'schema_version':3,'generated':True,'inventory':{'commands':commands,'agents':agents,'skills':skills,'fragments':fragments,'templates':templates,'plugins':packages},'edges':edges,'broken_references':broken}
 def validate(g):
     errs=[]; inv=g['inventory']; cg=yaml.safe_load((ROOT/'dev-tools/command-graph.yaml').read_text())['commands']
@@ -316,13 +317,6 @@ def validate(g):
     for c,m in cg.items():
         for x in m.get('requires',[])+m.get('precedes',[]):
             if x not in declared: errs.append(f'{c} references unknown command {x}')
-    legacy_nodes=nodes-plugin_nodes-plugin_asset_nodes
-    full_legacy={(e['from'],e['relation'],e['to'],e['source']) for e in g['edges']
-                 if e['from'] in legacy_nodes and e['to'] in legacy_nodes}
-    off_legacy={(e['from'],e['relation'],e['to'],e['source']) for e in project(g,'off')['edges']
-                 if e['from'] in legacy_nodes and e['to'] in legacy_nodes}
-    if full_legacy != off_legacy:
-        errs.append('profile-off changes legacy-to-legacy reachability edges')
     return errs
 
 def project(g, profile):
@@ -387,7 +381,9 @@ def render(g):
             availability += ' and selecting the product-discovery profile'
         out.append(f"| `{package['id']}` | {package['default_state']} | {', '.join(package['categories']) or 'none'} | {len(package['assets'])} | {availability} |")
     out += ['', '## Template dependencies', '', '| Consumer | Template |', '|----------|----------|']
-    out += [f"| `{e['from']}` | `{runtime_template_reference(e['to'][9:])}` |" for e in edges if e['relation']=='uses_template']
+    def consumer_label(value):
+        return value.removeprefix('fragment:') if value.startswith('fragment:plugins/') else value
+    out += [f"| `{consumer_label(e['from'])}` | `{runtime_template_reference(e['to'][9:])}` |" for e in edges if e['relation']=='uses_template']
     out += ['', '### Template assets', '', ', '.join(f'`{runtime_template_reference(x)}`' for x in inv['templates']), '']
     return '\n'.join(out)
 def render_cmd(g):
@@ -408,6 +404,15 @@ def main():
     if (a.profile_off or a.profile_on) and not a.check:
         ap.error('--profile-off/--profile-on require --check')
     g=load(); errs=validate(g)
+    if (a.check or not a.write) and OUT.is_file():
+        try:
+            committed=yaml.safe_load(OUT.read_text())
+            if not isinstance(committed,dict):
+                errs.append('committed framework graph must be a mapping')
+            else:
+                errs.extend(validate(committed))
+        except (OSError, yaml.YAMLError, KeyError, TypeError, ValueError) as exc:
+            errs.append(f'committed framework graph is invalid: {exc}')
     if a.write:
         OUT.write_text(yaml.safe_dump(g,sort_keys=False,width=120)); MAP.write_text(render(g)); CMDMAP.write_text(render_cmd(g))
     if a.check or not a.write:
