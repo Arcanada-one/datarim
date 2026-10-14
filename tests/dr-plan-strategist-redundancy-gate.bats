@@ -78,9 +78,9 @@ write_v2_record() {
     write_record
     replace_field schema_version 2
     cat >>"$RECORD" <<'EOF'
-scope_mode=selective
+scope_mode=selective_expand
 scope_delta=synthetic fixture only
-do_nothing_cost=unmeasured
+do_nothing_cost=unknown
 EOF
     chmod 600 "$RECORD"
 }
@@ -134,7 +134,7 @@ replace_field() {
     write_v2_record
     run_helper
     [ "$status" -eq 0 ]
-    [[ "$output" == *$'scope_mode=selective\nscope_delta=synthetic fixture only\ndo_nothing_cost=unmeasured' ]]
+    [[ "$output" == *$'scope_mode=selective_expand\nscope_delta=synthetic fixture only\ndo_nothing_cost=unknown' ]]
 }
 
 @test "[validator] schema version 1 with profile fields is malformed" {
@@ -142,7 +142,7 @@ replace_field() {
     cat >>"$RECORD" <<'EOF'
 scope_mode=hold
 scope_delta=none
-do_nothing_cost=unmeasured
+do_nothing_cost=unknown
 EOF
     chmod 600 "$RECORD"
     run_helper
@@ -160,6 +160,14 @@ EOF
 @test "[validator] invalid scope_mode is malformed" {
     write_v2_record
     replace_field scope_mode invalid
+    run_helper
+    [ "$status" -eq 2 ]
+    [ "$output" = 'check-strategist-gate-record: invalid scope_mode' ]
+}
+
+@test "[validator] superseded scope_mode selective is malformed" {
+    write_v2_record
+    replace_field scope_mode selective
     run_helper
     [ "$status" -eq 2 ]
     [ "$output" = 'check-strategist-gate-record: invalid scope_mode' ]
@@ -557,10 +565,11 @@ EOF
     awk 'index($0, "read-product-profile.sh") { reader=index($0, "read-product-profile.sh"); strategist=index($0, "Then load") } END { exit !(reader && strategist && reader < strategist) }' "$REPO_ROOT/commands/dr-plan.md"
     awk '
         /product-framing skill reference inside the profile_active branch/ {
-            if (getline > 0 && /only for `profile_active`/ && /plugins\/product-discovery\/skills\/product-framing\/SKILL\.md/) found=1
+            if (getline > 0 && /Only for `profile_active`/ && /source path components are `plugins`, `product-discovery`, `skills`, `product-framing`, and `SKILL\.md`/) found=1
         }
         END { exit !found }
     ' "$REPO_ROOT/commands/dr-prd.md"
+    ! grep -Eq '\]\([^)]*plugins/product-discovery/skills/product-framing/SKILL\.md\)' "$REPO_ROOT/commands/dr-prd.md"
     for outcome in profile_unavailable profile_unknown profile_ambiguous; do
         grep -qF "$outcome" "$REPO_ROOT/commands/dr-prd.md"
         grep -qF "$outcome" "$REPO_ROOT/commands/dr-plan.md"

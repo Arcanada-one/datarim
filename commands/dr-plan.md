@@ -100,7 +100,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
         `do_nothing_cost` as untrusted proposals. The parent independently owns
         classification, predicates, evidence, invocation fields, normalization,
         gate status, and route.
-        - When `profile_active`, the parent normalizes and writes `schema_version=2` and all three additional fields `scope_mode`, `scope_delta`, and `do_nothing_cost` in the strategist record. `scope_mode` must be `hold`, `selective`, `expand`, or `reduce`; `scope_delta` is ASCII text or `none`; `do_nothing_cost` is ASCII text or `unmeasured` (never infer zero). The existing 500-byte limit and unsafe-text/path checks apply. These fields are recorded, not routing inputs. When the profile is not active, write the existing 18-key `schema_version=1` record byte-for-byte as before.
+        - When `profile_active`, the parent normalizes and writes `schema_version=2` and all three additional fields `scope_mode`, `scope_delta`, and `do_nothing_cost` in the strategist record. `scope_mode` must be `expand`, `selective_expand`, `hold`, or `reduce`; `scope_delta` is ASCII text or `none`; `do_nothing_cost` is ASCII text or `unknown` (never infer zero). The existing 500-byte limit and unsafe-text/path checks apply. These fields are recorded, not routing inputs. When the profile is not active, write the existing 18-key `schema_version=1` record byte-for-byte as before.
         For L3/L4 `non_matching` work, retain the general strategist assessment
         as a separate parent-owned decision beside the specialized
         `NOT_APPLICABLE` record. Persist and evaluate that general verdict

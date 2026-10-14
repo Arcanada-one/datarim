@@ -2329,8 +2329,4 @@ edges:
   relation: loads
   source: skills/verification-before-completion/SKILL.md
   to: skill:using-git-worktrees
-broken_references:
-- from: command:dr-prd
-  relation: loads
-  to: skill:product-framing
-  source: commands/dr-prd.md
+broken_references: []

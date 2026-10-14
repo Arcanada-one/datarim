@@ -311,7 +311,7 @@ for text_value in "$rationale" "$most_efficient_path" "$safety_assessment"; do
 done
 
 if [ "$schema_version" = 2 ]; then
-    case "$scope_mode" in hold|selective|expand|reduce) ;; *) malformed 'invalid scope_mode' ;; esac
+    case "$scope_mode" in hold|selective_expand|expand|reduce) ;; *) malformed 'invalid scope_mode' ;; esac
     for text_value in "$scope_delta" "$do_nothing_cost"; do
         [ -n "$text_value" ] || malformed 'profile decision text is missing'
         printf '%s' "$text_value" | grep -Eiq \
@@ -321,7 +321,7 @@ if [ "$schema_version" = 2 ]; then
             && malformed 'unsafe path in profile decision text'
     done
     case "$scope_delta" in none) ;; *) [ "${#scope_delta}" -gt 0 ] || malformed 'scope_delta is missing' ;; esac
-    case "$do_nothing_cost" in unmeasured) ;; *) [ "${#do_nothing_cost}" -gt 0 ] || malformed 'do_nothing_cost is missing' ;; esac
+    case "$do_nothing_cost" in unknown) ;; *) [ "${#do_nothing_cost}" -gt 0 ] || malformed 'do_nothing_cost is missing' ;; esac
 fi
 
 case "$positive_scope_test/$no_new_behavior_test" in
