@@ -565,11 +565,11 @@ EOF
     awk 'index($0, "read-product-profile.sh") { reader=index($0, "read-product-profile.sh"); strategist=index($0, "Then load") } END { exit !(reader && strategist && reader < strategist) }' "$REPO_ROOT/commands/dr-plan.md"
     awk '
         /product-framing skill reference inside the profile_active branch/ {
-            if (getline > 0 && /Only for `profile_active`/ && /source path components are `plugins`, `product-discovery`, `skills`, `product-framing`, and `SKILL\.md`/) found=1
+            if (getline > 0 && index($0, "Only for `profile_active`") && index($0, "[`plugins/product-discovery/skills/product-framing/SKILL.md`](../plugins/product-discovery/skills/product-framing/SKILL.md)") && index($0, "${DATARIM_RUNTIME:?}/skills/product-discovery/product-framing/SKILL.md")) found=1
         }
         END { exit !found }
     ' "$REPO_ROOT/commands/dr-prd.md"
-    ! grep -Eq '\]\([^)]*plugins/product-discovery/skills/product-framing/SKILL\.md\)' "$REPO_ROOT/commands/dr-prd.md"
+    grep -qF '[`plugins/product-discovery/skills/product-framing/SKILL.md`](../plugins/product-discovery/skills/product-framing/SKILL.md)' "$REPO_ROOT/commands/dr-prd.md"
     for outcome in profile_unavailable profile_unknown profile_ambiguous; do
         grep -qF "$outcome" "$REPO_ROOT/commands/dr-prd.md"
         grep -qF "$outcome" "$REPO_ROOT/commands/dr-plan.md"

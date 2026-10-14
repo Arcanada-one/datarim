@@ -1343,6 +1343,10 @@ edges:
 - from: command:dr-prd
   relation: loads
   source: commands/dr-prd.md
+  to: skill:product-discovery/product-framing
+- from: command:dr-prd
+  relation: loads
+  source: commands/dr-prd.md
   to: skill:research-workflow
 - from: command:dr-prd
   relation: loads
