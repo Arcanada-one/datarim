@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # D5A-T3.5 — research decision routing stays within existing lifecycle.
 
-REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
+REPO_ROOT="${BATS_TEST_DIRNAME}/.."
 
 @test "profile-active PRD route requires current accepted DecisionRecord, ProductBrief, and explicit scope authorization" {
     grep -q 'D5A research decision handoff' "$REPO_ROOT/commands/dr-prd.md"
