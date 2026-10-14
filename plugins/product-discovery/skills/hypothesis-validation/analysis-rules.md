@@ -22,8 +22,12 @@ Rates: A = 1/4 = 25%; B = 3/4 = 75%; difference = 75% - 25% = 50 percentage poin
 
 ## Worked example (synthetic incomplete control)
 
-Suppose the same frozen rule expects four rows per variant, but one B outcome is missing. Report A as 1/4 observed, B as 2/3 observed plus 1 missing, and expected/received/missing as 8/7/1. Do not compute the decision as if the missing B row were a success. The required eight-row sample is incomplete, so the result is `inconclusive`, even if every observed B row is a success.
+Suppose the same frozen rule expects four rows per variant, but one B outcome is missing. Report A as 1/4 observed, B as 3/3 observed plus 1 missing, and expected/received/missing as 8/7/1. Do not treat the observed B rate as a complete arm or compute the decision as if the missing B row were a success. The required eight-row sample is incomplete, so the result is `inconclusive`, even if every observed B row is a success.
 
 ## Negative control (synthetic)
 
-An analysis says `supported` and lists counts but has no `raw_observation_refs`. Reject it: the counts cannot be traced to supplied observations. The prose and arithmetic alone are not evidence. The product-artifact contract separately requires evidence references for terminal hypothesis states; use the structural checker for resolvable references and independent review for semantic adequacy.
+An analysis says `supported` and lists counts but has no `raw_observation_refs`. The method disposition is rejection: the counts cannot be traced to supplied observations. The prose and arithmetic alone are not evidence.
+
+## Enforcement boundary
+
+The current `check-product-artifact` validates bundle structure and resolvable references; it does not enforce non-empty evidence references for terminal hypothesis states, bind analysis output to raw observation rows, compute the decision map, or reject silent edits to a frozen protocol. A measured replay against its implementation accepts both a silent `protocol_frozen` sample-rule edit and a terminal `supported` hypothesis with `evidence_refs: []`. These semantic enforcement checks are therefore `NOT_MEASURED` for this task; the fixture tests check byte digests, raw counts, and the declared expected dispositions only. Extending the shared structural checker belongs to D5A-T2.1 acceptance criterion 3 and must be sequenced there; this skill does not claim that the checker enforces the method.
