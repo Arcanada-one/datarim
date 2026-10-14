@@ -2,7 +2,7 @@
 
 > **GENERATED FILE. DO NOT EDIT.** Source: repository inventory + `dev-tools/command-graph.yaml` + explicit references in commands/agents. Regenerate with `python3 dev-tools/framework-graph.py --write`.
 
-Inventory: **29 commands · 19 agents · 83 skills · 43 template assets**.
+Inventory: **29 commands · 19 agents · 83 skills · 49 template assets**.
 
 ## Command → Agent graph
 
@@ -36,6 +36,22 @@ graph LR
 
 ```mermaid
 graph LR
+    A_researcher["researcher"] --> F_plugins_product_discovery_skills_hypothesis_validation_researcher_product_discovery_md["plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md"]
+    A_researcher["researcher"] --> PLUGIN_product_discovery["product-discovery"]
+    A_researcher["researcher"] --> PLUGIN_product_discovery["product-discovery"]
+    A_researcher["researcher"] --> PLUGIN_product_discovery["product-discovery"]
+    A_researcher["researcher"] --> S_product_discovery_hypothesis_validation["product-discovery/hypothesis-validation"]
+    A_researcher["researcher"] --> S_product_discovery_hypothesis_validation["product-discovery/hypothesis-validation"]
+    A_strategist["strategist"] --> F_plugins_product_discovery_skills_decision_record_strategist_product_discovery_md["plugins/product-discovery/skills/decision-record/strategist.product-discovery.md"]
+    A_strategist["strategist"] --> PLUGIN_product_discovery["product-discovery"]
+    A_strategist["strategist"] --> PLUGIN_product_discovery["product-discovery"]
+    A_strategist["strategist"] --> PLUGIN_product_discovery["product-discovery"]
+    A_strategist["strategist"] --> PLUGIN_product_discovery["product-discovery"]
+    A_strategist["strategist"] --> PLUGIN_product_discovery["product-discovery"]
+    A_strategist["strategist"] --> S_product_discovery_decision_record["product-discovery/decision-record"]
+    A_strategist["strategist"] --> S_product_discovery_decision_record["product-discovery/decision-record"]
+    A_strategist["strategist"] --> S_product_discovery_hypothesis_validation["product-discovery/hypothesis-validation"]
+    A_strategist["strategist"] --> S_product_discovery_hypothesis_validation["product-discovery/hypothesis-validation"]
     A_architect["architect"] --> S_human_outcome_reporting["human-outcome-reporting"]
     A_architect["architect"] --> S_cta_format["cta-format"]
     A_architect["architect"] --> S_datarim_system["datarim-system"]
@@ -86,9 +102,7 @@ graph LR
     A_planner["planner"] --> S_immutability["immutability"]
     A_planner["planner"] --> S_tech_stack["tech-stack"]
     A_researcher["researcher"] --> S_human_outcome_reporting["human-outcome-reporting"]
-    A_researcher["researcher"] --> F_plugins_product_discovery_skills_hypothesis_validation_researcher_product_discovery_md["plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md"]
     A_researcher["researcher"] --> S_datarim_system["datarim-system"]
-    A_researcher["researcher"] --> S_product_discovery_hypothesis_validation["product-discovery/hypothesis-validation"]
     A_researcher["researcher"] --> S_research_workflow["research-workflow"]
     A_researcher["researcher"] --> S_security["security"]
     A_researcher["researcher"] --> S_tech_stack["tech-stack"]
@@ -112,10 +126,7 @@ graph LR
     A_sre["sre"] --> S_performance["performance"]
     A_sre["sre"] --> S_security["security"]
     A_strategist["strategist"] --> S_human_outcome_reporting["human-outcome-reporting"]
-    A_strategist["strategist"] --> F_plugins_product_discovery_skills_decision_record_strategist_product_discovery_md["plugins/product-discovery/skills/decision-record/strategist.product-discovery.md"]
     A_strategist["strategist"] --> S_datarim_system["datarim-system"]
-    A_strategist["strategist"] --> S_product_discovery_decision_record["product-discovery/decision-record"]
-    A_strategist["strategist"] --> S_product_discovery_hypothesis_validation["product-discovery/hypothesis-validation"]
     A_tester["tester"] --> S_human_outcome_reporting["human-outcome-reporting"]
     A_tester["tester"] --> S_datarim_system["datarim-system"]
     A_tester["tester"] --> S_frontend_ui["frontend-ui"]
@@ -145,10 +156,34 @@ graph LR
 
 `adversarial-review`, `ai-quality`, `artifact-context`, `autonomous-mode`, `brainstorming`, `code-contracts`, `compliance`, `consilium`, `context-window-self-clearing`, `cron-agent-patterns`, `cta-format`, `customer-delivery`, `datarim-doctor`, `datarim-system`, `diataxis-docs`, `discovery`, `dispatching-parallel-agents`, `dr-init-id-collision-window`, `dr-next-snapshot-replay`, `dream`, `edge-case-hunter`, `evolution`, `executing-plans`, `expectations-checklist`, `factcheck`, `file-sync-config`, `finishing-a-development-branch`, `fleet`, `fleet/l1-basic`, `fleet/l2-structured`, `fleet/l3-analyst`, `fleet/l4-expert`, `fleet/l5-autonomous`, `frontend-ui`, `health-controller-stub-detector`, `human-outcome-reporting`, `human-summary`, `humanize`, `image-prompting`, `immutability`, `infra-automation`, `init-task-persistence`, `network-exposure-baseline`, `nginx-version-compat`, `performance`, `plan-path-validator`, `playwright-qa`, `post-deploy-env-diff`, `prod-readiness-probe`, `product-discovery/decision-record`, `product-discovery/hypothesis-validation`, `product-discovery/product-framing`, `project-init`, `publishing`, `receiving-code-review`, `reflecting`, `release-verify`, `requesting-code-review`, `research-workflow`, `rotation-runbook`, `seam-vs-integration-boundary`, `security`, `security-baseline`, `self-verification`, `session-handoff-replay`, `session-handoff-writer`, `stage-snapshot-writer`, `structure-review`, `structured-outputs-integration-gate`, `subagent-driven-development`, `systematic-debugging`, `tech-stack`, `test-env-verification`, `testing`, `using-git-worktrees`, `utilities`, `v-ac-axis-split`, `v-ac-feasibility`, `verification-before-completion`, `visual-maps`, `wizard`, `writing`, `writing-plans`
 
+## Optional plugin packages
+
+| Plugin | Default state | Categories | Assets | Availability |
+|--------|---------------|------------|--------|--------------|
+| `controller-continuation` | disabled | commands | 1 | conditional on enabling `controller-continuation` |
+| `dr-jev-control` | disabled | productivity, scripts | 20 | conditional on enabling `dr-jev-control` |
+| `dr-orchestrate` | disabled | rules, scripts | 46 | conditional on enabling `dr-orchestrate` |
+| `product-discovery` | disabled | skills, templates | 19 | conditional on enabling `product-discovery` and selecting the product-discovery profile |
+| `tdd-enforcement` | active | none | 0 | conditional on enabling `tdd-enforcement` |
+
 ## Template dependencies
 
 | Consumer | Template |
 |----------|----------|
+| `fragment:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md` | `plugins/product-discovery/templates/decision-record.md` |
+| `fragment:plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md` | `plugins/product-discovery/templates/decision-record.md` |
+| `fragment:plugins/product-discovery/skills/hypothesis-validation/experiment-design.md` | `plugins/product-discovery/templates/experiment-protocol.md` |
+| `fragment:plugins/product-discovery/skills/product-framing/builder-brainstorm.md` | `plugins/product-discovery/templates/opportunity-brief.md` |
+| `fragment:plugins/product-discovery/skills/product-framing/claim-quality.md` | `plugins/product-discovery/templates/source-evidence-ledger.md` |
+| `fragment:skills/datarim-system/task-identity-and-context.md` | `plugins/product-discovery/templates/decision-record.md` |
+| `skill:dr-next-snapshot-replay` | `plugins/product-discovery/templates/decision-record.md` |
+| `skill:dr-next-snapshot-replay` | `plugins/product-discovery/templates/product-brief.md` |
+| `skill:product-discovery/decision-record` | `plugins/product-discovery/templates/decision-record.md` |
+| `skill:product-discovery/hypothesis-validation` | `plugins/product-discovery/templates/experiment-protocol.md` |
+| `skill:product-discovery/hypothesis-validation` | `plugins/product-discovery/templates/hypothesis-card.md` |
+| `skill:product-discovery/product-framing` | `plugins/product-discovery/templates/opportunity-brief.md` |
+| `skill:stage-snapshot-writer` | `plugins/product-discovery/templates/decision-record.md` |
+| `skill:stage-snapshot-writer` | `plugins/product-discovery/templates/product-brief.md` |
 | `agent:researcher` | `insights-template.md` |
 | `command:dr-archive` | `archive-template.md` |
 | `command:dr-compliance` | `compliance-report-template.md` |
@@ -197,4 +232,4 @@ graph LR
 
 ### Template assets
 
-`SECURITY.md`, `accepted-risk.yml`, `activeContext-template.md`, `archive-template.md`, `backlog-template.md`, `build-rs-version.rs`, `classifier-script-template.sh`, `cli-conflict-resolver-prompt.md`, `cloudflare-nginx-setup.sh`, `compliance-report-template.md`, `coverage-deferral-clause.md`, `cta-template.md`, `customer-delivery-receipt-template.yaml`, `customer-requirements-template.yaml`, `cutover-runbook-template.md`, `datarim-config.yaml`, `deploy-script.md`, `docker-smoke-checklist.md`, `documentation-diataxis/explanation/README.md`, `documentation-diataxis/how-to/README.md`, `documentation-diataxis/reference/README.md`, `documentation-diataxis/tutorials/README.md`, `enabled-plugins.md.template`, `expectations-template.md`, `human-outcome-report-template.md`, `infra-artifact-checklist.md`, `infra-cost-reduction-checklist.md`, `insights-template.md`, `integration-checklist.md`, `legacy-hardware-probe-checklist.md`, `module.yaml`, `plugin.yaml.template`, `prd-template.md`, `probe-self-hosted-runner-workflow.yml`, `project-agents-md.md`, `project-docs-stubs.md`, `reflection-template.md`, `review-evolution-template.yaml`, `security-deps-upgrade-plan.md`, `security-workflow.yml`, `shell-helper-template.sh`, `task-template.md`, `version-consistency-fanout-checklist.md`
+`SECURITY.md`, `accepted-risk.yml`, `activeContext-template.md`, `archive-template.md`, `backlog-template.md`, `build-rs-version.rs`, `classifier-script-template.sh`, `cli-conflict-resolver-prompt.md`, `cloudflare-nginx-setup.sh`, `compliance-report-template.md`, `coverage-deferral-clause.md`, `cta-template.md`, `customer-delivery-receipt-template.yaml`, `customer-requirements-template.yaml`, `cutover-runbook-template.md`, `datarim-config.yaml`, `deploy-script.md`, `docker-smoke-checklist.md`, `documentation-diataxis/explanation/README.md`, `documentation-diataxis/how-to/README.md`, `documentation-diataxis/reference/README.md`, `documentation-diataxis/tutorials/README.md`, `enabled-plugins.md.template`, `expectations-template.md`, `human-outcome-report-template.md`, `infra-artifact-checklist.md`, `infra-cost-reduction-checklist.md`, `insights-template.md`, `integration-checklist.md`, `legacy-hardware-probe-checklist.md`, `module.yaml`, `plugin.yaml.template`, `plugins/product-discovery/templates/decision-record.md`, `plugins/product-discovery/templates/experiment-protocol.md`, `plugins/product-discovery/templates/hypothesis-card.md`, `plugins/product-discovery/templates/opportunity-brief.md`, `plugins/product-discovery/templates/product-brief.md`, `plugins/product-discovery/templates/source-evidence-ledger.md`, `prd-template.md`, `probe-self-hosted-runner-workflow.yml`, `project-agents-md.md`, `project-docs-stubs.md`, `reflection-template.md`, `review-evolution-template.yaml`, `security-deps-upgrade-plan.md`, `security-workflow.yml`, `shell-helper-template.sh`, `task-template.md`, `version-consistency-fanout-checklist.md`
