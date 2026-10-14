@@ -6,6 +6,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import yaml
@@ -63,12 +64,34 @@ def revisions(directory, prefix):
     return [path for _, path in found]
 
 
-def check_bundle(bundle, checker):
-    checked = subprocess.run(
-        ["bash", str(checker), "--root", str(bundle), "--bundle", "."],
-        capture_output=True, text=True, check=False,
-    )
+def check_artifacts(paths, checker):
+    """Validate only the current revision pair; historical immutable versions may be superseded by references."""
+    with tempfile.TemporaryDirectory(prefix="product-route-check-") as temp:
+        bundle = Path(temp)
+        for path in paths:
+            (bundle / path.name).write_bytes(path.read_bytes())
+        checked = subprocess.run(
+            ["bash", str(checker), "--root", str(bundle), "--bundle", "."],
+            capture_output=True, text=True, check=False,
+        )
     return checked.returncode, checked.stdout.strip() or checked.stderr.strip()
+
+
+def validate_revision_chain(paths, kind):
+    documents = [artifact(path) for path in paths]
+    for index, (path, (raw, front, _)) in enumerate(zip(paths, documents)):
+        if front.get("revision") != index + 1 or front.get("artifact_type") != kind:
+            raise ValueError(f"{kind} revision does not match canonical filename {path.name}")
+        if index:
+            previous_raw, previous_front, _ = documents[index - 1]
+            expected = {"id": previous_front.get("id"), "revision": index, "digest": digest(previous_raw)}
+            if front.get("id") != previous_front.get("id") or front.get("supersedes") != expected:
+                raise ValueError(f"{kind} revisions do not form an exact immutable supersedes chain")
+    return documents
+
+
+def lineage(decision_ref, front):
+    return {"decision_ref": decision_ref, "supersedes": front.get("supersedes")}
 
 
 def acceptance_hash(task_path):
@@ -104,48 +127,39 @@ def main():
     if not decisions:
         refuse("missing_decision", task_id=args.task)
         return 0
-    check_rc, check_text = check_bundle(bundle, checker)
-    if check_rc:
-        refuse("invalid_artifact", detail=check_text)
-        return 0
-    decision_docs = [artifact(path) for path in decisions]
-    for index, (path, item) in enumerate(zip(decisions, decision_docs)):
-        raw, front, _ = item
-        if front.get("revision") != index + 1 or front.get("artifact_type") != "decision-record":
-            raise ValueError("DecisionRecord revision does not match its canonical filename")
-        if index:
-            previous_raw, previous_front, _ = decision_docs[index - 1]
-            expected_supersedes = {"id": previous_front.get("id"), "revision": index, "digest": digest(previous_raw)}
-            if front.get("id") != previous_front.get("id") or front.get("supersedes") != expected_supersedes or previous_front.get("status") != "superseded":
-                raise ValueError("DecisionRecord revisions do not form an exact supersedes chain")
+    decision_docs = validate_revision_chain(decisions, "decision-record")
     latest_path = decisions[-1]
     latest_raw, latest_front, latest_data = decision_docs[-1]
     decision_digest = digest(latest_raw)
-    if latest_front.get("artifact_type") != "decision-record" or latest_front.get("schema_version") != "product-artifact/2":
+    if latest_front.get("schema_version") != "product-artifact/2":
         refuse("invalid_artifact", detail="latest record is not DecisionRecord product-artifact/2")
         return 0
     decision_ref = {"id": latest_front.get("id"), "revision": latest_front.get("revision"), "digest": decision_digest}
+    check_rc, check_text = check_artifacts([latest_path], checker)
+    if check_rc:
+        refuse("invalid_artifact", **lineage(decision_ref, latest_front), detail=check_text)
+        return 0
     if latest_front.get("status") == "superseded":
-        result("/dr-do", TOKENS["superseded"], decision_ref=decision_ref)
+        result("/dr-do", TOKENS["superseded"], **lineage(decision_ref, latest_front), research_status="stale", delivery_work_created=False)
         return 0
     if latest_front.get("status") != "submitted" or latest_front.get("acceptance_state") != "accepted":
-        result("/dr-qa", TOKENS["evidence_pending"], decision_ref=decision_ref)
+        result("/dr-qa", TOKENS["evidence_pending"], **lineage(decision_ref, latest_front), research_status="incomplete", delivery_work_created=False)
         return 0
     if latest_data.get("evidence_acceptance") != "accepted":
-        result("/dr-qa", TOKENS["evidence_pending"], decision_ref=decision_ref)
+        result("/dr-qa", TOKENS["evidence_pending"], **lineage(decision_ref, latest_front), research_status="incomplete", delivery_work_created=False)
         return 0
     outcome = latest_data.get("business_outcome")
     if outcome == "stop":
-        result("/dr-archive", TOKENS["stop"], decision_ref=decision_ref)
+        result("/dr-archive", TOKENS["stop"], **lineage(decision_ref, latest_front), research_status="accepted", delivery_work_created=False)
         return 0
     if outcome == "pivot":
-        result("/dr-do", TOKENS["pivot"], decision_ref=decision_ref)
+        result("/dr-do", TOKENS["pivot"], **lineage(decision_ref, latest_front), research_status="incomplete", delivery_work_created=False)
         return 0
     if outcome == "more-evidence":
-        result("/dr-do", TOKENS["more_evidence"], decision_ref=decision_ref, open_evidence=latest_data.get("uncertainty", []))
+        result("/dr-do", TOKENS["more_evidence"], **lineage(decision_ref, latest_front), research_status="incomplete", delivery_work_created=False, open_evidence=latest_data.get("uncertainty", []))
         return 0
     if outcome != "continue":
-        refuse("invalid_artifact", detail="unknown business_outcome", decision_ref=decision_ref)
+        refuse("invalid_artifact", **lineage(decision_ref, latest_front), detail="unknown business_outcome")
         return 0
     if not task_record.is_file() or task_record.is_symlink():
         refuse("authorization_missing", decision_ref=decision_ref)
@@ -160,48 +174,58 @@ def main():
     if not briefs:
         refuse("brief_missing", decision_ref=decision_ref, parent_acceptance_contract_sha256=parent_hash)
         return 0
-    brief_docs = [artifact(path) for path in briefs]
-    for index, (path, front, _) in enumerate(brief_docs):
-        if front.get("revision") != index + 1 or front.get("artifact_type") != "product-brief":
-            raise ValueError("ProductBrief revision does not match its canonical filename")
-        if index:
-            previous_raw, previous_front, _ = brief_docs[index - 1]
-            expected_supersedes = {"id": previous_front.get("id"), "revision": index, "digest": digest(previous_raw)}
-            if front.get("id") != previous_front.get("id") or front.get("supersedes") != expected_supersedes or previous_front.get("status") != "superseded":
-                raise ValueError("ProductBrief revisions do not form an exact supersedes chain")
+    brief_docs = validate_revision_chain(briefs, "product-brief")
     brief_raw, brief_front, brief_data = brief_docs[-1]
     brief_digest = digest(brief_raw)
     brief_ref = {"id": brief_front.get("id"), "revision": brief_front.get("revision"), "digest": brief_digest}
     if (brief_front.get("artifact_type") != "product-brief" or brief_front.get("status") != "ready_for_delivery"
             or brief_front.get("acceptance_state") != "accepted"):
-        refuse("brief_missing", decision_ref=decision_ref, product_brief_ref=brief_ref)
+        refuse("brief_missing", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref)
         return 0
-    if not any(ref == decision_ref for ref in brief_data.get("input_revisions", [])):
-        refuse("brief_mismatch", decision_ref=decision_ref, product_brief_ref=brief_ref)
+    inputs = brief_data.get("input_revisions", [])
+    if not any(ref == decision_ref for ref in inputs):
+        stale_input = any(isinstance(ref, dict) and ref.get("id") == decision_ref["id"]
+                          and type(ref.get("revision")) is int and ref["revision"] < decision_ref["revision"] for ref in inputs)
+        if stale_input:
+            result("/dr-do", TOKENS["superseded"], **lineage(decision_ref, latest_front), research_status="stale", delivery_work_created=False, product_brief_ref=brief_ref)
+        else:
+            refuse("brief_mismatch", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref)
+        return 0
+    check_rc, check_text = check_artifacts([latest_path, briefs[-1]], checker)
+    if check_rc:
+        refuse("invalid_artifact", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref, detail=check_text)
         return 0
     authority = latest_data.get("authority_to_act") or {}
     ids = [item.get("id") for item in advances if isinstance(item, dict)]
     matching = [item for item in advances if isinstance(item, dict) and item.get("status") == "authorized" and item.get("decision_ref") == decision_ref]
     if len(ids) != len(set(ids)) or len(matching) > 1:
-        refuse("authorization_mismatch", decision_ref=decision_ref, product_brief_ref=brief_ref)
+        refuse("authorization_mismatch", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref)
+        return 0
+    stale_advance = any(isinstance(item, dict) and item.get("status") == "authorized"
+                        and isinstance(item.get("decision_ref"), dict)
+                        and item["decision_ref"].get("id") == decision_ref["id"]
+                        and type(item["decision_ref"].get("revision")) is int
+                        and item["decision_ref"]["revision"] < decision_ref["revision"] for item in advances)
+    if not matching and stale_advance:
+        refuse("authorization_mismatch", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref)
         return 0
     if authority.get("status") != "granted" or not authority.get("authority_ref") or not matching:
-        refuse("authorization_missing", decision_ref=decision_ref, product_brief_ref=brief_ref, parent_acceptance_contract_sha256=parent_hash)
+        refuse("authorization_missing", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref, parent_acceptance_contract_sha256=parent_hash)
         return 0
     advance = matching[-1]
     required = {"id", "status", "decision_ref", "authorization_ref", "authorized_scope", "parent_acceptance_contract_sha256"}
     if set(advance) != required or not isinstance(advance.get("id"), str) or not advance["id"].strip():
-        refuse("authorization_mismatch", decision_ref=decision_ref, product_brief_ref=brief_ref)
+        refuse("authorization_mismatch", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref)
         return 0
     if (advance.get("authorization_ref") != authority.get("authority_ref")
             or advance.get("authorized_scope") != brief_data.get("scope")):
-        refuse("authorization_mismatch", decision_ref=decision_ref, product_brief_ref=brief_ref)
+        refuse("authorization_mismatch", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref)
         return 0
     if advance.get("parent_acceptance_contract_sha256") != parent_hash:
-        refuse("parent_mismatch", decision_ref=decision_ref, product_brief_ref=brief_ref,
+        refuse("parent_mismatch", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref,
                parent_acceptance_contract_sha256=parent_hash)
         return 0
-    result("/dr-prd", TOKENS["continue"], decision_ref=decision_ref, product_brief_ref=brief_ref,
+    result("/dr-prd", TOKENS["continue"], **lineage(decision_ref, latest_front), product_brief_ref=brief_ref,
            authorization_ref=advance["authorization_ref"], scope_advance_id=advance["id"],
            parent_acceptance_contract_sha256=parent_hash, requirements=brief_data.get("requirements", []))
     return 0
