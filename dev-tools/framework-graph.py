@@ -144,6 +144,15 @@ def plugin_template_mentions(text, templates):
             found.append(target)
     return sorted(found)
 
+def runtime_template_reference(target):
+    """Render a template node as an absolute path in the installed runtime."""
+    root='${DATARIM_RUNTIME:-$HOME/.claude}'
+    if target.startswith('plugins/'):
+        plugin, separator, relative = target[len('plugins/'):].partition('/templates/')
+        if separator:
+            return f'{root}/templates/{plugin}/{relative}'
+    return f'{root}/templates/{target}'
+
 def runtime_fragment_refs(text):
     """Map installed local skill paths back to their checked-in plugin assets."""
     refs = set()
@@ -378,8 +387,8 @@ def render(g):
             availability += ' and selecting the product-discovery profile'
         out.append(f"| `{package['id']}` | {package['default_state']} | {', '.join(package['categories']) or 'none'} | {len(package['assets'])} | {availability} |")
     out += ['', '## Template dependencies', '', '| Consumer | Template |', '|----------|----------|']
-    out += [f"| `{e['from']}` | `{e['to'][9:]}` |" for e in edges if e['relation']=='uses_template']
-    out += ['', '### Template assets', '', ', '.join(f'`{x}`' for x in inv['templates']), '']
+    out += [f"| `{e['from']}` | `{runtime_template_reference(e['to'][9:])}` |" for e in edges if e['relation']=='uses_template']
+    out += ['', '### Template assets', '', ', '.join(f'`{runtime_template_reference(x)}`' for x in inv['templates']), '']
     return '\n'.join(out)
 def render_cmd(g):
     cg=yaml.safe_load((ROOT/'dev-tools/command-graph.yaml').read_text())['commands']
