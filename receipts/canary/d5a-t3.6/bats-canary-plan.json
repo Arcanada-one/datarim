@@ -508,11 +508,11 @@
         },
         {
           "path": "/var/tmp/datarim-t36/subject/tests/dr-product-discovery-agent-fragments.bats",
-          "sha256": "ef58d38f666a2c57789f31b16fdcec7b2185eb335b00eb51022e761becee5cde"
+          "sha256": "00088ecf9ec94f4380f78f41b0f1592eee0cba5a3ee0c0282c09d57270aba086"
         },
         {
           "path": "/var/tmp/datarim-t36/subject/tests/helpers/product_discovery_agent_fragments.py",
-          "sha256": "0a3d2eb745bea00c4c647c2c96f73bfadc9dfd0a44000cd34c07e8b1f3afea0a"
+          "sha256": "d0fe02424d7025205bd7c4a2b212e807b2206894a9d6be7040edcfdf1ca0d887"
         },
         {
           "path": "/usr/bin/bash",
@@ -652,7 +652,7 @@
         },
         {
           "path": "/var/tmp/datarim-t36/subject/tests/framework-graph-consistency.bats",
-          "sha256": "2443b03f8a1c8aa4841a28b5181fb4b2d69e8ec570bd37a53dcd849173fe8375"
+          "sha256": "dc69b3cf578d35d6a203ab13ebebcb948026bff2b8b2e95b3ce971353c5719ef"
         }
       ],
       "expect": {
