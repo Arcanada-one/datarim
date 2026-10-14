@@ -9,6 +9,12 @@ FIXTURES="$BATS_TEST_DIRNAME/fixtures"
   [ -z "$output" ]
 }
 
+@test "KC boundary disclaimer is accepted" {
+  run "$CHECKER" --root "$FIXTURES/positive/complete" --bundle .
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "observed claim without raw ref emits only E_OBSERVED_RAW_REQUIRED" {
   run "$CHECKER" --root "$FIXTURES/negative/5-5" --bundle .
   [ "$status" -eq 1 ]

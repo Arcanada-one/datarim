@@ -32,7 +32,7 @@ teardown() { rm -rf "$TMPROOT"; }
 @test "nested bundle inventory installs by bytes and survives disable re-enable" {
   run "$PLUGIN_SH" enable "$TMPROOT/plugin"
   [ "$status" -eq 0 ]
-  [ "$(manifest_inventory_of "$TMPROOT/datarim/enabled-plugins.md" nested-fixture skills | sort)" = "demo-skill/SKILL.md
+  [ "$(manifest_inventory_of "$TMPROOT/datarim/enabled-plugins.md" nested-fixture skills | LC_ALL=C sort)" = "demo-skill/SKILL.md
 demo-skill/research.md" ]
   for rel in demo-skill/SKILL.md demo-skill/research.md; do
     [ "$(sha256sum "$TMPROOT/.datarim-runtime/local/skills/nested-fixture/$rel" | cut -d' ' -f1)" = "$(sha256sum "$TMPROOT/plugin/skills/$rel" | cut -d' ' -f1)" ]
@@ -51,6 +51,23 @@ demo-skill/research.md" ]
   for rel in demo-skill/SKILL.md demo-skill/research.md; do
     [ "$(sha256sum "$TMPROOT/.datarim-runtime/local/skills/nested-fixture/$rel" | cut -d' ' -f1)" = "$(sha256sum "$TMPROOT/plugin/skills/$rel" | cut -d' ' -f1)" ]
   done
+}
+
+@test "unextended installer negative control flags a silent empty inventory" {
+  baseline="fa5c9c2bfdfe267d9848ffb0ed0efed9f77bbe87"
+  legacy="$TMPROOT/unextended"
+  mkdir -p "$legacy/scripts/lib"
+  git -C "$BATS_TEST_DIRNAME/.." show "$baseline:scripts/dr-plugin.sh" > "$legacy/scripts/dr-plugin.sh"
+  git -C "$BATS_TEST_DIRNAME/.." show "$baseline:scripts/lib/plugin-system.sh" > "$legacy/scripts/lib/plugin-system.sh"
+  git -C "$BATS_TEST_DIRNAME/.." show "$baseline:scripts/project_scope.py" > "$legacy/scripts/project_scope.py"
+  chmod +x "$legacy/scripts/dr-plugin.sh"
+  run env DR_PLUGIN_WORKSPACE="$TMPROOT" "$legacy/scripts/dr-plugin.sh" enable "$TMPROOT/plugin"
+  [ "$status" -eq 0 ]
+  [ -z "$(manifest_inventory_of "$TMPROOT/datarim/enabled-plugins.md" nested-fixture skills)" ]
+  # The negative-control assertion makes the legacy false-success visible to CI.
+  run bash -c 'if [ "$1" -eq 0 ] && [ -z "$2" ]; then echo "E_PLUGIN_NESTED_UNSUPPORTED: unextended installer reported success with empty inventory"; exit 1; fi' _ "$status" "$(manifest_inventory_of "$TMPROOT/datarim/enabled-plugins.md" nested-fixture skills)"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"E_PLUGIN_NESTED_UNSUPPORTED"* ]]
 }
 
 @test "nested bundle install rolls back after manifest fault injection" {

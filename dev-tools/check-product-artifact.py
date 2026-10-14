@@ -77,7 +77,9 @@ class Checker:
   data=self.safe_yaml(dm.group(1),rel)
   if fm is None or data is None: return
   doc={'path':rel,'bytes':raw,'front':fm,'data':data}
-  if re.search(r'(?i)(?:official\s+)?knowledge contract|kc_contract|contract_authority', text): self.add(rel,'E_KC_SELF_LABEL')
+  # Refuse affirmative claims of KC authority; ordinary boundary disclaimers
+  # such as "this is not a Knowledge Contract" are valid product prose.
+  if re.search(r'(?i)\b(?:this|the artifact|the pack)\s+(?:is|constitutes?)\s+(?:an?\s+)?(?:official\s+)?knowledge contract\b|\b(?:kc_contract|contract_authority)\b', text): self.add(rel,'E_KC_SELF_LABEL')
   self.docs.append(doc)
   aid=fm.get('id'); rev=fm.get('revision')
   if isinstance(aid,str):
