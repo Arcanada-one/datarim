@@ -1,9 +1,9 @@
 {
-  "schema": "VerifyProfile/v1",
   "auto": true,
   "deployables": {},
+  "schema": "VerifyProfile/v1",
   "shell_fixture_tap": {
-    "code_unit:tests/d5a-t3-5-research-decision-routing.bats": "receipts/canary/DEV-T3.5/route.tap.log",
-    "code_unit:plugins/product-discovery/tests/product-artifact.bats": "receipts/canary/DEV-T3.5/product.tap.log"
+    "code_unit:tests/d5a-t3-5-research-decision-routing.bats": "receipts/graph/DEV-T3.5/route.tap.log",
+    "code_unit:plugins/product-discovery/tests/product-artifact.bats": "receipts/graph/DEV-T3.5/product.tap.log"
   }
 }

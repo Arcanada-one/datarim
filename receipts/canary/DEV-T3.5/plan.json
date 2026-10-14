@@ -1,5 +1,5 @@
 {
-  "environment": "arcana-devs-test",
+  "environment": "neutral-process-canary",
   "id": "decision-routing-and-files-bats",
   "owner": "implementation_lane",
   "producer_repository": "/var/tmp/datarim-t35/subject",
@@ -12,7 +12,8 @@
       "capture_limit_bytes": 1048576,
       "cwd": ".",
       "entities": [
-        "code_unit:tests/d5a-t3-5-research-decision-routing.bats"
+        "code_unit:tests/d5a-t3-5-research-decision-routing.bats",
+        "code_unit:tests/product-decision-routing.py"
       ],
       "env_keys": [
         "D5A_TEST_ROOT"
@@ -1839,7 +1840,7 @@
     "commit": "ba2eda28aefe55716cb249efebecfbb4351554de",
     "evidence": {
       "path": "source.json",
-      "sha256": "72df8fa01abe2408bf526a0b5ad8ca7879ab07c78af18471235a7801f6585624",
+      "sha256": "2f0d40b5ecd6328d4528bb9470bc2c41aac84ab2b3398556a523dbcb5c8e971d",
       "source_field": "commit"
     },
     "schema": "GitCanarySubject/v1",
