@@ -10,6 +10,8 @@ From a project with Datarim installed, run `scripts/dr-plugin.sh enable /absolut
 
 Research work stays in the existing `do` stage. A bounded research result is accepted through the task's existing acceptance criteria and evidence bundle, with a distinct `qa` review; L3/L4 routes retain applicable `compliance` and `archive` gates. A product brief can be a delivery input only after an accepted DecisionRecord and an explicit scope advance in the authoritative task record. `stop` closes only through the existing archive gate, and `more-evidence` remains open until its acceptance criteria are revised through the existing return-to-source path. No additional stage or lifecycle is introduced.
 
+The merged T1.1, T2.1, T2.3, and T3.3 contracts do not specify a canonical runtime storage path for the latest DecisionRecord or the scope-advance record. This PR proposes, pending reviewer confirmation, immutable revisions at `datarim/insights/decisions/{TASK-ID}/decision-r{revision}.md` and an exact `authorization_ref` plus authorized scope in the existing authoritative task record. Until confirmed, consumers must fail closed when the source or latest revision is missing or ambiguous; a snapshot is a replay projection, not authority.
+
 ## Structural checker
 
 Run `dev-tools/check-product-artifact.sh --root <bundle-root> --artifact <file>` for one artifact or `--root <bundle-root> --bundle <directory>` for cross-reference checks. Exit 0 means the declared structure and local references pass; exit 1 means an invalid artifact; exit 2 means invocation or runtime failure. Passing does not establish that claims are true or that their sources are adequate.

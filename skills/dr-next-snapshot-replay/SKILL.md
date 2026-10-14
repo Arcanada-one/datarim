@@ -77,6 +77,10 @@ The heuristic picks `/dr-archive`. Rationale: per `cta-format.md` § Authoring R
 
 ## Implementation outline
 
+### Research projection revalidation
+
+A research projection in the snapshot body is context, not authority. Before following its CTA, reread the authoritative task acceptance/evidence records, establish the latest DecisionRecord revision and digest (including the `supersedes` chain), validate the accepted ProductBrief's exact input revisions, and verify any `authorization_ref` and authorized scope in the authoritative task record. If the source or latest revision cannot be established, treat the projection as stale and route to `/dr-do` or `/dr-status`; never advance based on snapshot fields alone. Preserve the parent acceptance contract and lineage when emitting the replay prompt.
+
 ```
 1. Resolve TASK-ID per Task Resolution Rule.
 2. snapshot_path = "$REPO_ROOT/datarim/snapshots/${TASK_ID}.snapshot.md"

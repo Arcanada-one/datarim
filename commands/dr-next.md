@@ -25,7 +25,7 @@ Continue from where you left off.
 Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library.
 
 2. **TASK RESOLUTION**: Apply Task Resolution Rule from `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps. If >1 active tasks, show all with their current phase and ask which to resume.
-2.5. **SNAPSHOT-FIRST READ**: Before reading any other state, probe `datarim/snapshots/{TASK-ID}.snapshot.md`. If `"${DATARIM_RUNTIME:?}/dev-tools/check-stage-snapshot-on-exit.sh" --validate-frontmatter --task {TASK-ID}` exits 0 — read the snapshot as primary context and emit the replay-prompt per `${DATARIM_RUNTIME:?}/skills/dr-next-snapshot-replay/SKILL.md` § Replay-prompt template (recommended CTA + autonomy reminder with resolved language preferences + `done before:` + snapshot body). STOP the downstream Read pipeline — primary context is the snapshot. If the validator returns non-zero (missing or malformed) — silently fall through to Step 3 with no warning lines (V-AC-7).
+2.5. **SNAPSHOT-FIRST READ**: Before reading any other state, probe `datarim/snapshots/{TASK-ID}.snapshot.md`. If `"${DATARIM_RUNTIME:?}/dev-tools/check-stage-snapshot-on-exit.sh" --validate-frontmatter --task {TASK-ID}` exits 0 — read the snapshot as primary context and emit the replay-prompt per `${DATARIM_RUNTIME:?}/skills/dr-next-snapshot-replay/SKILL.md` § Replay-prompt template (recommended CTA + autonomy reminder with resolved language preferences + `done before:` + snapshot body). STOP the downstream Read pipeline — primary context is the snapshot. If the validator returns non-zero (missing or malformed) — silently fall through to Step 3 with no warning lines (V-AC-7). For a research projection in the snapshot body, treat `research_result`, `business_outcome`, and `delivery_authorized` as replay context, not authority; before following any research CTA, revalidate the task acceptance/evidence contract, latest DecisionRecord revision and digest, ProductBrief input revisions, and exact scope-advance `authorization_ref` against the authoritative task record. Revalidate `stop`→`/dr-archive`, `continue`+fully authorized→`/dr-prd`, continue without authorization→`/dr-status`, `pivot`/`more-evidence`/rejected/stale→`/dr-do`; do not infer authority from a CTA or snapshot.
 3. Read current state for the resolved task
 4. Determine phase (INIT/PLAN/DESIGN/DO/REFLECT)
 5. Show context summary
@@ -48,6 +48,7 @@ Depends on current phase
 - In PLAN → continue planning
 - In DO → continue implementation
 - Ready for ARCHIVE → suggest `/dr-archive`
+- For product-discovery research, revalidate the snapshot's outcome projection before routing: accepted stop → `/dr-archive`; accepted continue with current DecisionRecord + accepted ProductBrief + explicit scope authorization → `/dr-prd`; continue without authorization → `/dr-status`; pivot/more-evidence/rejected/stale → `/dr-do`. Snapshots are context, not authority; preserve the existing task acceptance contract.
 
 ## Next Steps (CTA)
 

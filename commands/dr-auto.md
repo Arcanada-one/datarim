@@ -143,6 +143,10 @@ violations. Other operational actions ask only when the resolved
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
+### Product-discovery research outcome routing
+
+For a task with the persisted `profile: product-discovery` selector, `/dr-auto` keeps research in the existing `do` stage and projects the latest accepted evidence and DecisionRecord state; it introduces no stage or lifecycle. Apply the T1.2 research outcome contract: `submitted` routes to existing QA; `accepted` plus `business_outcome: stop` routes to existing archive only (this command does not run `/dr-archive`); accepted `continue` routes to `/dr-prd` only after current DecisionRecord, accepted ProductBrief with exact input revisions, and explicit task-record scope authorization are independently revalidated; continue without authorization routes to `/dr-status`; `pivot` uses existing return-to-source within `/dr-do`; `more-evidence` stays incomplete in `/dr-do` with named open cases; rejected, stale, superseded, or unverifiable decision state stays in `/dr-do`. A snapshot or DecisionRecord never grants delivery authority, and parent acceptance criteria remain unchanged.
+
 At the terminal cleanup step (step 9 above), after emitting the CTA block, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
 
 - `stage`: `auto`
