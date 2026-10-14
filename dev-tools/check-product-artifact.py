@@ -48,12 +48,16 @@ class Checker:
  def __init__(self, root): self.root=root.resolve(); self.diags=[]; self.docs=[]; self.byid={}; self.sources=[]
  def add(self,path,code): self.diags.append((str(path),code))
  def safe_yaml(self,text,path):
+  loader=None
   try:
-   value=yaml.load(text,Loader=UniqueLoader)
+   loader=UniqueLoader(text)
+   value=loader.get_single_data()
    if not isinstance(value,dict): raise ValueError('mapping required')
    return value
   except Exception as exc:
    self.add(path,'E_YAML_INVALID'); return None
+  finally:
+   if loader is not None: loader.dispose()
  def parse(self,path):
   rel=path.relative_to(self.root).as_posix()
   try: raw=path.read_bytes()
