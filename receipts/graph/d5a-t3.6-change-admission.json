@@ -5,7 +5,7 @@
   "superseded_self_rule": "DEC-AUP-0035: the entity a receipt can never verify is the PREVIOUS VERSION OF ITSELF. When a receipt is re-issued at the same path for the same work item — the ordinary case after a rebase or a second commit on a card — the copy of it standing in the tree is superseded by construction: this run is the measurement that replaces it, so the only verdict it could carry is I14 `not_measured` about a document that no longer exists at that path once the run finishes. It is excluded with the work item and the output path that identify it, both re-derived from Git by impact_pair.receipt_problems, never asserted.",
   "verdict": "admitted_with_exemptions"
  },
- "captured_at_utc": "2026-10-14T10:59:16Z",
+ "captured_at_utc": "2026-10-14T11:26:56Z",
  "change_set": {
   "base": "0cff73dfb5110c95e5aad800216bcbc4d92dd4f5",
   "files": [
@@ -133,7 +133,7 @@
     "status": "A"
    }
   ],
-  "head": "7b3fe5cdc4cec8560220d40fdf9f40a072f34835",
+  "head": "c965a53a64e5e1640aa9b8e5dc8fba2eee4175a6",
   "mode": "diff"
  },
  "decision_ref": "DEC-AUP-0008",
@@ -262,24 +262,24 @@
    "entity": "code_unit:tests/dr-product-discovery-agent-fragments.bats",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "Arcanada",
-   "reason": "The source-bound canary exists and measured this code unit: receipts/canary/d5a-t3.6/canary-result.json SHA256=1a0c2a32319bac98bbe86cce191bee9d99a5f2d77eb823e640c35061381544a7; it records process exit 0 and complete TAP stdout (sha256:90ca1a767b5f0268112bf24e2d7d9b63f48055c53a4c94194bae7aad48fa4c71, 350 bytes), with complete 5/5 inventory in receipts/graph/d5a-t3.6-bats.log (SHA256=90ca1a767b5f0268112bf24e2d7d9b63f48055c53a4c94194bae7aad48fa4c71). The canary source commit is c9f001d7c30cc4b4f5b8cd14683d978f795f458b; its execution inventory uses a neutral /var/tmp root to avoid personal host paths. Canonical program-main verifier issue 14ec7543-b540-4e08-b295-72ef3d7a19f1 (owner DEV-NATIVE-VERIFIERS) leaves the graph verdict not_measured because it compares the raw 64-hex process observation digest with a sha256:-prefixed helper digest. This exemption records that admission-consumer defect and does not substitute for the committed canary. reverse_if: issue 14ec7543 merges; then re-issue the CAR."
+   "reason": "The source-bound canary exists and measured the product-fragment suite plus the framework-map suite: receipts/canary/d5a-t3.6/canary-result.json SHA256=b7a92f3c61f8145bf2d4e50ea0185a38ae280dd2be67d35ce435b315d666d65b; it records process exit 0 and complete 8/8 TAP stdout (sha256:980f237caca45a3db0c265d4b042d3a881d0b472305d8858331d8b68d5a57fa3, 487 bytes), with the complete inventory in receipts/graph/d5a-t3.6-bats.log (SHA256=980f237caca45a3db0c265d4b042d3a881d0b472305d8858331d8b68d5a57fa3). The canary source commit is d16a1ae356074ec158295765bfa6cdb3b8a27b21; its execution inventory uses a neutral /var/tmp root to avoid personal host paths. Canonical program-main verifier issue 14ec7543-b540-4e08-b295-72ef3d7a19f1 (owner DEV-NATIVE-VERIFIERS) leaves the original code-unit verdict not_measured because it compares the raw 64-hex process observation digest with a sha256:-prefixed helper digest. This exemption records that admission-consumer defect and does not substitute for the committed canary. reverse_if: issue 14ec7543 merges; then re-issue the CAR."
   }
  ],
  "graph": {
   "builder_version": "1.0.6",
   "built_at_utc": "2026-09-05T00:00:00Z",
   "graph_digest": "sha256:929020c4b5cb9589e01ace8fd449d0cd355c0b1911bac57658280e55282a58b6",
-  "path": "/var/tmp/datarim-t36/out/verifier-out-v2/graph-0cff73dfb511.json",
+  "path": "/var/tmp/datarim-t36/out/verifier-out-r4/graph-0cff73dfb511.json",
   "source_commit": "0cff73dfb5110c95e5aad800216bcbc4d92dd4f5"
  },
  "head_graph": {
   "builder_version": "1.0.6",
   "built_at_utc": "2026-09-05T00:00:00Z",
-  "graph_digest": "sha256:04cd1ca53e8b45206852307b192adaff9d508bade548ff7042a5172a6fda0402",
-  "path": "/var/tmp/datarim-t36/out/verifier-out-v2/graph-head-7b3fe5cdc4ce.json",
-  "source_commit": "7b3fe5cdc4cec8560220d40fdf9f40a072f34835",
+  "graph_digest": "sha256:9f6d6d38cbde38a9832d2be5507264285773be7488120c5d8e27cadde058339a",
+  "path": "/var/tmp/datarim-t36/out/verifier-out-r4/graph-head-c965a53a64e5.json",
+  "source_commit": "c965a53a64e5e1640aa9b8e5dc8fba2eee4175a6",
   "staleness": {
-   "checked_at_utc": "2026-10-14T11:00:43Z",
+   "checked_at_utc": "2026-10-14T11:27:59Z",
    "checked_nodes": 1298,
    "method": "manifest.dirty must be false; manifest.source_commit == change_set.head; working tree must be clean (a receipt in diff mode describes committed history only); content_hash of every whole-file node (code_unit, document, receipt; deployable_unit via its package.json) must equal the sha256 of the file bytes at head (git objects); contract/route/data_model hashes are extractor-owned (declaration text) and not recomputed",
    "mismatched_nodes": [],
@@ -288,7 +288,7 @@
  },
  "host": "datarim-t36-neutral",
  "host_redacted": true,
- "host_sha256": "d8e05893c5b67a4ecb1d9816c8dca48d90d0a656504a6fa5ef7946c38054e646",
+ "host_sha256": "36d8f35b7e81257b6ae6e5e909787deb2169bd22c8cd26dfdb4965ecb862e077",
  "impact_set": {
   "deterministic_core": [
    {
@@ -3928,7 +3928,7 @@
   "tool": "tools/graph/verify.py",
   "version": "1.4.1"
  },
- "receipt_id": "car-verify-20261014T105916Z-7b3fe5cd",
+ "receipt_id": "car-verify-20261014T112656Z-c965a53a",
  "receipt_path": "receipts/graph/d5a-t3.6-change-admission.json",
  "repo": {
   "name": "d5a-t3.6/datarim",
@@ -4179,7 +4179,7 @@
  },
  "schema": "ChangeAdmissionReceipt/v1",
  "staleness": {
-  "checked_at_utc": "2026-10-14T11:00:43Z",
+  "checked_at_utc": "2026-10-14T11:27:59Z",
   "method": "manifest.dirty must be false; manifest.source_commit == change_set.base; working tree must be clean (a receipt in diff mode describes committed history only); content_hash of every whole-file node (code_unit, document, receipt; deployable_unit via its package.json) must equal the sha256 of the file bytes at base (git objects); contract/route/data_model hashes are extractor-owned (declaration text) and not recomputed",
   "mismatched_nodes": [],
   "verdict": "fresh"
@@ -4199,7 +4199,7 @@
   {
    "content_hash": {
     "base": null,
-    "head": "sha256:3c0d122bbd8692db8299a2a2d5e4bf367d7adb7c68da4136e60da4b280533be8"
+    "head": "sha256:01953d2f6815ade25f6a65cad59230a5728115ce6f2654a9feeb619c23f18dcc"
    },
    "entity": "receipt:receipts/graph/d5a-t3.6-change-admission.json",
    "node_type": "receipt",
@@ -4213,7 +4213,7 @@
   }
  ],
  "tree": {
-  "commit": "7b3fe5cdc4cec8560220d40fdf9f40a072f34835",
+  "commit": "c965a53a64e5e1640aa9b8e5dc8fba2eee4175a6",
   "dirty": false
  },
  "verdicts": [
@@ -4380,7 +4380,7 @@
   },
   {
    "entity": "code_unit:tests/dr-product-discovery-agent-fragments.bats",
-   "reason": "v-shell-syntax-0f5495a8ed67f1df: shell syntax/closure: not_measured; v-shell-behavior-0f5495a8ed67f1df: BATS_EXECUTION_MEMBERSHIP_NOT_MEASURED: full non-skipped TAP inventory required",
+   "reason": "v-shell-syntax-0f5495a8ed67f1df: shell syntax/closure: not_measured; v-shell-behavior-0f5495a8ed67f1df: SHELL_BEHAVIOR_NOT_MEASURED: no exact committed native process fixture row",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -5280,8 +5280,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-152a40343efd93ad",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-152a40343efd93ad.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-152a40343efd93ad.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job customer-delivery-aggregate step 1: line 1: dynamic load/substitution; job customer-delivery-aggregate step 2: local action/checkout path scope unresolved; job customer-delivery-aggregate step 3: local action/checkout path scope unresolved; job customer-delivery-aggregate step 4: line 2: multiline/opaque shell statement; job customer-delivery-aggregate step 4: line 3: wrapper options/child command unresolved; job customer-delivery-aggregate step 4: line 5: multiline/opaque shell statement; job customer-delivery-aggregate step 4: line 6: wrapper options/child command unresolved; job customer-delivery-linux step 1: line 1: dynamic load/substitution; job customer-delivery-linux step 2: line 5: multiline/opaque shell statement; job customer-delivery-linux step 2: line 6: multiline/opaque shell statement; job customer-delivery-linux step 2: line 7: wrapper options/child command unresolved; job customer-delivery-linux step 4: line 5: multiline/opaque shell statement; job customer-delivery-linux step 4: line 6: multiline/opaque shell statement; job customer-delivery-linux step 4: line 7: multiline/opaque shell statement; job customer-delivery-linux step 4: line 8: multiline/opaque shell statement; job customer-delivery-linux step 4: line 9: wrapper options/child command unresolved; job customer-delivery-linux step 5: local action/checkout path scope unresolved; job customer-delivery-macos step 1: line 1: dynamic load/substitution; job customer-delivery-macos step 3: line 2: multiline/opaque shell statement; job customer-delivery-macos step 3: line 3: multiline/opaque shell statement; job customer-delivery-macos step 3: line 6: dynamic load/substitution; job customer-delivery-macos step 3: line 6: unsupported loader/interpreter options; job customer-delivery-macos step 3: line 8: multiline/opaque shell statement; job customer-delivery-macos step 3: line 9: wrapper options/child command unresolved; job customer-delivery-macos step 5: line 10: wrapper options/child command unresolved; job customer-delivery-macos step 5: line 5: multiline/opaque shell statement; job customer-delivery-macos step 5: line 6: multiline/opaque shell statement; job customer-delivery-macos step 5: line 7: multiline/opaque shell statement; job customer-delivery-macos step 5: line 8: multiline/opaque shell statement; job customer-delivery-macos step 5: line 9: multiline/opaque shell statement; job customer-delivery-macos step 6: local action/checkout path scope unresolved; job jev-and-project-runtime step 1: line 1: dynamic load/substitution; job jev-and-project-runtime step 3: line 10: wrapper options/child command unresolved; job jev-and-project-runtime step 3: line 9: multiline/opaque shell statement; job jev-and-project-runtime step 5: line 3: dynamic command/alias/eval; job jev-and-project-runtime step 5: line 5: dynamic command/alias/eval; job macos-portability step 2: line 2: multiline/opaque shell statement; job macos-portability step 2: line 3: multiline/opaque shell statement; job macos-portability step 2: line 6: dynamic load/substitution; job macos-portability step 2: line 6: unsupported loader/interpreter options; job macos-portability step 2: line 8: multiline/opaque shell statement; job macos-portability step 2: line 9: wrapper options/child command unresolved; job macos-portability step 5: line 10: multiline/opaque shell statement; job macos-portability step 5: line 11: multiline/opaque shell statement; job macos-portability step 5: line 12: multiline/opaque shell statement; job macos-portability step 5: line 13: multiline/opaque shell statement; job macos-portability step 5: line 4: multiline/opaque shell statement; job macos-portability step 5: line 5: multiline/opaque shell statement; job macos-portability step 5: line 6: multiline/opaque shell statement; job macos-portability step 5: line 7: multiline/opaque shell statement; job macos-portability step 5: line 8: multiline/opaque shell statement; job macos-portability step 5: line 9: multiline/opaque shell statement; job registry step 1: line 1: dynamic load/substitution; job registry step 4: line 2: dynamic load/substitution; job registry step 4: line 3: dynamic load/substitution; job registry step 5: line 13: dynamic load/substitution; job registry step 5: line 2: dynamic load/substitution; job registry step 5: line 3: dynamic load/substitution; job suites step 1: line 5: multiline/opaque shell statement; job suites step 1: line 6: multiline/opaque shell statement; job suites step 1: line 7: wrapper options/child command unresolved"
   },
   {
@@ -5296,8 +5296,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-5ff5fa17404fc7d3",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-5ff5fa17404fc7d3.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-5ff5fa17404fc7d3.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job bats-self-tests step 1: line 1: wrapper execution scope/options unresolved; job dr-auto-reassert-wiring step 2: line 1: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 2: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 3: multiline/opaque shell statement; job linter-run step 1: line 1: multiline/opaque shell statement; job linter-run step 1: line 2: multiline/opaque shell statement; job linter-run step 1: line 3: multiline/opaque shell statement; job linter-run step 1: line 4: wrapper options/child command unresolved; job linter-run step 2: line 1: multiline/opaque shell statement; job linter-run step 2: line 2: multiline/opaque shell statement; job linter-run step 2: line 3: multiline/opaque shell statement; job linter-run step 2: line 4: multiline/opaque shell statement"
   },
   {
@@ -5312,8 +5312,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-85b0e5f19e1ca680",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-85b0e5f19e1ca680.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-85b0e5f19e1ca680.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job schemathesis step 2: line 1: wrapper execution scope/options unresolved; job schemathesis step 3: line 11: dynamic load/substitution; job schemathesis step 3: line 7: multiline/opaque shell statement; job schemathesis step 4: line 1: multiline/opaque shell statement; job schemathesis step 4: line 2: multiline/opaque shell statement; job schemathesis step 4: line 3: wrapper options/child command unresolved"
   },
   {
@@ -5328,8 +5328,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-6c171afc799257da",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-6c171afc799257da.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-6c171afc799257da.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job archive-landing step 1: line 2: wrapper execution scope/options unresolved"
   },
   {
@@ -5344,8 +5344,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-ac18f02b39b4d139",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-ac18f02b39b4d139.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-ac18f02b39b4d139.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job self-tests step 1: line 1: wrapper execution scope/options unresolved"
   },
   {
@@ -5360,8 +5360,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-09c562dacfcf9489",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-09c562dacfcf9489.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-09c562dacfcf9489.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job registry-sync-check step 1: line 1: multiline/opaque shell statement"
   },
   {
@@ -5376,8 +5376,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-6e4f603fa997f347",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-6e4f603fa997f347.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-6e4f603fa997f347.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job lint step 0: line 2: dynamic command/alias/eval; job lint step 2: local action/checkout path scope unresolved; job lint step 3: line 4: multiline/opaque shell statement; job lint step 3: line 6: multiline/opaque shell statement; job lint step 3: line 7: multiline/opaque shell statement; job lint step 3: line 8: dynamic command/alias/eval; job lint step 4: line 8: missing/ambiguous literal helper ./.datarim/dev-tools/network-exposure-check.sh"
   },
   {
@@ -5392,8 +5392,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-71ec1c1168844989",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-71ec1c1168844989.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-71ec1c1168844989.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job node-test step 2: line 11: multiline/opaque shell statement; job node-test step 2: line 12: multiline/opaque shell statement; job node-test step 2: line 13: multiline/opaque shell statement; job node-test step 2: line 14: dynamic command/alias/eval; job node-test step 2: line 3: multiline/opaque shell statement; job node-test step 2: line 4: dynamic load/substitution"
   },
   {
@@ -5408,8 +5408,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-07b8843df453ad3f",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-07b8843df453ad3f.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-07b8843df453ad3f.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job personal-id-lint step 1: line 7: dynamic load/substitution"
   },
   {
@@ -5424,8 +5424,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-73a331778caeec7d",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-73a331778caeec7d.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-73a331778caeec7d.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job lint step 1: local action/checkout path scope unresolved; job lint step 3: line 5: missing/ambiguous literal helper ./.datarim/dev-tools/public-surface-lint.sh"
   },
   {
@@ -5440,8 +5440,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-87db21a973eed4fe",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-87db21a973eed4fe.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-87db21a973eed4fe.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job classify step 1: line 11: dynamic load/substitution; job classify step 1: line 14: dynamic load/substitution; job classify step 1: line 35: dynamic command/alias/eval; job classify step 1: line 36: dynamic command/alias/eval; job classify step 1: line 38: multiline/opaque shell statement; job classify step 1: line 39: multiline/opaque shell statement; job classify step 1: line 42: dynamic load/substitution; job classify step 1: line 60: dynamic load/substitution; job classify step 1: line 9: dynamic load/substitution; job classify step 2: line 1: multiline/opaque shell statement; job classify step 2: line 2: wrapper options/child command unresolved; job release step 0: line 8: dynamic command/alias/eval; job release step 2: line 2: dynamic load/substitution; job release step 3: line 4: wrapper execution scope/options unresolved; job release step 4: line 6: wrapper execution scope/options unresolved"
   },
   {
@@ -5456,8 +5456,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-ed61203228de3f00",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-ed61203228de3f00.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-ed61203228de3f00.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job audit step 1: local action/checkout path scope unresolved; job audit step 2: line 2: missing/ambiguous literal helper ./.datarim/dev-tools/check-security-policy.sh; job audit step 3: line 3: multiline/opaque shell statement; job audit step 3: line 4: wrapper options/child command unresolved; job audit step 6: line 3: dynamic load/substitution; job audit step 6: line 7: multiline/opaque shell statement; job audit step 7: line 20: dynamic load/substitution; job audit step 8: line 43: multiline/opaque shell statement; job audit step 8: line 44: wrapper options/child command unresolved"
   },
   {
@@ -5472,8 +5472,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-64f89239b966dac9",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-64f89239b966dac9.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-64f89239b966dac9.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job diff step 1: line 4: wrapper options/child command unresolved"
   },
   {
@@ -5488,8 +5488,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-2e3112f4e81a9c47",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-2e3112f4e81a9c47.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-2e3112f4e81a9c47.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow configuration not measured: trigger outside this bounded checker: branch_protection_rule"
   },
   {
@@ -5504,8 +5504,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-552822c6dbc3fece",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-552822c6dbc3fece.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-552822c6dbc3fece.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job scan step 1: line 3: multiline/opaque shell statement; job scan step 1: line 5: wrapper execution scope/options unresolved; job scan step 3: line 10: dynamic load/substitution; job scan step 3: line 14: dynamic load/substitution; job scan step 3: line 20: dynamic load/substitution; job scan step 3: line 21: dynamic load/substitution; job scan step 3: line 22: dynamic load/substitution; job scan step 3: line 23: dynamic load/substitution; job scan step 3: line 24: dynamic load/substitution; job scan step 3: line 25: dynamic load/substitution; job scan step 3: line 32: dynamic load/substitution; job scan step 3: line 38: multiline/opaque shell statement; job scan step 3: line 39: multiline/opaque shell statement; job scan step 3: line 40: multiline/opaque shell statement; job scan step 3: line 41: multiline/opaque shell statement; job scan step 3: line 42: multiline/opaque shell statement; job scan step 3: line 43: multiline/opaque shell statement; job scan step 3: line 44: multiline/opaque shell statement; job scan step 3: line 45: multiline/opaque shell statement; job scan step 3: line 46: dynamic command/alias/eval; job scan step 3: line 51: multiline/opaque shell statement; job scan step 3: line 52: multiline/opaque shell statement; job scan step 3: line 53: multiline/opaque shell statement; job scan step 3: line 54: multiline/opaque shell statement; job scan step 3: line 55: wrapper options/child command unresolved; job scan step 3: line 9: dynamic load/substitution"
   },
   {
@@ -5520,8 +5520,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-6102d4f2cddb56c4",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-6102d4f2cddb56c4.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-6102d4f2cddb56c4.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job actionlint step 1: directory transition has unresolved execution cwd; job actionlint step 1: line 8: wrapper execution scope/options unresolved; job bandit-extracted step 3: line 2: dynamic load/substitution; job doc-refs step 1: line 3: unsupported loader/interpreter options; job doc-refs step 1: line 6: multiline/opaque shell statement; job doc-refs step 1: line 8: wrapper execution scope/options unresolved; job doc-refs step 1: line 9: wrapper execution scope/options unresolved; job gitleaks step 1: line 10: wrapper execution scope/options unresolved; job gitleaks step 1: line 2: multiline/opaque shell statement; job gitleaks step 1: line 3: dynamic command/alias/eval; job gitleaks step 2: line 2: multiline/opaque shell statement; job gitleaks step 2: line 3: multiline/opaque shell statement; job gitleaks step 2: line 4: wrapper options/child command unresolved; job gitleaks step 3: local action/checkout path scope unresolved; job markdown-policy step 1: line 2: dynamic load/substitution; job markdown-policy step 1: line 9: multiline/opaque shell statement; job osv-scanner step 1: directory transition has unresolved execution cwd; job osv-scanner step 1: line 7: wrapper execution scope/options unresolved; job osv-scanner step 2: line 10: multiline/opaque shell statement; job osv-scanner step 2: line 11: multiline/opaque shell statement; job osv-scanner step 2: line 12: wrapper options/child command unresolved; job osv-scanner step 2: line 5: multiline/opaque shell statement; job osv-scanner step 2: line 6: multiline/opaque shell statement; job osv-scanner step 2: line 7: multiline/opaque shell statement; job osv-scanner step 2: line 8: multiline/opaque shell statement; job osv-scanner step 2: line 9: multiline/opaque shell statement; job regression-bats step 1: line 3: unsupported loader/interpreter options; job regression-bats step 1: line 6: multiline/opaque shell statement; job regression-bats step 1: line 8: wrapper execution scope/options unresolved; job regression-bats step 1: line 9: wrapper execution scope/options unresolved; job semgrep-sarif step 3: line 3: multiline/opaque shell statement; job semgrep-sarif step 3: line 4: multiline/opaque shell statement; job semgrep-sarif step 3: line 5: multiline/opaque shell statement; job semgrep-sarif step 3: line 6: unsupported loader/interpreter options; job shellcheck step 1: line 11: wrapper execution scope/options unresolved; job shellcheck step 1: line 12: wrapper execution scope/options unresolved; job shellcheck step 1: line 9: multiline/opaque shell statement; job shellcheck step 2: line 3: dynamic load/substitution; job shellcheck-extracted step 1: line 6: multiline/opaque shell statement; job shellcheck-extracted step 1: line 8: wrapper execution scope/options unresolved; job shellcheck-extracted step 1: line 9: wrapper execution scope/options unresolved; job shellcheck-extracted step 2: line 2: dynamic load/substitution; job shellcheck-extracted step 3: line 2: dynamic load/substitution; job task-id-gate step 1: line 3: unsupported loader/interpreter options; job task-id-gate step 1: line 6: multiline/opaque shell statement; job task-id-gate step 1: line 8: wrapper execution scope/options unresolved; job task-id-gate step 1: line 9: wrapper execution scope/options unresolved; job task-id-gate step 3: line 10: multiline/opaque shell statement; job task-id-gate step 3: line 11: multiline/opaque shell statement; job task-id-gate step 3: line 12: multiline/opaque shell statement; job task-id-gate step 3: line 2: multiline/opaque shell statement; job task-id-gate step 3: line 3: multiline/opaque shell statement; job task-id-gate step 3: line 4: multiline/opaque shell statement; job task-id-gate step 3: line 5: multiline/opaque shell statement; job task-id-gate step 3: line 6: multiline/opaque shell statement; job task-id-gate step 3: line 7: multiline/opaque shell statement; job task-id-gate step 3: line 8: multiline/opaque shell statement; job task-id-gate step 3: line 9: multiline/opaque shell statement; job trufflehog step 1: directory transition has unresolved execution cwd; job trufflehog step 1: line 8: wrapper execution scope/options unresolved"
   },
   {
@@ -5536,8 +5536,8 @@
    "exit_code": 1,
    "id": "v-workflow-config-fd7ca5e632c8dbe8",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-workflow-config-fd7ca5e632c8dbe8.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-workflow-config-fd7ca5e632c8dbe8.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "workflow shell caller closure not measured: job probe step 1: line 5: dynamic load/substitution; job probe step 2: line 3: multiline/opaque shell statement; job probe step 2: line 4: wrapper options/child command unresolved; job probe step 3: line 4: dynamic load/substitution; job probe step 4: line 10: dynamic command/alias/eval; job probe step 4: line 7: multiline/opaque shell statement; job probe step 4: line 8: multiline/opaque shell statement; job probe step 4: line 9: multiline/opaque shell statement"
   },
   {
@@ -5590,13 +5590,13 @@
    "exit_code": 0,
    "id": "v-fitness",
    "kind": "fitness_rules",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-fitness.json",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-fitness.json",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "0 finding(s): 0 new / 0 frozen; 0 entity(ies) failed"
   },
   {
    "command": "verify.py doc_reference: path / route / model references of affected documents resolve at head",
-   "duration_s": 0.19,
+   "duration_s": 0.15,
    "entities": [
     "document:AGENTS.md",
     "document:CHANGELOG.md",
@@ -5820,8 +5820,8 @@
    "exit_code": 0,
    "id": "v-doc-reference",
    "kind": "doc_reference",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-doc-reference.txt",
-   "started_at_utc": "2026-10-14T11:01:45Z",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-doc-reference.txt",
+   "started_at_utc": "2026-10-14T11:28:46Z",
    "summary": "108 document(s), 0 failed"
   },
   {
@@ -5836,9 +5836,9 @@
    "exit_code": 0,
    "id": "v-shell-syntax-0f5495a8ed67f1df",
    "kind": "shell_syntax",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-shell-syntax-0f5495a8ed67f1df.txt",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-shell-syntax-0f5495a8ed67f1df.txt",
    "scope": "shell_source_validation",
-   "started_at_utc": "2026-10-14T11:01:48Z",
+   "started_at_utc": "2026-10-14T11:28:47Z",
    "summary": "shell syntax/closure: not_measured"
   },
   {
@@ -5853,10 +5853,10 @@
    "exit_code": 0,
    "id": "v-shell-behavior-0f5495a8ed67f1df",
    "kind": "shell_behavior",
-   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-v2/v-shell-behavior-0f5495a8ed67f1df.txt",
+   "output_ref": "/var/tmp/datarim-t36/out/verifier-out-r4/v-shell-behavior-0f5495a8ed67f1df.txt",
    "scope": "shell_fixture_behavior",
-   "started_at_utc": "2026-10-14T11:01:48Z",
-   "summary": "BATS_EXECUTION_MEMBERSHIP_NOT_MEASURED: full non-skipped TAP inventory required"
+   "started_at_utc": "2026-10-14T11:28:47Z",
+   "summary": "SHELL_BEHAVIOR_NOT_MEASURED: no exact committed native process fixture row"
   }
  ],
  "verify": {
@@ -6281,9 +6281,9 @@
    "receipt:receipts/graph/d5a-t3.6-change-admission.json": []
   },
   "seconds": {
-   "prepare": 33.36,
-   "total": 151.91,
-   "verifiers": 0.2
+   "prepare": 23.89,
+   "total": 111.38,
+   "verifiers": 0.16
   }
  },
  "work_item": "D5A-T3.6"
