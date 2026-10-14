@@ -1,0 +1,3455 @@
+{
+ "admission": {
+  "rule": "admitted requires every verdict = verified; failed without exemption ⇒ refused; not_measured without exemption ⇒ paused_safe; exemptions (owner + expiry) are attached by the admitting agent, never by the verifier (DEC-AUP-0008, matrix P1/P4)",
+  "structural_exclusion_rule": "DEC-AUP-0034: an affected entity is NOT verdict-owing when all three hold — the verifier matrix declares neither a mandatory nor a selectable verifier for its node type (so the only verdict it could ever carry states a property of the MATRIX, not of this change), the change set does not contain it, and its bytes are identical at base and head. Each one is listed in structural_exclusions with the content hash at both revisions that proves the byte-identity, and impact_pair.receipt_problems re-derives that proof from Git rather than believing the receipt.",
+  "superseded_self_rule": "DEC-AUP-0035: the entity a receipt can never verify is the PREVIOUS VERSION OF ITSELF. When a receipt is re-issued at the same path for the same work item — the ordinary case after a rebase or a second commit on a card — the copy of it standing in the tree is superseded by construction: this run is the measurement that replaces it, so the only verdict it could carry is I14 `not_measured` about a document that no longer exists at that path once the run finishes. It is excluded with the work item and the output path that identify it, both re-derived from Git by impact_pair.receipt_problems, never asserted.",
+  "verdict": "admitted_with_exemptions"
+ },
+ "captured_at_utc": "2026-10-14T13:19:02Z",
+ "change_set": {
+  "base": "698c91c542edfeb826b12d38501e24304ed585b7",
+  "files": [
+   {
+    "kind": "other",
+    "node_id": "code_unit:dev-tools/framework-graph.py",
+    "node_ids": [
+     "code_unit:dev-tools/framework-graph.py"
+    ],
+    "path": "dev-tools/framework-graph.py",
+    "status": "M"
+   },
+   {
+    "kind": "config",
+    "path": "dev-tools/framework-graph.yaml",
+    "status": "M",
+    "uncovered": true
+   },
+   {
+    "kind": "doc",
+    "node_id": "document:documentation/explanation/framework-graph-and-skill-architecture.md",
+    "node_ids": [
+     "document:documentation/explanation/framework-graph-and-skill-architecture.md"
+    ],
+    "path": "documentation/explanation/framework-graph-and-skill-architecture.md",
+    "status": "M"
+   },
+   {
+    "kind": "receipt",
+    "new": true,
+    "path": "receipts/graph/D5A-T2.2/exemptions.json",
+    "status": "A"
+   },
+   {
+    "kind": "doc",
+    "node_id": "document:skills/visual-maps/framework-architecture.md",
+    "node_ids": [
+     "document:skills/visual-maps/framework-architecture.md"
+    ],
+    "path": "skills/visual-maps/framework-architecture.md",
+    "status": "M"
+   },
+   {
+    "kind": "test",
+    "node_id": "code_unit:tests/framework-graph-consistency.bats",
+    "node_ids": [
+     "code_unit:tests/framework-graph-consistency.bats"
+    ],
+    "path": "tests/framework-graph-consistency.bats",
+    "status": "M"
+   }
+  ],
+  "head": "aaab9140ff99ca0f3e28e8ab7ca47e359741ead7",
+  "mode": "diff"
+ },
+ "decision_ref": "DEC-AUP-0008",
+ "exemptions": [
+  {
+   "code": "v-workflow-config-152a40343efd93ad",
+   "entity": "code_unit:.github/workflows/bats.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-152a40343efd93ad: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-2fe48d1021006468",
+   "entity": "code_unit:.github/workflows/dependabot-auto-merge.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-2fe48d1021006468: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-5ff5fa17404fc7d3",
+   "entity": "code_unit:.github/workflows/dev-tools-lint.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-5ff5fa17404fc7d3: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-85b0e5f19e1ca680",
+   "entity": "code_unit:.github/workflows/dr-orchestrate-contract.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-85b0e5f19e1ca680: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-6c171afc799257da",
+   "entity": "code_unit:.github/workflows/framework-gates.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-6c171afc799257da: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-ac18f02b39b4d139",
+   "entity": "code_unit:.github/workflows/frontmatter-mirror.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-ac18f02b39b4d139: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-09c562dacfcf9489",
+   "entity": "code_unit:.github/workflows/gate-token-registry-sync.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-09c562dacfcf9489: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-6e4f603fa997f347",
+   "entity": "code_unit:.github/workflows/network-exposure-lint.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-6e4f603fa997f347: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-71ec1c1168844989",
+   "entity": "code_unit:.github/workflows/node-tests.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-71ec1c1168844989: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-07b8843df453ad3f",
+   "entity": "code_unit:.github/workflows/personal-id-lint.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-07b8843df453ad3f: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-73a331778caeec7d",
+   "entity": "code_unit:.github/workflows/public-surface-lint.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-73a331778caeec7d: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-87db21a973eed4fe",
+   "entity": "code_unit:.github/workflows/release.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-87db21a973eed4fe: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-ed61203228de3f00",
+   "entity": "code_unit:.github/workflows/reusable-security-audit.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-ed61203228de3f00: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-64f89239b966dac9",
+   "entity": "code_unit:.github/workflows/sanity-dual-copy.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-64f89239b966dac9: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-2e3112f4e81a9c47",
+   "entity": "code_unit:.github/workflows/scorecard.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-2e3112f4e81a9c47: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-552822c6dbc3fece",
+   "entity": "code_unit:.github/workflows/security-stale-trigger.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-552822c6dbc3fece: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-6102d4f2cddb56c4",
+   "entity": "code_unit:.github/workflows/security.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-6102d4f2cddb56c4: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-workflow-config-fd7ca5e632c8dbe8",
+   "entity": "code_unit:.github/workflows/token-health-probe.yml",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-workflow-config-fd7ca5e632c8dbe8: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  },
+  {
+   "code": "v-shell-behavior-3e1715bb660a1cbc",
+   "entity": "code_unit:tests/framework-graph-consistency.bats",
+   "expires_at_utc": "2026-10-28T23:59:59Z",
+   "owner": "D5A-T2.2",
+   "reason": "v-shell-syntax-3e1715bb660a1cbc: shell syntax/closure: not_measured; v-shell-behavior-3e1715bb660a1cbc: SHELL_DYNAMIC_CLOSURE_NOT_MEASURED: Bats conditional execution membership is not statically resolved; Bats run lacks an immediate unconditional child status assertion; line 107: heredoc data/generation closure not measured; line 10: heredoc data/generation closure not measured; line 120: heredoc data/generation closure not measured; line 13: heredoc data/generation closure not measured; line 149: heredoc data/generation closure not measured; line 169: heredoc data/generation closure not meas ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+  }
+ ],
+ "graph": {
+  "builder_version": "1.0.6",
+  "built_at_utc": "2026-09-05T00:00:00Z",
+  "graph_digest": "sha256:6b722c79106f5b965d4bb95bd6ad68f0e0bbf016366e4012a49e7f7c4e27729a",
+  "path": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/graph-698c91c542ed.json",
+  "source_commit": "698c91c542edfeb826b12d38501e24304ed585b7"
+ },
+ "head_graph": {
+  "builder_version": "1.0.6",
+  "built_at_utc": "2026-09-05T00:00:00Z",
+  "graph_digest": "sha256:8ea7c1de8f807d5f9b24329b24804fe4a9d4383f236c42486613c907ec4a2efa",
+  "path": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/graph-head-aaab9140ff99.json",
+  "source_commit": "aaab9140ff99ca0f3e28e8ab7ca47e359741ead7",
+  "staleness": {
+   "checked_at_utc": "2026-10-14T13:20:33Z",
+   "checked_nodes": 1311,
+   "method": "manifest.dirty must be false; manifest.source_commit == change_set.head; working tree must be clean (a receipt in diff mode describes committed history only); content_hash of every whole-file node (code_unit, document, receipt; deployable_unit via its package.json) must equal the sha256 of the file bytes at head (git objects); contract/route/data_model hashes are extractor-owned (declaration text) and not recomputed",
+   "mismatched_nodes": [],
+   "verdict": "fresh"
+  }
+ },
+ "host": "arcana-devs",
+ "impact_set": {
+  "deterministic_core": [
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:CHANGELOG.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:skills/visual-maps/command-dependencies.md",
+      "provenance": "deterministic",
+      "to": "code_unit:dev-tools/framework-graph.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:CHANGELOG.md",
+      "provenance": "deterministic",
+      "to": "document:skills/visual-maps/command-dependencies.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "document:FRAMEWORK-GRAPH-INTEGRATION.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:FRAMEWORK-GRAPH-INTEGRATION.md",
+      "provenance": "deterministic",
+      "to": "code_unit:dev-tools/framework-graph.py",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "document:documentation/explanation/product-discovery-pack-boundaries.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/explanation/product-discovery-pack-boundaries.md",
+      "provenance": "deterministic",
+      "to": "code_unit:dev-tools/framework-graph.py",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:skills/datarim-system/routing-invariants.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:skills/visual-maps/command-dependencies.md",
+      "provenance": "deterministic",
+      "to": "code_unit:dev-tools/framework-graph.py",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/datarim-system/routing-invariants.md",
+      "provenance": "deterministic",
+      "to": "document:skills/visual-maps/command-dependencies.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "document:skills/visual-maps/command-dependencies.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:skills/visual-maps/command-dependencies.md",
+      "provenance": "deterministic",
+      "to": "code_unit:dev-tools/framework-graph.py",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "receipt:receipts/graph/d5a-t3.6-change-admission.json",
+    "node_type": "receipt",
+    "path": [
+     {
+      "edge_type": "verifies",
+      "from": "receipt:receipts/graph/d5a-t3.6-change-admission.json",
+      "provenance": "deterministic",
+      "to": "code_unit:dev-tools/framework-graph.py",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "selectable: run the targeted test / re-read the receipt"
+   }
+  ],
+  "edge_types": "all",
+  "global_fallback": {
+   "triggered": false
+  },
+  "inferred_tail": [
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/bats.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/bats.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/dependabot-auto-merge.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dependabot-auto-merge.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/dev-tools-lint.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/dr-orchestrate-contract.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dr-orchestrate-contract.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/framework-gates.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/framework-gates.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/frontmatter-mirror.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/frontmatter-mirror.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/gate-token-registry-sync.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/gate-token-registry-sync.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/network-exposure-lint.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/network-exposure-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/node-tests.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/node-tests.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/personal-id-lint.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/personal-id-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/public-surface-lint.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/public-surface-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/release.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/release.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/reusable-security-audit.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/reusable-security-audit.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/sanity-dual-copy.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/sanity-dual-copy.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/scorecard.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/scorecard.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/security-stale-trigger.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/security-stale-trigger.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/security.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/security.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "code_unit:.github/workflows/token-health-probe.yml",
+    "node_type": "code_unit",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/token-health-probe.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:AGENTS.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/personal-id-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:AGENTS.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/personal-id-lint.yml",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:README.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/evolution-log.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:README.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/evolution-log.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:SECURITY.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/release.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/release-process.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/release.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:SECURITY.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/release-process.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:commands/dr-archive.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/evolution-log.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:commands/dr-archive.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/evolution-log.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:commands/dr-orchestrate.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/evolution-log.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:commands/dr-orchestrate.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/evolution-log.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:dev-tools/README.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:dev-tools/README.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:documentation/explanation/README.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/personal-id-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:AGENTS.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/personal-id-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/explanation/README.md",
+      "provenance": "deterministic",
+      "to": "document:AGENTS.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:documentation/explanation/pipeline.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/bats.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/evolution/SKILL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/bats.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/explanation/pipeline.md",
+      "provenance": "deterministic",
+      "to": "document:skills/evolution/SKILL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:documentation/explanation/symlinks.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/release.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/release-process.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/release.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/explanation/symlinks.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/release-process.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:documentation/how-to/README.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/personal-id-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:AGENTS.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/personal-id-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/README.md",
+      "provenance": "deterministic",
+      "to": "document:AGENTS.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/how-to/evolution-log.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/evolution-log.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/how-to/pypi-first-publish.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/release.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/pypi-first-publish.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/release.yml",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:documentation/how-to/release-process.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/release.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/release-process.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/release.yml",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:documentation/reference/README.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/personal-id-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:AGENTS.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/personal-id-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/reference/README.md",
+      "provenance": "deterministic",
+      "to": "document:AGENTS.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:documentation/reference/standards-mapping.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/personal-id-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/security-baseline/SKILL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/personal-id-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/reference/standards-mapping.md",
+      "provenance": "deterministic",
+      "to": "document:skills/security-baseline/SKILL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:documentation/tutorials/README.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/personal-id-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:AGENTS.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/personal-id-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/tutorials/README.md",
+      "provenance": "deterministic",
+      "to": "document:AGENTS.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:plugins/dr-orchestrate/README.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dr-orchestrate-contract.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:plugins/dr-orchestrate/README.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dr-orchestrate-contract.yml",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/artifact-context/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/evolution-log.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/artifact-context/SKILL.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/evolution-log.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/autonomous-mode/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/evolution-log.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/autonomous-mode/SKILL.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/evolution-log.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/compliance/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/evolution-log.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/compliance/SKILL.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/evolution-log.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/cta-format/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/evolution-log.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/cta-format/SKILL.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/evolution-log.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/datarim-system/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/bats.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/evolution/SKILL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/bats.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/datarim-system/SKILL.md",
+      "provenance": "deterministic",
+      "to": "document:skills/evolution/SKILL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:skills/evolution/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/bats.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/evolution/SKILL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/bats.yml",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/evolution/dev-tools-pattern.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:dev-tools/README.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/evolution/dev-tools-pattern.md",
+      "provenance": "deterministic",
+      "to": "document:dev-tools/README.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/evolution/examples-and-patterns.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/bats.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/evolution/SKILL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/bats.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/evolution/examples-and-patterns.md",
+      "provenance": "deterministic",
+      "to": "document:skills/evolution/SKILL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/evolution/history-agnostic-gate.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/evolution-log.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/evolution/history-agnostic-gate.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/evolution-log.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/health-controller-stub-detector/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/evolution-log.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/health-controller-stub-detector/SKILL.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/evolution-log.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:skills/release-verify/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/release.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/release-verify/SKILL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/release.yml",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/rotation-runbook/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/evolution-log.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/rotation-runbook/SKILL.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/evolution-log.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 2,
+    "entity": "document:skills/security-baseline/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/personal-id-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/security-baseline/SKILL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/personal-id-lint.yml",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/security/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/personal-id-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/security-baseline/SKILL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/personal-id-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/security/SKILL.md",
+      "provenance": "deterministic",
+      "to": "document:skills/security-baseline/SKILL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/self-verification/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/evolution-log.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/self-verification/SKILL.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/evolution-log.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/tech-stack/SKILL.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/personal-id-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/security-baseline/SKILL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/personal-id-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/tech-stack/SKILL.md",
+      "provenance": "deterministic",
+      "to": "document:skills/security-baseline/SKILL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/testing/triaging-legacy-failures.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/how-to/evolution-log.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/testing/triaging-legacy-failures.md",
+      "provenance": "deterministic",
+      "to": "document:documentation/how-to/evolution-log.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/utilities/keyword-linter.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/bats.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/evolution/SKILL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/bats.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/utilities/keyword-linter.md",
+      "provenance": "deterministic",
+      "to": "document:skills/evolution/SKILL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:skills/utilities/recovery.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/bats.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/evolution/SKILL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/bats.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/utilities/recovery.md",
+      "provenance": "deterministic",
+      "to": "document:skills/evolution/SKILL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "document:templates/prd-template.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/bats.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/evolution/SKILL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/bats.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:templates/prd-template.md",
+      "provenance": "deterministic",
+      "to": "document:skills/evolution/SKILL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 3,
+    "entity": "receipt:receipts/graph/change-admission-467.json",
+    "node_type": "receipt",
+    "path": [
+     {
+      "edge_type": "calls",
+      "from": "code_unit:.github/workflows/personal-id-lint.yml",
+      "inferred_by": "bounded-workflow-unknown-shell-candidate",
+      "provenance": "inferred",
+      "to": "code_unit:tests/framework-graph-consistency.bats",
+      "via": "unresolved-workflow-shell-closure"
+     },
+     {
+      "edge_type": "documents",
+      "from": "document:skills/security-baseline/SKILL.md",
+      "provenance": "deterministic",
+      "to": "code_unit:.github/workflows/personal-id-lint.yml",
+      "via": "explicit-path"
+     },
+     {
+      "edge_type": "verifies",
+      "from": "receipt:receipts/graph/change-admission-467.json",
+      "provenance": "deterministic",
+      "to": "document:skills/security-baseline/SKILL.md",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "selectable: run the targeted test / re-read the receipt"
+   }
+  ],
+  "max_depth": 3,
+  "method": "Union of independently revision-bound base/head traversals; reverse traversal (dependents) + forward declared-by hops (provides_route, implements_contract, maps_model of the same file, deploys_to); best path = fewest inferred/observed hops, then shortest; max_depth 3",
+  "total": 62
+ },
+ "notes": [
+  "DRAFT produced by `arcana verify` (tools/graph/verify.py 1.4.1) from matrix contracts/graph-verified-change/verifier-matrix.v1.json; selection rule: required(entity) = ⋃ edge_types[t].mandatory over the edge types t of the hops that reach the entity in its best path (i…",
+  "profile: (auto-detected); baseline: (auto-base-freeze: pre-existing findings at base frozen for this run; persist one with --freeze-baseline) (valid); selected: none; disabled: none",
+  "exemptions: 19 attached from /var/tmp/datarim-t22/subject/receipts/graph/D5A-T2.2/exemptions.json"
+ ],
+ "producer": {
+  "tool": "tools/graph/verify.py",
+  "version": "1.4.1"
+ },
+ "receipt_id": "car-verify-20261014T131902Z-aaab9140",
+ "receipt_path": "receipts/graph/d5a-t2.2-change-admission.json",
+ "repo": {
+  "name": "Arcanada-one/datarim",
+  "path": "/var/tmp/datarim-t22/subject"
+ },
+ "revision_selection": {
+  "base": [
+   "code_unit:.github/workflows/bats.yml",
+   "code_unit:.github/workflows/dependabot-auto-merge.yml",
+   "code_unit:.github/workflows/dev-tools-lint.yml",
+   "code_unit:.github/workflows/dr-orchestrate-contract.yml",
+   "code_unit:.github/workflows/framework-gates.yml",
+   "code_unit:.github/workflows/frontmatter-mirror.yml",
+   "code_unit:.github/workflows/gate-token-registry-sync.yml",
+   "code_unit:.github/workflows/network-exposure-lint.yml",
+   "code_unit:.github/workflows/node-tests.yml",
+   "code_unit:.github/workflows/personal-id-lint.yml",
+   "code_unit:.github/workflows/public-surface-lint.yml",
+   "code_unit:.github/workflows/release.yml",
+   "code_unit:.github/workflows/reusable-security-audit.yml",
+   "code_unit:.github/workflows/sanity-dual-copy.yml",
+   "code_unit:.github/workflows/scorecard.yml",
+   "code_unit:.github/workflows/security-stale-trigger.yml",
+   "code_unit:.github/workflows/security.yml",
+   "code_unit:.github/workflows/token-health-probe.yml",
+   "code_unit:dev-tools/framework-graph.py",
+   "code_unit:tests/framework-graph-consistency.bats",
+   "document:AGENTS.md",
+   "document:CHANGELOG.md",
+   "document:FRAMEWORK-GRAPH-INTEGRATION.md",
+   "document:README.md",
+   "document:SECURITY.md",
+   "document:commands/dr-archive.md",
+   "document:commands/dr-orchestrate.md",
+   "document:dev-tools/README.md",
+   "document:documentation/explanation/README.md",
+   "document:documentation/explanation/framework-graph-and-skill-architecture.md",
+   "document:documentation/explanation/pipeline.md",
+   "document:documentation/explanation/product-discovery-pack-boundaries.md",
+   "document:documentation/explanation/symlinks.md",
+   "document:documentation/how-to/README.md",
+   "document:documentation/how-to/evolution-log.md",
+   "document:documentation/how-to/pypi-first-publish.md",
+   "document:documentation/how-to/release-process.md",
+   "document:documentation/reference/README.md",
+   "document:documentation/reference/standards-mapping.md",
+   "document:documentation/tutorials/README.md",
+   "document:plugins/dr-orchestrate/README.md",
+   "document:skills/artifact-context/SKILL.md",
+   "document:skills/autonomous-mode/SKILL.md",
+   "document:skills/compliance/SKILL.md",
+   "document:skills/cta-format/SKILL.md",
+   "document:skills/datarim-system/SKILL.md",
+   "document:skills/datarim-system/routing-invariants.md",
+   "document:skills/evolution/SKILL.md",
+   "document:skills/evolution/dev-tools-pattern.md",
+   "document:skills/evolution/examples-and-patterns.md",
+   "document:skills/evolution/history-agnostic-gate.md",
+   "document:skills/health-controller-stub-detector/SKILL.md",
+   "document:skills/release-verify/SKILL.md",
+   "document:skills/rotation-runbook/SKILL.md",
+   "document:skills/security-baseline/SKILL.md",
+   "document:skills/security/SKILL.md",
+   "document:skills/self-verification/SKILL.md",
+   "document:skills/tech-stack/SKILL.md",
+   "document:skills/testing/triaging-legacy-failures.md",
+   "document:skills/utilities/keyword-linter.md",
+   "document:skills/utilities/recovery.md",
+   "document:skills/visual-maps/command-dependencies.md",
+   "document:skills/visual-maps/framework-architecture.md",
+   "document:templates/prd-template.md",
+   "receipt:receipts/graph/change-admission-467.json",
+   "receipt:receipts/graph/d5a-t3.6-change-admission.json"
+  ],
+  "head": [
+   "code_unit:.github/workflows/bats.yml",
+   "code_unit:.github/workflows/dependabot-auto-merge.yml",
+   "code_unit:.github/workflows/dev-tools-lint.yml",
+   "code_unit:.github/workflows/dr-orchestrate-contract.yml",
+   "code_unit:.github/workflows/framework-gates.yml",
+   "code_unit:.github/workflows/frontmatter-mirror.yml",
+   "code_unit:.github/workflows/gate-token-registry-sync.yml",
+   "code_unit:.github/workflows/network-exposure-lint.yml",
+   "code_unit:.github/workflows/node-tests.yml",
+   "code_unit:.github/workflows/personal-id-lint.yml",
+   "code_unit:.github/workflows/public-surface-lint.yml",
+   "code_unit:.github/workflows/release.yml",
+   "code_unit:.github/workflows/reusable-security-audit.yml",
+   "code_unit:.github/workflows/sanity-dual-copy.yml",
+   "code_unit:.github/workflows/scorecard.yml",
+   "code_unit:.github/workflows/security-stale-trigger.yml",
+   "code_unit:.github/workflows/security.yml",
+   "code_unit:.github/workflows/token-health-probe.yml",
+   "code_unit:dev-tools/framework-graph.py",
+   "code_unit:tests/framework-graph-consistency.bats",
+   "document:AGENTS.md",
+   "document:CHANGELOG.md",
+   "document:FRAMEWORK-GRAPH-INTEGRATION.md",
+   "document:README.md",
+   "document:SECURITY.md",
+   "document:commands/dr-archive.md",
+   "document:commands/dr-orchestrate.md",
+   "document:dev-tools/README.md",
+   "document:documentation/explanation/README.md",
+   "document:documentation/explanation/framework-graph-and-skill-architecture.md",
+   "document:documentation/explanation/pipeline.md",
+   "document:documentation/explanation/product-discovery-pack-boundaries.md",
+   "document:documentation/explanation/symlinks.md",
+   "document:documentation/how-to/README.md",
+   "document:documentation/how-to/evolution-log.md",
+   "document:documentation/how-to/pypi-first-publish.md",
+   "document:documentation/how-to/release-process.md",
+   "document:documentation/reference/README.md",
+   "document:documentation/reference/standards-mapping.md",
+   "document:documentation/tutorials/README.md",
+   "document:plugins/dr-orchestrate/README.md",
+   "document:skills/artifact-context/SKILL.md",
+   "document:skills/autonomous-mode/SKILL.md",
+   "document:skills/compliance/SKILL.md",
+   "document:skills/cta-format/SKILL.md",
+   "document:skills/datarim-system/SKILL.md",
+   "document:skills/datarim-system/routing-invariants.md",
+   "document:skills/evolution/SKILL.md",
+   "document:skills/evolution/dev-tools-pattern.md",
+   "document:skills/evolution/examples-and-patterns.md",
+   "document:skills/evolution/history-agnostic-gate.md",
+   "document:skills/health-controller-stub-detector/SKILL.md",
+   "document:skills/release-verify/SKILL.md",
+   "document:skills/rotation-runbook/SKILL.md",
+   "document:skills/security-baseline/SKILL.md",
+   "document:skills/security/SKILL.md",
+   "document:skills/self-verification/SKILL.md",
+   "document:skills/tech-stack/SKILL.md",
+   "document:skills/testing/triaging-legacy-failures.md",
+   "document:skills/utilities/keyword-linter.md",
+   "document:skills/utilities/recovery.md",
+   "document:skills/visual-maps/command-dependencies.md",
+   "document:skills/visual-maps/framework-architecture.md",
+   "document:templates/prd-template.md",
+   "receipt:receipts/graph/change-admission-467.json",
+   "receipt:receipts/graph/d5a-t3.6-change-admission.json"
+  ],
+  "schema": "RevisionImpactSelection/v1",
+  "unmeasured_head_files": []
+ },
+ "schema": "ChangeAdmissionReceipt/v1",
+ "staleness": {
+  "checked_at_utc": "2026-10-14T13:20:32Z",
+  "method": "manifest.dirty must be false; manifest.source_commit == change_set.base; working tree must be clean (a receipt in diff mode describes committed history only); content_hash of every whole-file node (code_unit, document, receipt; deployable_unit via its package.json) must equal the sha256 of the file bytes at base (git objects); contract/route/data_model hashes are extractor-owned (declaration text) and not recomputed",
+  "mismatched_nodes": [],
+  "verdict": "fresh"
+ },
+ "structural_exclusions": [
+  {
+   "content_hash": {
+    "base": "sha256:e8a7377d2fe8927437a65b95d72b8c58f4391df8a434fb68b88032f2ef9c8af4",
+    "head": "sha256:e8a7377d2fe8927437a65b95d72b8c58f4391df8a434fb68b88032f2ef9c8af4"
+   },
+   "entity": "receipt:receipts/graph/change-admission-467.json",
+   "node_type": "receipt",
+   "path": "receipts/graph/change-admission-467.json",
+   "reason": "historical receipt: asserted, never re-verified (I14); a new receipt supersedes it",
+   "rule": "DEC-AUP-0034"
+  },
+  {
+   "content_hash": {
+    "base": "sha256:e16ba8835fb0cfc5521d1e3c07d1e952adaf3722efc0d7c3f5f45bcbf08efad2",
+    "head": "sha256:e16ba8835fb0cfc5521d1e3c07d1e952adaf3722efc0d7c3f5f45bcbf08efad2"
+   },
+   "entity": "receipt:receipts/graph/d5a-t3.6-change-admission.json",
+   "node_type": "receipt",
+   "path": "receipts/graph/d5a-t3.6-change-admission.json",
+   "reason": "historical receipt: asserted, never re-verified (I14); a new receipt supersedes it",
+   "rule": "DEC-AUP-0034"
+  }
+ ],
+ "tree": {
+  "commit": "aaab9140ff99ca0f3e28e8ab7ca47e359741ead7",
+  "dirty": false
+ },
+ "verdicts": [
+  {
+   "entity": "code_unit:.github/workflows/bats.yml",
+   "reason": "v-workflow-config-152a40343efd93ad: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-152a40343efd93ad"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/dependabot-auto-merge.yml",
+   "reason": "v-workflow-config-2fe48d1021006468: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-2fe48d1021006468"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/dev-tools-lint.yml",
+   "reason": "v-workflow-config-5ff5fa17404fc7d3: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-5ff5fa17404fc7d3"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/dr-orchestrate-contract.yml",
+   "reason": "v-workflow-config-85b0e5f19e1ca680: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-85b0e5f19e1ca680"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/framework-gates.yml",
+   "reason": "v-workflow-config-6c171afc799257da: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-6c171afc799257da"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/frontmatter-mirror.yml",
+   "reason": "v-workflow-config-ac18f02b39b4d139: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-ac18f02b39b4d139"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/gate-token-registry-sync.yml",
+   "reason": "v-workflow-config-09c562dacfcf9489: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-09c562dacfcf9489"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/network-exposure-lint.yml",
+   "reason": "v-workflow-config-6e4f603fa997f347: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-6e4f603fa997f347"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/node-tests.yml",
+   "reason": "v-workflow-config-71ec1c1168844989: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-71ec1c1168844989"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/personal-id-lint.yml",
+   "reason": "v-workflow-config-07b8843df453ad3f: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-07b8843df453ad3f"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/public-surface-lint.yml",
+   "reason": "v-workflow-config-73a331778caeec7d: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-73a331778caeec7d"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/release.yml",
+   "reason": "v-workflow-config-87db21a973eed4fe: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-87db21a973eed4fe"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/reusable-security-audit.yml",
+   "reason": "v-workflow-config-ed61203228de3f00: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-ed61203228de3f00"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/sanity-dual-copy.yml",
+   "reason": "v-workflow-config-64f89239b966dac9: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-64f89239b966dac9"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/scorecard.yml",
+   "reason": "v-workflow-config-2e3112f4e81a9c47: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-2e3112f4e81a9c47"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/security-stale-trigger.yml",
+   "reason": "v-workflow-config-552822c6dbc3fece: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-552822c6dbc3fece"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/security.yml",
+   "reason": "v-workflow-config-6102d4f2cddb56c4: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-6102d4f2cddb56c4"
+   ]
+  },
+  {
+   "entity": "code_unit:.github/workflows/token-health-probe.yml",
+   "reason": "v-workflow-config-fd7ca5e632c8dbe8: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-workflow-config-fd7ca5e632c8dbe8"
+   ]
+  },
+  {
+   "entity": "code_unit:dev-tools/framework-graph.py",
+   "reason": "v-fitness: no new fitness violation",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-fitness"
+   ]
+  },
+  {
+   "entity": "code_unit:tests/framework-graph-consistency.bats",
+   "reason": "v-shell-syntax-3e1715bb660a1cbc: shell syntax/closure: not_measured; v-shell-behavior-3e1715bb660a1cbc: SHELL_DYNAMIC_CLOSURE_NOT_MEASURED: Bats conditional execution membership is not statically resolved; Bats run lacks an immediate unconditional child status assertion; line 107: heredoc data/generation closure not measured; line 10: heredoc data/generation closure not measured; line 120: heredoc data/generation closure not measured; line 13: heredoc data/generation closure not measured; line 149: heredoc data/generation closure not measured; line 169: heredoc data/generation closure not meas",
+   "verdict": "not_measured",
+   "verifier_ids": [
+    "v-fitness",
+    "v-shell-behavior-3e1715bb660a1cbc",
+    "v-shell-syntax-3e1715bb660a1cbc"
+   ]
+  },
+  {
+   "entity": "document:AGENTS.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:CHANGELOG.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:FRAMEWORK-GRAPH-INTEGRATION.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:README.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:SECURITY.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:commands/dr-archive.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:commands/dr-orchestrate.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:dev-tools/README.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/explanation/README.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/explanation/framework-graph-and-skill-architecture.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/explanation/pipeline.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/explanation/product-discovery-pack-boundaries.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/explanation/symlinks.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/how-to/README.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/how-to/evolution-log.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/how-to/pypi-first-publish.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/how-to/release-process.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/reference/README.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/reference/standards-mapping.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:documentation/tutorials/README.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:plugins/dr-orchestrate/README.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/artifact-context/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/autonomous-mode/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/compliance/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/cta-format/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/datarim-system/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/datarim-system/routing-invariants.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/evolution/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/evolution/dev-tools-pattern.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/evolution/examples-and-patterns.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/evolution/history-agnostic-gate.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/health-controller-stub-detector/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/release-verify/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/rotation-runbook/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/security-baseline/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/security/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/self-verification/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/tech-stack/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/testing/triaging-legacy-failures.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/utilities/keyword-linter.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/utilities/recovery.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/visual-maps/command-dependencies.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:skills/visual-maps/framework-architecture.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:templates/prd-template.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  }
+ ],
+ "verifier_selection": {
+  "applied": {},
+  "not_applied": [],
+  "requested": [],
+  "schema": "VerifierSelection/v1"
+ },
+ "verifiers": [
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/bats.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/bats.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-152a40343efd93ad",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-152a40343efd93ad.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/dependabot-auto-merge.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/dependabot-auto-merge.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-2fe48d1021006468",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-2fe48d1021006468.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/dev-tools-lint.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/dev-tools-lint.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-5ff5fa17404fc7d3",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-5ff5fa17404fc7d3.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/dr-orchestrate-contract.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/dr-orchestrate-contract.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-85b0e5f19e1ca680",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-85b0e5f19e1ca680.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/framework-gates.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/framework-gates.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-6c171afc799257da",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-6c171afc799257da.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/frontmatter-mirror.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/frontmatter-mirror.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-ac18f02b39b4d139",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-ac18f02b39b4d139.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/gate-token-registry-sync.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/gate-token-registry-sync.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-09c562dacfcf9489",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-09c562dacfcf9489.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/network-exposure-lint.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/network-exposure-lint.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-6e4f603fa997f347",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-6e4f603fa997f347.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/node-tests.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/node-tests.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-71ec1c1168844989",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-71ec1c1168844989.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/personal-id-lint.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/personal-id-lint.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-07b8843df453ad3f",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-07b8843df453ad3f.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/public-surface-lint.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/public-surface-lint.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-73a331778caeec7d",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-73a331778caeec7d.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/release.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/release.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-87db21a973eed4fe",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-87db21a973eed4fe.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/reusable-security-audit.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/reusable-security-audit.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-ed61203228de3f00",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-ed61203228de3f00.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/sanity-dual-copy.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/sanity-dual-copy.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-64f89239b966dac9",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-64f89239b966dac9.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/scorecard.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/scorecard.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-2e3112f4e81a9c47",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-2e3112f4e81a9c47.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/security-stale-trigger.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/security-stale-trigger.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-552822c6dbc3fece",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-552822c6dbc3fece.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/security.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/security.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-6102d4f2cddb56c4",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-6102d4f2cddb56c4.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "workflow_config.validate exact head bytes",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:.github/workflows/token-health-probe.yml"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/token-health-probe.yml": "not_measured"
+   },
+   "exit_code": 1,
+   "id": "v-workflow-config-fd7ca5e632c8dbe8",
+   "kind": "config_schema",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-workflow-config-fd7ca5e632c8dbe8.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "PyYAML unavailable; workflow configuration not measured"
+  },
+  {
+   "command": "verify.py fitness_rules FR-01..FR-05 over the head graph + head sources",
+   "duration_s": 0.01,
+   "entities": [
+    "code_unit:.github/workflows/bats.yml",
+    "code_unit:.github/workflows/dependabot-auto-merge.yml",
+    "code_unit:.github/workflows/dev-tools-lint.yml",
+    "code_unit:.github/workflows/dr-orchestrate-contract.yml",
+    "code_unit:.github/workflows/framework-gates.yml",
+    "code_unit:.github/workflows/frontmatter-mirror.yml",
+    "code_unit:.github/workflows/gate-token-registry-sync.yml",
+    "code_unit:.github/workflows/network-exposure-lint.yml",
+    "code_unit:.github/workflows/node-tests.yml",
+    "code_unit:.github/workflows/personal-id-lint.yml",
+    "code_unit:.github/workflows/public-surface-lint.yml",
+    "code_unit:.github/workflows/release.yml",
+    "code_unit:.github/workflows/reusable-security-audit.yml",
+    "code_unit:.github/workflows/sanity-dual-copy.yml",
+    "code_unit:.github/workflows/scorecard.yml",
+    "code_unit:.github/workflows/security-stale-trigger.yml",
+    "code_unit:.github/workflows/security.yml",
+    "code_unit:.github/workflows/token-health-probe.yml",
+    "code_unit:dev-tools/framework-graph.py",
+    "code_unit:tests/framework-graph-consistency.bats"
+   ],
+   "entity_verdicts": {
+    "code_unit:.github/workflows/bats.yml": "not_measured",
+    "code_unit:.github/workflows/dependabot-auto-merge.yml": "not_measured",
+    "code_unit:.github/workflows/dev-tools-lint.yml": "not_measured",
+    "code_unit:.github/workflows/dr-orchestrate-contract.yml": "not_measured",
+    "code_unit:.github/workflows/framework-gates.yml": "not_measured",
+    "code_unit:.github/workflows/frontmatter-mirror.yml": "not_measured",
+    "code_unit:.github/workflows/gate-token-registry-sync.yml": "not_measured",
+    "code_unit:.github/workflows/network-exposure-lint.yml": "not_measured",
+    "code_unit:.github/workflows/node-tests.yml": "not_measured",
+    "code_unit:.github/workflows/personal-id-lint.yml": "not_measured",
+    "code_unit:.github/workflows/public-surface-lint.yml": "not_measured",
+    "code_unit:.github/workflows/release.yml": "not_measured",
+    "code_unit:.github/workflows/reusable-security-audit.yml": "not_measured",
+    "code_unit:.github/workflows/sanity-dual-copy.yml": "not_measured",
+    "code_unit:.github/workflows/scorecard.yml": "not_measured",
+    "code_unit:.github/workflows/security-stale-trigger.yml": "not_measured",
+    "code_unit:.github/workflows/security.yml": "not_measured",
+    "code_unit:.github/workflows/token-health-probe.yml": "not_measured",
+    "code_unit:dev-tools/framework-graph.py": "verified",
+    "code_unit:tests/framework-graph-consistency.bats": "verified"
+   },
+   "exit_code": 0,
+   "id": "v-fitness",
+   "kind": "fitness_rules",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-fitness.json",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "0 finding(s): 0 new / 0 frozen; 0 entity(ies) failed"
+  },
+  {
+   "command": "verify.py doc_reference: path / route / model references of affected documents resolve at head",
+   "duration_s": 0.12,
+   "entities": [
+    "document:AGENTS.md",
+    "document:CHANGELOG.md",
+    "document:FRAMEWORK-GRAPH-INTEGRATION.md",
+    "document:README.md",
+    "document:SECURITY.md",
+    "document:commands/dr-archive.md",
+    "document:commands/dr-orchestrate.md",
+    "document:dev-tools/README.md",
+    "document:documentation/explanation/README.md",
+    "document:documentation/explanation/framework-graph-and-skill-architecture.md",
+    "document:documentation/explanation/pipeline.md",
+    "document:documentation/explanation/product-discovery-pack-boundaries.md",
+    "document:documentation/explanation/symlinks.md",
+    "document:documentation/how-to/README.md",
+    "document:documentation/how-to/evolution-log.md",
+    "document:documentation/how-to/pypi-first-publish.md",
+    "document:documentation/how-to/release-process.md",
+    "document:documentation/reference/README.md",
+    "document:documentation/reference/standards-mapping.md",
+    "document:documentation/tutorials/README.md",
+    "document:plugins/dr-orchestrate/README.md",
+    "document:skills/artifact-context/SKILL.md",
+    "document:skills/autonomous-mode/SKILL.md",
+    "document:skills/compliance/SKILL.md",
+    "document:skills/cta-format/SKILL.md",
+    "document:skills/datarim-system/SKILL.md",
+    "document:skills/datarim-system/routing-invariants.md",
+    "document:skills/evolution/SKILL.md",
+    "document:skills/evolution/dev-tools-pattern.md",
+    "document:skills/evolution/examples-and-patterns.md",
+    "document:skills/evolution/history-agnostic-gate.md",
+    "document:skills/health-controller-stub-detector/SKILL.md",
+    "document:skills/release-verify/SKILL.md",
+    "document:skills/rotation-runbook/SKILL.md",
+    "document:skills/security-baseline/SKILL.md",
+    "document:skills/security/SKILL.md",
+    "document:skills/self-verification/SKILL.md",
+    "document:skills/tech-stack/SKILL.md",
+    "document:skills/testing/triaging-legacy-failures.md",
+    "document:skills/utilities/keyword-linter.md",
+    "document:skills/utilities/recovery.md",
+    "document:skills/visual-maps/command-dependencies.md",
+    "document:skills/visual-maps/framework-architecture.md",
+    "document:templates/prd-template.md"
+   ],
+   "entity_verdicts": {
+    "document:AGENTS.md": "verified",
+    "document:CHANGELOG.md": "verified",
+    "document:FRAMEWORK-GRAPH-INTEGRATION.md": "verified",
+    "document:README.md": "verified",
+    "document:SECURITY.md": "verified",
+    "document:commands/dr-archive.md": "verified",
+    "document:commands/dr-orchestrate.md": "verified",
+    "document:dev-tools/README.md": "verified",
+    "document:documentation/explanation/README.md": "verified",
+    "document:documentation/explanation/framework-graph-and-skill-architecture.md": "verified",
+    "document:documentation/explanation/pipeline.md": "verified",
+    "document:documentation/explanation/product-discovery-pack-boundaries.md": "verified",
+    "document:documentation/explanation/symlinks.md": "verified",
+    "document:documentation/how-to/README.md": "verified",
+    "document:documentation/how-to/evolution-log.md": "verified",
+    "document:documentation/how-to/pypi-first-publish.md": "verified",
+    "document:documentation/how-to/release-process.md": "verified",
+    "document:documentation/reference/README.md": "verified",
+    "document:documentation/reference/standards-mapping.md": "verified",
+    "document:documentation/tutorials/README.md": "verified",
+    "document:plugins/dr-orchestrate/README.md": "verified",
+    "document:skills/artifact-context/SKILL.md": "verified",
+    "document:skills/autonomous-mode/SKILL.md": "verified",
+    "document:skills/compliance/SKILL.md": "verified",
+    "document:skills/cta-format/SKILL.md": "verified",
+    "document:skills/datarim-system/SKILL.md": "verified",
+    "document:skills/datarim-system/routing-invariants.md": "verified",
+    "document:skills/evolution/SKILL.md": "verified",
+    "document:skills/evolution/dev-tools-pattern.md": "verified",
+    "document:skills/evolution/examples-and-patterns.md": "verified",
+    "document:skills/evolution/history-agnostic-gate.md": "verified",
+    "document:skills/health-controller-stub-detector/SKILL.md": "verified",
+    "document:skills/release-verify/SKILL.md": "verified",
+    "document:skills/rotation-runbook/SKILL.md": "verified",
+    "document:skills/security-baseline/SKILL.md": "verified",
+    "document:skills/security/SKILL.md": "verified",
+    "document:skills/self-verification/SKILL.md": "verified",
+    "document:skills/tech-stack/SKILL.md": "verified",
+    "document:skills/testing/triaging-legacy-failures.md": "verified",
+    "document:skills/utilities/keyword-linter.md": "verified",
+    "document:skills/utilities/recovery.md": "verified",
+    "document:skills/visual-maps/command-dependencies.md": "verified",
+    "document:skills/visual-maps/framework-architecture.md": "verified",
+    "document:templates/prd-template.md": "verified"
+   },
+   "exit_code": 0,
+   "id": "v-doc-reference",
+   "kind": "doc_reference",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-doc-reference.txt",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "44 document(s), 0 failed"
+  },
+  {
+   "command": "bash -n + pinned ShellCheck on syntax projection; no caller/Bats execution",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:tests/framework-graph-consistency.bats"
+   ],
+   "entity_verdicts": {
+    "code_unit:tests/framework-graph-consistency.bats": "not_measured"
+   },
+   "exit_code": 0,
+   "id": "v-shell-syntax-3e1715bb660a1cbc",
+   "kind": "shell_syntax",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-shell-syntax-3e1715bb660a1cbc.txt",
+   "scope": "shell_source_validation",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "shell syntax/closure: not_measured"
+  },
+  {
+   "command": "consume source-bound native process fixture; no local execution",
+   "duration_s": 0.0,
+   "entities": [
+    "code_unit:tests/framework-graph-consistency.bats"
+   ],
+   "entity_verdicts": {
+    "code_unit:tests/framework-graph-consistency.bats": "not_measured"
+   },
+   "exit_code": 0,
+   "id": "v-shell-behavior-3e1715bb660a1cbc",
+   "kind": "shell_behavior",
+   "output_ref": "/var/tmp/datarim-t22/out/verifier-final-work/verifier-out/v-shell-behavior-3e1715bb660a1cbc.txt",
+   "scope": "shell_fixture_behavior",
+   "started_at_utc": "2026-10-14T13:21:37Z",
+   "summary": "SHELL_DYNAMIC_CLOSURE_NOT_MEASURED: Bats conditional execution membership is not statically resolved; Bats run lacks an immediate unconditional child status assertion; line 107: heredoc data/generation closure not measured; line 10: heredoc data/generation closure not measured; line 120: heredoc data/generation closure not measured; line 13: heredoc data/generation closure not measured; line 149: heredoc data/generation closure not measured; line 169: heredoc data/generation closure not measured; line 190: heredoc data/generation closure not measured; line 23: heredoc data/generation closure not measured; line 30: heredoc data/generation closure not measured; line 40: heredoc data/generation closure not measured; line 47: heredoc data/generation closure not measured; line 50: heredoc data/generation closure not measured; line 5: multiline/opaque shell statement; line 61: heredoc data/generation closure not measured; line 6: multiline/opaque shell statement; line 73: heredoc data/generation closure not measured; line 7: multiline/opaque shell statement; line 8: dynamic command/alias/eval"
+  }
+ ],
+ "verify": {
+  "events": [
+   {
+    "code": "STRUCTURAL_EXCLUSION",
+    "rule": "DEC-AUP-0034",
+    "text": "2 affected entity(ies) owe no verdict (receipt: 2): unchanged at both revisions and given no verifier by the matrix"
+   }
+  ],
+  "required_by_entity": {
+   "code_unit:.github/workflows/bats.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/dependabot-auto-merge.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/dev-tools-lint.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/dr-orchestrate-contract.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/framework-gates.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/frontmatter-mirror.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/gate-token-registry-sync.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/network-exposure-lint.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/node-tests.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/personal-id-lint.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/public-surface-lint.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/release.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/reusable-security-audit.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/sanity-dual-copy.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/scorecard.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/security-stale-trigger.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/security.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:.github/workflows/token-health-probe.yml": [
+    "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:dev-tools/framework-graph.py": [
+    "fitness_rules"
+   ],
+   "code_unit:tests/framework-graph-consistency.bats": [
+    "fitness_rules",
+    "shell_behavior",
+    "shell_syntax"
+   ],
+   "document:AGENTS.md": [
+    "doc_reference"
+   ],
+   "document:CHANGELOG.md": [
+    "doc_reference"
+   ],
+   "document:FRAMEWORK-GRAPH-INTEGRATION.md": [
+    "doc_reference"
+   ],
+   "document:README.md": [
+    "doc_reference"
+   ],
+   "document:SECURITY.md": [
+    "doc_reference"
+   ],
+   "document:commands/dr-archive.md": [
+    "doc_reference"
+   ],
+   "document:commands/dr-orchestrate.md": [
+    "doc_reference"
+   ],
+   "document:dev-tools/README.md": [
+    "doc_reference"
+   ],
+   "document:documentation/explanation/README.md": [
+    "doc_reference"
+   ],
+   "document:documentation/explanation/framework-graph-and-skill-architecture.md": [
+    "doc_reference"
+   ],
+   "document:documentation/explanation/pipeline.md": [
+    "doc_reference"
+   ],
+   "document:documentation/explanation/product-discovery-pack-boundaries.md": [
+    "doc_reference"
+   ],
+   "document:documentation/explanation/symlinks.md": [
+    "doc_reference"
+   ],
+   "document:documentation/how-to/README.md": [
+    "doc_reference"
+   ],
+   "document:documentation/how-to/evolution-log.md": [
+    "doc_reference"
+   ],
+   "document:documentation/how-to/pypi-first-publish.md": [
+    "doc_reference"
+   ],
+   "document:documentation/how-to/release-process.md": [
+    "doc_reference"
+   ],
+   "document:documentation/reference/README.md": [
+    "doc_reference"
+   ],
+   "document:documentation/reference/standards-mapping.md": [
+    "doc_reference"
+   ],
+   "document:documentation/tutorials/README.md": [
+    "doc_reference"
+   ],
+   "document:plugins/dr-orchestrate/README.md": [
+    "doc_reference"
+   ],
+   "document:skills/artifact-context/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/autonomous-mode/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/compliance/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/cta-format/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/datarim-system/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/datarim-system/routing-invariants.md": [
+    "doc_reference"
+   ],
+   "document:skills/evolution/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/evolution/dev-tools-pattern.md": [
+    "doc_reference"
+   ],
+   "document:skills/evolution/examples-and-patterns.md": [
+    "doc_reference"
+   ],
+   "document:skills/evolution/history-agnostic-gate.md": [
+    "doc_reference"
+   ],
+   "document:skills/health-controller-stub-detector/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/release-verify/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/rotation-runbook/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/security-baseline/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/security/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/self-verification/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/tech-stack/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:skills/testing/triaging-legacy-failures.md": [
+    "doc_reference"
+   ],
+   "document:skills/utilities/keyword-linter.md": [
+    "doc_reference"
+   ],
+   "document:skills/utilities/recovery.md": [
+    "doc_reference"
+   ],
+   "document:skills/visual-maps/command-dependencies.md": [
+    "doc_reference"
+   ],
+   "document:skills/visual-maps/framework-architecture.md": [
+    "doc_reference"
+   ],
+   "document:templates/prd-template.md": [
+    "doc_reference"
+   ],
+   "receipt:receipts/graph/change-admission-467.json": [],
+   "receipt:receipts/graph/d5a-t3.6-change-admission.json": []
+  },
+  "seconds": {
+   "prepare": 32.41,
+   "total": 154.73,
+   "verifiers": 0.13
+  }
+ },
+ "work_item": "0622c765-cc3a-431b-ba4e-6e1f22e1a27a"
+}
