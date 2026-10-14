@@ -669,13 +669,13 @@
   "read_only": false,
   "schema": "CanaryPlan/v2",
   "subject": {
-    "commit": "c9f001d7c30cc4b4f5b8cd14683d978f795f458b",
+    "commit": "d188d7b841542d41bc2af3a95d1e0c326f84d43d",
     "evidence": {
       "path": "source-evidence.json",
-      "sha256": "660c2b256e0ef4d310b1c53a91e18cd636681103d2d15c6ae94a2d562d7d9979",
+      "sha256": "16a634687aea8fb141ba210dbe05ae6dbbebea43acb981511cf47bc5656e08d8",
       "source_field": "commit"
     },
     "schema": "GitCanarySubject/v1",
-    "tree": "620f580d3af544496e4da832481dbe5deede78fe"
+    "tree": "6cda8307fe61bb1a6a17318fb1d3cd20c7308392"
   }
 }
