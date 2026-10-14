@@ -22,499 +22,495 @@
       "executable_sha256": "3ea59ec8e4f6deea71865561bb939ad5248e12086140b471f4edeea1cdef2407",
       "execution_files": [
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/agents/researcher.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/agents/researcher.md",
           "sha256": "5c5fcc9274d109fb3fe903a6a0e879a0e1d31de0a22abf811132af6b3808f635"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/agents/strategist.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/agents/strategist.md",
           "sha256": "5fb044ef4f9092bb8a4a1aaa0241953e123e71c63671e0b773c3864ff2e11bc1"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/dev-tools/read-product-profile.sh",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/dev-tools/read-product-profile.sh",
           "sha256": "fa6d6631f6ff82ffc5997819abde3eb5df827443382c5364d6cdbabb0bba7b01"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/README.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/README.md",
           "sha256": "74d4e0df3d16c1cc8b3a4ff699dc918715e70387442a16682abf03ae2400ab4f"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/THIRD_PARTY_NOTICES.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/THIRD_PARTY_NOTICES.md",
           "sha256": "88d24f96e7b1dbd4a18c30f1e7e799462cb18e6be736c28a874b39b9285c40f5"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/plugin.yaml",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/plugin.yaml",
           "sha256": "a54e688344abda4efc125ead4cf867f95495601619c4c4af023dbaf0c0c7e457"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/skills/decision-record/SKILL.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/skills/decision-record/SKILL.md",
           "sha256": "e9459971c6c126e4db2242ee13e89ab1ad90e76756549418be223da4311e59e1"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/skills/decision-record/strategist-scope-modes.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/skills/decision-record/strategist-scope-modes.md",
           "sha256": "58fe25ccafe1c5640a3a3d955e695b909b2d63da90f102a9cb590f1a46dc8e11"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/skills/decision-record/strategist.product-discovery.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/skills/decision-record/strategist.product-discovery.md",
           "sha256": "27cc17d2435850953ab4bc6eddc8e701581df1625ad88ae8d30b410e9ed81dba"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/skills/hypothesis-validation/SKILL.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/skills/hypothesis-validation/SKILL.md",
           "sha256": "1e162dccf026630bba37369e45a9ac49d10a38ab9371da5e77bd1be67e77a610"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md",
           "sha256": "66f6eca4a591bd346668984f427da51a325a821791501ea2422cedb3986daa4b"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/skills/hypothesis-validation/assumption-map.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/skills/hypothesis-validation/assumption-map.md",
           "sha256": "51f38e2ca58153807db44ae3b1a1d1c6d3e7ca7f6bcdd87d4bcab43197bb78be"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/skills/hypothesis-validation/experiment-design.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/skills/hypothesis-validation/experiment-design.md",
           "sha256": "3675504d80ae258af0a40d06155ec0b82bbd367c0f3d19d01370c3333696be69"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md",
           "sha256": "c555a205e3dfea2089d9c586d1a233eee358874d5c1503fe1a850ba1e604d9c6"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/skills/product-framing/SKILL.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/skills/product-framing/SKILL.md",
           "sha256": "bea0eefbb1cc5a06d27c96bee15e6472646d977c750530cf7a6fe921e8d6fe09"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/skills/product-framing/builder-brainstorm.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/skills/product-framing/builder-brainstorm.md",
           "sha256": "75b376b7b05947a8b6dc8dce10ac1a752569ac04daf4c48d9154270acd7d958e"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/skills/product-framing/claim-quality.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/skills/product-framing/claim-quality.md",
           "sha256": "9f0cf39ab8cbc77b82944bd8f569279ff8d3055931a54e22e2a0033c2850c4ae"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/skills/product-framing/premise-challenge.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/skills/product-framing/premise-challenge.md",
           "sha256": "6159c73b46be59550b3b3e81cf1b9bf5c255f70f1baee53f09d0b6293cafc6a0"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/skills/product-framing/startup-diagnostic.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/skills/product-framing/startup-diagnostic.md",
           "sha256": "8e3ef94c823dcf541ec24c8ce7f2cf95b59540759762331eb5163fae82447cd4"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/templates/decision-record.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/templates/decision-record.md",
           "sha256": "df13e91814f7ba2064b5c33e008b127f2352ca35c3cc2de73a6bf7d68261497f"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/templates/experiment-protocol.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/templates/experiment-protocol.md",
           "sha256": "ab7a4d9cfb9c365848242f0804e9035807d8d410fdffe5ca6136abdcefc752be"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/templates/hypothesis-card.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/templates/hypothesis-card.md",
           "sha256": "05c1b4479373869c0330672ff3c2213ece6cd25b53760f1eeed9900edd17f277"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/templates/opportunity-brief.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/templates/opportunity-brief.md",
           "sha256": "d6e74bea70772379b8fe1373ff1e8400fec4dcb060af035fc0c16c62018d3a0c"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/templates/product-brief.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/templates/product-brief.md",
           "sha256": "7ed0321ca29bcf12d26ebcc538f00b7ffde10502a3e8ba8acbddb18b14695532"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/templates/source-evidence-ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/templates/source-evidence-ledger.md",
           "sha256": "62a2aed0466d3368cba2dbf6095d2ec8938d4c755b36fe52a5a8547a929fe9ee"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/__pycache__/hypothesis_validation_reference.cpython-312.pyc",
-          "sha256": "3e856371e9082c37da55e4b2d425dfd80feb24b30f03b2ea807006a87fe61d9e"
-        },
-        {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/decision-record-v2/decision.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/decision-record-v2/decision.md",
           "sha256": "760fea67ea1f7ef697b897a7bca1fb0797d55d9445972ec2bbc011651acd7af3"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/counterevidence.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/counterevidence.txt",
           "sha256": "da215666f394ffb789ff084685b89e215b1ffdc2807906ecde905f4cf82c2bcb"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/support.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/decision-record-v2/fixtures/support.txt",
           "sha256": "5783171fe3ae5310d88118ad1813fdbcf13e15088d171933a7a54b62174d5b77"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/decision-record-v2/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/decision-record-v2/ledger.md",
           "sha256": "671a33507d6c53de40cceb0b397e2c6bc2e003c525521f3891cb018b21c98765"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-complete.json",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-complete.json",
           "sha256": "e91317f38e83e795c50013b545e1f703292bdcaa6d855e947add36a292772391"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-complete.jsonl",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-complete.jsonl",
           "sha256": "40c2d16c5bd772d592a16838a8f9a94a41c88e4552d6372d009c64370b4282d0"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-missing.json",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-missing.json",
           "sha256": "2f32a19a575c6ce47c71ceb1f1fcfb03d3cb418ed1f7713c17010122b56696e5"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-missing.jsonl",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/hypothesis-validation/observations-missing.jsonl",
           "sha256": "1a0f21a144ebf1791cf3dfbe88bddf38e980f4b66d7735600d803fd87940dbe0"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/hypothesis-validation/product-artifact-freeze/decision.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/hypothesis-validation/product-artifact-freeze/decision.md",
           "sha256": "20521ef759f038b4d47814a0e20f9dd4e7ad8f898d061443e95fac6d7622d7d5"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/hypothesis-validation/product-artifact-freeze/hypothesis.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/hypothesis-validation/product-artifact-freeze/hypothesis.md",
           "sha256": "1ab45e60cba22d7985ec42251c2ff4acf76dec581c0cb52144d79c93bbc7a93b"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/hypothesis-validation/product-artifact-freeze/protocol.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/hypothesis-validation/product-artifact-freeze/protocol.md",
           "sha256": "0bb3fa4a16482efed5ea558d12faaeec2270db04a5a8d25b271baece5bcf44ab"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/hypothesis-validation/protocol-amended-v2.json",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/hypothesis-validation/protocol-amended-v2.json",
           "sha256": "85445e48338c233db9d65cb36958f551ff94f3030c7cb69f219f53ce7bc289ef"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/hypothesis-validation/protocol-frozen-v1.json",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/hypothesis-validation/protocol-frozen-v1.json",
           "sha256": "7dc68f39b9fd38ca2a42030ee9d34baae8181bc63d2fa6d876db8dedec6fcead"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/hypothesis-validation/unreferenced-analysis.json",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/hypothesis-validation/unreferenced-analysis.json",
           "sha256": "2d059b9cbe1aeef90fc34a1113826f8e68e71c24265b512a4cfb9a569e900bc1"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/5-5/fixtures/SYN-EV-001.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/5-5/fixtures/SYN-EV-001.txt",
           "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/5-5/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/5-5/ledger.md",
           "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/5-5/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/5-5/opportunity.md",
           "sha256": "336ad52489e39159309d8dc2b6982414d1976764bbefb190be25ce4deeadf479"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/5-6/fixtures/SYN-EV-001.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/5-6/fixtures/SYN-EV-001.txt",
           "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/5-6/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/5-6/ledger.md",
           "sha256": "df9f8da26f053cdf850f3963187f4552cc05eec17e99298181bfb833cc3c6125"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/5-6/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/5-6/opportunity.md",
           "sha256": "8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/5-7/hypothesis.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/5-7/hypothesis.md",
           "sha256": "6667013af34f31e0ec9894f5652a332d98d21f1d38db878b30072704e922d5d5"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/5-7/protocol.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/5-7/protocol.md",
           "sha256": "839d02c8e778d9f6a82bcdcb77605358fb36f55272e15486fba28857f60beb46"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/ct12-kc-self-label/fixtures/SYN-EV-001.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/ct12-kc-self-label/fixtures/SYN-EV-001.txt",
           "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/ct12-kc-self-label/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/ct12-kc-self-label/ledger.md",
           "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/ct12-kc-self-label/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/ct12-kc-self-label/opportunity.md",
           "sha256": "6244707135f0fa09ff92ef2d6025b22c3d6dda0265f04c59276932971569c236"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/draft-observed/fixtures/SYN-EV-001.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/draft-observed/fixtures/SYN-EV-001.txt",
           "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/draft-observed/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/draft-observed/ledger.md",
           "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/draft-observed/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/draft-observed/opportunity.md",
           "sha256": "68ca098cfa18c77bed3d23eaaa26865fdff5723da16fddaefe540cae22a241a6"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/input-superseded/decision.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/input-superseded/decision.md",
           "sha256": "fc9abe8811b0aefd65aabeb3afec01e5d8ea5fdf469ccc99bc8be2e044f7d84f"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/input-superseded/fixtures/SYN-EV-001.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/input-superseded/fixtures/SYN-EV-001.txt",
           "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/input-superseded/hypothesis.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/input-superseded/hypothesis.md",
           "sha256": "1ab45e60cba22d7985ec42251c2ff4acf76dec581c0cb52144d79c93bbc7a93b"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/input-superseded/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/input-superseded/ledger.md",
           "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/input-superseded/opportunity-r2.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/input-superseded/opportunity-r2.md",
           "sha256": "e0aa21ca434f281daeb9dd41c7728d3e310140b67bcc575350d585083951e9b7"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/input-superseded/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/input-superseded/opportunity.md",
           "sha256": "8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/input-superseded/product-brief.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/input-superseded/product-brief.md",
           "sha256": "9a1b926e09c2e40b56d59e94a07c2aa211dc03bd3843333dceb4d2f77917c18f"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/negative/input-superseded/protocol.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/negative/input-superseded/protocol.md",
           "sha256": "0bb3fa4a16482efed5ea558d12faaeec2270db04a5a8d25b271baece5bcf44ab"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/5-1/decision.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/5-1/decision.md",
           "sha256": "fc9abe8811b0aefd65aabeb3afec01e5d8ea5fdf469ccc99bc8be2e044f7d84f"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/5-1/fixtures/SYN-EV-001.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/5-1/fixtures/SYN-EV-001.txt",
           "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/5-1/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/5-1/ledger.md",
           "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/5-1/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/5-1/opportunity.md",
           "sha256": "8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/5-2/hypothesis.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/5-2/hypothesis.md",
           "sha256": "1ab45e60cba22d7985ec42251c2ff4acf76dec581c0cb52144d79c93bbc7a93b"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/complete/decision.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/complete/decision.md",
           "sha256": "fc9abe8811b0aefd65aabeb3afec01e5d8ea5fdf469ccc99bc8be2e044f7d84f"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/complete/fixtures/SYN-EV-001.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/complete/fixtures/SYN-EV-001.txt",
           "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/complete/hypothesis.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/complete/hypothesis.md",
           "sha256": "1ab45e60cba22d7985ec42251c2ff4acf76dec581c0cb52144d79c93bbc7a93b"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/complete/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/complete/ledger.md",
           "sha256": "496b78be39756d39be8bccdf3ddaf308d2e724f81ab4489319e0dbf0d560123b"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/complete/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/complete/opportunity.md",
           "sha256": "8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/complete/product-brief.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/complete/product-brief.md",
           "sha256": "9a1b926e09c2e40b56d59e94a07c2aa211dc03bd3843333dceb4d2f77917c18f"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/complete/protocol.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/complete/protocol.md",
           "sha256": "0bb3fa4a16482efed5ea558d12faaeec2270db04a5a8d25b271baece5bcf44ab"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/disclaimer/fixtures/SYN-EV-001.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/disclaimer/fixtures/SYN-EV-001.txt",
           "sha256": "54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/positive/disclaimer/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/positive/disclaimer/opportunity.md",
           "sha256": "279646575f69316ebc00f8d86ad228fa9aedefeec457ff7b604a46a21a605546"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/README.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/README.md",
           "sha256": "411b8f08257deb58bdfbc6005d2078b2299aa9cdc415f035b49dac260ce6245d"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/contradictory-sources/case.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/contradictory-sources/case.md",
           "sha256": "851b199d8873d1870b5542c37ecf434c0be1eb0c7795b604a8b55cea98c4ab90"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/contradictory-sources/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/contradictory-sources/opportunity.md",
           "sha256": "a13ccd6a69632d0362801e89ac8d811be022c7d24599fc8f7d8a72617b5e47ae"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/multilingual-ru-en/case.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/multilingual-ru-en/case.md",
           "sha256": "cf47f7ed38236d4e1df8132ad3b3a9e8446af5667ecd672a4b76df8010bce15a"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/multilingual-ru-en/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/multilingual-ru-en/opportunity.md",
           "sha256": "1f2260fd80e58ee1f05ebaa1b4cb50f7ba7c863e8d09dbfecbc573dae1b68262"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/no-demand/case.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/no-demand/case.md",
           "sha256": "f56e5f381ce7e5ac4403faee04855cac60793f7cf29f8adc29c9cbff3ea1df27"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/no-demand/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/no-demand/opportunity.md",
           "sha256": "401f3c677afeb0f51320caf27b337037f777f5d87e5b06c036c40e740d58cfd2"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/positive-demand/case.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/positive-demand/case.md",
           "sha256": "bbb4670f8ad1cb4b2ea138f2f48aa0471dc8e65139e4bac7ba0c41d865febbc0"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/positive-demand/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/positive-demand/opportunity.md",
           "sha256": "7749cfca5c42e35f86da9f4dd5bc791a94c3b9d614ca9b9f34bfdf5439487115"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/case.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/case.txt",
           "sha256": "aaf8856bfb7e46b2365312c903f77fcfbd8b669aa49d19051c7772df7c960211"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/fixtures/SYN-EV-001.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/fixtures/SYN-EV-001.txt",
           "sha256": "b09cfb320a5a71d501168ca435f6daa43d278c2c570b957b701182860e681be1"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/ledger.md",
           "sha256": "02f0c9e152aa757bd2ef1aff31a1126bb65e2c28d1237523facc057565288822"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/roleplayed-as-observed/opportunity.md",
           "sha256": "54799472500115d03e9749598e3a2117d7292aaf3910db391846957113c87eb6"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/unavailable-source/case.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/unavailable-source/case.md",
           "sha256": "2aa277a173026335300779464c489be9c2884dec5b664338c37536f8444f5622"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/product-framing/unavailable-source/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/product-framing/unavailable-source/opportunity.md",
           "sha256": "3bea8e2443c3a70be761aed9bcb739c4867af4e70a50a5fdbb74534040cc12bc"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/fixtures/SYN-A.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/fixtures/SYN-A.txt",
           "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/fixtures/SYN-B.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/fixtures/SYN-B.txt",
           "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/ledger.md",
           "sha256": "6e512029b1d0fc2bb7758857abd5082a07938cc6be3c9157fe6507cf882dbe44"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-collapsed-conflict/opportunity.md",
           "sha256": "38d22f9f6cc8fe49bfd2e57e1759076074826b23c6e57f5371c63e61e253d475"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/fixtures/SYN-A.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/fixtures/SYN-A.txt",
           "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/fixtures/SYN-B.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/fixtures/SYN-B.txt",
           "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/ledger.md",
           "sha256": "6e512029b1d0fc2bb7758857abd5082a07938cc6be3c9157fe6507cf882dbe44"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-dropped-counterevidence/opportunity.md",
           "sha256": "0be9cbc5918fbd4f28680e3e6f48bc13b5ce0668d70d8faba0ea74ac7b7997f2"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/fixtures/SYN-A.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/fixtures/SYN-A.txt",
           "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/fixtures/SYN-B.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/fixtures/SYN-B.txt",
           "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/ledger.md",
           "sha256": "6e512029b1d0fc2bb7758857abd5082a07938cc6be3c9157fe6507cf882dbe44"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-conflict-same-side/opportunity.md",
           "sha256": "6bdc502870dab6631a8d5d4d87a228271fac1a5ffb9dc7b87728f792eeb673ad"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/fixtures/SYN-A.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/fixtures/SYN-A.txt",
           "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/fixtures/SYN-B.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/fixtures/SYN-B.txt",
           "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/ledger.md",
           "sha256": "5ba00968f120c19bbbfc75f0695debc445f4abc23fa96e81df12f2091a0eef50"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-guessed-published-at/opportunity.md",
           "sha256": "b67f04445ff71e0ac974b00a69f372b6a5d3cb845296d183f360bbffc4667abf"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/fixtures/SYN-A.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/fixtures/SYN-A.txt",
           "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/fixtures/SYN-B.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/fixtures/SYN-B.txt",
           "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/ledger.md",
           "sha256": "b1e9c3773b08910bf37b90a081729bca6d3f98de425e90ba4898ce4b41215e6b"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/negative-unavailable-as-no-match/opportunity.md",
           "sha256": "b67f04445ff71e0ac974b00a69f372b6a5d3cb845296d183f360bbffc4667abf"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/fixtures/SYN-A.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/fixtures/SYN-A.txt",
           "sha256": "e646f96fd462bc205f304617032491e0546817cfb3fb8b220f9d1726cba0f4f0"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/fixtures/SYN-B.txt",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/fixtures/SYN-B.txt",
           "sha256": "cc7d6c4dbd6e3decfac99e7eeab9ff92dafa735bdf895806289d4da6e7b39359"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/ledger.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/ledger.md",
           "sha256": "6e512029b1d0fc2bb7758857abd5082a07938cc6be3c9157fe6507cf882dbe44"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/opportunity.md",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/fixtures/sk04/positive-grouped-conflict/opportunity.md",
           "sha256": "b67f04445ff71e0ac974b00a69f372b6a5d3cb845296d183f360bbffc4667abf"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/hypothesis-validation.bats",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/hypothesis-validation.bats",
           "sha256": "68a75bb523ca4b09c36b7469f14cc6898f943ef261a10b614a04e189a88a037d"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/hypothesis_validation_reference.py",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/hypothesis_validation_reference.py",
           "sha256": "de925ddcef3075ea8e4eda0a6e65eec03a116faa34b4f33011919bd3f713d5db"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/product-artifact.bats",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/product-artifact.bats",
           "sha256": "de6c9008053ec0304a124e7a3b63dad6331a30450c67410738ba5f918943ab32"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/plugins/product-discovery/tests/product-framing.bats",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/plugins/product-discovery/tests/product-framing.bats",
           "sha256": "dabd335e653f56f6b3377da983b9801a21e542577490f9178085c61e91344703"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/scripts/dr-plugin.sh",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/scripts/dr-plugin.sh",
           "sha256": "7608635fcf5a668a61d13f36734e8586415c5ed61550d24dbd3cf3444f830c5b"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/scripts/lib/plugin-system.sh",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/scripts/lib/plugin-system.sh",
           "sha256": "48be7bbd2312d861510be2130856d6ae1a2a2ff4e2382dc1bdde49879df8b247"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/scripts/project_scope.py",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/scripts/project_scope.py",
           "sha256": "02359ea2d88a9371f12f0805a8ca0552f3c4d0cd28d78a4808b0fe2754ac06d7"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/tests/dr-product-discovery-agent-fragments.bats",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/tests/dr-product-discovery-agent-fragments.bats",
           "sha256": "ef58d38f666a2c57789f31b16fdcec7b2185eb335b00eb51022e761becee5cde"
         },
         {
-          "path": "/home/dev/aup/claude-work/d5a-t3.6/datarim/tests/helpers/product_discovery_agent_fragments.py",
+          "path": "/home/dev/aup/claude-work/d5a-t3.6/canary-checkout/tests/helpers/product_discovery_agent_fragments.py",
           "sha256": "47864b41ecd2ffdd4c1f2e95d380207baee002d8e95dbc717017e02739a05881"
         },
         {
