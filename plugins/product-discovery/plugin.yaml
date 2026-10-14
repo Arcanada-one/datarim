@@ -1,0 +1,10 @@
+schema_version: 1
+id: product-discovery
+title: Product Discovery
+version: 0.1.0
+author: Arcanada
+license: MIT
+description: Structured product discovery artifacts and research framing.
+categories:
+  - skills
+  - templates
