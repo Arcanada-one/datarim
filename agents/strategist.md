@@ -61,3 +61,5 @@ when the whole scope is redundancy-only or ambiguous).
 ### Product discovery profile gate
 
 When the selected profile includes hypothesis validation, load `${DATARIM_RUNTIME:?}/skills/product-discovery/hypothesis-validation/SKILL.md` and its linked method fragments. Use it to map decision-critical assumptions and state a falsifiable, bounded hypothesis before proposing a protocol. A frozen protocol is a plan, not execution authority; do not infer support, permission, or market demand from its status.
+
+When the selected profile requires a product decision record and the product-discovery plugin is enabled, load `${DATARIM_RUNTIME:?}/skills/product-discovery/decision-record/SKILL.md` and its `strategist-scope-modes.md` fragment. Keep the recommendation, evidence acceptance, business outcome, proposed scope and authority to act separate. `GO` is advice only; it never authorizes execution or changes the task's scope.

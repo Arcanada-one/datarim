@@ -1,5 +1,5 @@
 ---
-schema_version: product-artifact/1
+schema_version: product-artifact/2
 id: artifact:<stable-id>
 artifact_type: decision-record
 revision: 1
@@ -16,13 +16,18 @@ question: "<decision question>"
 options: []
 selected_option: null
 business_outcome: more-evidence
+strategist_recommendation: NOT_APPLICABLE
+evidence_acceptance: pending
+authority_to_act:
+  status: none
+  authority_ref: null
 evidence_refs: []
 counterevidence_refs: []
 applicable_thresholds: []
 uncertainty: []
 reversal_conditions: []
 owner: "<decision owner>"
-approved_scope_delta: null
+scope_delta: "<proposed scope change or none>"
 source_refs: []
 provenance:
   recorder: "<recorder>"

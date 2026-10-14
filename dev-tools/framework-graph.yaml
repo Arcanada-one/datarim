@@ -101,6 +101,7 @@ inventory:
   - playwright-qa
   - post-deploy-env-diff
   - prod-readiness-probe
+  - product-discovery/decision-record
   - product-discovery/hypothesis-validation
   - product-discovery/product-framing
   - project-init
@@ -135,6 +136,7 @@ inventory:
   - writing
   - writing-plans
   fragments:
+  - plugins/product-discovery/skills/decision-record/strategist-scope-modes.md
   - plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md
   - plugins/product-discovery/skills/hypothesis-validation/assumption-map.md
   - plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
@@ -572,6 +574,10 @@ edges:
   relation: loads
   source: agents/strategist.md
   to: skill:datarim-system
+- from: agent:strategist
+  relation: loads
+  source: agents/strategist.md
+  to: skill:product-discovery/decision-record
 - from: agent:strategist
   relation: loads
   source: agents/strategist.md
@@ -2116,6 +2122,10 @@ edges:
   relation: loads
   source: skills/playwright-qa/SKILL.md
   to: skill:frontend-ui
+- from: skill:product-discovery/decision-record
+  relation: loads
+  source: plugins/product-discovery/skills/decision-record/SKILL.md
+  to: fragment:plugins/product-discovery/skills/decision-record/strategist-scope-modes.md
 - from: skill:product-discovery/hypothesis-validation
   relation: loads
   source: plugins/product-discovery/skills/hypothesis-validation/SKILL.md

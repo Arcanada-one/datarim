@@ -4,7 +4,7 @@ This notice covers the Datarim product-discovery plugin. The product-framing met
 
 ## gstack material (MIT)
 
-The gstack method sources are pinned at commit `15ebd85cdde6c9a1b2fb707e8573aec18e8f7438` (`VERSION 1.91.100.0`), copyright 2026 Garry Tan. Product-framing methods are re-expressed in this plugin and covered by the MIT notice below. The scope-mode, QA, test-value, findings-resolution, and DX methods are separate planned work.
+The gstack method sources are pinned at commit `15ebd85cdde6c9a1b2fb707e8573aec18e8f7438` (`VERSION 1.91.100.0`), copyright 2026 Garry Tan. Product-framing and scope-mode methods are re-expressed in this plugin and covered by the MIT notice below. QA, test-value, findings-resolution, and DX methods remain separate planned work.
 
 ## Apache-2.0 material (APACHE-1)
 
@@ -23,10 +23,12 @@ For each target below, the named gstack files are pinned at commit `15ebd85cdde6
 - `office-hours/sections/phase-2b-builder-brainstorm.md.tmpl`
 - `office-hours/sections/phase-2b-builder-brainstorm.md`
 
-### MIT-2 — strategist scope-modes fragment
+### MIT-2 — strategist scope-modes fragment (implemented)
 
 - `plan-ceo-review/SKILL.md.tmpl`
 - `plan-ceo-review/SKILL.md`
+
+Re-expressed in original wording at `plugins/product-discovery/skills/decision-record/strategist-scope-modes.md`; no source text is copied.
 
 ### MIT-3 — hypothesis-validation skill (method-only overlap with product-framing)
 

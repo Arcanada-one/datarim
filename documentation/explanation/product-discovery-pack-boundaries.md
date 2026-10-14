@@ -153,7 +153,7 @@ commands are not discoverable by the Claude Code slash picker, so the pack's ent
 - **v1 stays exactly as today:** the 18 keys, `schema_version=1`. The producer (`/dr-plan` strategist step)
   keeps writing v1, byte-identical, whenever the profile is not active.
 - **v2 = v1 + three keys,** written only when the profile is active: `scope_mode`
-  (`expand` | `selective_expand` | `hold` | `reduce`), `scope_delta` (ASCII text or `none`), and
+  (`expand` | `selective` | `hold` | `reduce`), `scope_delta` (ASCII text or `none`), and
   `do_nothing_cost` (ASCII text or `unknown`; never inferred as zero). Text values use the existing 500-byte cap
   and unsafe-text filters. v2 has exactly 21 keys.
 - **Reader dispatch:** the reader reads up to 21 lines, then dispatches on `schema_version` before applying the
