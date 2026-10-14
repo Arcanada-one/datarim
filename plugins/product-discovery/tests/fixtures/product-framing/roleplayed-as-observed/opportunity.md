@@ -3,8 +3,8 @@ schema_version: product-artifact/1
 id: artifact:synthetic-roleplay-observed
 artifact_type: opportunity-brief
 revision: 1
-status: draft
-acceptance_state: not_submitted
+status: ready_for_research
+acceptance_state: accepted
 source_digest: null
 supersedes: null
 ---
@@ -25,8 +25,10 @@ claims:
     statement: "The roleplay participant would be upset if the tool disappeared."
     scope: "Synthetic roleplay only"
     kind: observed
-    supporting_refs: []
+    supporting_refs:
+      - {id: raw:SYN-EV-001-RAW, revision: 1, digest: sha256:b09cfb320a5a71d501168ca435f6daa43d278c2c570b957b701182860e681be1}
     contradicting_refs: []
+    provenance_ref: {id: raw:SYN-EV-001-RAW, revision: 1, digest: sha256:b09cfb320a5a71d501168ca435f6daa43d278c2c570b957b701182860e681be1}
 current_workaround: null
 problem_cost: null
 alternatives:

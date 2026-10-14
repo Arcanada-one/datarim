@@ -2327,8 +2327,4 @@ edges:
   relation: loads
   source: skills/verification-before-completion/SKILL.md
   to: skill:using-git-worktrees
-broken_references:
-- from: agent:researcher
-  relation: loads
-  to: skill:product-discovery/product-framing
-  source: agents/researcher.md
+broken_references: []

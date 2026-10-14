@@ -9,6 +9,6 @@ Every input and output here is synthetic. These files are deterministic checker 
 | `contradictory-sources` | Preserve both supplied statements and mark the conflict unresolved; do not infer demand. | Pass |
 | `unavailable-source` | Record unavailable as unavailable, not as a search with no match. | Pass |
 | `multilingual-ru-en` | Preserve the mixed-language input as declared; produce the brief in English. | Pass |
-| `roleplayed-as-observed` | Reject the claim as independently observed. | Fail with `E_OBSERVED_RAW_REQUIRED` |
+| `roleplayed-as-observed` | Reject the claim as independently observed, even with a raw script reference. | Fail with `E_ROLEPLAY_AS_OBSERVED` |
 
 The checker validates artifact structure, required fields, references, and typed claim rules. It does not decide whether the skill actually selected the expected outcome; that remains a separate reviewer observation.

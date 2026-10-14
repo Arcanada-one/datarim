@@ -29,9 +29,21 @@ FIXTURES="$BATS_TEST_DIRNAME/fixtures/product-framing"
 }
 
 @test "roleplayed interview mislabeled observed is rejected structurally" {
-  run "$CHECKER" --root "$FIXTURES/roleplayed-as-observed" --artifact opportunity.md
+  run "$CHECKER" --root "$FIXTURES/roleplayed-as-observed" --bundle .
   [ "$status" -eq 1 ]
-  [[ "$output" == *"E_OBSERVED_RAW_REQUIRED"* ]]
+  [ "$output" = "opportunity.md: E_ROLEPLAY_AS_OBSERVED" ]
+}
+
+@test "simulated and synthetic raw origins cannot be promoted to observed" {
+  local origin candidate
+  for origin in simulated synthetic; do
+    candidate="$BATS_TEST_TMPDIR/$origin"
+    cp -R "$FIXTURES/roleplayed-as-observed" "$candidate"
+    sed -i "s/origin_kind: roleplay/origin_kind: $origin/" "$candidate/ledger.md"
+    run "$CHECKER" --root "$candidate" --bundle .
+    [ "$status" -eq 1 ]
+    [ "$output" = "opportunity.md: E_ROLEPLAY_AS_OBSERVED" ]
+  done
 }
 
 @test "multilingual input fixture expects English artifact output" {
