@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -219,6 +220,16 @@ def prompt_gates() -> None:
         target = "fragment:plugins/product-discovery/skills/" + fragment_name
         assert any(edge["from"] == f"agent:{agent}" and edge["relation"] == "loads" and edge["to"] == target
                    for edge in edges), f"missing agent-to-fragment graph edge: {agent} -> {target}"
+    graph_path = REPO_ROOT / "dev-tools/framework-graph.py"
+    spec = importlib.util.spec_from_file_location("framework_graph", graph_path)
+    assert spec is not None and spec.loader is not None
+    framework_graph = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(framework_graph)
+    rendered = framework_graph.render(framework_graph.load())
+    for agent, (_, fragment_name) in expected.items():
+        label = "plugins/product-discovery/skills/" + fragment_name
+        assert f'["{label}"]' in rendered, f"graph map truncates fragment target label for {agent}: {label}"
+    assert "nt:plugins/" not in rendered, "graph map renders a truncated fragment kind prefix"
     print("profile clauses, both mutation controls, fragment drift checks, and graph edges verified")
 
 

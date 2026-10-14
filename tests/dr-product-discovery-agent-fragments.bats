@@ -17,6 +17,6 @@
     python3 "$BATS_TEST_DIRNAME/helpers/product_discovery_agent_fragments.py" missing-fragment
 }
 
-@test "agent references stay inside the product-discovery profile gate" {
+@test "agent fragments stay gated and render complete graph labels" {
     python3 "$BATS_TEST_DIRNAME/helpers/product_discovery_agent_fragments.py" prompt-gates
 }

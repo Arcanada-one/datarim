@@ -6,24 +6,6 @@ setup() { ROOT="${BATS_TEST_DIRNAME}/.."; }
   [ "$status" -eq 0 ]
 }
 
-@test "framework map renders fragment targets without truncating their kind prefix" {
-  run python3 - "$ROOT" <<'PY'
-import importlib.util, pathlib, sys
-root=pathlib.Path(sys.argv[1])
-spec=importlib.util.spec_from_file_location('framework_graph', root/'dev-tools/framework-graph.py')
-graph=importlib.util.module_from_spec(spec); spec.loader.exec_module(graph)
-rendered=graph.render(graph.load())
-for label in (
-    'plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md',
-    'plugins/product-discovery/skills/decision-record/strategist.product-discovery.md',
-):
-    assert f'["{label}"]' in rendered, f'missing full fragment label: {label}'
-assert 'nt:plugins/' not in rendered
-print('fragment labels retain their complete paths')
-PY
-  [ "$status" -eq 0 ]
-}
-
 @test "command graph exactly matches command files" {
   run python3 - "$ROOT" <<'PY'
 import pathlib,sys,yaml
