@@ -17,6 +17,7 @@
   [[ "$output" == *"latest-status-superseded"*"PRODUCT_ROUTE_SUPERSEDED"* ]]
   [[ "$output" == *"duplicate-scope-advance-id"*"PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH"* ]]
   [[ "$output" == *"checker-pair-refusal: checker=exit1"*"PRODUCT_REFUSE_ARTIFACT_INVALID"* ]]
+  [[ "$output" == *"continue-invalid-latest-brief: checker=exit1"*"PRODUCT_REFUSE_ARTIFACT_INVALID"* ]]
   [[ "$output" == *"writer=exit0; validator=exit0"*"decision_ref-and-supersedes-identical=true"* ]]
   [[ "$output" == *"red-control:"*"detected=true"* ]]
   printf '%s\n' "$output" | grep -Fq 'sandbox-dr-prd-continue: profile_active'

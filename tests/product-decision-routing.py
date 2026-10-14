@@ -127,7 +127,15 @@ def make_task(root, latest, *, history=(), include_brief=True, brief_revision=No
     return bundle, task_path, decision_fronts[current_revision], current_ref, brief_raw, parent_hash
 
 
-def run_checker(bundle, decision_path, brief_path=None):
+def run_checker(bundle, decision_path=None, brief_path=None):
+    if decision_path is None:
+        decisions = list(bundle.glob("decision-r*.md"))
+        decision_path = max(decisions, key=lambda path: int(re.fullmatch(r"decision-r([1-9][0-9]*)\.md", path.name).group(1)))
+        decision_data_value = yaml.safe_load(re.search(r"```product-artifact-data\n(.*?)\n```", decision_path.read_text(), re.S).group(1))
+        if decision_data_value.get("business_outcome") == "continue":
+            briefs = list(bundle.glob("product-brief-r*.md"))
+            if briefs:
+                brief_path = max(briefs, key=lambda path: int(re.fullmatch(r"product-brief-r([1-9][0-9]*)\.md", path.name).group(1)))
     revisioned = re.compile(r"(?:decision|product-brief)-r[1-9][0-9]*\.md\Z")
     files = [path for path in bundle.rglob("*.md") if not revisioned.fullmatch(path.name)]
     files = [path for path in files if path != decision_path and path != brief_path]
@@ -155,13 +163,13 @@ def sandbox_root(name):
             yield Path(temp)
 
 
-def case(name, setup, expected_route, expected_token, verify=None, allow_error=False):
+def case(name, setup, expected_route, expected_token, verify=None, allow_error=False, include_brief_in_checker=False):
     with tempfile.TemporaryDirectory(prefix="d5a-route-") as temp:
         root = Path(temp)
         bundle, _, front, decision_ref, brief_raw, parent_hash = setup(root)
         current_record = bundle / f"decision-r{decision_ref['revision']}.md"
         latest_data = yaml.safe_load(re.search(r"```product-artifact-data\n(.*?)\n```", current_record.read_text(), re.S).group(1))
-        brief_path = bundle / f"product-brief-r{len(list(bundle.glob('product-brief-r*.md')))}.md" if expected_token == "PRODUCT_ROUTE_CONTINUE" and list(bundle.glob("product-brief-r*.md")) else None
+        brief_path = bundle / f"product-brief-r{len(list(bundle.glob('product-brief-r*.md')))}.md" if (expected_token == "PRODUCT_ROUTE_CONTINUE" or include_brief_in_checker) and list(bundle.glob("product-brief-r*.md")) else None
         checker_result = run_checker(bundle, current_record, brief_path)
         assert checker_result.returncode in (0, 1), checker_result.stderr
         routed = route(root)
@@ -322,6 +330,23 @@ def main():
     def assert_checker_diagnostic(result, front, ref, brief, parent):
         assert "E_OUTCOME_INVALID" in result["detail"]
     case("checker-refusal", invalid_checker_artifact, "/dr-status", "PRODUCT_REFUSE_ARTIFACT_INVALID", assert_checker_diagnostic)
+
+    def invalid_latest_brief(root):
+        made = make_task(root, decision_data("continue", authority=granted))
+        brief_path = made[0] / "product-brief-r1.md"
+        text = brief_path.read_text(encoding="utf-8")
+        match = re.search(r"```product-artifact-data\n(.*?)\n```", text, re.S)
+        brief_data = yaml.safe_load(match.group(1))
+        brief_data["hypothesis_refs"] = [{"id": "artifact:SYN-MISSING-HYPOTHESIS", "revision": 1, "digest": "sha256:" + "0" * 64}]
+        updated = text[:match.start(1)] + yaml.safe_dump(brief_data, sort_keys=False).rstrip() + text[match.end(1):]
+        brief_path.write_text(updated, encoding="utf-8")
+        return made
+
+    def assert_brief_checker_diagnostic(result, front, ref, brief, parent):
+        assert "E_REF_MISSING" in result["detail"]
+
+    case("continue-invalid-latest-brief", invalid_latest_brief, "/dr-status", "PRODUCT_REFUSE_ARTIFACT_INVALID",
+         assert_brief_checker_diagnostic, include_brief_in_checker=True)
 
     sandbox_prd_run("continue", decision_data("continue", authority=granted))
     sandbox_prd_run("stop", decision_data("stop"), include_brief=False)

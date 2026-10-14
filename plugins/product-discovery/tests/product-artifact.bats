@@ -183,3 +183,43 @@ PY
   run "$CHECKER" --root "$FIXTURES/positive/complete" --artifact "$CHECKER"
   [ "$status" -eq 2 ]
 }
+
+@test "--files validates an explicit valid subset" {
+  run "$CHECKER" --root "$DECISION_V2" --files decision.md ledger.md
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "--files refuses duplicate entries with usage exit" {
+  run "$CHECKER" --root "$DECISION_V2" --files decision.md decision.md
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"duplicate --files entry"* ]]
+}
+
+@test "--files refuses a missing entry with usage exit" {
+  run "$CHECKER" --root "$DECISION_V2" --files missing.md
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"invalid --files entry"* ]]
+}
+
+@test "--files refuses a parent traversal entry with usage exit" {
+  run "$CHECKER" --root "$DECISION_V2" --files ../decision.md
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"invalid --files entry"* ]]
+}
+
+@test "--files refuses an absolute path outside the declared root" {
+  run "$CHECKER" --root "$DECISION_V2" --files "$CHECKER"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"invalid --files entry"* ]]
+}
+
+@test "--files cannot be combined with --bundle" {
+  run "$CHECKER" --root "$DECISION_V2" --bundle . --files decision.md
+  [ "$status" -eq 2 ]
+}
+
+@test "--files cannot be combined with --artifact" {
+  run "$CHECKER" --root "$DECISION_V2" --artifact decision.md --files decision.md
+  [ "$status" -eq 2 ]
+}
