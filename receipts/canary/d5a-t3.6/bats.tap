@@ -1,0 +1,6 @@
+1..5
+ok 1 enabled and selected profile reads both installed fragments with receipts
+ok 2 selected profile with disabled plugin does not read a fragment
+ok 3 enabled plugin with profile off does not read a fragment
+ok 4 active profile with a missing installed fragment fails loudly
+ok 5 agent references stay inside the product-discovery profile gate
