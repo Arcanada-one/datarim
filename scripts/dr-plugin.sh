@@ -308,7 +308,7 @@ _validate_overrides_shipped() {
     # For each override stem, verify a file <stem>.<ext> exists in at least one
     # of the plugin's declared categories. Returns 0 on success, 1 on missing.
     local src="$1" cats="$2" overrides="$3"
-    local ov cat found f bundle
+    local ov cat found f
     for ov in $overrides; do
         found=0
         for cat in $cats; do
