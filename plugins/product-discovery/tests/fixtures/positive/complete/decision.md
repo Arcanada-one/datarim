@@ -5,7 +5,7 @@ artifact_type: decision-record
 revision: 1
 status: submitted
 acceptance_state: accepted
-source_digest: sha256:eee8df0a4c88731fc8abe8b97a9b06ea3f206359c8778328117a92370ec3eed1
+source_digest: sha256:9709a153358ae6d4494d753e860d4df8f634cbbd346ecd7638279a6dfc65fa2b
 supersedes: null
 ---
 
@@ -29,7 +29,7 @@ options:
 selected_option: add-link
 business_outcome: continue
 evidence_refs:
-  - {id: artifact:OPP-SYN-001, revision: 1, digest: sha256:d79785a81db42cbaee9bc2a4957a938f6732f9a0efe9c16188450baf8998e27b}
+  - {id: artifact:OPP-SYN-001, revision: 1, digest: sha256:8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c}
   - {id: raw:SYN-EV-001-RAW, revision: 1, digest: sha256:54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca}
 counterevidence_refs: []
 applicable_thresholds:
@@ -41,7 +41,7 @@ reversal_conditions:
 owner: synthetic-example-owner
 approved_scope_delta: Synthetic fixture comparison only.
 source_refs:
-  - {id: artifact:OPP-SYN-001, revision: 1, digest: sha256:d79785a81db42cbaee9bc2a4957a938f6732f9a0efe9c16188450baf8998e27b}
+  - {id: artifact:OPP-SYN-001, revision: 1, digest: sha256:8f05dcb630bd6b7cdace50e53e2698e6878b55ed95022cb0ab5852686495d90c}
   - {id: raw:SYN-EV-001-RAW, revision: 1, digest: sha256:54f3d73f2061cc03705b400d8a9553cf2528e48914c181254db0aec89cae66ca}
 provenance:
   recorder: synthetic-example-owner

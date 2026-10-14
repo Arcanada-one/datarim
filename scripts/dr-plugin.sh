@@ -330,24 +330,38 @@ _validate_overrides_shipped() {
 }
 
 _collect_inventory_for() {
-    # Echo root regular files and one-level nested skill bundles. A bundle is
-    # skills/<name>/{SKILL.md,*.md}; directories and links are never followed.
+    # Echo every supported asset. A bundle is skills/<name>/{SKILL.md,*.md};
+    # any category entry outside that inventory fails closed.
     local src="$1" cat="$2"
     local cat_dir="$src/$cat"
-    [ -d "$cat_dir" ] || return 0
+    if [ ! -e "$cat_dir" ] && [ ! -L "$cat_dir" ]; then return 0; fi
+    if [ -L "$cat_dir" ] || [ ! -d "$cat_dir" ]; then
+        echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: unsupported category path '$cat_dir'" >&2
+        return 1
+    fi
     local f bn entry en
-    for f in "$cat_dir"/*; do
+    for f in "$cat_dir"/* "$cat_dir"/.[!.]* "$cat_dir"/..?*; do
+        # Empty globs are literal strings in Bash 3.2; ignore only those.
+        [ -e "$f" ] || [ -L "$f" ] || continue
         bn="$(basename "$f")"
-        case "$bn" in .*) continue ;; esac
-        if [ -L "$f" ] && [ "$cat" = skills ] && [ -d "$f" ]; then
-            echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: symlinked skill bundle '$f'" >&2
+        case "$bn" in
+            .*)
+                echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: hidden category entry is unsupported '$f'" >&2
+                return 1
+                ;;
+        esac
+        if [ -L "$f" ]; then
+            echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: symlinked category entry is unsupported '$f'" >&2
             return 1
         fi
         if [ -f "$f" ]; then
             echo "$bn"
             continue
         fi
-        [ "$cat" = skills ] && [ -d "$f" ] && [ ! -L "$f" ] || continue
+        if [ "$cat" != skills ] || [ ! -d "$f" ]; then
+            echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: uncollected category entry '$f'" >&2
+            return 1
+        fi
         [ -f "$f/SKILL.md" ] && [ ! -L "$f/SKILL.md" ] || {
             echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: skill bundle '$f' is missing regular SKILL.md" >&2
             return 1
@@ -356,10 +370,10 @@ _collect_inventory_for() {
             echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: invalid skill bundle name '$bn'" >&2
             return 1
         }
-        for entry in "$f"/*; do
+        for entry in "$f"/* "$f"/.[!.]* "$f"/..?*; do
+            [ -e "$entry" ] || [ -L "$entry" ] || continue
             en="$(basename "$entry")"
             [ -f "$entry" ] && [ ! -L "$entry" ] || {
-                [ -e "$entry" ] || [ -L "$entry" ] || continue
                 echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: non-regular skill bundle entry '$entry'" >&2
                 return 1
             }
@@ -525,13 +539,29 @@ cmd_enable() {
     local runtime
     runtime="$(resolve_runtime_root)"
 
-    local cats cat
+    local cats cat files
     cats="$(parse_yaml_list "$yaml" categories)"
 
     # Validate categories.
     for cat in $cats; do
         if ! _categories_allowed "$cat"; then
             echo "dr-plugin enable: unknown category: $cat" >&2
+            return 1
+        fi
+    done
+
+    # Refuse assets hidden in supported category directories that the manifest
+    # does not declare; no shipped category content may be silently omitted.
+    local declared_cat declared
+    for cat in skills agents commands templates; do
+        files="$(_collect_inventory_for "$src" "$cat")" || return 1
+        [ -n "$files" ] || continue
+        declared=0
+        for declared_cat in $cats; do
+            [ "$declared_cat" = "$cat" ] && declared=1
+        done
+        if [ "$declared" -ne 1 ]; then
+            echo "dr-plugin: E_PLUGIN_BUNDLE_INVALID: assets in undeclared category '$cat'" >&2
             return 1
         fi
     done
@@ -547,7 +577,7 @@ cmd_enable() {
     fi
 
     # Pre-scan conflict.
-    local target_dir target bn target_pos files
+    local target_dir target bn target_pos
     for cat in $cats; do
         target_dir="$runtime/$cat/$id"
         # Reject if a non-directory exists at the target dir path.

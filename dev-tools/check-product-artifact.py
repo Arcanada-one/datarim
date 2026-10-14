@@ -43,6 +43,16 @@ REQUIRED = {
 REF=re.compile(r'^sha256:[0-9a-f]{64}$')
 TS=re.compile(r'^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$')
 MIN_STATUS={'opportunity-brief':'ready_for_research','source-evidence-ledger':'recorded','hypothesis-card':'test_ready','experiment-protocol':'protocol_frozen','decision-record':'submitted','product-brief':'ready_for_delivery'}
+KC_TERM=re.compile(r'(?i)\bknowledge[\s-]+contract\b')
+KC_NEGATION_TAIL=re.compile(r"(?i)(?:\b(?:not|never)\s+(?:(?:a|an|the|any|official|legal|valid)\s+){0,3}|\bno\s+|\b(?:isn't|aren't|wasn't|weren't|doesn't|don't|didn't|won't|can't)\s+(?:(?:a|an|the|any|official|legal|valid)\s+){0,3})$")
+
+def has_affirmative_kc_label(text):
+ # KC terms are refused unless their immediate clause explicitly negates them.
+ # Clause boundaries prevent a nearby disclaimer from excusing a later claim.
+ for match in KC_TERM.finditer(text):
+  start=max(text.rfind(mark,0,match.start()) for mark in ('\n','.',';','!','?',':'))+1
+  if not KC_NEGATION_TAIL.search(text[start:match.start()]): return True
+ return False
 
 class Checker:
  def __init__(self, root): self.root=root.resolve(); self.diags=[]; self.docs=[]; self.byid={}; self.sources=[]
@@ -77,9 +87,8 @@ class Checker:
   data=self.safe_yaml(dm.group(1),rel)
   if fm is None or data is None: return
   doc={'path':rel,'bytes':raw,'front':fm,'data':data}
-  # Refuse affirmative claims of KC authority; ordinary boundary disclaimers
-  # such as "this is not a Knowledge Contract" are valid product prose.
-  if re.search(r'(?i)\b(?:this|the artifact|the pack)\s+(?:is|constitutes?)\s+(?:an?\s+)?(?:official\s+)?knowledge contract\b|\b(?:kc_contract|contract_authority)\b', text): self.add(rel,'E_KC_SELF_LABEL')
+  # Refuse affirmative self-labels; allow explicit negation in this clause.
+  if has_affirmative_kc_label(text): self.add(rel,'E_KC_SELF_LABEL')
   self.docs.append(doc)
   aid=fm.get('id'); rev=fm.get('revision')
   if isinstance(aid,str):

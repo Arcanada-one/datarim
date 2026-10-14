@@ -11,8 +11,6 @@ supersedes: null
 
 ## Data
 
-This pack is not a Knowledge Contract and makes no contract-authority claim.
-
 ```product-artifact-data
 question: Should the synthetic onboarding guide expose a next-step link?
 segment: synthetic fixture participants only

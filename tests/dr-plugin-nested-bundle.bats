@@ -53,21 +53,45 @@ demo-skill/research.md" ]
   done
 }
 
-@test "unextended installer negative control flags a silent empty inventory" {
-  baseline="fa5c9c2bfdfe267d9848ffb0ed0efed9f77bbe87"
-  legacy="$TMPROOT/unextended"
-  mkdir -p "$legacy/scripts/lib"
-  git -C "$BATS_TEST_DIRNAME/.." show "$baseline:scripts/dr-plugin.sh" > "$legacy/scripts/dr-plugin.sh"
-  git -C "$BATS_TEST_DIRNAME/.." show "$baseline:scripts/lib/plugin-system.sh" > "$legacy/scripts/lib/plugin-system.sh"
-  git -C "$BATS_TEST_DIRNAME/.." show "$baseline:scripts/project_scope.py" > "$legacy/scripts/project_scope.py"
-  chmod +x "$legacy/scripts/dr-plugin.sh"
-  run env DR_PLUGIN_WORKSPACE="$TMPROOT" "$legacy/scripts/dr-plugin.sh" enable "$TMPROOT/plugin"
-  [ "$status" -eq 0 ]
-  [ -z "$(manifest_inventory_of "$TMPROOT/datarim/enabled-plugins.md" nested-fixture skills)" ]
-  # The negative-control assertion makes the legacy false-success visible to CI.
-  run bash -c 'if [ "$1" -eq 0 ] && [ -z "$2" ]; then echo "E_PLUGIN_NESTED_UNSUPPORTED: unextended installer reported success with empty inventory"; exit 1; fi' _ "$status" "$(manifest_inventory_of "$TMPROOT/datarim/enabled-plugins.md" nested-fixture skills)"
+@test "uncollected nested template directory is refused before installation" {
+  printf '%s\n' '  - templates' >> "$TMPROOT/plugin/plugin.yaml"
+  mkdir -p "$TMPROOT/plugin/templates/sub"
+  printf '%s\n' '# Unsupported nested template' > "$TMPROOT/plugin/templates/sub/a.md"
+  before_manifest="$(sha256sum "$TMPROOT/datarim/enabled-plugins.md" | cut -d' ' -f1)"
+  run "$PLUGIN_SH" enable "$TMPROOT/plugin"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"E_PLUGIN_NESTED_UNSUPPORTED"* ]]
+  [[ "$output" == *"E_PLUGIN_BUNDLE_INVALID"* ]]
+  [ "$(sha256sum "$TMPROOT/datarim/enabled-plugins.md" | cut -d' ' -f1)" = "$before_manifest" ]
+  [ ! -e "$TMPROOT/.datarim-runtime/local/skills/nested-fixture" ]
+}
+
+@test "assets in an undeclared category are refused" {
+  mkdir -p "$TMPROOT/plugin/templates"
+  printf '%s\n' '# Unlisted template' > "$TMPROOT/plugin/templates/rogue.md"
+  run "$PLUGIN_SH" enable "$TMPROOT/plugin"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"E_PLUGIN_BUNDLE_INVALID"* ]]
+  [ ! -e "$TMPROOT/.datarim-runtime/local/skills/nested-fixture" ]
+}
+
+@test "hidden category entries are refused instead of omitted" {
+  printf '%s\n' '  - templates' >> "$TMPROOT/plugin/plugin.yaml"
+  mkdir -p "$TMPROOT/plugin/templates"
+  printf '%s\n' '# Hidden template' > "$TMPROOT/plugin/templates/.hidden.md"
+  run "$PLUGIN_SH" enable "$TMPROOT/plugin"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"E_PLUGIN_BUNDLE_INVALID"* ]]
+  [ ! -e "$TMPROOT/.datarim-runtime/local/skills/nested-fixture" ]
+}
+
+@test "dangling root skill symlink is refused instead of omitted from inventory" {
+  ln -s "$TMPROOT/missing.md" "$TMPROOT/plugin/skills/orphan.md"
+  before_manifest="$(sha256sum "$TMPROOT/datarim/enabled-plugins.md" | cut -d' ' -f1)"
+  run "$PLUGIN_SH" enable "$TMPROOT/plugin"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"E_PLUGIN_BUNDLE_INVALID"* ]]
+  [ "$(sha256sum "$TMPROOT/datarim/enabled-plugins.md" | cut -d' ' -f1)" = "$before_manifest" ]
+  [ ! -e "$TMPROOT/.datarim-runtime/local/skills/nested-fixture" ]
 }
 
 @test "nested bundle install rolls back after manifest fault injection" {
