@@ -1,0 +1,1 @@
+SYNTHETIC CONTROL: the bounded continuation fixture records the expected structural field set.
