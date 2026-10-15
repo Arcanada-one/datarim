@@ -1,6 +1,6 @@
 # Claim Quality
 
-Use these rules for source-evidence-ledger entries and claims in product artifacts. They preserve provenance and uncertainty; they do not establish semantic adequacy or authorize a business decision.
+Use these rules with the [`source-evidence-ledger` template](../../templates/source-evidence-ledger.md) for ledger entries and claims in product artifacts. They preserve provenance and uncertainty; they do not establish semantic adequacy or authorize a business decision.
 
 ## Source identity and duplicates
 

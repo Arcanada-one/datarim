@@ -1,0 +1,130 @@
+{
+  "exemptions": [
+    {
+      "code": "v-workflow-config-152a40343efd93ad",
+      "entity": "code_unit:.github/workflows/bats.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-152a40343efd93ad: workflow shell caller closure not measured: job customer-delivery-aggregate step 1: line 1: dynamic load/substitution; job customer-delivery-aggregate step 2: local action/checkout path scope unresolved; job customer-delivery-aggregate step 3: local action/checkout path scope unresolved; job customer-delivery-aggregate step 4: line 2: multiline/opaque shell statement; job customer-delivery-aggregate step 4: line 3: wrapper options/child command unresolved; job customer-delivery-aggregate step 4: line 5: multiline/opaque shell statement; job customer-delivery; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-5ff5fa17404fc7d3",
+      "entity": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-5ff5fa17404fc7d3: workflow shell caller closure not measured: job bats-self-tests step 1: line 1: wrapper execution scope/options unresolved; job dr-auto-reassert-wiring step 2: line 1: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 2: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 3: multiline/opaque shell statement; job linter-run step 1: line 1: multiline/opaque shell statement; job linter-run step 1: line 2: multiline/opaque shell statement; job linter-run step 1: line 3: multiline/opaque shell statement; job linter-; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-85b0e5f19e1ca680",
+      "entity": "code_unit:.github/workflows/dr-orchestrate-contract.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-85b0e5f19e1ca680: workflow shell caller closure not measured: job schemathesis step 2: line 1: wrapper execution scope/options unresolved; job schemathesis step 3: line 11: dynamic load/substitution; job schemathesis step 3: line 7: multiline/opaque shell statement; job schemathesis step 4: line 1: multiline/opaque shell statement; job schemathesis step 4: line 2: multiline/opaque shell statement; job schemathesis step 4: line 3: wrapper options/child command unresolved; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-6c171afc799257da",
+      "entity": "code_unit:.github/workflows/framework-gates.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-6c171afc799257da: workflow shell caller closure not measured: job archive-landing step 1: line 2: wrapper execution scope/options unresolved; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-ac18f02b39b4d139",
+      "entity": "code_unit:.github/workflows/frontmatter-mirror.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-ac18f02b39b4d139: workflow shell caller closure not measured: job self-tests step 1: line 1: wrapper execution scope/options unresolved; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-09c562dacfcf9489",
+      "entity": "code_unit:.github/workflows/gate-token-registry-sync.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-09c562dacfcf9489: workflow shell caller closure not measured: job registry-sync-check step 1: line 1: multiline/opaque shell statement; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-6e4f603fa997f347",
+      "entity": "code_unit:.github/workflows/network-exposure-lint.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-6e4f603fa997f347: workflow shell caller closure not measured: job lint step 0: line 2: dynamic command/alias/eval; job lint step 2: local action/checkout path scope unresolved; job lint step 3: line 4: multiline/opaque shell statement; job lint step 3: line 6: multiline/opaque shell statement; job lint step 3: line 7: multiline/opaque shell statement; job lint step 3: line 8: dynamic command/alias/eval; job lint step 4: line 8: missing/ambiguous literal helper ./.datarim/dev-tools/network-exposure-check.sh; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-71ec1c1168844989",
+      "entity": "code_unit:.github/workflows/node-tests.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-71ec1c1168844989: workflow shell caller closure not measured: job node-test step 2: line 11: multiline/opaque shell statement; job node-test step 2: line 12: multiline/opaque shell statement; job node-test step 2: line 13: multiline/opaque shell statement; job node-test step 2: line 14: dynamic command/alias/eval; job node-test step 2: line 3: multiline/opaque shell statement; job node-test step 2: line 4: dynamic load/substitution; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-07b8843df453ad3f",
+      "entity": "code_unit:.github/workflows/personal-id-lint.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-07b8843df453ad3f: workflow shell caller closure not measured: job personal-id-lint step 1: line 7: dynamic load/substitution; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-73a331778caeec7d",
+      "entity": "code_unit:.github/workflows/public-surface-lint.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-73a331778caeec7d: workflow shell caller closure not measured: job lint step 1: local action/checkout path scope unresolved; job lint step 3: line 5: missing/ambiguous literal helper ./.datarim/dev-tools/public-surface-lint.sh; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-87db21a973eed4fe",
+      "entity": "code_unit:.github/workflows/release.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-87db21a973eed4fe: workflow shell caller closure not measured: job classify step 1: line 11: dynamic load/substitution; job classify step 1: line 14: dynamic load/substitution; job classify step 1: line 35: dynamic command/alias/eval; job classify step 1: line 36: dynamic command/alias/eval; job classify step 1: line 38: multiline/opaque shell statement; job classify step 1: line 39: multiline/opaque shell statement; job classify step 1: line 42: dynamic load/substitution; job classify step 1: line 60: dynamic load/substitution; job classify step 1: line 9: dynamic load/substi; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-ed61203228de3f00",
+      "entity": "code_unit:.github/workflows/reusable-security-audit.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-ed61203228de3f00: workflow shell caller closure not measured: job audit step 1: local action/checkout path scope unresolved; job audit step 2: line 2: missing/ambiguous literal helper ./.datarim/dev-tools/check-security-policy.sh; job audit step 3: line 3: multiline/opaque shell statement; job audit step 3: line 4: wrapper options/child command unresolved; job audit step 6: line 3: dynamic load/substitution; job audit step 6: line 7: multiline/opaque shell statement; job audit step 7: line 20: dynamic load/substitution; job audit step 8: line 43: multiline/opaque shell statem; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-64f89239b966dac9",
+      "entity": "code_unit:.github/workflows/sanity-dual-copy.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-64f89239b966dac9: workflow shell caller closure not measured: job diff step 1: line 4: wrapper options/child command unresolved; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-2e3112f4e81a9c47",
+      "entity": "code_unit:.github/workflows/scorecard.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-2e3112f4e81a9c47: workflow configuration not measured: trigger outside this bounded checker: branch_protection_rule; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-552822c6dbc3fece",
+      "entity": "code_unit:.github/workflows/security-stale-trigger.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-552822c6dbc3fece: workflow shell caller closure not measured: job scan step 1: line 3: multiline/opaque shell statement; job scan step 1: line 5: wrapper execution scope/options unresolved; job scan step 3: line 10: dynamic load/substitution; job scan step 3: line 14: dynamic load/substitution; job scan step 3: line 20: dynamic load/substitution; job scan step 3: line 21: dynamic load/substitution; job scan step 3: line 22: dynamic load/substitution; job scan step 3: line 23: dynamic load/substitution; job scan step 3: line 24: dynamic load/substitution; job scan step 3: line; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-6102d4f2cddb56c4",
+      "entity": "code_unit:.github/workflows/security.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-6102d4f2cddb56c4: workflow shell caller closure not measured: job actionlint step 1: directory transition has unresolved execution cwd; job actionlint step 1: line 8: wrapper execution scope/options unresolved; job bandit-extracted step 3: line 2: dynamic load/substitution; job doc-refs step 1: line 3: unsupported loader/interpreter options; job doc-refs step 1: line 6: multiline/opaque shell statement; job doc-refs step 1: line 8: wrapper execution scope/options unresolved; job doc-refs step 1: line 9: wrapper execution scope/options unresolved; job gitleaks step 1: line 10:; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-workflow-config-fd7ca5e632c8dbe8",
+      "entity": "code_unit:.github/workflows/token-health-probe.yml",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-workflow-config-fd7ca5e632c8dbe8: workflow shell caller closure not measured: job probe step 1: line 5: dynamic load/substitution; job probe step 2: line 3: multiline/opaque shell statement; job probe step 2: line 4: wrapper options/child command unresolved; job probe step 3: line 4: dynamic load/substitution; job probe step 4: line 10: dynamic command/alias/eval; job probe step 4: line 7: multiline/opaque shell statement; job probe step 4: line 8: multiline/opaque shell statement; job probe step 4: line 9: multiline/opaque shell statement; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    },
+    {
+      "code": "v-shell-behavior-3e1715bb660a1cbc",
+      "entity": "code_unit:tests/framework-graph-consistency.bats",
+      "owner": "D5A-T2.2",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "reason": "v-shell-syntax-3e1715bb660a1cbc: shell syntax/closure: not_measured; v-shell-behavior-3e1715bb660a1cbc: SHELL_DYNAMIC_CLOSURE_NOT_MEASURED: Bats conditional execution membership is not statically resolved; Bats run lacks an immediate unconditional child status assertion; line 11: heredoc data/generation closure not measured; line 121: heredoc data/generation closure not measured; line 138: heredoc data/generation closure not measured; line 14: heredoc data/generation closure not measured; line 158: heredoc data/generation closure not measured; line 171: heredoc data/generation closure not meas; Pinned ShellCheck 0.11.0 verified this Bats file, and the focused Bats suite passed 13/13 on the measured source. Static Bats conditional execution, immediate child-status assertion, and heredoc closure remain not_measured as listed. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
+    }
+  ]
+}

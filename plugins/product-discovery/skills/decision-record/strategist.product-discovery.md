@@ -11,6 +11,7 @@ Use this fragment only when the consuming project has the `product-discovery` pr
 ## Method pointers
 
 - Read `decision-record/SKILL.md` and its `strategist-scope-modes.md` fragment when the task requires a product decision record.
+- Use the [`product-brief` template](../../templates/product-brief.md) when recording the linked ProductBrief artifact.
 - State the decision question and bounded scope, include deferral or doing nothing among realistic options, and keep supporting evidence and counterevidence separate.
 - Record uncertainty and unmeasured costs as unknown. Use `scope_mode` only to describe a proposed boundary; keep it separate from the recommendation and business outcome.
 - Keep evidence acceptance, business outcome, strategist recommendation, proposed scope, and authority to act as separate fields. A `GO` is advice only and never approves scope or authorizes execution.

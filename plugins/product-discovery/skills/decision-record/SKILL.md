@@ -32,6 +32,6 @@ The strategist recommendation is recorded separately as `GO`, `NO_GO`, `PIVOT`, 
 
 ## Record and validate
 
-Use the `product-artifact/2` DecisionRecord template. Its strict reader checks required fields, option dispositions, independent status fields, and references. The reader proves structure and local reference integrity only; it does not judge evidence quality, truth, business value, independent acceptance, or authority.
+Use the [`decision-record` template](../../templates/decision-record.md) for `product-artifact/2` DecisionRecords. Its strict reader checks required fields, option dispositions, independent status fields, and references. The reader proves structure and local reference integrity only; it does not judge evidence quality, truth, business value, independent acceptance, or authority.
 
 Keep examples synthetic and label them as such. Do not include real customer information or imply that a fixture demonstrates demand or production readiness.
