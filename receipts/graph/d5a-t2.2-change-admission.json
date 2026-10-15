@@ -5,10 +5,19 @@
   "superseded_self_rule": "DEC-AUP-0035: the entity a receipt can never verify is the PREVIOUS VERSION OF ITSELF. When a receipt is re-issued at the same path for the same work item — the ordinary case after a rebase or a second commit on a card — the copy of it standing in the tree is superseded by construction: this run is the measurement that replaces it, so the only verdict it could carry is I14 `not_measured` about a document that no longer exists at that path once the run finishes. It is excluded with the work item and the output path that identify it, both re-derived from Git by impact_pair.receipt_problems, never asserted.",
   "verdict": "admitted_with_exemptions"
  },
- "captured_at_utc": "2026-10-14T13:36:23Z",
+ "captured_at_utc": "2026-10-15T17:23:09Z",
  "change_set": {
-  "base": "698c91c542edfeb826b12d38501e24304ed585b7",
+  "base": "d356c119c85ed141fe8dae1123f77f6d6026c462",
   "files": [
+   {
+    "kind": "other",
+    "node_id": "code_unit:dev-tools/check-template-targets.py",
+    "node_ids": [
+     "code_unit:dev-tools/check-template-targets.py"
+    ],
+    "path": "dev-tools/check-template-targets.py",
+    "status": "M"
+   },
    {
     "kind": "other",
     "node_id": "code_unit:dev-tools/framework-graph.py",
@@ -26,18 +35,36 @@
    },
    {
     "kind": "doc",
-    "node_id": "document:documentation/explanation/framework-graph-and-skill-architecture.md",
+    "node_id": "document:plugins/product-discovery/skills/decision-record/SKILL.md",
     "node_ids": [
-     "document:documentation/explanation/framework-graph-and-skill-architecture.md"
+     "document:plugins/product-discovery/skills/decision-record/SKILL.md"
     ],
-    "path": "documentation/explanation/framework-graph-and-skill-architecture.md",
+    "path": "plugins/product-discovery/skills/decision-record/SKILL.md",
+    "status": "M"
+   },
+   {
+    "kind": "doc",
+    "node_id": "document:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md",
+    "node_ids": [
+     "document:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md"
+    ],
+    "path": "plugins/product-discovery/skills/decision-record/strategist.product-discovery.md",
+    "status": "M"
+   },
+   {
+    "kind": "doc",
+    "node_id": "document:plugins/product-discovery/skills/product-framing/claim-quality.md",
+    "node_ids": [
+     "document:plugins/product-discovery/skills/product-framing/claim-quality.md"
+    ],
+    "path": "plugins/product-discovery/skills/product-framing/claim-quality.md",
     "status": "M"
    },
    {
     "kind": "receipt",
-    "new": true,
     "path": "receipts/graph/D5A-T2.2/exemptions.json",
-    "status": "A"
+    "status": "M",
+    "uncovered": true
    },
    {
     "kind": "doc",
@@ -67,7 +94,7 @@
     "status": "M"
    }
   ],
-  "head": "c20ce2f8549f1a3ff3dbf5e1a6c6968dc4497e92",
+  "head": "c1f7b172222c747faf94e79a54fe555914d4efa9",
   "mode": "diff"
  },
  "decision_ref": "DEC-AUP-0008",
@@ -77,159 +104,150 @@
    "entity": "code_unit:.github/workflows/bats.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-152a40343efd93ad: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
-  },
-  {
-   "code": "v-workflow-config-2fe48d1021006468",
-   "entity": "code_unit:.github/workflows/dependabot-auto-merge.yml",
-   "expires_at_utc": "2026-10-28T23:59:59Z",
-   "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-2fe48d1021006468: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-152a40343efd93ad: workflow shell caller closure not measured: job customer-delivery-aggregate step 1: line 1: dynamic load/substitution; job customer-delivery-aggregate step 2: local action/checkout path scope unresolved; job customer-delivery-aggregate step 3: local action/checkout path scope unresolved; job customer-delivery-aggregate step 4: line 2: multiline/opaque shell statement; job customer-delivery-aggregate step 4: line 3: wrapper options/child command unresolved; job customer-delivery-aggregate step 4: line 5: multiline/opaque shell statement; job customer-delivery; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-5ff5fa17404fc7d3",
    "entity": "code_unit:.github/workflows/dev-tools-lint.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-5ff5fa17404fc7d3: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-5ff5fa17404fc7d3: workflow shell caller closure not measured: job bats-self-tests step 1: line 1: wrapper execution scope/options unresolved; job dr-auto-reassert-wiring step 2: line 1: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 2: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 3: multiline/opaque shell statement; job linter-run step 1: line 1: multiline/opaque shell statement; job linter-run step 1: line 2: multiline/opaque shell statement; job linter-run step 1: line 3: multiline/opaque shell statement; job linter-; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-85b0e5f19e1ca680",
    "entity": "code_unit:.github/workflows/dr-orchestrate-contract.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-85b0e5f19e1ca680: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-85b0e5f19e1ca680: workflow shell caller closure not measured: job schemathesis step 2: line 1: wrapper execution scope/options unresolved; job schemathesis step 3: line 11: dynamic load/substitution; job schemathesis step 3: line 7: multiline/opaque shell statement; job schemathesis step 4: line 1: multiline/opaque shell statement; job schemathesis step 4: line 2: multiline/opaque shell statement; job schemathesis step 4: line 3: wrapper options/child command unresolved; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-6c171afc799257da",
    "entity": "code_unit:.github/workflows/framework-gates.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-6c171afc799257da: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-6c171afc799257da: workflow shell caller closure not measured: job archive-landing step 1: line 2: wrapper execution scope/options unresolved; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-ac18f02b39b4d139",
    "entity": "code_unit:.github/workflows/frontmatter-mirror.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-ac18f02b39b4d139: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-ac18f02b39b4d139: workflow shell caller closure not measured: job self-tests step 1: line 1: wrapper execution scope/options unresolved; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-09c562dacfcf9489",
    "entity": "code_unit:.github/workflows/gate-token-registry-sync.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-09c562dacfcf9489: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-09c562dacfcf9489: workflow shell caller closure not measured: job registry-sync-check step 1: line 1: multiline/opaque shell statement; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-6e4f603fa997f347",
    "entity": "code_unit:.github/workflows/network-exposure-lint.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-6e4f603fa997f347: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-6e4f603fa997f347: workflow shell caller closure not measured: job lint step 0: line 2: dynamic command/alias/eval; job lint step 2: local action/checkout path scope unresolved; job lint step 3: line 4: multiline/opaque shell statement; job lint step 3: line 6: multiline/opaque shell statement; job lint step 3: line 7: multiline/opaque shell statement; job lint step 3: line 8: dynamic command/alias/eval; job lint step 4: line 8: missing/ambiguous literal helper ./.datarim/dev-tools/network-exposure-check.sh; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-71ec1c1168844989",
    "entity": "code_unit:.github/workflows/node-tests.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-71ec1c1168844989: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-71ec1c1168844989: workflow shell caller closure not measured: job node-test step 2: line 11: multiline/opaque shell statement; job node-test step 2: line 12: multiline/opaque shell statement; job node-test step 2: line 13: multiline/opaque shell statement; job node-test step 2: line 14: dynamic command/alias/eval; job node-test step 2: line 3: multiline/opaque shell statement; job node-test step 2: line 4: dynamic load/substitution; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-07b8843df453ad3f",
    "entity": "code_unit:.github/workflows/personal-id-lint.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-07b8843df453ad3f: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-07b8843df453ad3f: workflow shell caller closure not measured: job personal-id-lint step 1: line 7: dynamic load/substitution; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-73a331778caeec7d",
    "entity": "code_unit:.github/workflows/public-surface-lint.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-73a331778caeec7d: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-73a331778caeec7d: workflow shell caller closure not measured: job lint step 1: local action/checkout path scope unresolved; job lint step 3: line 5: missing/ambiguous literal helper ./.datarim/dev-tools/public-surface-lint.sh; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-87db21a973eed4fe",
    "entity": "code_unit:.github/workflows/release.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-87db21a973eed4fe: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-87db21a973eed4fe: workflow shell caller closure not measured: job classify step 1: line 11: dynamic load/substitution; job classify step 1: line 14: dynamic load/substitution; job classify step 1: line 35: dynamic command/alias/eval; job classify step 1: line 36: dynamic command/alias/eval; job classify step 1: line 38: multiline/opaque shell statement; job classify step 1: line 39: multiline/opaque shell statement; job classify step 1: line 42: dynamic load/substitution; job classify step 1: line 60: dynamic load/substitution; job classify step 1: line 9: dynamic load/substi; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-ed61203228de3f00",
    "entity": "code_unit:.github/workflows/reusable-security-audit.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-ed61203228de3f00: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-ed61203228de3f00: workflow shell caller closure not measured: job audit step 1: local action/checkout path scope unresolved; job audit step 2: line 2: missing/ambiguous literal helper ./.datarim/dev-tools/check-security-policy.sh; job audit step 3: line 3: multiline/opaque shell statement; job audit step 3: line 4: wrapper options/child command unresolved; job audit step 6: line 3: dynamic load/substitution; job audit step 6: line 7: multiline/opaque shell statement; job audit step 7: line 20: dynamic load/substitution; job audit step 8: line 43: multiline/opaque shell statem; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-64f89239b966dac9",
    "entity": "code_unit:.github/workflows/sanity-dual-copy.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-64f89239b966dac9: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-64f89239b966dac9: workflow shell caller closure not measured: job diff step 1: line 4: wrapper options/child command unresolved; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-2e3112f4e81a9c47",
    "entity": "code_unit:.github/workflows/scorecard.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-2e3112f4e81a9c47: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-2e3112f4e81a9c47: workflow configuration not measured: trigger outside this bounded checker: branch_protection_rule; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-552822c6dbc3fece",
    "entity": "code_unit:.github/workflows/security-stale-trigger.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-552822c6dbc3fece: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-552822c6dbc3fece: workflow shell caller closure not measured: job scan step 1: line 3: multiline/opaque shell statement; job scan step 1: line 5: wrapper execution scope/options unresolved; job scan step 3: line 10: dynamic load/substitution; job scan step 3: line 14: dynamic load/substitution; job scan step 3: line 20: dynamic load/substitution; job scan step 3: line 21: dynamic load/substitution; job scan step 3: line 22: dynamic load/substitution; job scan step 3: line 23: dynamic load/substitution; job scan step 3: line 24: dynamic load/substitution; job scan step 3: line; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-6102d4f2cddb56c4",
    "entity": "code_unit:.github/workflows/security.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-6102d4f2cddb56c4: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-6102d4f2cddb56c4: workflow shell caller closure not measured: job actionlint step 1: directory transition has unresolved execution cwd; job actionlint step 1: line 8: wrapper execution scope/options unresolved; job bandit-extracted step 3: line 2: dynamic load/substitution; job doc-refs step 1: line 3: unsupported loader/interpreter options; job doc-refs step 1: line 6: multiline/opaque shell statement; job doc-refs step 1: line 8: wrapper execution scope/options unresolved; job doc-refs step 1: line 9: wrapper execution scope/options unresolved; job gitleaks step 1: line 10:; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-workflow-config-fd7ca5e632c8dbe8",
    "entity": "code_unit:.github/workflows/token-health-probe.yml",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-workflow-config-fd7ca5e632c8dbe8: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-workflow-config-fd7ca5e632c8dbe8: workflow shell caller closure not measured: job probe step 1: line 5: dynamic load/substitution; job probe step 2: line 3: multiline/opaque shell statement; job probe step 2: line 4: wrapper options/child command unresolved; job probe step 3: line 4: dynamic load/substitution; job probe step 4: line 10: dynamic command/alias/eval; job probe step 4: line 7: multiline/opaque shell statement; job probe step 4: line 8: multiline/opaque shell statement; job probe step 4: line 9: multiline/opaque shell statement; Pinned Python 3.12/PyYAML 6.0.2 workflow parsing and pinned actionlint 1.7.12 both measured; actionlint passed 17/17 affected workflows. Only the listed bounded workflow-shell caller-closure or unsupported-trigger measurement remains not_measured. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   },
   {
    "code": "v-shell-behavior-3e1715bb660a1cbc",
    "entity": "code_unit:tests/framework-graph-consistency.bats",
    "expires_at_utc": "2026-10-28T23:59:59Z",
    "owner": "D5A-T2.2",
-   "reason": "v-shell-syntax-3e1715bb660a1cbc: shell syntax/closure: not_measured; v-shell-behavior-3e1715bb660a1cbc: SHELL_DYNAMIC_CLOSURE_NOT_MEASURED: Bats conditional execution membership is not statically resolved; Bats run lacks an immediate unconditional child status assertion; line 107: heredoc data/generation closure not measured; line 10: heredoc data/generation closure not measured; line 120: heredoc data/generation closure not measured; line 13: heredoc data/generation closure not measured; line 149: heredoc data/generation closure not measured; line 169: heredoc data/generation closure not meas ref f7ac6178-7adc-494c-adb3-fbc3fec7235a"
+   "reason": "v-shell-syntax-3e1715bb660a1cbc: shell syntax/closure: not_measured; v-shell-behavior-3e1715bb660a1cbc: SHELL_DYNAMIC_CLOSURE_NOT_MEASURED: Bats conditional execution membership is not statically resolved; Bats run lacks an immediate unconditional child status assertion; line 11: heredoc data/generation closure not measured; line 121: heredoc data/generation closure not measured; line 138: heredoc data/generation closure not measured; line 14: heredoc data/generation closure not measured; line 158: heredoc data/generation closure not measured; line 171: heredoc data/generation closure not meas; Pinned ShellCheck 0.11.0 verified this Bats file, and the focused Bats suite passed 13/13 on the measured source. Static Bats conditional execution, immediate child-status assertion, and heredoc closure remain not_measured as listed. Debt: Muneral task f7ac6178-7adc-494c-adb3-fbc3fec7235a."
   }
  ],
  "graph": {
   "builder_version": "1.0.6",
   "built_at_utc": "2026-09-05T00:00:00Z",
-  "graph_digest": "sha256:6b722c79106f5b965d4bb95bd6ad68f0e0bbf016366e4012a49e7f7c4e27729a",
-  "path": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/graph-698c91c542ed.json",
-  "source_commit": "698c91c542edfeb826b12d38501e24304ed585b7"
+  "graph_digest": "sha256:371817328b649ef75f71090b032672d3f8ddf137a1f10089aefb355d63cdfe55",
+  "path": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/graph-d356c119c85e.json",
+  "source_commit": "d356c119c85ed141fe8dae1123f77f6d6026c462"
  },
  "head_graph": {
   "builder_version": "1.0.6",
   "built_at_utc": "2026-09-05T00:00:00Z",
-  "graph_digest": "sha256:875f5a5b62455c485bc38dcd0dc942c8d3f24fbad37cb1f5ba64c9623e74dc3c",
-  "path": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/graph-head-c20ce2f8549f.json",
-  "source_commit": "c20ce2f8549f1a3ff3dbf5e1a6c6968dc4497e92",
+  "graph_digest": "sha256:326c17e62e8f92114280a8130de01501550ff5b175ebbd7241ff476d944febf1",
+  "path": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/graph-head-c1f7b172222c.json",
+  "source_commit": "c1f7b172222c747faf94e79a54fe555914d4efa9",
   "staleness": {
-   "checked_at_utc": "2026-10-14T13:38:40Z",
-   "checked_nodes": 1311,
+   "checked_at_utc": "2026-10-15T17:24:09Z",
+   "checked_nodes": 1312,
    "method": "manifest.dirty must be false; manifest.source_commit == change_set.head; working tree must be clean (a receipt in diff mode describes committed history only); content_hash of every whole-file node (code_unit, document, receipt; deployable_unit via its package.json) must equal the sha256 of the file bytes at head (git objects); contract/route/data_model hashes are extractor-owned (declaration text) and not recomputed",
    "mismatched_nodes": [],
    "verdict": "fresh"
   }
  },
- "host": "neutral-runner",
- "host_redacted": true,
- "host_sha256": "f719733d9f75fce39b191916a67914556d5bd6cc8cc3482ec5b13730d74a59f1",
+ "host": "arcana-devs",
  "impact_set": {
   "deterministic_core": [
    {
@@ -268,6 +286,26 @@
      {
       "edge_type": "documents",
       "from": "document:FRAMEWORK-GRAPH-INTEGRATION.md",
+      "provenance": "deterministic",
+      "to": "code_unit:dev-tools/framework-graph.py",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "doc reference check (path/id still resolves)"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
+    "entity": "document:documentation/explanation/framework-graph-and-skill-architecture.md",
+    "node_type": "document",
+    "path": [
+     {
+      "edge_type": "documents",
+      "from": "document:documentation/explanation/framework-graph-and-skill-architecture.md",
       "provenance": "deterministic",
       "to": "code_unit:dev-tools/framework-graph.py",
       "via": "explicit-path"
@@ -349,6 +387,26 @@
    {
     "boundary": "intra_unit",
     "depth": 1,
+    "entity": "receipt:receipts/graph/d5a-t2.2-change-admission.json",
+    "node_type": "receipt",
+    "path": [
+     {
+      "edge_type": "verifies",
+      "from": "receipt:receipts/graph/d5a-t2.2-change-admission.json",
+      "provenance": "deterministic",
+      "to": "code_unit:dev-tools/framework-graph.py",
+      "via": "explicit-path"
+     }
+    ],
+    "revisions": [
+     "base",
+     "head"
+    ],
+    "verifier_hint": "selectable: run the targeted test / re-read the receipt"
+   },
+   {
+    "boundary": "intra_unit",
+    "depth": 1,
     "entity": "receipt:receipts/graph/d5a-t3.6-change-admission.json",
     "node_type": "receipt",
     "path": [
@@ -381,27 +439,6 @@
      {
       "edge_type": "calls",
       "from": "code_unit:.github/workflows/bats.yml",
-      "inferred_by": "bounded-workflow-unknown-shell-candidate",
-      "provenance": "inferred",
-      "to": "code_unit:tests/framework-graph-consistency.bats",
-      "via": "unresolved-workflow-shell-closure"
-     }
-    ],
-    "revisions": [
-     "base",
-     "head"
-    ],
-    "verifier_hint": "type-check of the caller; canary when inferred across a boundary"
-   },
-   {
-    "boundary": "intra_unit",
-    "depth": 1,
-    "entity": "code_unit:.github/workflows/dependabot-auto-merge.yml",
-    "node_type": "code_unit",
-    "path": [
-     {
-      "edge_type": "calls",
-      "from": "code_unit:.github/workflows/dependabot-auto-merge.yml",
       "inferred_by": "bounded-workflow-unknown-shell-candidate",
       "provenance": "inferred",
       "to": "code_unit:tests/framework-graph-consistency.bats",
@@ -2020,27 +2057,26 @@
   ],
   "max_depth": 3,
   "method": "Union of independently revision-bound base/head traversals; reverse traversal (dependents) + forward declared-by hops (provides_route, implements_contract, maps_model of the same file, deploys_to); best path = fewest inferred/observed hops, then shortest; max_depth 3",
-  "total": 62
+  "total": 63
  },
  "notes": [
   "DRAFT produced by `arcana verify` (tools/graph/verify.py 1.4.1) from matrix contracts/graph-verified-change/verifier-matrix.v1.json; selection rule: required(entity) = ⋃ edge_types[t].mandatory over the edge types t of the hops that reach the entity in its best path (i…",
   "profile: (auto-detected); baseline: (auto-base-freeze: pre-existing findings at base frozen for this run; persist one with --freeze-baseline) (valid); selected: none; disabled: none",
-  "exemptions: 19 attached from /var/tmp/datarim-t22/subject/receipts/graph/D5A-T2.2/exemptions.json"
+  "exemptions: 18 attached from /home/dev/aup/claude-work/d5-t22-resume-20261015/subject/receipts/graph/D5A-T2.2/exemptions.json"
  ],
  "producer": {
   "tool": "tools/graph/verify.py",
   "version": "1.4.1"
  },
- "receipt_id": "car-verify-20261014T133623Z-c20ce2f8",
+ "receipt_id": "car-verify-20261015T172309Z-c1f7b172",
  "receipt_path": "receipts/graph/d5a-t2.2-change-admission.json",
  "repo": {
   "name": "Arcanada-one/datarim",
-  "path": "/var/tmp/datarim-t22/subject"
+  "path": "/home/dev/aup/claude-work/d5-t22-resume-20261015/subject"
  },
  "revision_selection": {
   "base": [
    "code_unit:.github/workflows/bats.yml",
-   "code_unit:.github/workflows/dependabot-auto-merge.yml",
    "code_unit:.github/workflows/dev-tools-lint.yml",
    "code_unit:.github/workflows/dr-orchestrate-contract.yml",
    "code_unit:.github/workflows/framework-gates.yml",
@@ -2057,6 +2093,7 @@
    "code_unit:.github/workflows/security-stale-trigger.yml",
    "code_unit:.github/workflows/security.yml",
    "code_unit:.github/workflows/token-health-probe.yml",
+   "code_unit:dev-tools/check-template-targets.py",
    "code_unit:dev-tools/framework-graph.py",
    "code_unit:tests/framework-graph-consistency.bats",
    "code_unit:tests/test_framework_integrity.py",
@@ -2081,6 +2118,9 @@
    "document:documentation/reference/standards-mapping.md",
    "document:documentation/tutorials/README.md",
    "document:plugins/dr-orchestrate/README.md",
+   "document:plugins/product-discovery/skills/decision-record/SKILL.md",
+   "document:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md",
+   "document:plugins/product-discovery/skills/product-framing/claim-quality.md",
    "document:skills/artifact-context/SKILL.md",
    "document:skills/autonomous-mode/SKILL.md",
    "document:skills/compliance/SKILL.md",
@@ -2105,11 +2145,11 @@
    "document:skills/visual-maps/framework-architecture.md",
    "document:templates/prd-template.md",
    "receipt:receipts/graph/change-admission-467.json",
+   "receipt:receipts/graph/d5a-t2.2-change-admission.json",
    "receipt:receipts/graph/d5a-t3.6-change-admission.json"
   ],
   "head": [
    "code_unit:.github/workflows/bats.yml",
-   "code_unit:.github/workflows/dependabot-auto-merge.yml",
    "code_unit:.github/workflows/dev-tools-lint.yml",
    "code_unit:.github/workflows/dr-orchestrate-contract.yml",
    "code_unit:.github/workflows/framework-gates.yml",
@@ -2126,6 +2166,7 @@
    "code_unit:.github/workflows/security-stale-trigger.yml",
    "code_unit:.github/workflows/security.yml",
    "code_unit:.github/workflows/token-health-probe.yml",
+   "code_unit:dev-tools/check-template-targets.py",
    "code_unit:dev-tools/framework-graph.py",
    "code_unit:tests/framework-graph-consistency.bats",
    "code_unit:tests/test_framework_integrity.py",
@@ -2150,6 +2191,9 @@
    "document:documentation/reference/standards-mapping.md",
    "document:documentation/tutorials/README.md",
    "document:plugins/dr-orchestrate/README.md",
+   "document:plugins/product-discovery/skills/decision-record/SKILL.md",
+   "document:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md",
+   "document:plugins/product-discovery/skills/product-framing/claim-quality.md",
    "document:skills/artifact-context/SKILL.md",
    "document:skills/autonomous-mode/SKILL.md",
    "document:skills/compliance/SKILL.md",
@@ -2174,6 +2218,7 @@
    "document:skills/visual-maps/framework-architecture.md",
    "document:templates/prd-template.md",
    "receipt:receipts/graph/change-admission-467.json",
+   "receipt:receipts/graph/d5a-t2.2-change-admission.json",
    "receipt:receipts/graph/d5a-t3.6-change-admission.json"
   ],
   "schema": "RevisionImpactSelection/v1",
@@ -2181,7 +2226,7 @@
  },
  "schema": "ChangeAdmissionReceipt/v1",
  "staleness": {
-  "checked_at_utc": "2026-10-14T13:38:40Z",
+  "checked_at_utc": "2026-10-15T17:24:09Z",
   "method": "manifest.dirty must be false; manifest.source_commit == change_set.base; working tree must be clean (a receipt in diff mode describes committed history only); content_hash of every whole-file node (code_unit, document, receipt; deployable_unit via its package.json) must equal the sha256 of the file bytes at base (git objects); contract/route/data_model hashes are extractor-owned (declaration text) and not recomputed",
   "mismatched_nodes": [],
   "verdict": "fresh"
@@ -2200,6 +2245,21 @@
   },
   {
    "content_hash": {
+    "base": "sha256:24b94f14a6ba82b407af8da5dbba52307862f6c369b798e276339743967f6a92",
+    "head": "sha256:24b94f14a6ba82b407af8da5dbba52307862f6c369b798e276339743967f6a92"
+   },
+   "entity": "receipt:receipts/graph/d5a-t2.2-change-admission.json",
+   "node_type": "receipt",
+   "path": "receipts/graph/d5a-t2.2-change-admission.json",
+   "reason": "historical receipt: asserted, never re-verified (I14); a new receipt supersedes it; superseded by construction — this run re-issues the receipt at receipts/graph/d5a-t2.2-change-admission.json for work item 0622c765-cc3a-431b-ba4e-6e1f22e1a27a",
+   "rule": "DEC-AUP-0035",
+   "superseded": {
+    "receipt_path": "receipts/graph/d5a-t2.2-change-admission.json",
+    "work_item": "0622c765-cc3a-431b-ba4e-6e1f22e1a27a"
+   }
+  },
+  {
+   "content_hash": {
     "base": "sha256:e16ba8835fb0cfc5521d1e3c07d1e952adaf3722efc0d7c3f5f45bcbf08efad2",
     "head": "sha256:e16ba8835fb0cfc5521d1e3c07d1e952adaf3722efc0d7c3f5f45bcbf08efad2"
    },
@@ -2211,13 +2271,13 @@
   }
  ],
  "tree": {
-  "commit": "c20ce2f8549f1a3ff3dbf5e1a6c6968dc4497e92",
+  "commit": "c1f7b172222c747faf94e79a54fe555914d4efa9",
   "dirty": false
  },
  "verdicts": [
   {
    "entity": "code_unit:.github/workflows/bats.yml",
-   "reason": "v-workflow-config-152a40343efd93ad: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-152a40343efd93ad: workflow shell caller closure not measured: job customer-delivery-aggregate step 1: line 1: dynamic load/substitution; job customer-delivery-aggregate step 2: local action/checkout path scope unresolved; job customer-delivery-aggregate step 3: local action/checkout path scope unresolved; job customer-delivery-aggregate step 4: line 2: multiline/opaque shell statement; job customer-delivery-aggregate step 4: line 3: wrapper options/child command unresolved; job customer-delivery-aggregate step 4: line 5: multiline/opaque shell statement; job customer-delivery",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2225,17 +2285,8 @@
    ]
   },
   {
-   "entity": "code_unit:.github/workflows/dependabot-auto-merge.yml",
-   "reason": "v-workflow-config-2fe48d1021006468: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
-   "verdict": "not_measured",
-   "verifier_ids": [
-    "v-fitness",
-    "v-workflow-config-2fe48d1021006468"
-   ]
-  },
-  {
    "entity": "code_unit:.github/workflows/dev-tools-lint.yml",
-   "reason": "v-workflow-config-5ff5fa17404fc7d3: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-5ff5fa17404fc7d3: workflow shell caller closure not measured: job bats-self-tests step 1: line 1: wrapper execution scope/options unresolved; job dr-auto-reassert-wiring step 2: line 1: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 2: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 3: multiline/opaque shell statement; job linter-run step 1: line 1: multiline/opaque shell statement; job linter-run step 1: line 2: multiline/opaque shell statement; job linter-run step 1: line 3: multiline/opaque shell statement; job linter-",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2244,7 +2295,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/dr-orchestrate-contract.yml",
-   "reason": "v-workflow-config-85b0e5f19e1ca680: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-85b0e5f19e1ca680: workflow shell caller closure not measured: job schemathesis step 2: line 1: wrapper execution scope/options unresolved; job schemathesis step 3: line 11: dynamic load/substitution; job schemathesis step 3: line 7: multiline/opaque shell statement; job schemathesis step 4: line 1: multiline/opaque shell statement; job schemathesis step 4: line 2: multiline/opaque shell statement; job schemathesis step 4: line 3: wrapper options/child command unresolved",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2253,7 +2304,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/framework-gates.yml",
-   "reason": "v-workflow-config-6c171afc799257da: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-6c171afc799257da: workflow shell caller closure not measured: job archive-landing step 1: line 2: wrapper execution scope/options unresolved",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2262,7 +2313,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/frontmatter-mirror.yml",
-   "reason": "v-workflow-config-ac18f02b39b4d139: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-ac18f02b39b4d139: workflow shell caller closure not measured: job self-tests step 1: line 1: wrapper execution scope/options unresolved",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2271,7 +2322,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/gate-token-registry-sync.yml",
-   "reason": "v-workflow-config-09c562dacfcf9489: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-09c562dacfcf9489: workflow shell caller closure not measured: job registry-sync-check step 1: line 1: multiline/opaque shell statement",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2280,7 +2331,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/network-exposure-lint.yml",
-   "reason": "v-workflow-config-6e4f603fa997f347: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-6e4f603fa997f347: workflow shell caller closure not measured: job lint step 0: line 2: dynamic command/alias/eval; job lint step 2: local action/checkout path scope unresolved; job lint step 3: line 4: multiline/opaque shell statement; job lint step 3: line 6: multiline/opaque shell statement; job lint step 3: line 7: multiline/opaque shell statement; job lint step 3: line 8: dynamic command/alias/eval; job lint step 4: line 8: missing/ambiguous literal helper ./.datarim/dev-tools/network-exposure-check.sh",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2289,7 +2340,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/node-tests.yml",
-   "reason": "v-workflow-config-71ec1c1168844989: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-71ec1c1168844989: workflow shell caller closure not measured: job node-test step 2: line 11: multiline/opaque shell statement; job node-test step 2: line 12: multiline/opaque shell statement; job node-test step 2: line 13: multiline/opaque shell statement; job node-test step 2: line 14: dynamic command/alias/eval; job node-test step 2: line 3: multiline/opaque shell statement; job node-test step 2: line 4: dynamic load/substitution",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2298,7 +2349,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/personal-id-lint.yml",
-   "reason": "v-workflow-config-07b8843df453ad3f: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-07b8843df453ad3f: workflow shell caller closure not measured: job personal-id-lint step 1: line 7: dynamic load/substitution",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2307,7 +2358,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/public-surface-lint.yml",
-   "reason": "v-workflow-config-73a331778caeec7d: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-73a331778caeec7d: workflow shell caller closure not measured: job lint step 1: local action/checkout path scope unresolved; job lint step 3: line 5: missing/ambiguous literal helper ./.datarim/dev-tools/public-surface-lint.sh",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2316,7 +2367,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/release.yml",
-   "reason": "v-workflow-config-87db21a973eed4fe: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-87db21a973eed4fe: workflow shell caller closure not measured: job classify step 1: line 11: dynamic load/substitution; job classify step 1: line 14: dynamic load/substitution; job classify step 1: line 35: dynamic command/alias/eval; job classify step 1: line 36: dynamic command/alias/eval; job classify step 1: line 38: multiline/opaque shell statement; job classify step 1: line 39: multiline/opaque shell statement; job classify step 1: line 42: dynamic load/substitution; job classify step 1: line 60: dynamic load/substitution; job classify step 1: line 9: dynamic load/substi",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2325,7 +2376,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/reusable-security-audit.yml",
-   "reason": "v-workflow-config-ed61203228de3f00: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-ed61203228de3f00: workflow shell caller closure not measured: job audit step 1: local action/checkout path scope unresolved; job audit step 2: line 2: missing/ambiguous literal helper ./.datarim/dev-tools/check-security-policy.sh; job audit step 3: line 3: multiline/opaque shell statement; job audit step 3: line 4: wrapper options/child command unresolved; job audit step 6: line 3: dynamic load/substitution; job audit step 6: line 7: multiline/opaque shell statement; job audit step 7: line 20: dynamic load/substitution; job audit step 8: line 43: multiline/opaque shell statem",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2334,7 +2385,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/sanity-dual-copy.yml",
-   "reason": "v-workflow-config-64f89239b966dac9: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-64f89239b966dac9: workflow shell caller closure not measured: job diff step 1: line 4: wrapper options/child command unresolved",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2343,7 +2394,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/scorecard.yml",
-   "reason": "v-workflow-config-2e3112f4e81a9c47: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-2e3112f4e81a9c47: workflow configuration not measured: trigger outside this bounded checker: branch_protection_rule",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2352,7 +2403,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/security-stale-trigger.yml",
-   "reason": "v-workflow-config-552822c6dbc3fece: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-552822c6dbc3fece: workflow shell caller closure not measured: job scan step 1: line 3: multiline/opaque shell statement; job scan step 1: line 5: wrapper execution scope/options unresolved; job scan step 3: line 10: dynamic load/substitution; job scan step 3: line 14: dynamic load/substitution; job scan step 3: line 20: dynamic load/substitution; job scan step 3: line 21: dynamic load/substitution; job scan step 3: line 22: dynamic load/substitution; job scan step 3: line 23: dynamic load/substitution; job scan step 3: line 24: dynamic load/substitution; job scan step 3: line",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2361,7 +2412,7 @@
   },
   {
    "entity": "code_unit:.github/workflows/security.yml",
-   "reason": "v-workflow-config-6102d4f2cddb56c4: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-6102d4f2cddb56c4: workflow shell caller closure not measured: job actionlint step 1: directory transition has unresolved execution cwd; job actionlint step 1: line 8: wrapper execution scope/options unresolved; job bandit-extracted step 3: line 2: dynamic load/substitution; job doc-refs step 1: line 3: unsupported loader/interpreter options; job doc-refs step 1: line 6: multiline/opaque shell statement; job doc-refs step 1: line 8: wrapper execution scope/options unresolved; job doc-refs step 1: line 9: wrapper execution scope/options unresolved; job gitleaks step 1: line 10:",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2370,11 +2421,19 @@
   },
   {
    "entity": "code_unit:.github/workflows/token-health-probe.yml",
-   "reason": "v-workflow-config-fd7ca5e632c8dbe8: PyYAML unavailable; workflow configuration not measured; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable",
+   "reason": "v-workflow-config-fd7ca5e632c8dbe8: workflow shell caller closure not measured: job probe step 1: line 5: dynamic load/substitution; job probe step 2: line 3: multiline/opaque shell statement; job probe step 2: line 4: wrapper options/child command unresolved; job probe step 3: line 4: dynamic load/substitution; job probe step 4: line 10: dynamic command/alias/eval; job probe step 4: line 7: multiline/opaque shell statement; job probe step 4: line 8: multiline/opaque shell statement; job probe step 4: line 9: multiline/opaque shell statement",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
     "v-workflow-config-fd7ca5e632c8dbe8"
+   ]
+  },
+  {
+   "entity": "code_unit:dev-tools/check-template-targets.py",
+   "reason": "v-fitness: no new fitness violation",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-fitness"
    ]
   },
   {
@@ -2387,7 +2446,7 @@
   },
   {
    "entity": "code_unit:tests/framework-graph-consistency.bats",
-   "reason": "v-shell-syntax-3e1715bb660a1cbc: shell syntax/closure: not_measured; v-shell-behavior-3e1715bb660a1cbc: SHELL_DYNAMIC_CLOSURE_NOT_MEASURED: Bats conditional execution membership is not statically resolved; Bats run lacks an immediate unconditional child status assertion; line 107: heredoc data/generation closure not measured; line 10: heredoc data/generation closure not measured; line 120: heredoc data/generation closure not measured; line 13: heredoc data/generation closure not measured; line 149: heredoc data/generation closure not measured; line 169: heredoc data/generation closure not meas",
+   "reason": "v-shell-syntax-3e1715bb660a1cbc: shell syntax/closure: not_measured; v-shell-behavior-3e1715bb660a1cbc: SHELL_DYNAMIC_CLOSURE_NOT_MEASURED: Bats conditional execution membership is not statically resolved; Bats run lacks an immediate unconditional child status assertion; line 11: heredoc data/generation closure not measured; line 121: heredoc data/generation closure not measured; line 138: heredoc data/generation closure not measured; line 14: heredoc data/generation closure not measured; line 158: heredoc data/generation closure not measured; line 171: heredoc data/generation closure not meas",
    "verdict": "not_measured",
    "verifier_ids": [
     "v-fitness",
@@ -2565,6 +2624,30 @@
   },
   {
    "entity": "document:plugins/dr-orchestrate/README.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:plugins/product-discovery/skills/decision-record/SKILL.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md",
+   "reason": "v-doc-reference: 0 reference(s) resolve at head",
+   "verdict": "verified",
+   "verifier_ids": [
+    "v-doc-reference"
+   ]
+  },
+  {
+   "entity": "document:plugins/product-discovery/skills/product-framing/claim-quality.md",
    "reason": "v-doc-reference: 0 reference(s) resolve at head",
    "verdict": "verified",
    "verifier_ids": [
@@ -2775,25 +2858,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-152a40343efd93ad",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-152a40343efd93ad.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
-  },
-  {
-   "command": "workflow_config.validate exact head bytes",
-   "duration_s": 0.0,
-   "entities": [
-    "code_unit:.github/workflows/dependabot-auto-merge.yml"
-   ],
-   "entity_verdicts": {
-    "code_unit:.github/workflows/dependabot-auto-merge.yml": "not_measured"
-   },
-   "exit_code": 1,
-   "id": "v-workflow-config-2fe48d1021006468",
-   "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-2fe48d1021006468.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-152a40343efd93ad.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job customer-delivery-aggregate step 1: line 1: dynamic load/substitution; job customer-delivery-aggregate step 2: local action/checkout path scope unresolved; job customer-delivery-aggregate step 3: local action/checkout path scope unresolved; job customer-delivery-aggregate step 4: line 2: multiline/opaque shell statement; job customer-delivery-aggregate step 4: line 3: wrapper options/child command unresolved; job customer-delivery-aggregate step 4: line 5: multiline/opaque shell statement; job customer-delivery-aggregate step 4: line 6: wrapper options/child command unresolved; job customer-delivery-linux step 1: line 1: dynamic load/substitution; job customer-delivery-linux step 2: line 5: multiline/opaque shell statement; job customer-delivery-linux step 2: line 6: multiline/opaque shell statement; job customer-delivery-linux step 2: line 7: wrapper options/child command unresolved; job customer-delivery-linux step 4: line 5: multiline/opaque shell statement; job customer-delivery-linux step 4: line 6: multiline/opaque shell statement; job customer-delivery-linux step 4: line 7: multiline/opaque shell statement; job customer-delivery-linux step 4: line 8: multiline/opaque shell statement; job customer-delivery-linux step 4: line 9: wrapper options/child command unresolved; job customer-delivery-linux step 5: local action/checkout path scope unresolved; job customer-delivery-macos step 1: line 1: dynamic load/substitution; job customer-delivery-macos step 3: line 2: multiline/opaque shell statement; job customer-delivery-macos step 3: line 3: multiline/opaque shell statement; job customer-delivery-macos step 3: line 6: dynamic load/substitution; job customer-delivery-macos step 3: line 6: unsupported loader/interpreter options; job customer-delivery-macos step 3: line 8: multiline/opaque shell statement; job customer-delivery-macos step 3: line 9: wrapper options/child command unresolved; job customer-delivery-macos step 5: line 10: wrapper options/child command unresolved; job customer-delivery-macos step 5: line 5: multiline/opaque shell statement; job customer-delivery-macos step 5: line 6: multiline/opaque shell statement; job customer-delivery-macos step 5: line 7: multiline/opaque shell statement; job customer-delivery-macos step 5: line 8: multiline/opaque shell statement; job customer-delivery-macos step 5: line 9: multiline/opaque shell statement; job customer-delivery-macos step 6: local action/checkout path scope unresolved; job jev-and-project-runtime step 1: line 1: dynamic load/substitution; job jev-and-project-runtime step 3: line 10: wrapper options/child command unresolved; job jev-and-project-runtime step 3: line 9: multiline/opaque shell statement; job jev-and-project-runtime step 5: line 3: dynamic command/alias/eval; job jev-and-project-runtime step 5: line 5: dynamic command/alias/eval; job macos-portability step 2: line 2: multiline/opaque shell statement; job macos-portability step 2: line 3: multiline/opaque shell statement; job macos-portability step 2: line 6: dynamic load/substitution; job macos-portability step 2: line 6: unsupported loader/interpreter options; job macos-portability step 2: line 8: multiline/opaque shell statement; job macos-portability step 2: line 9: wrapper options/child command unresolved; job macos-portability step 5: line 10: multiline/opaque shell statement; job macos-portability step 5: line 11: multiline/opaque shell statement; job macos-portability step 5: line 12: multiline/opaque shell statement; job macos-portability step 5: line 13: multiline/opaque shell statement; job macos-portability step 5: line 4: multiline/opaque shell statement; job macos-portability step 5: line 5: multiline/opaque shell statement; job macos-portability step 5: line 6: multiline/opaque shell statement; job macos-portability step 5: line 7: multiline/opaque shell statement; job macos-portability step 5: line 8: multiline/opaque shell statement; job macos-portability step 5: line 9: multiline/opaque shell statement; job registry step 1: line 1: dynamic load/substitution; job registry step 4: line 2: dynamic load/substitution; job registry step 4: line 3: dynamic load/substitution; job registry step 5: line 13: dynamic load/substitution; job registry step 5: line 2: dynamic load/substitution; job registry step 5: line 3: dynamic load/substitution; job suites step 1: line 5: multiline/opaque shell statement; job suites step 1: line 6: multiline/opaque shell statement; job suites step 1: line 7: wrapper options/child command unresolved"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -2807,9 +2874,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-5ff5fa17404fc7d3",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-5ff5fa17404fc7d3.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-5ff5fa17404fc7d3.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job bats-self-tests step 1: line 1: wrapper execution scope/options unresolved; job dr-auto-reassert-wiring step 2: line 1: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 2: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 3: multiline/opaque shell statement; job linter-run step 1: line 1: multiline/opaque shell statement; job linter-run step 1: line 2: multiline/opaque shell statement; job linter-run step 1: line 3: multiline/opaque shell statement; job linter-run step 1: line 4: wrapper options/child command unresolved; job linter-run step 2: line 1: multiline/opaque shell statement; job linter-run step 2: line 2: multiline/opaque shell statement; job linter-run step 2: line 3: multiline/opaque shell statement; job linter-run step 2: line 4: multiline/opaque shell statement"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -2823,9 +2890,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-85b0e5f19e1ca680",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-85b0e5f19e1ca680.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-85b0e5f19e1ca680.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job schemathesis step 2: line 1: wrapper execution scope/options unresolved; job schemathesis step 3: line 11: dynamic load/substitution; job schemathesis step 3: line 7: multiline/opaque shell statement; job schemathesis step 4: line 1: multiline/opaque shell statement; job schemathesis step 4: line 2: multiline/opaque shell statement; job schemathesis step 4: line 3: wrapper options/child command unresolved"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -2839,9 +2906,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-6c171afc799257da",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-6c171afc799257da.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-6c171afc799257da.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job archive-landing step 1: line 2: wrapper execution scope/options unresolved"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -2855,9 +2922,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-ac18f02b39b4d139",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-ac18f02b39b4d139.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-ac18f02b39b4d139.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job self-tests step 1: line 1: wrapper execution scope/options unresolved"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -2871,9 +2938,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-09c562dacfcf9489",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-09c562dacfcf9489.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-09c562dacfcf9489.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job registry-sync-check step 1: line 1: multiline/opaque shell statement"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -2887,9 +2954,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-6e4f603fa997f347",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-6e4f603fa997f347.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-6e4f603fa997f347.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job lint step 0: line 2: dynamic command/alias/eval; job lint step 2: local action/checkout path scope unresolved; job lint step 3: line 4: multiline/opaque shell statement; job lint step 3: line 6: multiline/opaque shell statement; job lint step 3: line 7: multiline/opaque shell statement; job lint step 3: line 8: dynamic command/alias/eval; job lint step 4: line 8: missing/ambiguous literal helper ./.datarim/dev-tools/network-exposure-check.sh"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -2903,9 +2970,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-71ec1c1168844989",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-71ec1c1168844989.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-71ec1c1168844989.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job node-test step 2: line 11: multiline/opaque shell statement; job node-test step 2: line 12: multiline/opaque shell statement; job node-test step 2: line 13: multiline/opaque shell statement; job node-test step 2: line 14: dynamic command/alias/eval; job node-test step 2: line 3: multiline/opaque shell statement; job node-test step 2: line 4: dynamic load/substitution"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -2919,9 +2986,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-07b8843df453ad3f",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-07b8843df453ad3f.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-07b8843df453ad3f.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job personal-id-lint step 1: line 7: dynamic load/substitution"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -2935,9 +3002,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-73a331778caeec7d",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-73a331778caeec7d.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-73a331778caeec7d.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job lint step 1: local action/checkout path scope unresolved; job lint step 3: line 5: missing/ambiguous literal helper ./.datarim/dev-tools/public-surface-lint.sh"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -2951,9 +3018,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-87db21a973eed4fe",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-87db21a973eed4fe.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-87db21a973eed4fe.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job classify step 1: line 11: dynamic load/substitution; job classify step 1: line 14: dynamic load/substitution; job classify step 1: line 35: dynamic command/alias/eval; job classify step 1: line 36: dynamic command/alias/eval; job classify step 1: line 38: multiline/opaque shell statement; job classify step 1: line 39: multiline/opaque shell statement; job classify step 1: line 42: dynamic load/substitution; job classify step 1: line 60: dynamic load/substitution; job classify step 1: line 9: dynamic load/substitution; job classify step 2: line 1: multiline/opaque shell statement; job classify step 2: line 2: wrapper options/child command unresolved; job release step 0: line 8: dynamic command/alias/eval; job release step 2: line 2: dynamic load/substitution; job release step 3: line 4: wrapper execution scope/options unresolved; job release step 4: line 6: wrapper execution scope/options unresolved"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -2967,9 +3034,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-ed61203228de3f00",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-ed61203228de3f00.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-ed61203228de3f00.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job audit step 1: local action/checkout path scope unresolved; job audit step 2: line 2: missing/ambiguous literal helper ./.datarim/dev-tools/check-security-policy.sh; job audit step 3: line 3: multiline/opaque shell statement; job audit step 3: line 4: wrapper options/child command unresolved; job audit step 6: line 3: dynamic load/substitution; job audit step 6: line 7: multiline/opaque shell statement; job audit step 7: line 20: dynamic load/substitution; job audit step 8: line 43: multiline/opaque shell statement; job audit step 8: line 44: wrapper options/child command unresolved"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -2983,9 +3050,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-64f89239b966dac9",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-64f89239b966dac9.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-64f89239b966dac9.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job diff step 1: line 4: wrapper options/child command unresolved"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -2999,9 +3066,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-2e3112f4e81a9c47",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-2e3112f4e81a9c47.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-2e3112f4e81a9c47.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow configuration not measured: trigger outside this bounded checker: branch_protection_rule"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -3015,9 +3082,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-552822c6dbc3fece",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-552822c6dbc3fece.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-552822c6dbc3fece.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job scan step 1: line 3: multiline/opaque shell statement; job scan step 1: line 5: wrapper execution scope/options unresolved; job scan step 3: line 10: dynamic load/substitution; job scan step 3: line 14: dynamic load/substitution; job scan step 3: line 20: dynamic load/substitution; job scan step 3: line 21: dynamic load/substitution; job scan step 3: line 22: dynamic load/substitution; job scan step 3: line 23: dynamic load/substitution; job scan step 3: line 24: dynamic load/substitution; job scan step 3: line 25: dynamic load/substitution; job scan step 3: line 32: dynamic load/substitution; job scan step 3: line 38: multiline/opaque shell statement; job scan step 3: line 39: multiline/opaque shell statement; job scan step 3: line 40: multiline/opaque shell statement; job scan step 3: line 41: multiline/opaque shell statement; job scan step 3: line 42: multiline/opaque shell statement; job scan step 3: line 43: multiline/opaque shell statement; job scan step 3: line 44: multiline/opaque shell statement; job scan step 3: line 45: multiline/opaque shell statement; job scan step 3: line 46: dynamic command/alias/eval; job scan step 3: line 51: multiline/opaque shell statement; job scan step 3: line 52: multiline/opaque shell statement; job scan step 3: line 53: multiline/opaque shell statement; job scan step 3: line 54: multiline/opaque shell statement; job scan step 3: line 55: wrapper options/child command unresolved; job scan step 3: line 9: dynamic load/substitution"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -3031,9 +3098,9 @@
    "exit_code": 1,
    "id": "v-workflow-config-6102d4f2cddb56c4",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-6102d4f2cddb56c4.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-6102d4f2cddb56c4.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job actionlint step 1: directory transition has unresolved execution cwd; job actionlint step 1: line 8: wrapper execution scope/options unresolved; job bandit-extracted step 3: line 2: dynamic load/substitution; job doc-refs step 1: line 3: unsupported loader/interpreter options; job doc-refs step 1: line 6: multiline/opaque shell statement; job doc-refs step 1: line 8: wrapper execution scope/options unresolved; job doc-refs step 1: line 9: wrapper execution scope/options unresolved; job gitleaks step 1: line 10: wrapper execution scope/options unresolved; job gitleaks step 1: line 2: multiline/opaque shell statement; job gitleaks step 1: line 3: dynamic command/alias/eval; job gitleaks step 2: line 2: multiline/opaque shell statement; job gitleaks step 2: line 3: multiline/opaque shell statement; job gitleaks step 2: line 4: wrapper options/child command unresolved; job gitleaks step 3: local action/checkout path scope unresolved; job markdown-policy step 1: line 2: dynamic load/substitution; job markdown-policy step 1: line 9: multiline/opaque shell statement; job osv-scanner step 1: directory transition has unresolved execution cwd; job osv-scanner step 1: line 7: wrapper execution scope/options unresolved; job osv-scanner step 2: line 10: multiline/opaque shell statement; job osv-scanner step 2: line 11: multiline/opaque shell statement; job osv-scanner step 2: line 12: wrapper options/child command unresolved; job osv-scanner step 2: line 5: multiline/opaque shell statement; job osv-scanner step 2: line 6: multiline/opaque shell statement; job osv-scanner step 2: line 7: multiline/opaque shell statement; job osv-scanner step 2: line 8: multiline/opaque shell statement; job osv-scanner step 2: line 9: multiline/opaque shell statement; job regression-bats step 1: line 3: unsupported loader/interpreter options; job regression-bats step 1: line 6: multiline/opaque shell statement; job regression-bats step 1: line 8: wrapper execution scope/options unresolved; job regression-bats step 1: line 9: wrapper execution scope/options unresolved; job semgrep-sarif step 3: line 3: multiline/opaque shell statement; job semgrep-sarif step 3: line 4: multiline/opaque shell statement; job semgrep-sarif step 3: line 5: multiline/opaque shell statement; job semgrep-sarif step 3: line 6: unsupported loader/interpreter options; job shellcheck step 1: line 11: wrapper execution scope/options unresolved; job shellcheck step 1: line 12: wrapper execution scope/options unresolved; job shellcheck step 1: line 9: multiline/opaque shell statement; job shellcheck step 2: line 3: dynamic load/substitution; job shellcheck-extracted step 1: line 6: multiline/opaque shell statement; job shellcheck-extracted step 1: line 8: wrapper execution scope/options unresolved; job shellcheck-extracted step 1: line 9: wrapper execution scope/options unresolved; job shellcheck-extracted step 2: line 2: dynamic load/substitution; job shellcheck-extracted step 3: line 2: dynamic load/substitution; job task-id-gate step 1: line 3: unsupported loader/interpreter options; job task-id-gate step 1: line 6: multiline/opaque shell statement; job task-id-gate step 1: line 8: wrapper execution scope/options unresolved; job task-id-gate step 1: line 9: wrapper execution scope/options unresolved; job task-id-gate step 3: line 10: multiline/opaque shell statement; job task-id-gate step 3: line 11: multiline/opaque shell statement; job task-id-gate step 3: line 12: multiline/opaque shell statement; job task-id-gate step 3: line 2: multiline/opaque shell statement; job task-id-gate step 3: line 3: multiline/opaque shell statement; job task-id-gate step 3: line 4: multiline/opaque shell statement; job task-id-gate step 3: line 5: multiline/opaque shell statement; job task-id-gate step 3: line 6: multiline/opaque shell statement; job task-id-gate step 3: line 7: multiline/opaque shell statement; job task-id-gate step 3: line 8: multiline/opaque shell statement; job task-id-gate step 3: line 9: multiline/opaque shell statement; job trufflehog step 1: directory transition has unresolved execution cwd; job trufflehog step 1: line 8: wrapper execution scope/options unresolved"
   },
   {
    "command": "workflow_config.validate exact head bytes",
@@ -3047,16 +3114,15 @@
    "exit_code": 1,
    "id": "v-workflow-config-fd7ca5e632c8dbe8",
    "kind": "config_schema",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-workflow-config-fd7ca5e632c8dbe8.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "PyYAML unavailable; workflow configuration not measured"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-workflow-config-fd7ca5e632c8dbe8.txt",
+   "started_at_utc": "2026-10-15T17:24:56Z",
+   "summary": "workflow shell caller closure not measured: job probe step 1: line 5: dynamic load/substitution; job probe step 2: line 3: multiline/opaque shell statement; job probe step 2: line 4: wrapper options/child command unresolved; job probe step 3: line 4: dynamic load/substitution; job probe step 4: line 10: dynamic command/alias/eval; job probe step 4: line 7: multiline/opaque shell statement; job probe step 4: line 8: multiline/opaque shell statement; job probe step 4: line 9: multiline/opaque shell statement"
   },
   {
    "command": "verify.py fitness_rules FR-01..FR-05 over the head graph + head sources",
-   "duration_s": 0.01,
+   "duration_s": 0.95,
    "entities": [
     "code_unit:.github/workflows/bats.yml",
-    "code_unit:.github/workflows/dependabot-auto-merge.yml",
     "code_unit:.github/workflows/dev-tools-lint.yml",
     "code_unit:.github/workflows/dr-orchestrate-contract.yml",
     "code_unit:.github/workflows/framework-gates.yml",
@@ -3073,29 +3139,30 @@
     "code_unit:.github/workflows/security-stale-trigger.yml",
     "code_unit:.github/workflows/security.yml",
     "code_unit:.github/workflows/token-health-probe.yml",
+    "code_unit:dev-tools/check-template-targets.py",
     "code_unit:dev-tools/framework-graph.py",
     "code_unit:tests/framework-graph-consistency.bats",
     "code_unit:tests/test_framework_integrity.py"
    ],
    "entity_verdicts": {
-    "code_unit:.github/workflows/bats.yml": "not_measured",
-    "code_unit:.github/workflows/dependabot-auto-merge.yml": "not_measured",
-    "code_unit:.github/workflows/dev-tools-lint.yml": "not_measured",
-    "code_unit:.github/workflows/dr-orchestrate-contract.yml": "not_measured",
-    "code_unit:.github/workflows/framework-gates.yml": "not_measured",
-    "code_unit:.github/workflows/frontmatter-mirror.yml": "not_measured",
-    "code_unit:.github/workflows/gate-token-registry-sync.yml": "not_measured",
-    "code_unit:.github/workflows/network-exposure-lint.yml": "not_measured",
-    "code_unit:.github/workflows/node-tests.yml": "not_measured",
-    "code_unit:.github/workflows/personal-id-lint.yml": "not_measured",
-    "code_unit:.github/workflows/public-surface-lint.yml": "not_measured",
-    "code_unit:.github/workflows/release.yml": "not_measured",
-    "code_unit:.github/workflows/reusable-security-audit.yml": "not_measured",
-    "code_unit:.github/workflows/sanity-dual-copy.yml": "not_measured",
-    "code_unit:.github/workflows/scorecard.yml": "not_measured",
-    "code_unit:.github/workflows/security-stale-trigger.yml": "not_measured",
-    "code_unit:.github/workflows/security.yml": "not_measured",
-    "code_unit:.github/workflows/token-health-probe.yml": "not_measured",
+    "code_unit:.github/workflows/bats.yml": "verified",
+    "code_unit:.github/workflows/dev-tools-lint.yml": "verified",
+    "code_unit:.github/workflows/dr-orchestrate-contract.yml": "verified",
+    "code_unit:.github/workflows/framework-gates.yml": "verified",
+    "code_unit:.github/workflows/frontmatter-mirror.yml": "verified",
+    "code_unit:.github/workflows/gate-token-registry-sync.yml": "verified",
+    "code_unit:.github/workflows/network-exposure-lint.yml": "verified",
+    "code_unit:.github/workflows/node-tests.yml": "verified",
+    "code_unit:.github/workflows/personal-id-lint.yml": "verified",
+    "code_unit:.github/workflows/public-surface-lint.yml": "verified",
+    "code_unit:.github/workflows/release.yml": "verified",
+    "code_unit:.github/workflows/reusable-security-audit.yml": "verified",
+    "code_unit:.github/workflows/sanity-dual-copy.yml": "verified",
+    "code_unit:.github/workflows/scorecard.yml": "verified",
+    "code_unit:.github/workflows/security-stale-trigger.yml": "verified",
+    "code_unit:.github/workflows/security.yml": "verified",
+    "code_unit:.github/workflows/token-health-probe.yml": "verified",
+    "code_unit:dev-tools/check-template-targets.py": "verified",
     "code_unit:dev-tools/framework-graph.py": "verified",
     "code_unit:tests/framework-graph-consistency.bats": "verified",
     "code_unit:tests/test_framework_integrity.py": "verified"
@@ -3103,13 +3170,13 @@
    "exit_code": 0,
    "id": "v-fitness",
    "kind": "fitness_rules",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-fitness.json",
-   "started_at_utc": "2026-10-14T13:39:59Z",
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-fitness.json",
+   "started_at_utc": "2026-10-15T17:24:56Z",
    "summary": "0 finding(s): 0 new / 0 frozen; 0 entity(ies) failed"
   },
   {
    "command": "verify.py doc_reference: path / route / model references of affected documents resolve at head",
-   "duration_s": 0.19,
+   "duration_s": 0.09,
    "entities": [
     "document:AGENTS.md",
     "document:CHANGELOG.md",
@@ -3132,6 +3199,9 @@
     "document:documentation/reference/standards-mapping.md",
     "document:documentation/tutorials/README.md",
     "document:plugins/dr-orchestrate/README.md",
+    "document:plugins/product-discovery/skills/decision-record/SKILL.md",
+    "document:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md",
+    "document:plugins/product-discovery/skills/product-framing/claim-quality.md",
     "document:skills/artifact-context/SKILL.md",
     "document:skills/autonomous-mode/SKILL.md",
     "document:skills/compliance/SKILL.md",
@@ -3178,6 +3248,9 @@
     "document:documentation/reference/standards-mapping.md": "verified",
     "document:documentation/tutorials/README.md": "verified",
     "document:plugins/dr-orchestrate/README.md": "verified",
+    "document:plugins/product-discovery/skills/decision-record/SKILL.md": "verified",
+    "document:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md": "verified",
+    "document:plugins/product-discovery/skills/product-framing/claim-quality.md": "verified",
     "document:skills/artifact-context/SKILL.md": "verified",
     "document:skills/autonomous-mode/SKILL.md": "verified",
     "document:skills/compliance/SKILL.md": "verified",
@@ -3205,9 +3278,9 @@
    "exit_code": 0,
    "id": "v-doc-reference",
    "kind": "doc_reference",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-doc-reference.txt",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "44 document(s), 0 failed"
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-doc-reference.txt",
+   "started_at_utc": "2026-10-15T17:24:57Z",
+   "summary": "47 document(s), 0 failed"
   },
   {
    "command": "bash -n + pinned ShellCheck on syntax projection; no caller/Bats execution",
@@ -3221,9 +3294,9 @@
    "exit_code": 0,
    "id": "v-shell-syntax-3e1715bb660a1cbc",
    "kind": "shell_syntax",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-shell-syntax-3e1715bb660a1cbc.txt",
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-shell-syntax-3e1715bb660a1cbc.txt",
    "scope": "shell_source_validation",
-   "started_at_utc": "2026-10-14T13:39:59Z",
+   "started_at_utc": "2026-10-15T17:24:59Z",
    "summary": "shell syntax/closure: not_measured"
   },
   {
@@ -3238,26 +3311,28 @@
    "exit_code": 0,
    "id": "v-shell-behavior-3e1715bb660a1cbc",
    "kind": "shell_behavior",
-   "output_ref": "/var/tmp/datarim-t22/out/verifier-probe-work/verifier-out/v-shell-behavior-3e1715bb660a1cbc.txt",
+   "output_ref": "/home/dev/aup/claude-work/d5-t22-resume-20261015/verify-canonical-car-verifiers/v-shell-behavior-3e1715bb660a1cbc.txt",
    "scope": "shell_fixture_behavior",
-   "started_at_utc": "2026-10-14T13:39:59Z",
-   "summary": "SHELL_DYNAMIC_CLOSURE_NOT_MEASURED: Bats conditional execution membership is not statically resolved; Bats run lacks an immediate unconditional child status assertion; line 107: heredoc data/generation closure not measured; line 10: heredoc data/generation closure not measured; line 120: heredoc data/generation closure not measured; line 13: heredoc data/generation closure not measured; line 149: heredoc data/generation closure not measured; line 169: heredoc data/generation closure not measured; line 190: heredoc data/generation closure not measured; line 23: heredoc data/generation closure not measured; line 30: heredoc data/generation closure not measured; line 40: heredoc data/generation closure not measured; line 47: heredoc data/generation closure not measured; line 50: heredoc data/generation closure not measured; line 5: multiline/opaque shell statement; line 61: heredoc data/generation closure not measured; line 6: multiline/opaque shell statement; line 73: heredoc data/generation closure not measured; line 7: multiline/opaque shell statement; line 8: dynamic command/alias/eval"
+   "started_at_utc": "2026-10-15T17:24:59Z",
+   "summary": "SHELL_DYNAMIC_CLOSURE_NOT_MEASURED: Bats conditional execution membership is not statically resolved; Bats run lacks an immediate unconditional child status assertion; line 11: heredoc data/generation closure not measured; line 121: heredoc data/generation closure not measured; line 138: heredoc data/generation closure not measured; line 14: heredoc data/generation closure not measured; line 158: heredoc data/generation closure not measured; line 171: heredoc data/generation closure not measured; line 200: heredoc data/generation closure not measured; line 220: heredoc data/generation closure not measured; line 232: heredoc data/generation closure not measured; line 24: heredoc data/generation closure not measured; line 286: heredoc data/generation closure not measured; line 31: heredoc data/generation closure not measured; line 41: heredoc data/generation closure not measured; line 48: heredoc data/generation closure not measured; line 51: heredoc data/generation closure not measured; line 62: heredoc data/generation closure not measured; line 6: multiline/opaque shell statement; line 74: heredoc data/generation closure not measured; line 7: multiline/opaque shell statement; line 8: multiline/opaque shell statement; line 9: dynamic command/alias/eval"
   }
  ],
  "verify": {
   "events": [
    {
+    "code": "SUPERSEDED_SELF_EXCLUSION",
+    "entity": "receipt:receipts/graph/d5a-t2.2-change-admission.json",
+    "rule": "DEC-AUP-0035",
+    "text": "the receipt at receipts/graph/d5a-t2.2-change-admission.json is the previous version of the one this run is writing, for the same work item 0622c765-cc3a-431b-ba4e-6e1f22e1a27a — superseded by construction, so it owes this change no verdict"
+   },
+   {
     "code": "STRUCTURAL_EXCLUSION",
     "rule": "DEC-AUP-0034",
-    "text": "2 affected entity(ies) owe no verdict (receipt: 2): unchanged at both revisions and given no verifier by the matrix"
+    "text": "3 affected entity(ies) owe no verdict (receipt: 3): unchanged at both revisions and given no verifier by the matrix"
    }
   ],
   "required_by_entity": {
    "code_unit:.github/workflows/bats.yml": [
-    "config_schema",
-    "fitness_rules"
-   ],
-   "code_unit:.github/workflows/dependabot-auto-merge.yml": [
     "config_schema",
     "fitness_rules"
    ],
@@ -3323,6 +3398,9 @@
    ],
    "code_unit:.github/workflows/token-health-probe.yml": [
     "config_schema",
+    "fitness_rules"
+   ],
+   "code_unit:dev-tools/check-template-targets.py": [
     "fitness_rules"
    ],
    "code_unit:dev-tools/framework-graph.py": [
@@ -3399,6 +3477,15 @@
    "document:plugins/dr-orchestrate/README.md": [
     "doc_reference"
    ],
+   "document:plugins/product-discovery/skills/decision-record/SKILL.md": [
+    "doc_reference"
+   ],
+   "document:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md": [
+    "doc_reference"
+   ],
+   "document:plugins/product-discovery/skills/product-framing/claim-quality.md": [
+    "doc_reference"
+   ],
    "document:skills/artifact-context/SKILL.md": [
     "doc_reference"
    ],
@@ -3469,12 +3556,13 @@
     "doc_reference"
    ],
    "receipt:receipts/graph/change-admission-467.json": [],
+   "receipt:receipts/graph/d5a-t2.2-change-admission.json": [],
    "receipt:receipts/graph/d5a-t3.6-change-admission.json": []
   },
   "seconds": {
-   "prepare": 43.34,
-   "total": 216.07,
-   "verifiers": 0.2
+   "prepare": 23.21,
+   "total": 110.67,
+   "verifiers": 1.04
   }
  },
  "work_item": "0622c765-cc3a-431b-ba4e-6e1f22e1a27a"
