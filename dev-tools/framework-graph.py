@@ -141,7 +141,9 @@ def plugin_template_mentions(text, templates):
         explicit_path=re.escape(target)
         explicit_name=re.escape(Path(target).name)
         explicit_stem=re.escape(stem)
+        relative_template_link=r'\]\((?:\.\./)+templates/'+explicit_name+r'(?:#[^)]*)?\)'
         if (re.search(r'\]\('+explicit_path+r'(?:#[^)]*)?\)',text) or
+                re.search(relative_template_link,text) or
                 re.search(r'`(?:'+explicit_path+'|'+explicit_name+'|'+explicit_stem+r')`',text,re.I)):
             found.append(target)
     return sorted(found)

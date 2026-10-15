@@ -1037,10 +1037,22 @@ edges:
   to: skill:product-discovery/product-framing
 - condition:
     plugin_enabled: product-discovery
+  from: fragment:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
+  relation: uses_template
+  source: plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
+  to: template:plugins/product-discovery/templates/product-brief.md
+- condition:
+    plugin_enabled: product-discovery
   from: fragment:plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
   relation: uses_template
   source: plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
   to: template:plugins/product-discovery/templates/experiment-protocol.md
+- condition:
+    plugin_enabled: product-discovery
+  from: fragment:plugins/product-discovery/skills/product-framing/claim-quality.md
+  relation: uses_template
+  source: plugins/product-discovery/skills/product-framing/claim-quality.md
+  to: template:plugins/product-discovery/templates/source-evidence-ledger.md
 - condition:
     plugin_enabled: product-discovery
   from: plugin:product-discovery
@@ -1155,6 +1167,12 @@ edges:
   relation: contains
   source: plugins/product-discovery/plugin.yaml
   to: template:plugins/product-discovery/templates/source-evidence-ledger.md
+- condition:
+    plugin_enabled: product-discovery
+  from: skill:product-discovery/decision-record
+  relation: uses_template
+  source: plugins/product-discovery/skills/decision-record/SKILL.md
+  to: template:plugins/product-discovery/templates/decision-record.md
 - condition:
     plugin_enabled: product-discovery
   from: skill:product-discovery/hypothesis-validation

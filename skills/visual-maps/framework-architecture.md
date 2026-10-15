@@ -161,7 +161,10 @@ graph LR
 
 | Consumer | Template |
 |----------|----------|
+| `plugins/product-discovery/skills/decision-record/strategist.product-discovery.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/product-brief.md` |
 | `plugins/product-discovery/skills/hypothesis-validation/experiment-design.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/experiment-protocol.md` |
+| `plugins/product-discovery/skills/product-framing/claim-quality.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/source-evidence-ledger.md` |
+| `skill:product-discovery/decision-record` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/decision-record.md` |
 | `skill:product-discovery/hypothesis-validation` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/experiment-protocol.md` |
 | `skill:product-discovery/hypothesis-validation` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/hypothesis-card.md` |
 | `skill:product-discovery/product-framing` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/opportunity-brief.md` |

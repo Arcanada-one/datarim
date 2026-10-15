@@ -46,6 +46,24 @@ class IntegrityTests(unittest.TestCase):
         (self.root/'templates/security-workflow.yml').write_text('name: Security\n')
         self.assertEqual(targets.check(self.root), (1, []))
 
+    def test_plugin_template_namespace_requires_declared_existing_asset(self):
+        (self.root/'AGENTS.md').write_text(
+            'Read `${DATARIM_RUNTIME:?}/templates/product-discovery/protocol.md`.\n')
+        self.write_plugin_manifest()
+        (self.root/'plugins/product-discovery/plugin.yaml').write_text(
+            'id: product-discovery\ndefault_enabled: false\ncategories: [skills, templates]\n')
+        templates = self.root/'plugins/product-discovery/templates'
+        templates.mkdir(parents=True)
+        target = templates/'protocol.md'
+        target.write_text('# Protocol\n')
+        self.assertEqual(targets.check(self.root), (1, []))
+        target.unlink()
+        self.assertEqual(len(targets.check(self.root)[1]), 1)
+        target.write_text('# Protocol\n')
+        (self.root/'plugins/product-discovery/plugin.yaml').write_text(
+            'id: product-discovery\ndefault_enabled: false\ncategories: [skills]\n')
+        self.assertEqual(len(targets.check(self.root)[1]), 1)
+
     def test_example_marker_does_not_hide_subsequent_real_reference(self):
         (self.root/'AGENTS.md').write_text(
             '<!-- gate:example-only -->\n```sh\ncat templates/example.yml\n```\n'

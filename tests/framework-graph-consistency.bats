@@ -96,14 +96,22 @@ assert 'plugin:product-discovery' not in off['nodes']
 assert 'plugin:product-discovery' in on['nodes']
 assets={a['component_id'] for p in packages.values() for a in p['assets']}
 assert not assets.intersection(off['nodes']), sorted(assets.intersection(off['nodes']))
-assert assets <= on['nodes'], sorted(assets-on['nodes'])
+product_assets={a['component_id'] for a in packages['product-discovery']['assets']}
+assert product_assets <= on['nodes'], sorted(product_assets-on['nodes'])
 edges={(e['from'],e['relation'],e['to']):e for e in g['edges']}
+for package in packages.values():
+    for asset in package['assets']:
+        assert ('plugin:'+package['id'],'contains',asset['component_id']) in edges, \
+            f"missing contains edge for {asset['component_id']}"
 assert ('command:dr-prd','loads','skill:product-discovery/product-framing') in edges
 assert edges[('command:dr-prd','loads','skill:product-discovery/product-framing')].get('condition') == {
     'plugin_enabled':'product-discovery','profile_selected':'product-discovery'}
 assert ('skill:product-discovery/hypothesis-validation','uses_template','template:plugins/product-discovery/templates/experiment-protocol.md') in edges
 assert ('skill:product-discovery/hypothesis-validation','uses_template','template:plugins/product-discovery/templates/hypothesis-card.md') in edges
 assert ('skill:product-discovery/product-framing','uses_template','template:plugins/product-discovery/templates/opportunity-brief.md') in edges
+assert ('skill:product-discovery/decision-record','uses_template','template:plugins/product-discovery/templates/decision-record.md') in edges
+assert ('fragment:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md','uses_template','template:plugins/product-discovery/templates/product-brief.md') in edges
+assert ('fragment:plugins/product-discovery/skills/product-framing/claim-quality.md','uses_template','template:plugins/product-discovery/templates/source-evidence-ledger.md') in edges
 print('plugin isolation and direct reference edges verified')
 PY
   [ "$status" -eq 0 ]
@@ -230,6 +238,7 @@ assert any(e['from']=='skill:optional/topic' and e['relation']=='uses_template' 
            e['to']=='template:plugins/optional/templates/demo-template.md' for e in g['edges'])
 assert not m.plugin_template_mentions('A demo-template is one type of agreement.',['plugins/optional/templates/demo-template.md'])
 assert m.plugin_template_mentions('Use `demo-template` as the required input.',['plugins/optional/templates/demo-template.md'])
+assert m.plugin_template_mentions('[protocol](../../templates/demo-template.md)',['plugins/optional/templates/demo-template.md'])
 
 original=m.plugin_component_id
 m.plugin_component_id=lambda *args:'duplicate-component'
