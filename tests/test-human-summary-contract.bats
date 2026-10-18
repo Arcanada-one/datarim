@@ -243,6 +243,10 @@ EVOLUTION="${BATS_TEST_DIRNAME}/../skills/evolution/SKILL.md"
     [ "$status" -eq 0 ]
     run grep -F 'source prompt contract' "$SKILL"
     [ "$status" -eq 0 ]
+    run grep -F 'Unresolved class:' "$SKILL"
+    [ "$status" -eq 0 ]
+    run grep -F 'Do not infer pending approval or held' "$SKILL"
+    [ "$status" -eq 0 ]
 }
 
 # 28 — quick remains light; only a verified corrected mismatch creates a signal.
@@ -259,9 +263,49 @@ EVOLUTION="${BATS_TEST_DIRNAME}/../skills/evolution/SKILL.md"
     [ "$status" -eq 0 ]
     run grep -F 'it is a proposal record, not an applied skill' "$CMD_QUICK"
     [ "$status" -eq 0 ]
+    run grep -F 'Say `applied` only when the source change and its recorded' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'Report that signal in the QCK result with state' "$CMD_QUICK"
+    [ "$status" -ne 0 ]
 }
 
-# 29 — trigger docs match compliance primary and archive freshness fallback.
+# 29 — Class A asks the existing approval question for an approval-ready edit.
+@test "dr-quick Class A signal stays pending and retains existing approval question" {
+    run grep -F 'Class A:** report `pending approval`' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'skills/evolution/class-ab-gate.md' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'Which proposals should I' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'apply? (all / none / comma-separated numbers)' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+}
+
+# 30 — Class B is held for its contract gate and must not receive an apply ask.
+@test "dr-quick Class B signal is held for contract update without approval ask" {
+    run grep -F 'Class B:** report `held`' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'required contract/PRD update' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'before the proposal can enter the normal approval flow' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'Do not ask whether to apply it while it is held' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+}
+
+# 31 — an ambiguous class is not silently promoted to A or B.
+@test "dr-quick unresolved proposal class remains explicitly unresolved" {
+    run grep -F 'Unresolved class:' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'classification is unresolved' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'Do not guess Class A or B' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'or ask for approval' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+}
+
+# 32 — trigger docs match compliance primary and archive freshness fallback.
 @test "evolution trigger contract names compliance primary and archive fallback" {
     run grep -F 'Automatic: Inside `/dr-compliance` Step 8.5' "$EVOLUTION"
     [ "$status" -eq 0 ]

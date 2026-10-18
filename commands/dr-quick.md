@@ -134,13 +134,25 @@ After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {t
    that was corrected and verified by its acceptance/evidence check, add a
    compact `Verified Learning Signal` to that same archive: the observed
    mismatch, correction, verification reference, and one suggested category,
-   target, and rationale. Report that signal in the QCK result with state
-   `pending approval`; it is a proposal record, not an applied skill or an
-   automatic framework change. Ask for approval before any shared skill or
-   framework edit, and follow the existing Class A approval / Class B hold
-   gates. If no such verified mismatch occurred, write no learning signal or
-   proposal. Never create a reflection for this exception or apply a proposal
-   without its required approval and recorded application evidence.
+   target, and rationale. Classify the proposal using
+   `skills/evolution/class-ab-gate.md` before reporting its state:
+
+   - **Class A:** report `pending approval` and retain the existing approval
+     question from `skills/evolution/SKILL.md` — “Which proposals should I
+     apply? (all / none / comma-separated numbers)” — scoped to this proposal.
+   - **Class B:** report `held` and state that the required contract/PRD update
+     is the next step before the proposal can enter the normal approval flow.
+     Do not ask whether to apply it while it is held.
+   - **Unresolved class:** report that classification is unresolved. Do not
+     guess Class A or B, label it pending or held, or ask for approval; classify
+     it against the gate before giving a class-specific next step.
+
+   The signal is a proposal record, not an applied skill or an automatic
+   framework change. Say `applied` only when the source change and its recorded
+   application evidence exist. If no verified mismatch occurred, write no
+   learning signal or proposal. Never create a reflection for this exception
+   or apply a proposal without its required approval and recorded application
+   evidence.
 
 ## When to use / When not to use
 
