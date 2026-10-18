@@ -444,7 +444,56 @@ predicted production impact and the operator remediation required.
 
 **Verdict:** SKIP | PASS | FAIL
 
-### 4h. Test-Environment Verification Gate (behaviour-shipping tasks — blocking before prod prep / archive)
+### 4h. QA Charter Coverage and Test-Environment Verification
+
+#### QA Charter Coverage subcheck — mandatory for every `/dr-qa` task
+
+This additive subcheck does not replace or relax test-environment verification.
+It runs for every `/dr-qa` invocation, including documentation-only and
+framework-only tasks; those existing task types still retain their
+`SKIP`/`NO-TEST-ENV` semantics in the test-environment subcheck below.
+
+1. Resolve the task charter at
+   `datarim/qa/qa-charter-{TASK-ID}.md` and select the exact current evidence
+   run at `datarim/qa/qa-charter-{TASK-ID}/run-<UTC>/evidence.json`. A missing
+   charter or current evidence bundle is **BLOCKED**; do not infer an empty
+   probe set or skip this subcheck.
+2. Run the read-only validator:
+
+   ```bash
+   python3 "${DATARIM_RUNTIME:?}/dev-tools/check-qa-charter-coverage.py" \
+     --root <repo-root> \
+     --charter <repo-root>/datarim/qa/qa-charter-{TASK-ID}.md \
+     --evidence <repo-root>/datarim/qa/qa-charter-{TASK-ID}/run-<UTC>/evidence.json
+   ```
+
+   It binds the evidence to the exact charter bytes and current `HEAD`, checks
+   every required probe and its outcome, validates retained artifact digests,
+   and refuses mutable aliases, symlinked paths, and evidence outside a
+   concrete `run-<UTC>/` directory. The checker writes no files. Evidence
+   producers create a fresh run directory exclusively and never overwrite a
+   prior run or baseline.
+3. Independently compare each required evidence entry with the charter. A
+   missing or duplicate required probe, stale charter/source pin, invalid
+   artifact path or digest, or any required outcome other than `pass` makes
+   charter coverage **FAIL**. Preserve `fail`, `blocked`, `not run`,
+   `inconclusive`, and `n.a.` as their actual outcomes; none may be presented as
+   a successful required probe. `n.a.` is valid only for a probe declared
+   optional and must include a reason.
+4. Record the validator output and the exact charter/evidence paths under the
+   existing `### Layer 4h — Test-Environment Verification` report section as
+   `#### QA Charter Coverage`. A nonzero validator result makes Layer 4h
+   **FAIL**, the overall QA result **BLOCKED**, and routes to `/dr-do`. It may
+   not be downgraded to `PASS_WITH_NOTES`.
+
+Checkpoint chains are not inferred from `attempts[]`. If no schema validates
+the next probe's relation to a prior observation and hypothesis, record
+checkpoint linkage as deferred in the task record; that does not change the
+charter-coverage verdict.
+
+The test-environment condition and steps below remain unchanged and run as a
+separate subcheck. Layer 4h passes only when charter coverage passes and the
+test-environment subcheck has its existing acceptable disposition.
 
 **Condition:** Execute when the task ships runtime behaviour (code/config/migration —
 not docs-only or framework-only) AND the project space has a test environment, per

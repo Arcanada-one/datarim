@@ -185,6 +185,7 @@ inventory:
   - skills/testing/bats-and-spec-lint.md
   - skills/testing/concurrency-patterns.md
   - skills/testing/live-smoke-gates.md
+  - skills/testing/multisurface-contract-map.md
   - skills/testing/silent-failure-detection.md
   - skills/testing/tdd-discipline.md
   - skills/testing/test-value-card.md
@@ -256,6 +257,7 @@ inventory:
   - probe-self-hosted-runner-workflow.yml
   - project-agents-md.md
   - project-docs-stubs.md
+  - qa-charter.md
   - reflection-template.md
   - review-evolution-template.yaml
   - security-deps-upgrade-plan.md

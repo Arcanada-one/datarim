@@ -973,7 +973,7 @@ datarim/
   agents/            # Agent personas (19 agents)
   skills/            # Knowledge modules (80 skills)
   commands/          # Slash commands (29 commands)
-  templates/         # Task and document templates (30 templates)
+  templates/         # Task and document templates (31 templates)
   documentation/              # Extended documentation and use cases
   AGENTS.md          # Framework rules (commands read it from .datarim-runtime/)
   install.sh         # Project installer (see INSTALL.md)
