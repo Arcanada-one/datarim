@@ -194,8 +194,9 @@ or the existing test-environment verification subcheck.
 - Flag any **skipped steps** with reason assessment
 - Flag any **unplanned steps** that were added during implementation
 - Check that step ordering was respected (dependencies honored)
-- Classify each planned deliverable as `DONE`, `PARTIAL`, `NOT DONE`, `CHANGED`, or `UNVERIFIABLE`, using the gstack plan-completion distinctions re-expressed below.
-- For every status other than `DONE`, record one discrepancy reason: `scope cut`, `context exhaustion`, `misunderstood`, `blocked`, or `forgotten`, and cite the evidence supporting that reason. Do not infer a reason from status alone.
+- Classify each planned deliverable as `DONE`, `PARTIAL`, `NOT DONE`, `CHANGED`, or `UNVERIFIABLE`, using the gstack plan-completion distinctions re-expressed below. Record one row per deliverable in the structured table below.
+- Every row must identify the deliverable and cite evidence. For every status other than `DONE`, record one discrepancy reason: `scope cut`, `context exhaustion`, `misunderstood`, `blocked`, or `forgotten`. Do not infer a reason from status alone.
+- For `CHANGED`, cite both the planned approach and actual replacement. For `UNVERIFIABLE`, name the exact missing evidence or manual check. Do not use implementation code as a substitute for the deliverable itself.
 - A deliverable is the specified output itself: code that handles or generates a deliverable does not make the deliverable `DONE`.
 
 **Status meanings:**
@@ -210,14 +211,35 @@ or the existing test-environment verification subcheck.
 
 For `PARTIAL`, `NOT DONE`, `CHANGED`, and `UNVERIFIABLE`, select one discrepancy reason from the listed set and explain it with evidence. For `CHANGED`, cite both the planned approach and what replaced it. For `UNVERIFIABLE`, do not present the item as complete.
 
+After writing the QA report, run the read-only structural validator against its existing Layer 3 section:
+
+```bash
+TASK_ID="example-task"
+REPORT_PATH="datarim/qa/qa-report-${TASK_ID}.md"
+python3 "${DATARIM_RUNTIME:?}/dev-tools/check-plan-completion.py" \
+  --report "$REPORT_PATH"
+```
+
+Exit 0 means the recorded rows contain supported statuses and required fields;
+it does not authenticate the cited evidence or approve a `DONE` claim. Exit 1
+means the Layer 3 record is malformed and the QA verdict is **FAIL**; correct
+the report from its evidence, then validate it again. The checker never changes
+or promotes a status.
+
+Exit 2 means the report is missing, unreadable, or invalid UTF-8. Mark Layer 3
+and the overall QA result **BLOCKED**; record the exact report path and access
+or encoding error, then route correction to the report path, permissions, or
+encoding before validation can continue. A missing validator result is never an
+implicit pass.
+
 **Verdict:** PASS | PASS_WITH_NOTES | FAIL
 
 ```markdown
 ### Layer 3: Plan Completeness — {VERDICT}
 
-| Step | Status | Notes |
-|------|--------|-------|
-| 1. {desc} | DONE / PARTIAL / NOT DONE / CHANGED / UNVERIFIABLE | {detail} |
+| Step / deliverable | Status | Discrepancy reason | Evidence | Planned approach | Actual replacement | Missing evidence / exact check |
+|--------------------|--------|--------------------|----------|------------------|-------------------|--------------------------------|
+| 1. {deliverable} | DONE | — | {evidence that verifies the deliverable itself} | — | — | — |
 
 **Discrepancy reasons:** {step → scope cut / context exhaustion / misunderstood / blocked / forgotten, with evidence; or "None"}
 

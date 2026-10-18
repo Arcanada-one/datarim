@@ -126,14 +126,11 @@ setup() {
     [[ "$output" == *'suggested_fix must be a string of at most 500 characters'* ]]
 }
 
-@test "dr-qa Layer 3 consumes all five statuses and discrepancy reasons" {
-    for status_name in DONE PARTIAL 'NOT DONE' CHANGED UNVERIFIABLE; do
-        [[ "$(cat "$QA_COMMAND")" == *"$status_name"* ]]
-    done
-    for reason in 'scope cut' 'context exhaustion' misunderstood blocked forgotten; do
-        [[ "$(cat "$QA_COMMAND")" == *"$reason"* ]]
-    done
-    [[ "$(cat "$QA_COMMAND")" == *'code that handles or generates a deliverable does not make the deliverable `DONE`'* ]]
+@test "dr-qa Layer 3 invokes the executable plan-completion validator" {
+    grep -Fq 'dev-tools/check-plan-completion.py' "$QA_COMMAND" \
+        && grep -Fq 'TASK_ID="example-task"' "$QA_COMMAND" \
+        && grep -Fq 'REPORT_PATH="datarim/qa/qa-report-${TASK_ID}.md"' "$QA_COMMAND" \
+        && grep -Eq '^[[:space:]]*--report[[:space:]]+"\$REPORT_PATH"$' "$QA_COMMAND"
 }
 
 @test "dr-verify invokes the executable validator and upgrades legacy producer output" {
