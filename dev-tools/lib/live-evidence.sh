@@ -89,6 +89,24 @@ jq -e --arg now "$now" '
         and (if $route | index("compliance") then ($route | index("qa") != null) else true end)
       end)
     and (.scope | type == "array" and length > 0 and length == (unique | length) and all(.[]; text and (test("[[:cntrl:]]") | not)))
+    and (if has("inputs") then
+        (.inputs | type == "array")
+        and all(.inputs[];
+            type == "object" and
+            (if .kind == "file" then
+                (keys == ["kind","path"] and (.path | text and (test("[[:cntrl:]]") | not)))
+             elif .kind == "argv" then
+                (keys == ["kind","name","sha256"] and (.name | text and (test("[[:cntrl:]]") | not))
+                 and (.sha256 | type == "string" and test("^[0-9a-f]{64}$")))
+             elif .kind == "env" then
+                (keys == ["kind","name","sha256","synthetic"]
+                 and (.name | text and (test("[[:cntrl:]]") | not))
+                 and (.sha256 | type == "string" and test("^[0-9a-f]{64}$"))
+                 and .synthetic == true)
+             else false end))
+        and ([.inputs[] | if .kind == "file" then ["file",.path] else [.kind,.name] end | tojson]
+            | length == (unique | length))
+      else true end)
     and (.criteria | type == "array" and length > 0 and (map(.id) | length == (unique | length)))
     and all(.criteria[];
         type == "object" and (.id | text) and (.expected | text) and (.environment | text)
@@ -164,12 +182,64 @@ scope_digest() {
     printf '%s' "$scope_manifest" | hash
 }
 scope_hash=$(scope_digest) || block 'invalid scope'
+inputs_present=$(jq -r 'has("inputs")' "$contract")
+inputs_digest() {
+    local manifest='' record kind name relative path digest executable entry
+    while IFS= read -r record; do
+        kind=$(jq -r '.kind' <<< "$record")
+        case "$kind" in
+            file)
+                relative=$(jq -r '.path' <<< "$record")
+                path=$(safe_path "$relative") || return 1
+                if [[ -f "$path" ]]; then
+                    digest=$(hash < "$path") || return 1
+                    executable=0
+                    [[ ! -x "$path" ]] || executable=1
+                elif [[ -e "$path" ]]; then
+                    block 'input path is not a regular file'
+                else
+                    digest=MISSING
+                    executable=0
+                fi
+                entry=$(jq -cnS --arg path "$relative" --arg digest "$digest" \
+                    --argjson executable "$executable" \
+                    '{kind:"file",path:$path,sha256:$digest,executable:$executable}') || return 1
+                ;;
+            argv)
+                name=$(jq -r '.name' <<< "$record")
+                digest=$(jq -r '.sha256' <<< "$record")
+                entry=$(jq -cnS --arg name "$name" --arg sha256 "$digest" \
+                    '{kind:"argv",name:$name,sha256:$sha256}') || return 1
+                ;;
+            env)
+                name=$(jq -r '.name' <<< "$record")
+                digest=$(jq -r '.sha256' <<< "$record")
+                entry=$(jq -cnS --arg name "$name" --arg sha256 "$digest" \
+                    '{kind:"env",name:$name,sha256:$sha256}') || return 1
+                ;;
+            *) block 'invalid input kind' ;;
+        esac
+        manifest+="$entry"$'\n'
+    done < <(jq -c '.inputs[]' "$contract")
+    printf '%s' "$manifest" | LC_ALL=C sort | hash
+}
+inputs_hash=''
+compatibility_note=''
+if [[ "$inputs_present" == true ]]; then
+    inputs_hash=$(inputs_digest) || block 'invalid input manifest'
+else
+    compatibility_note='Legacy contract omits inputs[]; freshness remains bound to HEAD, contract, and scope only.'
+fi
 if [[ "$stage" == preflight || "$stage" == snapshot ]]; then
     [[ $(hash < "$contract") == "$contract_hash" ]] || block 'contract changed during verification'
     jq -n --arg stage "$stage" --arg task_id "$task" --arg timestamp "$now" --arg revision "$revision" \
         --arg contract_sha256 "$contract_hash" --arg scope_sha256 "$scope_hash" \
+        --arg inputs_sha256 "$inputs_hash" --arg compatibility_note "$compatibility_note" \
+        --argjson inputs_present "$inputs_present" \
         '{stage:$stage, task_id:$task_id, timestamp:$timestamp, revision:$revision,
-          contract_sha256:$contract_sha256, scope_sha256:$scope_sha256}'
+          contract_sha256:$contract_sha256, scope_sha256:$scope_sha256} +
+         (if $inputs_present then {inputs_sha256:$inputs_sha256}
+          else {compatibility_note:$compatibility_note} end)'
     exit 0
 fi
 [[ -f "$evidence" && ! -L "$evidence" ]] || block 'missing regular evidence bundle'
@@ -180,7 +250,8 @@ jq -se 'length == 1 and (.[0] | type == "object")' "$evidence" >/dev/null 2>&1 \
 
 # Each due case is matched by both IDs; report-wide keywords never count.
 selection=$(jq -ce --slurpfile contract "$contract" --arg task "$task" --arg now "$now" \
-    --arg stage "$stage" --arg revision "$revision" --arg ch "$contract_hash" --arg sh "$scope_hash" '
+    --arg stage "$stage" --arg revision "$revision" --arg ch "$contract_hash" --arg sh "$scope_hash" \
+    --arg ih "$inputs_hash" --argjson has_inputs "$inputs_present" '
     def text: type == "string" and test("\\S");
     def stamp: type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$") and (try (. as $original | fromdateiso8601 | todateiso8601 == $original) catch false);
     def digest: type == "string" and test("^[0-9a-f]{64}$");
@@ -206,6 +277,7 @@ selection=$(jq -ce --slurpfile contract "$contract" --arg task "$task" --arg now
     require(.task_id == $task and (.attempts | type == "array" and length > 0); "invalid bundle") |
     require(.preflight.stage == "preflight" and .preflight.task_id == $task
         and .preflight.contract_sha256 == $ch and (.preflight.scope_sha256 | digest)
+        and (if $has_inputs then .preflight.inputs_sha256 == $ih and (.preflight.inputs_sha256 | digest) else true end)
         and (.preflight.revision | type == "string" and test("^([0-9a-f]{40}|[0-9a-f]{64})$"))
         and (.preflight.timestamp | stamp) and (.implementation_started_at | stamp)
         and $c.defined_at <= .preflight.timestamp
@@ -214,6 +286,7 @@ selection=$(jq -ce --slurpfile contract "$contract" --arg task "$task" --arg now
     require(all(.attempts[]; type == "object" and (.actor | text)
         and (.revision | type == "string" and test("^([0-9a-f]{40}|[0-9a-f]{64})$"))
         and (.contract_sha256 | digest) and (.scope_sha256 | digest)
+        and (if $has_inputs then .inputs_sha256 == $ih and (.inputs_sha256 | digest) else true end)
         and (.cases | type == "array" and all(.[]; case_record))
         and (.timestamp | stamp) and .timestamp >= $bundle.implementation_started_at
         and .timestamp <= $now and (.stage | rank) >= 0);
@@ -267,6 +340,9 @@ done < <(jq -c '.selected[].cases[].artifact' <<< "$selection")
 [[ $(hash < "$evidence") == "$evidence_hash" ]] || block 'evidence changed during verification'
 [[ $(hash < "$task_file") == "$task_hash" ]] || block 'task metadata changed during verification'
 [[ $(scope_digest) == "$scope_hash" ]] || block 'scope changed during verification'
+if [[ "$inputs_present" == true ]]; then
+    [[ $(inputs_digest) == "$inputs_hash" ]] || block 'inputs changed during verification'
+fi
 [[ $(git -C "$root" rev-parse HEAD) == "$revision" ]] || block 'revision changed during verification'
 jq -n --arg stage "$stage" --arg task_id "$task" --argjson pending "$(jq '.pending' <<< "$selection")" \
     '{verdict:"STAGE_PASS",task_id:$task_id,stage:$stage,pending:$pending}'

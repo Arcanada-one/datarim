@@ -96,22 +96,135 @@ class EvidenceLoop(unittest.TestCase):
     def save(self):
         (self.root / "evidence.json").write_text(json.dumps(self.bundle))
 
+    def bind_inputs(self, inputs):
+        self.contract["inputs"] = inputs
+        self.save_contract()
+        result = self.call("preflight")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.preflight = json.loads(result.stdout)
+        self.bundle = {"task_id": "TEST-0001", "preflight": self.preflight,
+                       "implementation_started_at": self.preflight["timestamp"],
+                       "attempts": [self.attempt(stage) for stage in ["do", "qa", "compliance"]]}
+        self.save()
+
     def call(self, stage):
         return subprocess.run(["bash", str(GATE), "--contract", str(self.root / "contract.json"),
                                "--evidence", str(self.root / "evidence.json"), "--root",
                                str(self.root), "--stage", stage], capture_output=True, text=True)
 
     def attempt(self, stage):
-        return {"stage": stage, "actor": stage + "-agent", "timestamp": self.preflight["timestamp"],
-                "revision": self.preflight["revision"],
-                "contract_sha256": self.preflight["contract_sha256"],
-                "scope_sha256": self.preflight["scope_sha256"],
-                "cases": [{"criterion_id": "AC-1", "case_id": "happy",
+        attempt = {"stage": stage, "actor": stage + "-agent", "timestamp": self.preflight["timestamp"],
+                   "revision": self.preflight["revision"],
+                   "contract_sha256": self.preflight["contract_sha256"],
+                   "scope_sha256": self.preflight["scope_sha256"],
+                   "cases": [{"criterion_id": "AC-1", "case_id": "happy",
                            "observed": "named assertion passed", "status": "pass",
                            "evidence_type": "static", "environment": "test", "source": "fixture",
                            "command": "assert named behavior", "exit_code": 0,
                            "artifact": {"relative_path": "output.txt",
                                         "sha256": hashlib.sha256((self.root / "output.txt").read_bytes()).hexdigest()}}]}
+        if "inputs_sha256" in self.preflight:
+            attempt["inputs_sha256"] = self.preflight["inputs_sha256"]
+        return attempt
+
+    def test_legacy_contract_without_inputs_keeps_scope_only_compatibility(self):
+        self.assertNotIn("inputs_sha256", self.preflight)
+        self.assertIn("Legacy contract omits inputs[]", self.preflight["compatibility_note"])
+        result = self.call("compliance")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_explicit_empty_inputs_are_bound_separately_from_legacy(self):
+        self.bind_inputs([])
+        self.assertEqual(self.preflight["inputs_sha256"], hashlib.sha256(b"").hexdigest())
+        self.assertNotIn("compatibility_note", self.preflight)
+        result = self.call("compliance")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_unchanged_input_manifest_reuses_green_attempts(self):
+        (self.root / "fixture.json").write_text('{"fixture":true}\n')
+        (self.root / "schema.json").write_text('{"type":"object"}\n')
+        (self.root / "untracked.data").write_text("synthetic untracked input\n")
+        for path in ["fixture.json", "schema.json", "untracked.data"]:
+            self.assertNotIn(path, self.git("ls-files").splitlines())
+        self.bind_inputs([
+            {"kind": "file", "path": "fixture.json"},
+            {"kind": "file", "path": "schema.json"},
+            {"kind": "file", "path": "untracked.data"},
+            {"kind": "argv", "name": "check", "sha256": "a" * 64},
+            {"kind": "env", "name": "synthetic-fixture-env", "sha256": "b" * 64,
+             "synthetic": True},
+        ])
+        self.assertIn("inputs_sha256", self.preflight)
+        self.assertTrue(all(a["inputs_sha256"] == self.preflight["inputs_sha256"]
+                            for a in self.bundle["attempts"]))
+        result = self.call("compliance")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_changed_fixture_schema_or_untracked_input_blocks_same_head(self):
+        paths = ["fixture.json", "schema.json", "untracked.data"]
+        for path in paths:
+            (self.root / path).write_text("initial synthetic input\n")
+        inputs = [{"kind": "file", "path": path} for path in paths]
+        self.bind_inputs(inputs)
+        original_head = self.git("rev-parse", "HEAD")
+        for index, path in enumerate(paths):
+            if index:
+                self.bind_inputs(inputs)
+            (self.root / path).write_text(f"changed input {index}\n")
+            self.reject("compliance")
+            self.assertEqual(self.git("rev-parse", "HEAD"), original_head)
+
+    def test_missing_planned_input_uses_missing_marker_then_presence_blocks(self):
+        planned = self.root / "planned-schema.json"
+        self.assertFalse(planned.exists())
+        self.bind_inputs([{"kind": "file", "path": "planned-schema.json"}])
+        missing_digest = self.preflight["inputs_sha256"]
+        self.assertEqual(self.call("compliance").returncode, 0)
+        planned.write_text('{"type":"object"}\n')
+        self.assertNotEqual(json.loads(self.call("snapshot").stdout)["inputs_sha256"], missing_digest)
+        self.reject("compliance")
+
+    def test_changed_command_or_synthetic_env_digest_invalidates_input_binding(self):
+        for kind in ["argv", "env"]:
+            with self.subTest(kind=kind):
+                if kind == "argv":
+                    inputs = [{"kind": "argv", "name": "synthetic-check", "sha256": "c" * 64}]
+                else:
+                    inputs = [{"kind": "env", "name": "synthetic-config", "sha256": "d" * 64,
+                               "synthetic": True}]
+                self.bind_inputs(inputs)
+                stale_input_hash = self.preflight["inputs_sha256"]
+                inputs[0]["sha256"] = "e" * 64
+                self.save_contract()
+                new_contract_hash = hashlib.sha256((self.root / "contract.json").read_bytes()).hexdigest()
+                self.bundle["preflight"]["contract_sha256"] = new_contract_hash
+                for attempt in self.bundle["attempts"]:
+                    attempt["contract_sha256"] = new_contract_hash
+                self.save()
+                self.assertEqual(self.bundle["preflight"]["inputs_sha256"], stale_input_hash)
+                self.reject("compliance")
+
+    def test_malformed_duplicate_and_unsafe_input_manifests_fail_closed(self):
+        malformed = [
+            [{"kind": "file", "path": "fixture.json"}, {"kind": "file", "path": "fixture.json"}],
+            [{"kind": "argv", "name": "check", "sha256": "not-a-digest"}],
+            [{"kind": "argv", "name": "check", "sha256": "a" * 64},
+             {"kind": "argv", "name": "check", "sha256": "b" * 64}],
+            [{"kind": "env", "name": "live-env", "sha256": "a" * 64, "synthetic": False}],
+            [{"kind": "file", "path": "../outside"}],
+            [{"kind": "file", "path": "/etc/passwd"}],
+        ]
+        for inputs in malformed:
+            with self.subTest(inputs=inputs):
+                self.contract["inputs"] = inputs
+                self.save_contract()
+                result = self.call("preflight")
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        (self.root / "linked-input").symlink_to(self.root / "product.txt")
+        self.contract["inputs"] = [{"kind": "file", "path": "linked-input"}]
+        self.save_contract()
+        result = self.call("preflight")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
 
     def reject(self, stage="compliance"):
         self.save()

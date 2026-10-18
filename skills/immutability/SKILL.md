@@ -72,6 +72,31 @@ main-flow cases MUST NOT mix. Scope includes changed
 deliverables and verification inputs; missing planned/deleted files have an
 explicit missing sentinel. No traversal or symlinks are allowed.
 
+An optional top-level `inputs` array adds freshness bindings beyond `scope`:
+
+- `{ "kind": "file", "path": "relative/path" }` binds a regular file's
+  content digest and executable bit. A planned absent file is bound as
+  `MISSING` with executable bit 0. Paths use the same root-relative, no-symlink
+  rules as `scope`.
+- `{ "kind": "argv", "name": "check", "sha256": "<64 lowercase hex>" }`
+  binds a digest of the command's exact argv array, encoded as compact,
+  sorted-key JSON with no trailing newline. The gate records and compares this
+  digest; it never executes the declared command to calculate it.
+- `{ "kind": "env", "name": "fixture", "sha256": "<64 lowercase hex>",
+  "synthetic": true }` binds an explicitly supplied digest for an allowlisted
+  synthetic environment map. The gate never enumerates ambient environment
+  variables or reads environment values.
+
+Names are unique within each non-file kind and file paths are unique. Every
+entry has exactly the fields shown for its kind; malformed, duplicate,
+traversing, escaping, or symlinked inputs fail closed. The checker canonicalizes
+each input entry as a sorted-key JSON line, sorts those lines bytewise under
+`LC_ALL=C`, and hashes the resulting newline-terminated manifest. A present
+empty `inputs: []` is an active binding to the empty manifest; omission is the
+legacy scope-only contract. Legacy preflight output carries a compatibility
+note and retains the prior contract/scope behavior; old preflight and attempt
+records remain valid for contracts that omit `inputs`.
+
 After defining cases and before implementation, run:
 
 ```bash
@@ -92,8 +117,15 @@ evidence. Never invent a historical preflight or adopt old green reports.
 Append attempts containing `stage`, `actor`, UTC `timestamp`, current git
 `revision`, `contract_sha256`, current `scope_sha256`, and `cases`. For current
 digest calculation run the checker with `--stage snapshot`; use its digests
-for the attempt. A snapshot is not a preflight receipt and MUST NEVER replace
-the original `preflight`.
+for the attempt. When the contract contains `inputs`, copy the snapshot's
+`inputs_sha256` into every attempt; the preflight and all selected attempts
+must match the currently recomputed input manifest. A changed relevant input
+therefore blocks reuse at the same git revision. A snapshot is not a preflight
+receipt and MUST NEVER replace the original `preflight`.
+These digests bind the inputs the contract declares; they do not authenticate
+the person who selected them, prove that the declared command was executed, or
+establish that the declared set is complete. They are declared/integrity-bound
+evidence only, not captured, witnessed, or accepted evidence.
 Scope digest is SHA-256 over sorted
 `relative_path:content_sha256:executable=0|1` lines, each terminated by a newline
 (`MISSING` replaces the content hash for absent paths, with executable=0).
