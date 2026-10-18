@@ -4,15 +4,68 @@
 setup() {
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     SCRIPT="$REPO_ROOT/dev-tools/check-security-finding-labels.py"
+    PATH_RESOLVER="$REPO_ROOT/dev-tools/resolve-compliance-report-path.py"
     REPORT="$BATS_TEST_TMPDIR/report.md"
     COMMAND="$REPO_ROOT/commands/dr-compliance.md"
     TEMPLATE="$REPO_ROOT/templates/compliance-report-template.md"
 }
 
-@test "compliance command invokes the report template's label validator" {
+@test "compliance command validates and emits the exact reserved report path" {
     grep -qF 'dev-tools/check-security-finding-labels.py' "$COMMAND"
+    grep -qF 'dev-tools/resolve-compliance-report-path.py' "$COMMAND"
+    grep -qF -- '--report "$report_path"' "$COMMAND"
+    grep -qF 'cat -- "$report_path"' "$COMMAND"
+    grep -qF '&& "$label_validation_status" -ne 1' "$COMMAND"
+    ! grep -qF -- '--report "datarim/reports/compliance-report-{TASK-ID}.md"' "$COMMAND"
+    ! grep -qF -- '--report "datarim/reports/compliance-report-${TASK_ID}.md"' "$REPO_ROOT/skills/compliance/SKILL.md"
     grep -qF 'security-finding-evidence:begin' "$TEMPLATE"
     grep -qF 'security-finding-evidence:end' "$TEMPLATE"
+}
+
+@test "reserves the initial persistent report path without creating a second destination" {
+    local root="$BATS_TEST_TMPDIR/initial"
+    mkdir -p "$root/datarim/reports"
+
+    run python3 -I "$PATH_RESOLVER" --root "$root" --task-id TUNE-0001
+    [ "$status" -eq 0 ]
+    [[ "$output" == file:*"/datarim/reports/compliance-report-TUNE-0001.md" ]]
+    [ -f "${output#*:}" ]
+    [ "$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "${output#*:}")" = "0o600" ]
+}
+
+@test "reserves the next versioned persistent path for a rerun" {
+    local root="$BATS_TEST_TMPDIR/rerun"
+    mkdir -p "$root/datarim/reports"
+    : > "$root/datarim/reports/compliance-report-TUNE-0001.md"
+
+    run python3 -I "$PATH_RESOLVER" --root "$root" --task-id TUNE-0001
+    [ "$status" -eq 0 ]
+    [ "$output" = "file:$root/datarim/reports/compliance-report-TUNE-0001-v2.md" ]
+    [ -f "$root/datarim/reports/compliance-report-TUNE-0001-v2.md" ]
+    [ ! -e "$root/datarim/reports/compliance-report-TUNE-0001-v3.md" ]
+}
+
+@test "chat-only mode uses a private temporary file and validates the bytes emitted" {
+    local root="$BATS_TEST_TMPDIR/chat"
+    local report_path temp_dir emitted
+
+    mkdir -p "$root"
+    run python3 -I "$PATH_RESOLVER" --root "$root" --task-id TUNE-0001
+    [ "$status" -eq 0 ]
+    [[ "$output" == chat:*"/report.md" ]]
+    report_path="${output#*:}"
+    temp_dir="$(dirname -- "$report_path")"
+    [ ! -e "$root/datarim/reports" ]
+    [ "$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$temp_dir")" = "0o700" ]
+    [ "$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$report_path")" = "0o600" ]
+
+    write_report '{"schema":"security-finding-evidence/v1","findings":[]}' "$report_path"
+    run python3 -I "$SCRIPT" --report "$report_path"
+    [ "$status" -eq 0 ]
+
+    emitted="$BATS_TEST_TMPDIR/emitted-report.md"
+    cat "$report_path" > "$emitted"
+    cmp -s "$report_path" "$emitted"
 }
 
 @test "compliance report template contains a valid no-claim positive example" {
@@ -22,7 +75,8 @@ setup() {
 }
 
 write_report() {
-    cat > "$REPORT" <<EOF
+    local destination="${2:-$REPORT}"
+    cat > "$destination" <<EOF
 # Compliance report
 
 <!-- security-finding-evidence:begin -->
