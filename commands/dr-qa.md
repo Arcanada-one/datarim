@@ -129,6 +129,59 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 
 ---
 
+## Layer 2a: UI and Developer-Journey Evidence
+
+**Condition:** Always decide UI and developer-experience applicability
+separately from the current task scope and changed files. UI applies to
+browser-visible components or interaction flows. Developer experience applies
+to installation, setup, configuration, API, CLI, SDK, developer documentation,
+upgrade, or contributor paths. Record `not_applicable` with a concrete reason
+for each domain that does not apply; if both are not applicable, record that
+outcome explicitly.
+
+**Checks:**
+
+1. For an applicable UI surface, load
+   `${DATARIM_RUNTIME:?}/skills/frontend-ui/SKILL.md` § Interaction States and
+   Journey Design. For an applicable developer-facing surface, load
+   `${DATARIM_RUNTIME:?}/skills/dx-review/SKILL.md` and inspect the journey,
+   eight review passes, typed evidence, and selected review mode.
+2. Record the structured evidence at
+   `datarim/qa/<task-id>/ui-dx-evidence.json`. The UI and DX applicability
+   values, state matrix, storyboard, journey trace, digest-bound artifact
+   references, and any retained-material attribution must agree with the
+   reviewed source. Each artifact reference is confined to the same task's
+   immutable `datarim/qa/<task-id>/run-<UTC>/` directory.
+3. Run the read-only validator:
+
+   ```bash
+   python3 "${DATARIM_RUNTIME:?}/dev-tools/check-ui-dx-evidence.py" \
+     --root <repo-root> \
+     --evidence <repo-root>/datarim/qa/<task-id>/ui-dx-evidence.json
+   ```
+
+4. Inspect cited evidence and report the validator output. The validator checks
+   structure, state and journey completeness, typed references and artifact
+   digests, prohibited
+   input categories, attribution fields, and exact source revision. It cannot
+   establish that a reported or estimated claim is true. A rubric score is a
+   review aid, not a measured UX result. Do not report adoption statistics or
+   depend on a designer binary.
+
+**Verdict:** PASS (structure and cited evidence reviewed) | FAIL |
+NOT_APPLICABLE
+
+**Failure handling:** a missing error state, missing recovery path, incomplete
+required fields, untyped evidence, prohibited input, absent retained-material
+attribution, stale source revision, or nonzero validator result is FAIL. Preserve
+reported and estimated evidence labels; do not rewrite them as observed. A
+not-applicable result is valid only with a reason and is not a pass.
+
+This check is separate from Layer 4h. It does not replace QA charter coverage
+or the existing test-environment verification subcheck.
+
+---
+
 ## Layer 3: Plan Completeness
 
 **Condition:** Execute only if `datarim/tasks.md` contains implementation steps for the current task.

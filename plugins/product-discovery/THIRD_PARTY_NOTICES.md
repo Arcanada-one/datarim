@@ -1,10 +1,10 @@
 # Third-Party Notices for `plugins/product-discovery/`
 
-This notice covers the Datarim product-discovery plugin. The product-framing method is re-expressed in the plugin's own structure and wording. Other methods in the program inventory remain planned or blocked for their assigned slices. Where a close derivative is retained, applicable license obligations still apply; paraphrasing does not exempt a derivative under Apache License 2.0 Section 4.
+This notice covers the Datarim product-discovery plugin and the framework review method listed in MIT-8 below. The product-framing method is re-expressed in the plugin's own structure and wording. Other methods in the program inventory remain planned or blocked for their assigned slices unless this notice says they are implemented. Where a close derivative is retained, applicable license obligations still apply; paraphrasing does not exempt a derivative under Apache License 2.0 Section 4.
 
 ## gstack material (MIT)
 
-The gstack method sources are pinned at commit `15ebd85cdde6c9a1b2fb707e8573aec18e8f7438` (`VERSION 1.91.100.0`), copyright 2026 Garry Tan. Product-framing and scope-mode methods are re-expressed in this plugin and covered by the MIT notice below. QA, test-value, findings-resolution, and DX methods remain separate planned work.
+The gstack method sources are pinned at commit `15ebd85cdde6c9a1b2fb707e8573aec18e8f7438` (`VERSION 1.91.100.0`), copyright 2026 Garry Tan. Product-framing and scope-mode methods are re-expressed in this plugin and covered by the MIT notice below. QA, test-value, and findings-resolution methods remain separate planned work. The developer-experience method is re-expressed in `skills/dx-review/SKILL.md` and covered by MIT-8 below.
 
 ## Apache-2.0 material (APACHE-1)
 
@@ -69,12 +69,14 @@ Re-expressed in original wording at `plugins/product-discovery/skills/decision-r
 - `review/sections/plan-completion.md`
 - `scripts/resolvers/plan-gates.ts`
 
-### MIT-7 — frontend-ui state table, user journey, responsive/accessibility methods (T5.4)
+### MIT-7 — frontend-ui source inventory (reviewed; source text not used)
 
 - `plan-design-review/sections/review-sections.md.tmpl`
 - `plan-design-review/sections/review-sections.md`
 
-### MIT-8 — dx-review method (T5.4)
+This source inventory is retained for provenance. The generated review-sections block is also identified above as Apache-derived and not shipped, while its original impeccable provenance is unpinned. The framework UI state/journey additions are written from the task contract and existing `skills/frontend-ui/SKILL.md`; no text from this inventory is retained.
+
+### MIT-8 — developer-experience review method (re-expressed)
 
 - `plan-devex-review/SKILL.md.tmpl`
 - `plan-devex-review/SKILL.md`
@@ -83,6 +85,10 @@ Re-expressed in original wording at `plugins/product-discovery/skills/decision-r
 - `plan-devex-review/sections/review-sections.md.tmpl`
 - `plan-devex-review/sections/review-sections.md`
 - `scripts/resolvers/dx.ts`
+
+The method is re-expressed in the framework `skills/dx-review/SKILL.md`; no
+verbatim text is retained. This attribution and the MIT license text below apply
+to that re-expression.
 
 ## Unresolved provenance (not shipped)
 

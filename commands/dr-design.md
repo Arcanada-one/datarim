@@ -44,6 +44,20 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
     | **Data Model Design** | Database schemas, entity relationships | Entity relationships, schema design, validation rules, query optimization |
     | **Algorithm Design** | Complex logic, processing pipelines | Complexity analysis, efficiency optimization, edge case handling, scaling |
 
+### UI design fragment
+
+When a component or decision includes a browser-visible interface or an
+interaction flow, load `${DATARIM_RUNTIME:?}/skills/frontend-ui/SKILL.md` §
+Interaction States and Journey Design. Include the five-state table, ordered
+journey storyboard, and lowest applicable rubric score in the design record.
+Mark whether the plan specifies each journey step; record gaps where it does
+not. The score is a review rubric and must not be presented as a measured user
+outcome.
+
+When no interface or interaction flow is in scope, record UI applicability as
+`not_applicable` with a concrete reason. Do not create a UI design section just
+to fill the table.
+
 5.  **FOR EACH COMPONENT** — execute the creative phase:
     - **Define problem** clearly and specifically.
     - **Explore 3+ options** with different approaches.
