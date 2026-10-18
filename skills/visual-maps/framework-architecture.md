@@ -210,6 +210,7 @@ graph LR
 | `skill:security` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cutover-runbook-template.md` |
 | `skill:security` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md` |
 | `skill:security-baseline` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cloudflare-nginx-setup.sh` |
+| `skill:security-baseline` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/compliance-report-template.md` |
 | `skill:security-baseline` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md` |
 | `skill:security-baseline` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-workflow.yml` |
 | `skill:testing` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/docker-smoke-checklist.md` |

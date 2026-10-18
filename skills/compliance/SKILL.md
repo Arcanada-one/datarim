@@ -271,3 +271,23 @@ Render the compliance report via the canonical structure declared in `${DATARIM_
 The four top sections answer "what the operator asked for" and "what was confirmed / what remains" in the resolved artifact language. Apply the Russian banlist only for Russian prose from `skills/human-summary/banlist.txt`. The audit addendum carries the technical surface (status table, risk list, cross-links) and MAY wrap ASCII-heavy lines in `<!-- gate:literal -->` fence.
 
 Save to `datarim/reports/compliance-report-{task_id}.md` if the directory exists, otherwise present in chat. Filename suffix on re-runs: `-v2`, `-v3`, … (one new file per `/dr-compliance` invocation).
+
+### Security finding label validation
+
+Every rendered compliance report MUST include exactly one
+`security-finding-evidence:begin` / `security-finding-evidence:end` JSON block
+from the report template. Run the read-only structural validator against the
+rendered report before finalizing its verdict:
+
+```bash
+python3 -I "${DATARIM_RUNTIME:?}/dev-tools/check-security-finding-labels.py" \
+    --report "datarim/reports/compliance-report-${TASK_ID}.md"
+```
+
+Exit `0` means only that the block is valid and internally consistent. It does
+not authenticate cited evidence, confirm that a test ran, or replace any S1–S11
+check. Exit `1` means a label or required evidence field is inconsistent and the
+report must be corrected before it can be compliant. Exit `2` means the report
+could not be read or parsed; retain the compliance verdict as unresolved until
+the structural check succeeds. The validator rejects unknown fields, including
+self-authored `tested` flags, and never promotes `author_reported` content.

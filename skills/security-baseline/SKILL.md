@@ -422,6 +422,37 @@ Reference: a prior security incident (public framework repo carried a leaked OAu
 
 **Regression:** `tests/security-s11-untrusted-boundary-gate.bats` (asserts the rule text, the six probing dimensions, the CI-green-insufficient clause, and the source-incident evidence are present in this document).
 
+## Security finding evidence labels
+
+Use the finding labels in `templates/compliance-report-template.md` to describe
+the evidence available for each security finding. These labels describe the
+assessment and reproduction state; they do not run a scanner, attest to a test,
+or change any S1–S11 requirement.
+
+- `evidence_label` is `supported`, `hypothesis`, or `legacy_review`.
+- `reproduction_state` is `not_attempted`, `blocked`, `inconclusive`,
+  `disproved`, or `reproduced`.
+- `assessment_scope` is `static` or `qualified_runtime`; state it for every
+  finding. Static source analysis is not runtime verification.
+- State the finding's `scope` and `mechanism`. A `supported` label also cites
+  at least one specific evidence reference. An assertion that checks passed is
+  not evidence for a mechanism.
+- `author_reported` claims remain reports. They MUST NOT be relabelled as
+  `reproduced` or `qualified_runtime` merely because the author says a test ran.
+- A `qualified_runtime` assessment requires an attempted reproduction state
+  (`blocked`, `inconclusive`, `disproved`, or `reproduced`), an
+  `independent_witness` with an identity and
+  specific evidence reference, and a custody reference for that evidence.
+  A witness name or custody string alone does not authenticate evidence; the
+  compliance consumer checks only that the report is structurally consistent.
+- `legacy_review` records historical assessment only. It does not inherit a
+  current runtime result or promote a prior self-report.
+
+The report block is a typed label record, not a security scan or proof of the
+truth, origin, or integrity of cited evidence. Preserve those limits in the
+report. This vocabulary is specified locally; no CSO runtime or scanner is
+needed to apply it.
+
 ---
 
 ## Suppression policy (cross-cutting)

@@ -125,6 +125,12 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
     -   `## Next steps`: either a localized "nothing outstanding" statement or concrete `/dr-*` commands / operator actions (including `/dr-archive`).
     -   Audit addendum under `---`: `### Step-by-step verdicts` (the 7-step compliance table, wrapped in `<!-- gate:literal -->` fence to bypass the banlist on English column headings), `### Remaining risks`, `### Related`.
     -   Apply the banlist from `skills/human-summary/banlist.txt` to the prose in the top four sections; the audit addendum tables MAY use `<!-- gate:literal -->` fence when they include ASCII technical terms.
+    -   Include the template's single `security-finding-evidence` JSON block. After writing the report draft, run:
+        ```bash
+        python3 -I "${DATARIM_RUNTIME:?}/dev-tools/check-security-finding-labels.py" \
+            --report "datarim/reports/compliance-report-{TASK-ID}.md"
+        ```
+        Exit `0` checks only block shape and label consistency; it does not authenticate evidence or execute scans/tests. Exit `1` is a compliance finding: correct unsupported labels, missing scope/mechanism/evidence, or a self-reported runtime promotion, then rerun this validator on the corrected report. Exit `2` is a read/parse failure and leaves the verdict unresolved. Do not claim the report is compliant until the structural check exits `0`.
 8.  **HUMAN SUMMARY**:
     - Load `${DATARIM_RUNTIME:?}/skills/human-summary/SKILL.md`.
     - Emit the localized operator-summary section with the four semantic sub-sections and markers from `skills/human-summary/SKILL.md`, before the CTA. Use the resolved reply preference.
