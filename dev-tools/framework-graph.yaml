@@ -187,6 +187,7 @@ inventory:
   - skills/testing/live-smoke-gates.md
   - skills/testing/silent-failure-detection.md
   - skills/testing/tdd-discipline.md
+  - skills/testing/test-value-card.md
   - skills/testing/triaging-legacy-failures.md
   - skills/utilities/crypto.md
   - skills/utilities/datarim-sync.md
@@ -261,6 +262,7 @@ inventory:
   - security-workflow.yml
   - shell-helper-template.sh
   - task-template.md
+  - test-value-card.md
   - version-consistency-fanout-checklist.md
   plugins:
   - id: controller-continuation
@@ -2710,11 +2712,19 @@ edges:
 - from: fragment:skills/testing/tdd-discipline.md
   relation: loads
   source: skills/testing/tdd-discipline.md
+  to: fragment:skills/testing/test-value-card.md
+- from: fragment:skills/testing/tdd-discipline.md
+  relation: loads
+  source: skills/testing/tdd-discipline.md
   to: skill:immutability
 - from: fragment:skills/testing/tdd-discipline.md
   relation: loads
   source: skills/testing/tdd-discipline.md
   to: skill:testing
+- from: fragment:skills/testing/test-value-card.md
+  relation: uses_template
+  source: skills/testing/test-value-card.md
+  to: template:test-value-card.md
 - from: fragment:skills/utilities/datarim-sync.md
   relation: loads
   source: skills/utilities/datarim-sync.md
