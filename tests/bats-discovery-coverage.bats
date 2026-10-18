@@ -19,6 +19,141 @@ setup() {
     export ROOT RUNNER WF
 }
 
+prepare_jsonschema_installer_fixture() {
+    JSONSCHEMA_FIXTURE_DIR="$(mktemp -d)"
+    mkdir -p "$JSONSCHEMA_FIXTURE_DIR/bin" "$JSONSCHEMA_FIXTURE_DIR/site"
+    printf 'local mock wheel bytes\n' > "$JSONSCHEMA_FIXTURE_DIR/wheel.fixture"
+    JSONSCHEMA_FIXTURE_SHA="$(shasum -a 256 "$JSONSCHEMA_FIXTURE_DIR/wheel.fixture" | awk '{print $1}')"
+    sed "s/^PY_JSONSCHEMA_WHEEL_SHA256=\"[0-9a-f]\{64\}\"$/PY_JSONSCHEMA_WHEEL_SHA256=\"$JSONSCHEMA_FIXTURE_SHA\"/" \
+        "$ROOT/tests/ci-install-bats-deps.sh" > "$JSONSCHEMA_FIXTURE_DIR/installer.sh"
+    chmod +x "$JSONSCHEMA_FIXTURE_DIR/installer.sh"
+
+    cat > "$JSONSCHEMA_FIXTURE_DIR/bin/curl" <<'SH'
+#!/bin/bash
+printf '%s\n' "$*" >> "$CURL_LOG"
+output=""
+url=""
+while [ "$#" -gt 0 ]; do
+    if [ "$1" = -o ]; then
+        output="$2"
+        shift 2
+    else
+        url="$1"
+        shift
+    fi
+done
+[ "$url" = "$EXPECTED_WHEEL_URL" ] || exit 41
+[ -n "$output" ] || exit 42
+printf '%s\n' "$output" > "$WHEEL_PATH_LOG"
+cp "$WHEEL_FIXTURE" "$output"
+SH
+
+    cat > "$JSONSCHEMA_FIXTURE_DIR/bin/python3" <<'SH'
+#!/bin/bash
+printf '%s\n' "$*" >> "$PYTHON_LOG"
+joined="$*"
+if [[ "$joined" == *"hashlib.sha256"* ]]; then
+    exec "$REAL_PYTHON" "$@"
+fi
+if { [ "${1:-}" = -m ] && [ "${2:-}" = pip ]; } || [[ "$joined" == *'runpy.run_module("pip"'* ]]; then
+    printf '%s\n' "$joined" >> "$PIP_LOG"
+    exit 0
+fi
+if [[ "$joined" == *"sysconfig.get_paths()"* ]]; then
+    printf '%s\n' "$FAKE_SITE"
+fi
+exit 0
+SH
+    chmod +x "$JSONSCHEMA_FIXTURE_DIR/bin/curl" "$JSONSCHEMA_FIXTURE_DIR/bin/python3"
+}
+
+finish_jsonschema_installer_fixture() {
+    local result="$1"
+    rm -rf -- "$JSONSCHEMA_FIXTURE_DIR"
+    JSONSCHEMA_FIXTURE_DIR=""
+    return "$result"
+}
+
+run_jsonschema_installer_fixture() {
+    local mode="$1"
+    local -a mode_args=()
+    if [ "$mode" = site ]; then
+        mode_args=(--python-site "$JSONSCHEMA_FIXTURE_DIR/site")
+    fi
+    run env \
+        PATH="$JSONSCHEMA_FIXTURE_DIR/bin:/usr/bin:/bin" \
+        REAL_PYTHON="$(command -v python3)" \
+        WHEEL_FIXTURE="$JSONSCHEMA_FIXTURE_DIR/wheel.fixture" \
+        EXPECTED_WHEEL_URL="https://files.pythonhosted.org/packages/69/4a/4f9dbeb84e8850557c023cb67df61001fc9dcd21be4fadb76c1a2d540e09ed/jsonschema-4.23.0-py3-none-any.whl" \
+        CURL_LOG="$JSONSCHEMA_FIXTURE_DIR/curl.log" \
+        WHEEL_PATH_LOG="$JSONSCHEMA_FIXTURE_DIR/wheel-output.path" \
+        PYTHON_LOG="$JSONSCHEMA_FIXTURE_DIR/python.log" \
+        PIP_LOG="$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        FAKE_SITE="$JSONSCHEMA_FIXTURE_DIR/site" \
+        bash "$JSONSCHEMA_FIXTURE_DIR/installer.sh" --python-only \
+            --python-bin "$JSONSCHEMA_FIXTURE_DIR/bin/python3" "${mode_args[@]}"
+}
+
+@test "CI installer binds jsonschema to the canonical PyPI wheel and SHA-256" {
+    local inst="$ROOT/tests/ci-install-bats-deps.sh"
+    grep -q '^PY_JSONSCHEMA_WHEEL_URL="https://files.pythonhosted.org/packages/69/4a/4f9dbeb84e8850557c023cb67df61001fc9dcd21be4fadb76c1a2d540e09ed/jsonschema-4.23.0-py3-none-any.whl"$' "$inst" \
+        && grep -q '^PY_JSONSCHEMA_WHEEL_SHA256="fbadb6f8b144a8f8cf9f0b89ba94501d143e50411a1278633f56a7acf7fd5566"$' "$inst" \
+        && grep -q 'hashlib.sha256' "$inst" \
+        && grep -q 'https://pypi.org/simple' "$inst" \
+        && grep -q -- '--no-cache-dir' "$inst"
+}
+
+@test "CI installer verifies jsonschema wheel before normal Python dependency install" {
+    local installed_wheel
+    prepare_jsonschema_installer_fixture
+    run_jsonschema_installer_fixture ""
+    installed_wheel="$(cat "$JSONSCHEMA_FIXTURE_DIR/wheel-output.path" 2>/dev/null || true)"
+    if [ "$status" -eq 0 ] \
+        && grep -Fq 'https://files.pythonhosted.org/packages/69/4a/4f9dbeb84e8850557c023cb67df61001fc9dcd21be4fadb76c1a2d540e09ed/jsonschema-4.23.0-py3-none-any.whl' "$JSONSCHEMA_FIXTURE_DIR/curl.log" \
+        && grep -Fq -- '--no-cache-dir --isolated --index-url https://pypi.org/simple' "$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        && [ -n "$installed_wheel" ] \
+        && grep -Fq -- "$installed_wheel" "$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        && ! grep -Fq 'jsonschema==4.23.0' "$JSONSCHEMA_FIXTURE_DIR/pip.log"; then
+        finish_jsonschema_installer_fixture 0
+    else
+        finish_jsonschema_installer_fixture 1
+    fi
+}
+
+@test "CI installer preserves --python-site with the verified local jsonschema wheel" {
+    local installed_wheel
+    prepare_jsonschema_installer_fixture
+    run_jsonschema_installer_fixture site
+    installed_wheel="$(cat "$JSONSCHEMA_FIXTURE_DIR/wheel-output.path" 2>/dev/null || true)"
+    if [ "$status" -eq 0 ] \
+        && grep -Fq -- '--target' "$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        && grep -Fq "$JSONSCHEMA_FIXTURE_DIR/site" "$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        && grep -Fq -- '--no-cache-dir --isolated --index-url https://pypi.org/simple' "$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        && [ -n "$installed_wheel" ] \
+        && grep -Fq -- "$installed_wheel" "$JSONSCHEMA_FIXTURE_DIR/pip.log"; then
+        finish_jsonschema_installer_fixture 0
+    else
+        finish_jsonschema_installer_fixture 1
+    fi
+}
+
+@test "CI installer refuses a corrupted jsonschema wheel before pip" {
+    prepare_jsonschema_installer_fixture
+    sed 's/^PY_JSONSCHEMA_WHEEL_SHA256="[0-9a-f]\{64\}"$/PY_JSONSCHEMA_WHEEL_SHA256="0000000000000000000000000000000000000000000000000000000000000000"/' \
+        "$JSONSCHEMA_FIXTURE_DIR/installer.sh" > "$JSONSCHEMA_FIXTURE_DIR/installer-corrupted.sh" \
+        && mv "$JSONSCHEMA_FIXTURE_DIR/installer-corrupted.sh" "$JSONSCHEMA_FIXTURE_DIR/installer.sh" \
+        || return 1
+    run_jsonschema_installer_fixture ""
+    if [ "$status" -ne 0 ] \
+        && [ ! -e "$JSONSCHEMA_FIXTURE_DIR/pip.log" ] \
+        && [ -s "$JSONSCHEMA_FIXTURE_DIR/curl.log" ] \
+        && grep -Fq 'hashlib.sha256' "$JSONSCHEMA_FIXTURE_DIR/python.log"; then
+        finish_jsonschema_installer_fixture 0
+    else
+        finish_jsonschema_installer_fixture 1
+    fi
+}
+
 # --- the runner itself -------------------------------------------------------
 
 @test "bats workflow remains syntactically valid YAML" {
