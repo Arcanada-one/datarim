@@ -37,6 +37,15 @@ setup() {
     [ "$status" -eq 0 ]
 }
 
+@test "persisting a read-only result upgrades to mutating QCK before the first write" {
+    run sed -n '/^## Intent and evidence routing/,/^## Usage/p' "$QUICK_SPEC"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"findings to a task or report record is a mutation"* ]]
+    [[ "$output" == *"Before the first persistent write"* ]]
+    [[ "$output" == *"canonical task metadata and acceptance cases"* ]]
+    [[ "$output" == *"persisted preflight"* ]]
+}
+
 @test "lookup completion bypasses snapshot and archive ledger writes explicitly" {
     run grep -F 'Read-only lookups terminate with their informational evidence response; do not emit a task CTA or snapshot.' "$QUICK_SPEC"
     [ "$status" -eq 0 ]

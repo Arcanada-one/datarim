@@ -46,6 +46,14 @@ structured-gate, stage-header, archive, CTA and snapshot steps below.
   create canonical metadata and acceptance cases, and
   capture the persisted preflight before editing. Conversational lookup evidence
   cannot replace the mutating task's baseline or authorize a local off-host edit.
+- **Intent changes to persisted output:** the read-only response itself is an
+  informational chat answer. Writing, uploading, submitting, or adding its
+  findings to a task or report record is a mutation, even when the request began
+  as a lookup. Before the first persistent write, switch to mutating QCK, repeat
+  execution-host routing, create canonical task metadata and acceptance cases,
+  and capture the persisted preflight. Keep the result informational / UNCERTIFIED
+  until that baseline exists. Outward-facing publication follows the Publisher
+  hard gate and its dedicated workflow.
 
 ## Usage
 
