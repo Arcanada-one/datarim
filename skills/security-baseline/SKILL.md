@@ -424,8 +424,9 @@ Reference: a prior security incident (public framework repo carried a leaked OAu
 
 ## Security finding evidence labels
 
-Use the finding labels in `templates/compliance-report-template.md` to describe
-the evidence available for each security finding. These labels describe the
+Use the finding labels in the
+[`templates/compliance-report-template.md`](../../templates/compliance-report-template.md)
+to describe the evidence available for each security finding. These labels describe the
 assessment and reproduction state; they do not run a scanner, attest to a test,
 or change any S1–S11 requirement.
 
