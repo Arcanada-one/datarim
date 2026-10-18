@@ -302,6 +302,9 @@ Load only the fragment needed for the current sub-problem:
 - `bats-and-spec-lint.md`
   Use for shell-script testing with bats-core (isolation, fixtures, alignment tests, SUCCESS markers, sanity guards) and for spec-lint regex assertions over markdown prose contracts.
 
+- `multisurface-contract-map.md`
+  Use when defining or reviewing task behaviours across browser, API, CLI, worker, and webhook surfaces; map observable assertions and outcomes to the real entrypoint and retained evidence.
+
 - `triaging-legacy-failures.md`
   Use when inheriting a test suite with pre-existing failures. Three-bucket triage: stale-delete, fixable-patch, rephrase-the-content.
 
