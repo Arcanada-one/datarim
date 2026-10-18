@@ -23,3 +23,15 @@ setup() {
     [ "$status" -eq 0 ]
     [ "$output" -ge 1 ]
 }
+
+@test "tdd discipline routes the test-value card fragment" {
+    run grep -F "test-value-card.md" "$REPO_DIR/skills/testing/tdd-discipline.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "test-value fragment records the no-defect and separate-removal rules" {
+    local fragment="$REPO_DIR/skills/testing/test-value-card.md"
+    grep -Eiq "no-defect|no defect|covered elsewhere" "$fragment"
+    grep -Eiq "separate (reviewed )?PR" "$fragment"
+    grep -Eiq "rollback" "$fragment"
+}

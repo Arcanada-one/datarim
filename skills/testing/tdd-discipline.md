@@ -103,6 +103,8 @@ digraph tdd_cycle {
 
 Write one minimal test showing what should happen.
 
+Before adding or proposing a regression test, complete the [test value card](test-value-card.md). A card records the protected behavior, causal failure, existing-coverage gap, seam justification, and limits of a green result; it does not replace the required red-before-fix run.
+
 **Requirements:**
 - One behavior per test
 - Clear, intent-revealing name (no `test1` / `it works`)
