@@ -257,7 +257,7 @@ agent_origin: reviewer | tester | security | codex_single | floor_pipeline | pee
 
 The executable validator/normalizer is `dev-tools/validate-self-verification-findings.py`;
 its legacy compatibility and resolution/round contract are documented in
-`skills/self-verification/findings-and-audit.md`. New records carry both
+`findings-and-audit.md`. New records carry both
 `resolution` and `round`; legacy records carrying neither remain valid. The live
 consumer upgrades legacy producer output to unresolved at the current round.
 `fixed` and `confidence` are not schema values. An unresolved finding at

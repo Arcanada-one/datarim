@@ -3194,10 +3194,6 @@ edges:
 - from: skill:self-verification
   relation: loads
   source: skills/self-verification/SKILL.md
-  to: fragment:skills/self-verification/findings-and-audit.md
-- from: skill:self-verification
-  relation: loads
-  source: skills/self-verification/SKILL.md
   to: skill:security-baseline
 - from: skill:session-handoff-replay
   relation: loads
