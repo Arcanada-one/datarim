@@ -4,9 +4,16 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.4.0] — 2026-10-18
+
 ### Added
 
 - Product Discovery now includes a Decision Record method and strategist scope modes. New DecisionRecord v2 records keep evidence acceptance, business outcome, recommendation, and action authority separate; a strategist GO does not grant execution authority. Existing v1 records remain readable, and the strict reader rejects v2 GO records without counterevidence.
+
+### Fixed
+
+- `/dr-auto` now carries delegated reflection proposals into its single operator summary, preserving pending, held, applied, and rejected states. Missing reflection evidence is reported as unmeasured, and applied status requires an evolution record or equivalent evidence; this source contract does not claim live chat delivery.
+- Mutating `/dr-quick` records and reports a learning signal only when it corrects and verifies a concrete mistake or logic mismatch. Class A signals remain pending with the existing approval question; Class B signals remain held for the required contract/PRD update, and unresolved classes stay unresolved. Read-only lookups and ordinary quick tasks retain the light path; applied status requires actual application evidence. Evolution trigger guidance now names `/dr-compliance` as primary and `/dr-archive` as the freshness fallback.
 
 ## [4.3.7] — 2026-10-06
 

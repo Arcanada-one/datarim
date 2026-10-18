@@ -10,7 +10,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 4.3.7](https://img.shields.io/badge/Version-4.3.7-green.svg)](VERSION)
+[![Version: 4.4.0](https://img.shields.io/badge/Version-4.4.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -35,6 +35,12 @@ Autonomous execution keeps permission and irreversible-action boundaries. JEV ad
 language, with English defaults and shared settings for standalone reporting.
 [Configure languages](documentation/how-to/configure-languages.md). Fixed report
 labels disclose English fallback when a requested catalog is unavailable.
+
+**New in 4.4.0:** `/dr-quick` keeps read-only lookups informational and starts a
+mutating task's persisted baseline before its first write. It records a learning
+signal only for a verified correction to a concrete mistake or logic mismatch.
+`/dr-auto` preserves proposal states in its single handoff summary. See
+[quick task evidence and learning](documentation/how-to/quick-task-evidence-and-learning.md).
 
 **New in 4.2.3:** human reports keep natural spaces between words, dates, counts and units while preserving literal identifiers. Targeted delivery tests now run independently of unrelated fixture startup, and the source excludes private project provenance. The final history transition retains one signed root commit on `main`; see [update instructions](documentation/how-to/history-transition.md).
 

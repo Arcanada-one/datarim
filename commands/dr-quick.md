@@ -46,6 +46,14 @@ structured-gate, stage-header, archive, CTA and snapshot steps below.
   create canonical metadata and acceptance cases, and
   capture the persisted preflight before editing. Conversational lookup evidence
   cannot replace the mutating task's baseline or authorize a local off-host edit.
+- **Intent changes to persisted output:** the read-only response itself is an
+  informational chat answer. Writing, uploading, submitting, or adding its
+  findings to a task or report record is a mutation, even when the request began
+  as a lookup. Before the first persistent write, switch to mutating QCK, repeat
+  execution-host routing, create canonical task metadata and acceptance cases,
+  and capture the persisted preflight. Keep the result informational / UNCERTIFIED
+  until that baseline exists. Outward-facing publication follows the Publisher
+  hard gate and its dedicated workflow.
 
 ## Usage
 
@@ -118,7 +126,32 @@ After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {t
    Exit `0` = the branch's content is present in `origin/main`; proceed to Step 7.
    Exit `1` = the work is absent. Do NOT write the archive and do NOT flip the status: land the change (open the pull request, merge it, re-run the gate), or record a cancellation. Exit `2` = usage or environment error; the gate fails **closed**, so an unresolvable base ref is never read as "everything landed". Rationale, and the reason this asserts content reachability rather than commit ancestry: `commands/dr-archive.md` § 0.13.2.
 
-7. Write a SHORT archive: `documentation/archive/quick/archive-QCK-XXXX.md` — what was done (1-3 sentences) + files touched + a diff/commit reference. NO reflection, NO evolution proposals, NO compliance report. Remove the task row and Active Tasks mirror per Step 3; do not write a done row.
+7. Write a SHORT archive: `documentation/archive/quick/archive-QCK-XXXX.md` — what was done (1-3 sentences) + files touched + a diff/commit reference. Ordinary quick tasks have NO reflection, NO evolution proposals, and NO compliance report; the narrowly conditional learning signal below is the only exception. Remove the task row and Active Tasks mirror per Step 3; do not write a done row.
+
+   **Conditional learning signal (mutating QCK only):** Keep the short archive
+   and skip reflection for ordinary quick fixes and all read-only lookups. If,
+   and only if, the mutating task exposed a concrete mistake or logic mismatch
+   that was corrected and verified by its acceptance/evidence check, add a
+   compact `Verified Learning Signal` to that same archive: the observed
+   mismatch, correction, verification reference, and one suggested category,
+   target, and rationale. Classify the proposal using
+   `skills/evolution/class-ab-gate.md` before reporting its state:
+
+   - **Class A:** report `pending approval` and retain the existing approval
+     question from `skills/evolution/SKILL.md` — “Which proposals should I
+     apply? (all / none / comma-separated numbers)” — scoped to this proposal.
+   - **Class B:** report `held` and state that the required contract/PRD update
+     is the next step before the proposal can enter the normal approval flow.
+     Do not ask whether to apply it while it is held.
+   - **Unresolved class:** report that classification is unresolved. Do not guess Class A or B or ask for approval;
+     classify it against the gate before giving a class-specific next step. Do not label it pending or held.
+
+   Keep the signal conditional; it is a proposal record, not an applied skill or an automatic framework change.
+   Say `applied` only when the source change and its recorded application evidence exist.
+   If no such verified mismatch occurred, write no
+   learning signal or proposal. Never create a reflection for this exception
+   or apply a proposal without its required approval and recorded application
+   evidence.
 
 ## When to use / When not to use
 
@@ -128,6 +161,9 @@ After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {t
 ## Boundaries
 
 - Skips PRD, plan, design, QA, compliance, and reflection stages.
+- The conditional learning signal above is limited to a verified, corrected
+  concrete mistake or logic mismatch in a mutating QCK; it does not apply to
+  read-only lookups or ordinary quick tasks.
 - QCK archive is intentionally minimal.
 - If scope grows mid-task, escalate to `/dr-init`.
 

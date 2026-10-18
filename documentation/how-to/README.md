@@ -36,6 +36,7 @@ Kebab-case `.md` filenames named after the task, for example
 | [`evolution-log.md`](evolution-log.md) | The append-only ledger of accepted framework evolutions. |
 | [`fleet-hook-sync.md`](fleet-hook-sync.md) | Keep fleet hooks in sync across machines. |
 | [`migrate-to-skill-md-layout.md`](migrate-to-skill-md-layout.md) | Migrate flat skills to the directory-per-skill `SKILL.md` layout. |
+| [`quick-task-evidence-and-learning.md`](quick-task-evidence-and-learning.md) | Keep quick lookups informational, establish evidence before quick-task writes, and report conditional learning and handoff states accurately. |
 | [`multi-runtime.md`](multi-runtime.md) | Run Datarim under Claude Code, Codex CLI, and Cursor. |
 | [`provision-release-environment.md`](provision-release-environment.md) | Prepare the environment a release is cut from. |
 | [`pypi-first-publish.md`](pypi-first-publish.md) | Publish a package to PyPI for the first time. |

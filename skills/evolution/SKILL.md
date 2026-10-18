@@ -12,7 +12,7 @@ target_aal: 3
 
 Datarim improves itself in two ways:
 
-1. **Growth** — after each completed task, the `reflecting` skill (invoked by `/dr-archive` Step 0.5) analyzes lessons learned and proposes targeted improvements: new skills, updated agents, expanded templates.
+1. **Growth** — on a passing `/dr-compliance` (Step 8.5), the `reflecting` skill analyzes lessons learned and proposes targeted improvements: new skills, updated agents, expanded templates. `/dr-archive` Step 0.5 generates reflection when the compliance stage did not produce a current artifact.
 2. **Maintenance** — periodically or on demand, `/dr-optimize` audits the framework for bloat, duplicates, broken references, and inefficiencies, then proposes cleanup and consolidation.
 
 Both paths require **explicit human approval** for every change. Evolution is how Datarim avoids repeating mistakes, accumulates institutional knowledge, and stays lean over time.
@@ -21,7 +21,7 @@ Both paths require **explicit human approval** for every change. Evolution is ho
 
 ## When Triggered
 
-### Automatic: Inside `/dr-archive` Step 0.5 via `reflecting` skill (Growth)
+### Automatic: Inside `/dr-compliance` Step 8.5 via `reflecting` skill (Growth); `/dr-archive` Step 0.5 is the fallback
 
 The agent:
 1. Reviews the reflection document just created
@@ -50,7 +50,7 @@ When creating new components, the skill-creator agent:
 
 **No automatic modifications.** Every change requires explicit human approval across all paths.
 
-> **Historical note (v1.10.0):** the standalone `/dr-reflect` command was retired and consolidated into `/dr-archive` Step 0.5 via the `reflecting` skill — reflection must run on every archive, not optionally. Disaster-recovery procedures for runtime files live in `skills/utilities/recovery.md` (cross-referenced from `disaster-recovery.md`).
+> **Historical note (v1.10.0):** the standalone `/dr-reflect` command was retired and consolidated into `/dr-archive` Step 0.5 via the `reflecting` skill. The primary trigger later moved to passing `/dr-compliance` Step 8.5; archive Step 0.5 remains the freshness-aware fallback, so reflection is still required before archive. Disaster-recovery procedures for runtime files live in `skills/utilities/recovery.md` (cross-referenced from `disaster-recovery.md`).
 
 ---
 
@@ -71,7 +71,7 @@ Load only the fragment needed for the current sub-problem:
 
 ## Proposal Categories
 
-### Growth Categories (from `/dr-archive` Step 0.5 reflection)
+### Growth Categories (from the compliance reflection or archive fallback)
 
 | Category | Target | Description |
 |----------|--------|-------------|
@@ -156,7 +156,7 @@ After presenting proposals, the agent MUST:
 
 ## Health Metrics
 
-These thresholds trigger an optimization suggestion during `/dr-archive` Step 0.5 (reflecting skill):
+These thresholds trigger an optimization suggestion during reflection from `/dr-compliance` Step 8.5 or its `/dr-archive` Step 0.5 fallback:
 
 | Metric | Threshold | Action |
 |--------|-----------|--------|
@@ -208,7 +208,7 @@ All approved changes are logged in `datarim/history/evolution-log.md`. Create th
 | 2026-04-11 | OPT-001 | prune-skill | skills/<retired-skill>/SKILL.md | Removed unused skill | No agent references it |
 ```
 
-For optimization runs, use `OPT-NNN` as the task ID. For growth proposals from `/dr-archive` Step 0.5 reflection, use the current task ID.
+For optimization runs, use `OPT-NNN` as the task ID. For growth proposals from compliance reflection or the archive fallback, use the current task ID.
 
 ---
 
