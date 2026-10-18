@@ -16,6 +16,8 @@ CMD_QA="${BATS_TEST_DIRNAME}/../commands/dr-qa.md"
 CMD_COMPLIANCE="${BATS_TEST_DIRNAME}/../commands/dr-compliance.md"
 CMD_ARCHIVE="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
 CMD_AUTO="${BATS_TEST_DIRNAME}/../commands/dr-auto.md"
+CMD_QUICK="${BATS_TEST_DIRNAME}/../commands/dr-quick.md"
+EVOLUTION="${BATS_TEST_DIRNAME}/../skills/evolution/SKILL.md"
 
 # 1
 @test "skill file exists" {
@@ -215,7 +217,7 @@ CMD_AUTO="${BATS_TEST_DIRNAME}/../commands/dr-auto.md"
         run grep -F "$state" "$CMD_AUTO"
         [ "$status" -eq 0 ]
     done
-    run grep -F 'Do not reduce this handoff to the compliance verdict' "$CMD_AUTO"
+    run grep -F 'do not reduce this handoff to the compliance verdict' "$CMD_AUTO"
     [ "$status" -eq 0 ]
     run grep -F 'When compliance ran, include its recorded verdict in the summary' "$CMD_AUTO"
     [ "$status" -eq 0 ]
@@ -240,5 +242,31 @@ CMD_AUTO="${BATS_TEST_DIRNAME}/../commands/dr-auto.md"
     run grep -F 'actual learning/evolution record' "$SKILL"
     [ "$status" -eq 0 ]
     run grep -F 'source prompt contract' "$SKILL"
+    [ "$status" -eq 0 ]
+}
+
+# 28 — quick remains light; only a verified corrected mismatch creates a signal.
+@test "dr-quick emits a conditional learning signal only for verified mutating mistakes" {
+    run grep -F 'Conditional learning signal (mutating QCK only)' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'concrete mistake or logic mismatch' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'corrected and verified by its acceptance/evidence check' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'ordinary quick fixes and all read-only lookups' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'If no such verified mismatch occurred' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'it is a proposal record, not an applied skill' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+}
+
+# 29 — trigger docs match compliance primary and archive freshness fallback.
+@test "evolution trigger contract names compliance primary and archive fallback" {
+    run grep -F 'Automatic: Inside `/dr-compliance` Step 8.5' "$EVOLUTION"
+    [ "$status" -eq 0 ]
+    run grep -F '`/dr-archive` Step 0.5 is the fallback' "$EVOLUTION"
+    [ "$status" -eq 0 ]
+    run grep -F 'primary trigger later moved to passing `/dr-compliance` Step 8.5' "$EVOLUTION"
     [ "$status" -eq 0 ]
 }
