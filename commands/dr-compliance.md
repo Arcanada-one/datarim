@@ -136,14 +136,17 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
         ```
         Render the complete report to `$report_path`, including in chat-only mode. Do not re-render a separate chat copy. Include the template's single `security-finding-evidence` JSON block, then validate the exact rendered file:
         ```bash
-        if python3 -I "${DATARIM_RUNTIME:?}/dev-tools/check-security-finding-labels.py" \
-            --report "$report_path"; then
-            label_validation_status=0
-        else
-            label_validation_status=$?
-        fi
+        validate_security_finding_labels() {
+            if python3 -I "${DATARIM_RUNTIME:?}/dev-tools/check-security-finding-labels.py" \
+                --report "$report_path"; then
+                label_validation_status=0
+            else
+                label_validation_status=$?
+            fi
+        }
+        validate_security_finding_labels
         ```
-        Exit `0` checks only block shape and label consistency; it does not authenticate evidence or execute scans/tests. Exit `1` is a compliance finding: correct unsupported labels, missing scope/mechanism/evidence, or a self-reported runtime promotion, then rerun the validator on the same corrected `$report_path`. Exit `2` is a read/parse failure and leaves the verdict unresolved. Do not claim the report is compliant until the structural check exits `0`. After handling the result (including any required exit-`1` correction), chat-only output MUST be read from that same `$report_path`; never emit a separately regenerated copy:
+        Exit `0` checks only block shape and label consistency; it does not authenticate evidence or execute scans/tests. Exit `1` is a compliance finding: correct unsupported labels, missing scope/mechanism/evidence, or a self-reported runtime promotion, then call `validate_security_finding_labels` again on the same corrected `$report_path`. Each invocation replaces `label_validation_status` with that invocation's exit result, including resetting it to `0` after a successful correction. Exit `2` is a read/parse failure and leaves the verdict unresolved. Do not claim the report is compliant until the latest structural check exits `0`. After handling the result (including any required exit-`1` correction), chat-only output MUST be read from that same `$report_path`; never emit a separately regenerated copy:
         ```bash
         if [[ "$report_destination" == "chat" && "$label_validation_status" -ne 1 ]]; then
             cat -- "$report_path"

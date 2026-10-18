@@ -288,12 +288,15 @@ report_target="$(python3 -I "${DATARIM_RUNTIME:?}/dev-tools/resolve-compliance-r
     --root "$repo_root" --task-id "$task_id")" || exit 2
 report_destination="${report_target%%:*}"
 report_path="${report_target#*:}"
-if python3 -I "${DATARIM_RUNTIME:?}/dev-tools/check-security-finding-labels.py" \
-    --report "$report_path"; then
-    label_validation_status=0
-else
-    label_validation_status=$?
-fi
+validate_security_finding_labels() {
+    if python3 -I "${DATARIM_RUNTIME:?}/dev-tools/check-security-finding-labels.py" \
+        --report "$report_path"; then
+        label_validation_status=0
+    else
+        label_validation_status=$?
+    fi
+}
+validate_security_finding_labels
 ```
 
 For chat-only output, after handling the validator result and any correction,
@@ -305,9 +308,11 @@ if [[ "$report_destination" == "chat" && "$label_validation_status" -ne 1 ]]; th
 fi
 ```
 
-If validation exits `1`, correct the same file and validate it again before
-finalizing. If it exits `2`, retain the verdict as unresolved. These rules do
-not change the report's existing output policy.
+If validation exits `1`, correct the same file and call
+`validate_security_finding_labels` again before finalizing. Every call replaces
+`label_validation_status` with the latest checker result, including resetting it
+to `0` when the correction passes. If validation exits `2`, retain the verdict
+as unresolved. These rules do not change the report's existing output policy.
 
 Exit `0` means only that the block is valid and internally consistent. It does
 not authenticate cited evidence, confirm that a test ran, or replace any S1–S11

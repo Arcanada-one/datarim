@@ -68,6 +68,79 @@ setup() {
     cmp -s "$report_path" "$emitted"
 }
 
+@test "chat correction reruns the checker, resets status, and emits the corrected bytes" {
+    local initial="$BATS_TEST_TMPDIR/initial-chat.md"
+    local invalid="$BATS_TEST_TMPDIR/invalid-chat.md"
+    local corrected="$BATS_TEST_TMPDIR/corrected-chat.md"
+    local validator_snippet="$BATS_TEST_TMPDIR/validator-snippet.sh"
+    local chat_snippet="$BATS_TEST_TMPDIR/chat-snippet.sh"
+    local emitted="$BATS_TEST_TMPDIR/emitted-corrected.md"
+    local checker_errors="$BATS_TEST_TMPDIR/checker-errors.txt"
+
+    python3 - "$COMMAND" "$validator_snippet" "$chat_snippet" <<'PY'
+import re
+import sys
+import textwrap
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+blocks = [textwrap.dedent(block) for block in re.findall(r"(?ms)^[ \t]*```bash[ \t]*\n(.*?)^[ \t]*```[ \t]*$", source)]
+validator = [block[block.index("validate_security_finding_labels()"):] for block in blocks if "validate_security_finding_labels()" in block]
+chat = [block for block in blocks if '[[ "$report_destination" == "chat"' in block]
+if len(validator) != 1 or len(chat) != 1:
+    raise SystemExit("expected one validator function block and one chat output block")
+Path(sys.argv[2]).write_text(validator[0], encoding="utf-8")
+Path(sys.argv[3]).write_text(chat[0], encoding="utf-8")
+PY
+
+    write_report '{
+      "schema": "security-finding-evidence/v1",
+      "findings": [{
+        "id": "F-chat-retry",
+        "evidence_label": "supported",
+        "reproduction_state": "reproduced",
+        "assessment_scope": "qualified_runtime",
+        "scope": "One bounded chat-only path.",
+        "mechanism": "An author assertion attempts to promote runtime evidence.",
+        "evidence_refs": ["report.md#finding"],
+        "origin": "author_reported",
+        "witness": null,
+        "custody_ref": null
+      }]
+    }' "$invalid"
+    write_report '{
+      "schema": "security-finding-evidence/v1",
+      "findings": [{
+        "id": "F-chat-retry",
+        "evidence_label": "hypothesis",
+        "reproduction_state": "not_attempted",
+        "assessment_scope": "static",
+        "scope": "One bounded chat-only path.",
+        "mechanism": "The corrected report retains a static hypothesis without a runtime claim.",
+        "evidence_refs": ["report.md#finding"],
+        "origin": "author_reported",
+        "witness": null,
+        "custody_ref": null
+      }]
+    }' "$corrected"
+
+    # The prior behavior retained status 1 after correction, suppressing chat output.
+    cp -- "$invalid" "$initial"
+    run env DATARIM_RUNTIME="$REPO_ROOT" report_path="$initial" report_destination=chat \
+        VALIDATOR_SNIPPET="$validator_snippet" CORRECTED_REPORT="$corrected" CHAT_SNIPPET="$chat_snippet" CHECKER_ERRORS="$checker_errors" \
+        bash -c 'source "$VALIDATOR_SNIPPET" 2>"$CHECKER_ERRORS"; [ "$label_validation_status" -eq 1 ] || exit 10; cp -- "$CORRECTED_REPORT" "$report_path"; source "$CHAT_SNIPPET"'
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+
+    cp -- "$invalid" "$initial"
+    run env DATARIM_RUNTIME="$REPO_ROOT" report_path="$initial" report_destination=chat \
+        VALIDATOR_SNIPPET="$validator_snippet" CORRECTED_REPORT="$corrected" CHAT_SNIPPET="$chat_snippet" EMITTED="$emitted" CHECKER_ERRORS="$checker_errors" \
+        bash -c 'source "$VALIDATOR_SNIPPET" 2>"$CHECKER_ERRORS"; [ "$label_validation_status" -eq 1 ] || exit 10; cp -- "$CORRECTED_REPORT" "$report_path"; validate_security_finding_labels 2>>"$CHECKER_ERRORS"; [ "$label_validation_status" -eq 0 ] || exit 11; source "$CHAT_SNIPPET" > "$EMITTED"'
+    [ "$status" -eq 0 ]
+    cmp -s "$corrected" "$initial"
+    cmp -s "$corrected" "$emitted"
+}
+
 @test "compliance report template contains a valid no-claim positive example" {
     grep -q '^### Security finding evidence' "$TEMPLATE"
     run python3 -I "$SCRIPT" --report "$TEMPLATE"
