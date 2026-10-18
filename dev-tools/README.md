@@ -34,6 +34,7 @@ Discipline in `code/datarim/AGENTS.md`).
 | `check-wiki-raw-orphans.sh` | standalone content validator (Validation Discipline) — on-demand KB maintenance over `wiki/_raw_/`; no-op when the dir is absent |
 | `check-release-env-policy.sh` | `.github/workflows/release.yml` classify job (advisory live-drift) — validates `.github/environments-policy.yml` and compares the live GitHub environment deployment-branch-policy |
 | `check-security-policy.sh` | `/dr-qa` ecosystem security gate, `/dr-compliance` |
+| `check-security-finding-labels.py` | `commands/dr-compliance.md` — validates per-finding evidence labels in the rendered compliance report; no scan or evidence authentication |
 | `dr-init-id-lock.sh` | `commands/dr-init.md` Step 4 atomic ID claim; held markers are claim surface 4 for `next-free-id.sh` |
 | `check-seam-integration-boundary.sh` | `commands/dr-plan.md` Phase 4 seam-vs-integration boundary check (advisory; `--strict` exits 3) |
 | `check-frontmatter-mirror.sh` | `.github/workflows/frontmatter-mirror.yml` (blocking) vs `rules/frontmatter-key-registry.yaml` |
