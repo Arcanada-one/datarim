@@ -224,6 +224,12 @@ means the Layer 3 record is malformed and the QA verdict is **FAIL**; correct
 the report from its evidence, then validate it again. The checker never changes
 or promotes a status.
 
+Exit 2 means the report is missing, unreadable, or invalid UTF-8. Mark Layer 3
+and the overall QA result **BLOCKED**; record the exact report path and access
+or encoding error, then route correction to the report path, permissions, or
+encoding before validation can continue. A missing validator result is never an
+implicit pass.
+
 **Verdict:** PASS | PASS_WITH_NOTES | FAIL
 
 ```markdown

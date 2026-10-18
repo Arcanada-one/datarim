@@ -28,12 +28,52 @@ EMPTY = {"", "-", "—", "none", "n/a", "not provided", "tbd"}
 
 
 def _cells(line: str) -> list[str]:
-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+    row = line.strip()
+    if row.startswith("|"):
+        row = row[1:]
+    if row.endswith("|"):
+        slash_count = len(row) - len(row.rstrip("\\"))
+        if slash_count % 2 == 0:
+            row = row[:-1]
+
+    cells: list[str] = []
+    current: list[str] = []
+    index = 0
+    while index < len(row):
+        if row[index] == "\\":
+            end = index
+            while end < len(row) and row[end] == "\\":
+                end += 1
+            slash_count = end - index
+            current.extend("\\" * (slash_count // 2))
+            if end < len(row) and row[end] == "|":
+                if slash_count % 2:
+                    current.append("|")
+                    index = end + 1
+                    continue
+                cells.append("".join(current).strip())
+                current = []
+                index = end + 1
+                continue
+            if slash_count % 2:
+                current.append("\\")
+            index = end
+            continue
+        if row[index] == "|":
+            cells.append("".join(current).strip())
+            current = []
+        else:
+            current.append(row[index])
+        index += 1
+    cells.append("".join(current).strip())
+    return cells
 
 
-def _is_separator(line: str) -> bool:
+def _is_separator(line: str, expected_count: int) -> bool:
     cells = _cells(line)
-    return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells)
+    return len(cells) == expected_count and all(
+        re.fullmatch(r":?-{3,}:?", cell) for cell in cells
+    )
 
 
 def _present(value: str) -> bool:
@@ -62,7 +102,9 @@ def validate_report(text: str) -> list[str]:
         return ["missing Layer 3 status table"]
     if tuple(_cells(section[header_index])) != HEADERS:
         return ["Layer 3 table headers do not match the required record fields"]
-    if header_index + 1 >= len(section) or not _is_separator(section[header_index + 1]):
+    if header_index + 1 >= len(section) or not _is_separator(
+        section[header_index + 1], len(HEADERS)
+    ):
         return ["Layer 3 status table is missing its Markdown separator row"]
 
     errors: list[str] = []

@@ -28,6 +28,35 @@ EOF
         && cmp -s "$REPORT" "${REPORT}.before"
 }
 
+@test "production CLI accepts an escaped pipe inside one evidence cell" {
+    write_report
+    python3 - "$REPORT" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+text = text.replace("artifact itself verified at fixture path", r"command: printf 'left \| right'")
+path.write_text(text)
+PY
+    run python3 "$CHECKER" --report "$REPORT"
+    [ "$status" -eq 0 ] && [[ "$output" == *"statuses unchanged"* ]]
+}
+
+@test "production CLI rejects a separator with fewer cells than the header" {
+    write_report
+    python3 - "$REPORT" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+lines = path.read_text().splitlines()
+index = next(i for i, line in enumerate(lines) if line.startswith("|---"))
+lines[index] = "|---|---|---|"
+path.write_text("\n".join(lines) + "\n")
+PY
+    run python3 "$CHECKER" --report "$REPORT"
+    [ "$status" -eq 1 ] && [[ "$output" == *"missing its Markdown separator row"* ]]
+}
+
 @test "Layer 3 parser rejects an unknown status" {
     write_report
     sed -i 's/| output one | DONE |/| output one | COMPLETE |/' "$REPORT"
@@ -68,4 +97,22 @@ EOF
     sed -i 's/| output five | UNVERIFIABLE | context exhaustion | available artifacts reviewed | — | — | exact manual check: compare deployed result to source |/| output five | UNVERIFIABLE | context exhaustion | available artifacts reviewed | — | — | — |/' "$REPORT"
     run python3 "$CHECKER" --report "$REPORT"
     [ "$status" -eq 1 ] && [[ "$output" == *"requires the exact missing evidence or manual check"* ]]
+}
+
+@test "missing report returns exit 2 instead of an implicit pass" {
+    run python3 "$CHECKER" --report "${REPORT}.missing"
+    [ "$status" -eq 2 ] && [[ "$output" == *"cannot read report"* ]]
+}
+
+@test "invalid UTF-8 report returns exit 2 instead of an implicit pass" {
+    printf '\377' >"$REPORT"
+    run python3 "$CHECKER" --report "$REPORT"
+    [ "$status" -eq 2 ] && [[ "$output" == *"cannot read report"* ]]
+}
+
+@test "/dr-qa maps validator exit 2 to BLOCKED and names the correction route" {
+    QA_COMMAND="${BATS_TEST_DIRNAME}/../../commands/dr-qa.md"
+    grep -Fq 'Exit 2 means the report is missing, unreadable, or invalid UTF-8' "$QA_COMMAND" \
+        && grep -Fq 'overall QA result **BLOCKED**' "$QA_COMMAND" \
+        && grep -Fq 'report path, permissions, or encoding' "$QA_COMMAND"
 }
