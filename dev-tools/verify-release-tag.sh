@@ -60,8 +60,8 @@ case "$mode" in
     tree_sha="$(printf '%s\n' "$msg" | sed -n 's/^history_bootstrap_tree=//p' | head -1)"
     [[ -z "$source_sha" || "$source_sha" =~ ^[0-9a-f]{40}$ ]] || die 'bootstrap source pin is invalid'
     [[ -z "$tree_sha" || "$tree_sha" =~ ^[0-9a-f]{40}$ ]] || die 'bootstrap tree pin is invalid'
-    printf 'release_sha=%s\nrelease_tag_object=%s\nstamped_bump_level=%s\nhistory_bootstrap_source=%s\nhistory_bootstrap_tree=%s\n' \
-      "$fetched_sha" "$fetched_object" "$stamped" "$source_sha" "$tree_sha"
+    printf 'release_sha=%s\nrelease_tag_object=%s\nworkflow_sha=%s\nstamped_bump_level=%s\nhistory_bootstrap_source=%s\nhistory_bootstrap_tree=%s\n' \
+      "$fetched_sha" "$fetched_object" "$main_sha" "$stamped" "$source_sha" "$tree_sha"
     ;;
   recheck)
     [[ "$fetched_object" == "$tag_object" ]] || die 'tag object changed after classification'

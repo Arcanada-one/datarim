@@ -85,3 +85,11 @@ teardown() { rm -rf -- "${TEST_ROOT:?}"; }
   [ "$status" -ne 0 ]
   [[ "$output" == *'tag object changed'* ]]
 }
+
+@test 'release job uses the pinned main verifier and preserves tagged checkout' {
+  workflow="${BATS_TEST_DIRNAME}/../.github/workflows/release.yml"
+  grep -Fq 'ref: ${{ needs.classify.outputs.release_sha }}' "$workflow"
+  grep -Fq 'git show "${WORKFLOW_SHA}:dev-tools/verify-release-tag.sh"' "$workflow"
+  grep -Fq 'test "$(git rev-parse HEAD)" = "$RELEASE_SHA"' "$workflow"
+  [ "$(grep -Fc '"$RUNNER_TEMP/verify-release-tag.sh" recheck' "$workflow")" -eq 2 ]
+}
