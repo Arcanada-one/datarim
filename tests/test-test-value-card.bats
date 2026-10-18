@@ -26,18 +26,20 @@ EOF
 }
 
 @test "rejects a card without a specific causal failure" {
-    write_card <<'EOF'
+    for generic_condition in If When; do
+        cat >"$CARD" <<EOF
 ---
 protects: "A behavior contract."
-fails_when: "No known failure; this test seems useful."
-why_new: "The test is new."
+fails_when: "${generic_condition} this test runs, its assertion fails."
+why_new: "Existing gates check structure, not causal test evidence."
 seam: "none"
 no_claim: "No production behavior is proven."
 ---
 EOF
-    run python3 "$VALIDATOR" --card "$CARD"
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"causal trigger"* ]]
+        run python3 "$VALIDATOR" --card "$CARD"
+        [ "$status" -eq 1 ]
+        [[ "$output" == *"causal trigger"* ]]
+    done
 }
 
 @test "rejects a named seam introduced only for tests" {
