@@ -15,8 +15,172 @@ setup() {
     ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     RUNNER="$ROOT/tests/run-bats-discovery.sh"
     WF="$ROOT/.github/workflows/bats.yml"
+    PYPI_WHEEL_METADATA="$ROOT/tests/fixtures/pypi-jsonschema-4.23.0-wheel.json"
     CI_PYTHON="${CUSTOMER_CI_PYTHON:-/usr/bin/python3}"
-    export ROOT RUNNER WF
+    export ROOT RUNNER WF PYPI_WHEEL_METADATA
+}
+
+prepare_jsonschema_installer_fixture() {
+    JSONSCHEMA_FIXTURE_DIR="$(mktemp -d)"
+    JSONSCHEMA_SENTINEL_DIR="$JSONSCHEMA_FIXTURE_DIR/inherited-workdir"
+    mkdir -p "$JSONSCHEMA_FIXTURE_DIR/bin" "$JSONSCHEMA_FIXTURE_DIR/site" "$JSONSCHEMA_SENTINEL_DIR"
+    printf 'owned sentinel; must survive installer cleanup\n' > "$JSONSCHEMA_SENTINEL_DIR/sentinel.txt"
+    printf 'local mock wheel bytes\n' > "$JSONSCHEMA_FIXTURE_DIR/wheel.fixture"
+    JSONSCHEMA_FIXTURE_SHA="$(shasum -a 256 "$JSONSCHEMA_FIXTURE_DIR/wheel.fixture" | awk '{print $1}')"
+    sed "s/^PY_JSONSCHEMA_WHEEL_SHA256=\"[0-9a-f]\{64\}\"$/PY_JSONSCHEMA_WHEEL_SHA256=\"$JSONSCHEMA_FIXTURE_SHA\"/" \
+        "$ROOT/tests/ci-install-bats-deps.sh" > "$JSONSCHEMA_FIXTURE_DIR/installer.sh"
+    chmod +x "$JSONSCHEMA_FIXTURE_DIR/installer.sh"
+
+    cat > "$JSONSCHEMA_FIXTURE_DIR/bin/curl" <<'SH'
+#!/bin/bash
+printf '%s\n' "$*" >> "$CURL_LOG"
+output=""
+url=""
+while [ "$#" -gt 0 ]; do
+    if [ "$1" = -o ]; then
+        output="$2"
+        shift 2
+    else
+        url="$1"
+        shift
+    fi
+done
+[ "$url" = "$EXPECTED_WHEEL_URL" ] || exit 41
+[ -n "$output" ] || exit 42
+printf '%s\n' "$output" > "$WHEEL_PATH_LOG"
+cp "$WHEEL_FIXTURE" "$output"
+SH
+
+    cat > "$JSONSCHEMA_FIXTURE_DIR/bin/python3" <<'SH'
+#!/bin/bash
+printf '%s\n' "$*" >> "$PYTHON_LOG"
+joined="$*"
+if [[ "$joined" == *"hashlib.sha256"* ]]; then
+    exec "$REAL_PYTHON" "$@"
+fi
+if { [ "${1:-}" = -m ] && [ "${2:-}" = pip ]; } || [[ "$joined" == *'runpy.run_module("pip"'* ]]; then
+    printf '%s\n' "$joined" >> "$PIP_LOG"
+    exit 0
+fi
+if [[ "$joined" == *"sysconfig.get_paths()"* ]]; then
+    printf '%s\n' "$FAKE_SITE"
+fi
+exit 0
+SH
+    chmod +x "$JSONSCHEMA_FIXTURE_DIR/bin/curl" "$JSONSCHEMA_FIXTURE_DIR/bin/python3"
+}
+
+finish_jsonschema_installer_fixture() {
+    local result="$1"
+    rm -rf -- "$JSONSCHEMA_FIXTURE_DIR"
+    JSONSCHEMA_FIXTURE_DIR=""
+    return "$result"
+}
+
+run_jsonschema_installer_fixture() {
+    local mode="$1"
+    local -a mode_args=()
+    local expected_url
+    expected_url="$(jq -er '.url' "$PYPI_WHEEL_METADATA")"
+    if [ "$mode" = site ]; then
+        mode_args=(--python-site "$JSONSCHEMA_FIXTURE_DIR/site")
+    fi
+    run env \
+        PATH="$JSONSCHEMA_FIXTURE_DIR/bin:/usr/bin:/bin" \
+        REAL_PYTHON="$(command -v python3)" \
+        WHEEL_FIXTURE="$JSONSCHEMA_FIXTURE_DIR/wheel.fixture" \
+        EXPECTED_WHEEL_URL="$expected_url" \
+        CURL_LOG="$JSONSCHEMA_FIXTURE_DIR/curl.log" \
+        WHEEL_PATH_LOG="$JSONSCHEMA_FIXTURE_DIR/wheel-output.path" \
+        PYTHON_LOG="$JSONSCHEMA_FIXTURE_DIR/python.log" \
+        PIP_LOG="$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        FAKE_SITE="$JSONSCHEMA_FIXTURE_DIR/site" \
+        workdir="$JSONSCHEMA_SENTINEL_DIR" \
+        CI_INSTALLER_WORKDIR="$JSONSCHEMA_SENTINEL_DIR" \
+        CI_INSTALLER_WORKDIR_CREATED=true \
+        bash "$JSONSCHEMA_FIXTURE_DIR/installer.sh" --python-only \
+            --python-bin "$JSONSCHEMA_FIXTURE_DIR/bin/python3" "${mode_args[@]}"
+}
+
+assert_jsonschema_installer_cleanup_is_owned() {
+    local wheel_path temp_dir
+    wheel_path="$(cat "$JSONSCHEMA_FIXTURE_DIR/wheel-output.path" 2>/dev/null || true)"
+    [ -n "$wheel_path" ] || return 1
+    temp_dir="$(dirname "$wheel_path")"
+    [ "$temp_dir" != "$JSONSCHEMA_SENTINEL_DIR" ] \
+        && [ ! -e "$temp_dir" ] \
+        && [ -f "$JSONSCHEMA_SENTINEL_DIR/sentinel.txt" ] \
+        && [ "$(cat "$JSONSCHEMA_SENTINEL_DIR/sentinel.txt")" = 'owned sentinel; must survive installer cleanup' ]
+}
+
+@test "CI installer binds jsonschema to the canonical PyPI wheel and SHA-256" {
+    local inst="$ROOT/tests/ci-install-bats-deps.sh"
+    local canonical_source canonical_url canonical_sha canonical_filename
+    canonical_source="$(jq -er '.metadata_source' "$PYPI_WHEEL_METADATA")"
+    canonical_url="$(jq -er '.url' "$PYPI_WHEEL_METADATA")"
+    canonical_sha="$(jq -er '.digests.sha256' "$PYPI_WHEEL_METADATA")"
+    canonical_filename="$(jq -er '.filename' "$PYPI_WHEEL_METADATA")"
+    [ "$canonical_source" = 'https://pypi.org/pypi/jsonschema/4.23.0/json' ] \
+        && [ "${canonical_url##*/}" = "$canonical_filename" ] \
+        && grep -Fqx "PY_JSONSCHEMA_WHEEL_URL=\"$canonical_url\"" "$inst" \
+        && grep -Fqx "PY_JSONSCHEMA_WHEEL_SHA256=\"$canonical_sha\"" "$inst" \
+        && grep -q 'hashlib.sha256' "$inst" \
+        && grep -q 'https://pypi.org/simple' "$inst" \
+        && grep -q -- '--no-cache-dir' "$inst"
+}
+
+@test "CI installer verifies jsonschema wheel before normal Python dependency install" {
+    local installed_wheel
+    prepare_jsonschema_installer_fixture
+    run_jsonschema_installer_fixture ""
+    installed_wheel="$(cat "$JSONSCHEMA_FIXTURE_DIR/wheel-output.path" 2>/dev/null || true)"
+    if [ "$status" -eq 0 ] \
+        && grep -Fq "$(jq -er '.url' "$PYPI_WHEEL_METADATA")" "$JSONSCHEMA_FIXTURE_DIR/curl.log" \
+        && grep -Fq -- '--no-cache-dir --isolated --index-url https://pypi.org/simple' "$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        && [ -n "$installed_wheel" ] \
+        && grep -Fq -- "$installed_wheel" "$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        && ! grep -Fq 'jsonschema==4.23.0' "$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        && assert_jsonschema_installer_cleanup_is_owned; then
+        finish_jsonschema_installer_fixture 0
+    else
+        finish_jsonschema_installer_fixture 1
+    fi
+}
+
+@test "CI installer preserves --python-site with the verified local jsonschema wheel" {
+    local installed_wheel
+    prepare_jsonschema_installer_fixture
+    run_jsonschema_installer_fixture site
+    installed_wheel="$(cat "$JSONSCHEMA_FIXTURE_DIR/wheel-output.path" 2>/dev/null || true)"
+    if [ "$status" -eq 0 ] \
+        && grep -Fq -- '--target' "$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        && grep -Fq "$JSONSCHEMA_FIXTURE_DIR/site" "$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        && grep -Fq -- '--no-cache-dir --isolated --index-url https://pypi.org/simple' "$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        && [ -n "$installed_wheel" ] \
+        && grep -Fq -- "$installed_wheel" "$JSONSCHEMA_FIXTURE_DIR/pip.log" \
+        && assert_jsonschema_installer_cleanup_is_owned; then
+        finish_jsonschema_installer_fixture 0
+    else
+        finish_jsonschema_installer_fixture 1
+    fi
+}
+
+@test "CI installer refuses a corrupted jsonschema wheel before pip" {
+    prepare_jsonschema_installer_fixture
+    sed 's/^PY_JSONSCHEMA_WHEEL_SHA256="[0-9a-f]\{64\}"$/PY_JSONSCHEMA_WHEEL_SHA256="0000000000000000000000000000000000000000000000000000000000000000"/' \
+        "$JSONSCHEMA_FIXTURE_DIR/installer.sh" > "$JSONSCHEMA_FIXTURE_DIR/installer-corrupted.sh" \
+        && mv "$JSONSCHEMA_FIXTURE_DIR/installer-corrupted.sh" "$JSONSCHEMA_FIXTURE_DIR/installer.sh" \
+        || return 1
+    run_jsonschema_installer_fixture ""
+    if [ "$status" -ne 0 ] \
+        && [ ! -e "$JSONSCHEMA_FIXTURE_DIR/pip.log" ] \
+        && [ -s "$JSONSCHEMA_FIXTURE_DIR/curl.log" ] \
+        && grep -Fq 'hashlib.sha256' "$JSONSCHEMA_FIXTURE_DIR/python.log" \
+        && assert_jsonschema_installer_cleanup_is_owned; then
+        finish_jsonschema_installer_fixture 0
+    else
+        finish_jsonschema_installer_fixture 1
+    fi
 }
 
 # --- the runner itself -------------------------------------------------------

@@ -21,6 +21,23 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+# Never adopt an inherited temporary-directory variable. Cleanup is authorized
+# only for the directory this process creates with mktemp.
+CI_INSTALLER_WORKDIR=""
+CI_INSTALLER_WORKDIR_CREATED=false
+cleanup_ci_installer_workdir() {
+    if [[ "$CI_INSTALLER_WORKDIR_CREATED" == true && -n "$CI_INSTALLER_WORKDIR" ]]; then
+        rm -rf -- "$CI_INSTALLER_WORKDIR"
+    fi
+}
+create_ci_installer_workdir() {
+    if [[ "$CI_INSTALLER_WORKDIR_CREATED" != true ]]; then
+        CI_INSTALLER_WORKDIR="$(mktemp -d)"
+        CI_INSTALLER_WORKDIR_CREATED=true
+        trap cleanup_ci_installer_workdir EXIT
+    fi
+}
+
 # --- pins -------------------------------------------------------------------
 # bats-core v1.11.1 (peeled tag object). Re-resolve with:
 #   git ls-remote --tags https://github.com/bats-core/bats-core.git 'v*^{}'
@@ -35,7 +52,12 @@ BATS_HUMAN_VERSION="v1.11.1"
 YQ_VERSION="v4.44.3"
 YQ_SHA256="a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7"
 
-PY_JSONSCHEMA="jsonschema==4.23.0"
+# jsonschema 4.23.0's platform-independent wheel, pinned to its canonical
+# PyPI-hosted artifact. Keep the installer independent of index candidate
+# selection and verify the downloaded bytes before pip receives the wheel.
+PY_JSONSCHEMA_WHEEL_URL="https://files.pythonhosted.org/packages/69/4a/4f9dbeb84e8850557c02365a0eee0649abe5eb1d84af92a25731c6c0f922/jsonschema-4.23.0-py3-none-any.whl"
+PY_JSONSCHEMA_WHEEL_SHA256="fbadb6f8b144a8f8cf9f0b89ba94501d143e50411a1278633f56a7acf7fd5566"
+PYPI_INDEX_URL="https://pypi.org/simple"
 PY_RFC3339_VALIDATOR="rfc3339-validator==0.1.4"
 PY_PYYAML="pyyaml==6.0.2"
 PY_CRYPTOGRAPHY="cryptography==43.0.3"
@@ -146,27 +168,26 @@ if [ "$PYTHON_ONLY" != true ]; then
         "${sudo_cmd[@]}" apt-get install -y --no-install-recommends "${missing[@]}"
     fi
 
-echo "==> bats-core ${BATS_HUMAN_VERSION} @ ${BATS_SHA}"
-workdir="$(mktemp -d)"
-trap 'rm -rf "$workdir"' EXIT
-git -C "$workdir" init -q bats-core
-git -C "$workdir/bats-core" remote add origin "$BATS_REPO"
-# Fetch exactly the pinned object; a tag rewrite upstream cannot change it.
-git -C "$workdir/bats-core" fetch -q --depth 1 origin "$BATS_SHA"
-git -C "$workdir/bats-core" checkout -q FETCH_HEAD
-actual_sha="$(git -C "$workdir/bats-core" rev-parse HEAD)"
-if [ "$actual_sha" != "$BATS_SHA" ]; then
-    echo "ERROR: bats-core checkout is ${actual_sha}, expected ${BATS_SHA}" >&2
-    exit 1
-fi
-"${sudo_cmd[@]}" "$workdir/bats-core/install.sh" "$PREFIX"
+    echo "==> bats-core ${BATS_HUMAN_VERSION} @ ${BATS_SHA}"
+    create_ci_installer_workdir
+    git -C "$CI_INSTALLER_WORKDIR" init -q bats-core
+    git -C "$CI_INSTALLER_WORKDIR/bats-core" remote add origin "$BATS_REPO"
+    # Fetch exactly the pinned object; a tag rewrite upstream cannot change it.
+    git -C "$CI_INSTALLER_WORKDIR/bats-core" fetch -q --depth 1 origin "$BATS_SHA"
+    git -C "$CI_INSTALLER_WORKDIR/bats-core" checkout -q FETCH_HEAD
+    actual_sha="$(git -C "$CI_INSTALLER_WORKDIR/bats-core" rev-parse HEAD)"
+    if [ "$actual_sha" != "$BATS_SHA" ]; then
+        echo "ERROR: bats-core checkout is ${actual_sha}, expected ${BATS_SHA}" >&2
+        exit 1
+    fi
+    "${sudo_cmd[@]}" "$CI_INSTALLER_WORKDIR/bats-core/install.sh" "$PREFIX"
 
-echo "==> yq ${YQ_VERSION}"
-yq_tmp="${workdir}/yq_linux_amd64"
-curl -fsSL --proto '=https' --tlsv1.2 \
-     -o "$yq_tmp" \
-     "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
-echo "${YQ_SHA256}  ${yq_tmp}" | sha256sum -c -
+    echo "==> yq ${YQ_VERSION}"
+    yq_tmp="${CI_INSTALLER_WORKDIR}/yq_linux_amd64"
+    curl -fsSL --proto '=https' --tlsv1.2 \
+        -o "$yq_tmp" \
+        "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+    echo "${YQ_SHA256}  ${yq_tmp}" | sha256sum -c -
     "${sudo_cmd[@]}" install -m 0755 "$yq_tmp" "${PREFIX}/bin/yq"
 fi
 
@@ -176,6 +197,33 @@ if [[ -n "$PYTHON_SITE" ]]; then
         echo "ERROR: --python-site must be an absolute existing directory" >&2
         exit 2
     }
+fi
+create_ci_installer_workdir
+jsonschema_wheel="${CI_INSTALLER_WORKDIR}/jsonschema-4.23.0-py3-none-any.whl"
+if ! curl -fsS --proto '=https' --tlsv1.2 --connect-timeout 10 --max-time 60 \
+    -o "$jsonschema_wheel" "$PY_JSONSCHEMA_WHEEL_URL"; then
+    echo "ERROR: unable to download the pinned jsonschema wheel" >&2
+    exit 1
+fi
+if ! "$PYTHON_BIN" -I -S -c '
+import hashlib
+import sys
+
+path, expected = sys.argv[1:]
+digest = hashlib.sha256()
+with open(path, "rb") as wheel:
+    for block in iter(lambda: wheel.read(1024 * 1024), b""):
+        digest.update(block)
+if digest.hexdigest() != expected:
+    print("jsonschema wheel SHA-256 mismatch", file=sys.stderr)
+    raise SystemExit(1)
+' "$jsonschema_wheel" "$PY_JSONSCHEMA_WHEEL_SHA256"; then
+    echo "ERROR: pinned jsonschema wheel failed SHA-256 verification" >&2
+    exit 1
+fi
+python_install_options=(--no-cache-dir --isolated --index-url "$PYPI_INDEX_URL")
+python_install_packages=("$jsonschema_wheel" "$PY_RFC3339_VALIDATOR" "$PY_PYYAML" "$PY_CRYPTOGRAPHY")
+if [[ -n "$PYTHON_SITE" ]]; then
     "$PYTHON_BIN" -I -S -c '
 import runpy
 import sys
@@ -184,11 +232,11 @@ target = sys.argv[1]
 sys.path.insert(0, target)
 sys.argv = ["pip", "install", "--quiet", "--disable-pip-version-check", "--upgrade", "--target", target] + sys.argv[2:]
 runpy.run_module("pip", run_name="__main__")
-' "$PYTHON_SITE" "$PY_JSONSCHEMA" "$PY_RFC3339_VALIDATOR" "$PY_PYYAML" "$PY_CRYPTOGRAPHY"
+' "$PYTHON_SITE" "${python_install_packages[@]}" "${python_install_options[@]}"
     python_site="$PYTHON_SITE"
 else
     "$PYTHON_BIN" -m pip install --quiet --disable-pip-version-check \
-        "$PY_JSONSCHEMA" "$PY_RFC3339_VALIDATOR" "$PY_PYYAML" "$PY_CRYPTOGRAPHY"
+        "${python_install_options[@]}" "${python_install_packages[@]}"
     python_site="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
 fi
 # Apple CLT Python 3.9 seeds setuptools and its executable
