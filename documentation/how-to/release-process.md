@@ -100,9 +100,22 @@ release or pushes unrelated local tags.
 3. `bats tests/` is fully green.
 4. `gitleaks detect --redact` finds nothing new. Independently check current source,
    fixtures, prepared archives and website content against the complete protected
-   identifier inventory, plus a semantic review of unrelated names. A narrow pattern
-   scan does not replace this review; never commit or publish the private match list.
-   Current-source privacy does not establish clean historical Git objects or uploads.
+   identifier inventory, plus a semantic review of unrelated names. Follow the
+   [release privacy evidence contract](../reference/release-privacy-evidence.md)
+   to bind the authorized custodian receipt and coverage to the exact source and
+   archive. Record archive-container bytes and digest separately from aggregate
+   payload bytes. Stage 1 must establish the exact inventory revision/snapshot
+   effective period or an attributable not-applicable assertion with reason and
+   authority; stage 2 must bind the same value, and any change stops and requires
+   requalification. A public pattern scan or clean Gitleaks result does not establish
+   that the complete inventory was checked. If custodian authority, completeness, access,
+   or supported member coverage is unknown, stop at `NOT_MEASURED`/HOLD. Never commit
+   or publish private inventory values, raw matches, or an unkeyed digest of the
+   private list. Current-source privacy does not establish clean historical Git
+   objects or uploads. The current `personal-id-lint` workflow also logs the count
+   of nonempty, noncomment lines when its private overlay is present. That pre-existing
+   derived disclosure is not authorization or privacy evidence; its acceptability and
+   any remediation remain unresolved, so retain HOLD until separately dispositioned.
 5. The release branch / commit has independent review evidence; any configured
    `CODEOWNERS` approval requirement is satisfied.
 6. The `VERSION` file matches the intended tag (without the leading
