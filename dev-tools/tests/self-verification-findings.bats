@@ -128,7 +128,9 @@ setup() {
 
 @test "dr-qa Layer 3 invokes the executable plan-completion validator" {
     grep -Fq 'dev-tools/check-plan-completion.py' "$QA_COMMAND" \
-        && grep -Fq -- '--report datarim/qa/qa-report-{TASK-ID}.md' "$QA_COMMAND"
+        && grep -Fq 'TASK_ID="example-task"' "$QA_COMMAND" \
+        && grep -Fq 'REPORT_PATH="datarim/qa/qa-report-${TASK_ID}.md"' "$QA_COMMAND" \
+        && grep -Eq '^[[:space:]]*--report[[:space:]]+"\$REPORT_PATH"$' "$QA_COMMAND"
 }
 
 @test "dr-verify invokes the executable validator and upgrades legacy producer output" {
