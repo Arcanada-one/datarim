@@ -100,10 +100,14 @@ deferred in the task record. Do not infer the relation from chronology alone.
 `/dr-qa` invokes the read-only validator from its charter-coverage subcheck:
 
 ```bash
+repo_root="PATH_TO_REPOSITORY"
+task_id="TASK-ID"
+run_utc="YYYYMMDDTHHMMSSZ"
+
 python3 "${DATARIM_RUNTIME:?}/dev-tools/check-qa-charter-coverage.py" \
-  --root <repo-root> \
-  --charter <repo-root>/datarim/qa/qa-charter-{TASK-ID}.md \
-  --evidence <repo-root>/datarim/qa/qa-charter-{TASK-ID}/run-<UTC>/evidence.json
+  --root "$repo_root" \
+  --charter "$repo_root/datarim/qa/qa-charter-${task_id}.md" \
+  --evidence "$repo_root/datarim/qa/qa-charter-${task_id}/run-${run_utc}/evidence.json"
 ```
 
 Any nonzero result blocks charter coverage. A successful result proves only
