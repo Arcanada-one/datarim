@@ -112,7 +112,8 @@ PY
 
 @test "/dr-qa maps validator exit 2 to BLOCKED and names the correction route" {
     QA_COMMAND="${BATS_TEST_DIRNAME}/../../commands/dr-qa.md"
-    grep -Fq 'Exit 2 means the report is missing, unreadable, or invalid UTF-8' "$QA_COMMAND" \
-        && grep -Fq 'overall QA result **BLOCKED**' "$QA_COMMAND" \
-        && grep -Fq 'report path, permissions, or encoding' "$QA_COMMAND"
+    normalized_command="$(tr '\n' ' ' <"$QA_COMMAND" | tr -s '[:space:]' ' ')"
+    [[ "$normalized_command" == *"Exit 2 means the report is missing, unreadable, or invalid UTF-8"* ]] \
+        && [[ "$normalized_command" == *"overall QA result **BLOCKED**"* ]] \
+        && [[ "$normalized_command" == *"report path, permissions, or encoding before validation can continue"* ]]
 }
