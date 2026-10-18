@@ -72,6 +72,7 @@ inventory:
   - dr-init-id-collision-window
   - dr-next-snapshot-replay
   - dream
+  - dx-review
   - edge-case-hunter
   - evolution
   - executing-plans
@@ -1770,6 +1771,10 @@ edges:
 - from: command:dr-design
   relation: loads
   source: commands/dr-design.md
+  to: skill:frontend-ui
+- from: command:dr-design
+  relation: loads
+  source: commands/dr-design.md
   to: skill:immutability
 - from: command:dr-design
   relation: loads
@@ -2358,7 +2363,15 @@ edges:
 - from: command:dr-qa
   relation: loads
   source: commands/dr-qa.md
+  to: skill:dx-review
+- from: command:dr-qa
+  relation: loads
+  source: commands/dr-qa.md
   to: skill:expectations-checklist
+- from: command:dr-qa
+  relation: loads
+  source: commands/dr-qa.md
+  to: skill:frontend-ui
 - from: command:dr-qa
   relation: loads
   source: commands/dr-qa.md
@@ -2935,6 +2948,10 @@ edges:
   relation: uses_template
   source: skills/file-sync-config/SKILL.md
   to: template:cli-conflict-resolver-prompt.md
+- from: skill:frontend-ui
+  relation: loads
+  source: skills/frontend-ui/SKILL.md
+  to: skill:dx-review
 - from: skill:frontend-ui
   relation: loads
   source: skills/frontend-ui/SKILL.md

@@ -168,11 +168,48 @@ adjudicate aesthetic correctness.
 
 ---
 
+## 10. Interaction States and Journey Design
+
+For each user-visible feature in scope, review all five states. A state may be
+marked not applicable only with a short reason; do not omit it because the
+current screen has no example.
+
+| Feature | Loading | Empty | Error | Success | Partial |
+|---------|---------|-------|-------|---------|---------|
+| {feature} | trigger / feedback / next action | trigger / feedback / next action | cause / recovery action | confirmation / next action | available result / limitation / next action |
+
+Describe the user journey as ordered steps with four observations per step:
+
+| Step | User intent and action | What the interface does | What the user can tell or feel | Does the plan specify this? |
+|------|------------------------|-------------------------|-------------------------------|---------------------------|
+| {step} | {intent and action} | {visible response} | {clear, uncertain, blocked, etc.} | yes / no, with design reference |
+
+Score each applicable feature-state cell with this review rubric, not as a
+measurement of user satisfaction or product improvement:
+
+- `0` — absent or contradictory; the state is not designed.
+- `1` — named, but its trigger, feedback, or next action is too vague to verify.
+- `2` — trigger, user-facing feedback, and a testable next action are specified.
+
+Report the lowest score among applicable cells; do not average away a missing
+state. A review can pass only when every applicable cell scores `2`, every
+not-applicable cell has a reason, and each error state gives a usable recovery
+action. Label the score as a rubric result. It does not measure people,
+satisfaction, adoption, or usability improvement.
+
+For each storyboard step, mark whether the plan specifies the behavior. If not,
+record a design gap instead of treating an implementation guess as planned
+behavior.
+
 ## Integration
 
 - `tester` agent: include this checklist in Web UI testing mode
 - `developer` agent: consult before completing frontend tasks
 - `reviewer` agent: verify compliance during `/dr-qa`
+- `/dr-design`: load this section when an interface or interaction is in scope;
+  include the state table and journey storyboard in the design review.
+- `/dr-qa`: load the structured UI/DX review contract in
+  `skills/dx-review/SKILL.md` when its applicability check says `applicable`.
 - `playwright-qa.md`: detailed contract for the automated browser pass
   invoked at `/dr-qa` Step 4f
 - **Immutability contract:** `skills/immutability/SKILL.md` § Frontend-UI

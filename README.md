@@ -124,7 +124,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 19 specialized agents, 80 reusable skills, and 29 commands that guide
+It includes 19 specialized agents, 81 reusable skills, and 29 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -203,7 +203,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   cross-Claude-family fallback). Each agent has a defined role, capabilities,
   and the stages where it operates.
 
-- **80 reusable skills** — modular knowledge units that agents load on demand,
+- **81 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
@@ -456,7 +456,7 @@ involve most of the nineteen agents across different stages.
 | **reflecting** | Post-task reflection: lessons learned, evolution proposals, Class A/B gate | /dr-archive (Step 0.5) |
 
 The table above is a representative sample, not the full catalogue — the
-complete list of all 80 skills is in
+complete list of all 81 skills is in
 [`documentation/reference/skills.md`](documentation/reference/skills.md).
 
 Skills are modular. Each one is a directory containing a `SKILL.md` (plus any
@@ -971,7 +971,7 @@ and why it exists.
 ```
 datarim/
   agents/            # Agent personas (19 agents)
-  skills/            # Knowledge modules (80 skills)
+  skills/            # Knowledge modules (81 skills)
   commands/          # Slash commands (29 commands)
   templates/         # Task and document templates (31 templates)
   documentation/              # Extended documentation and use cases
