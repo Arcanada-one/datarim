@@ -177,7 +177,7 @@ When a reflection artifact is part of the completed path, carry every learning p
 - **Held:** say it remains held and identify the recorded gate or reason; Class B proposals remain held for their required product-requirements review.
 - **Applied:** use this state only when the learning/evolution record or equivalent source evidence confirms the actual application. A proposal marked pending, a generated reflection, or an announcement is not application evidence.
 - **Rejected:** retain the recorded rejection state; do not recast it as applied or silently omit it.
-- **Unresolved class:** say the proposal's Class A/B classification is unresolved. Do not infer pending approval or held, claim application, or ask for approval; classify it against `skills/evolution/class-ab-gate.md` before giving a class-specific next step.
+- **Unresolved class:** say the proposal's Class A/B classification is unresolved. Do not infer pending approval or held; do not claim application or ask for approval. Classify it against `skills/evolution/class-ab-gate.md` before giving a class-specific next step.
 
 Place proposal states in the existing "What worked" and "What did not work or remains open" sections according to their evidence and unresolved gates. `/dr-auto` must forward the delegated compliance result and reflection proposal states to this summary; the owner must not reduce that handoff to a compliance verdict alone. If compliance was skipped by design, report the skip and do not imply that reflection ran. This is a source prompt contract; emitted chat delivery and runtime behavior remain unmeasured until observed.
 

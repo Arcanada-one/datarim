@@ -1646,6 +1646,10 @@ edges:
 - from: command:dr-auto
   relation: loads
   source: commands/dr-auto.md
+  to: skill:human-summary
+- from: command:dr-auto
+  relation: loads
+  source: commands/dr-auto.md
   to: skill:immutability
 - from: command:dr-auto
   relation: loads
@@ -2418,6 +2422,10 @@ edges:
 - from: command:dr-quick
   relation: loads
   source: commands/dr-quick.md
+  to: skill:evolution
+- from: command:dr-quick
+  relation: loads
+  source: commands/dr-quick.md
   to: skill:immutability
 - from: command:dr-quick
   relation: requires
@@ -2951,6 +2959,10 @@ edges:
   relation: loads
   source: skills/human-summary/SKILL.md
   to: fragment:skills/datarim-system/language-preferences.md
+- from: skill:human-summary
+  relation: loads
+  source: skills/human-summary/SKILL.md
+  to: fragment:skills/evolution/class-ab-gate.md
 - from: skill:human-summary
   relation: loads
   source: skills/human-summary/SKILL.md

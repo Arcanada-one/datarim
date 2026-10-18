@@ -143,13 +143,12 @@ After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {t
    - **Class B:** report `held` and state that the required contract/PRD update
      is the next step before the proposal can enter the normal approval flow.
      Do not ask whether to apply it while it is held.
-   - **Unresolved class:** report that classification is unresolved. Do not
-     guess Class A or B, label it pending or held, or ask for approval; classify
-     it against the gate before giving a class-specific next step.
+   - **Unresolved class:** report that classification is unresolved. Do not guess Class A or B or ask for approval;
+     classify it against the gate before giving a class-specific next step. Do not label it pending or held.
 
-   The signal is a proposal record, not an applied skill or an automatic
-   framework change. Say `applied` only when the source change and its recorded
-   application evidence exist. If no verified mismatch occurred, write no
+   Keep the signal conditional; it is a proposal record, not an applied skill or an automatic framework change.
+   Say `applied` only when the source change and its recorded application evidence exist.
+   If no such verified mismatch occurred, write no
    learning signal or proposal. Never create a reflection for this exception
    or apply a proposal without its required approval and recorded application
    evidence.
