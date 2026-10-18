@@ -71,7 +71,7 @@ Look HARD at:
 Output ONLY valid JSON matching findings schema. No hallucinated quotes — every excerpt MUST come verbatim from cited source.
 ```
 
-**Loop:** emit prompt → parse JSON → validate schema (7 rules from creative doc) → if `status=FAIL` and `iter < max-iter` → re-emit with findings as context → repeat. Stop on PASS / max-iter / cost ceiling.
+**Loop:** emit prompt → parse JSON → aggregate and deduplicate → run `dev-tools/validate-self-verification-findings.py` → if the verifier still requires another round and `iter < max-iter`, re-emit findings as context → repeat. Stop on PASS / max-iter / cost ceiling; unresolved stays unresolved at the cap.
 
 ### 4. Drift Taxonomy
 
@@ -90,7 +90,7 @@ Priority order (first match wins):
 
 1. **`external_verifier`** — operator passes `--external-verifier=PASS` flag (override).
 2. **`unanimous_no_findings`** — all dispatched agents return `findings=[]` AND `status=PASS`.
-3. **`max_iter`** — iteration count reaches `--max-iter` (default 3).
+3. **`max_iter`** — iteration count reaches `--max-iter` (default 3). Open findings marked `unresolved` remain unresolved; reaching the cap is not a fix.
 4. **`cost_ceiling`** — cumulative token cost exceeds `--cost-cap` (default token budget +25% relative to baseline `/dr-do`; per AC-8 PRD).
 
 ## Tri-Layer Architecture (canonical)
@@ -210,7 +210,7 @@ Conditional: runtime detected as codex (via env `CODEX_RUNTIME=1` or `--runtime=
 1. Wrap operator-supplied artifact + AC + adversarial frame template (exact text in §Single-Prompt Loop Mechanics).
 2. Single-prompt call to the selected native model in an isolated context.
 3. Parse JSON output.
-4. Validate against schema rules 1-7.
+4. Validate with `dev-tools/validate-self-verification-findings.py`; legacy records with neither new field remain accepted, and new records must pair `resolution` with the current `round`.
 5. Iterate per Loop Exit Criteria.
 
 > Operators on Codex CLI SHOULD treat `/dr-verify` Layer 2 as same-model isolated unless a native cross-family runtime is available. Do not use DeepSeek/Moonshot/OpenRouter through coworker for semantic verification.
@@ -232,6 +232,8 @@ evidence:
 suggested_fix: <optional, free-text ≤500 chars>
 check_name: <string>                # OPTIONAL — Layer 1 fills in (ac_coverage_grep, file_touched_audit, shellcheck, ...)
 peer_review_provider: deepseek | groq | openrouter | ...   # OPTIONAL — Layer 2 fills in
+resolution: actionable | advisory | unresolved       # OPTIONAL only for legacy records; required on new records
+round: <int>                                           # required with resolution; current 1-based verify iteration
 
 # Post-write metadata (written by audit logger):
 discarded: true | false
@@ -252,6 +254,14 @@ agent_origin: reviewer | tester | security | codex_single | floor_pipeline | pee
 6. `severity ∈ {high, medium, low}` (strict enum).
 7. `ac_criteria` MUST be array (may be empty `[]`).
 8. `suggested_fix` length ≤500 chars (optional).
+
+The executable validator/normalizer is `dev-tools/validate-self-verification-findings.py`;
+its legacy compatibility and resolution/round contract are documented in
+`skills/self-verification/findings-and-audit.md`. New records carry both
+`resolution` and `round`; legacy records carrying neither remain valid. The live
+consumer upgrades legacy producer output to unresolved at the current round.
+`fixed` and `confidence` are not schema values. An unresolved finding at
+`max_iter` remains unresolved.
 
 ## Severity Anchors
 
@@ -309,17 +319,16 @@ function write_audit_log(task_id, stage, iter, findings, raw_outputs):
         layer = f.get("source_layer", "dispatch")  # legacy v1 findings default to dispatch
         source_layer_breakdown[layer] = source_layer_breakdown.get(layer, 0) + 1
 
-    # Step 1. Validate each finding against 7 schema rules
-    valid, malformed = [], []
-    for f in findings:
-        if validate_schema(f): valid.append(f)
-        else: malformed.append(f)
-
-    # Step 2. Auto-discard type=absent
-    for f in valid:
-        if f.evidence.type == "absent":
-            f.discarded = True
-            f.discard_reason = "no_evidence_provided"
+    # Step 1. Validate and normalize using the executable consumer. It returns
+    # normalized `findings` plus a `malformed` array; malformed records are
+    # preserved in the audit log but excluded from verdict calculation.
+    validation = run_json(
+        "python3 ${DATARIM_RUNTIME}/dev-tools/validate-self-verification-findings.py",
+        stdin={"findings": findings},
+        args=["--round", iter, "--max-iter", max_iter],
+    )
+    valid = validation.findings
+    malformed = validation.malformed
 
     # Step 3. Verify file_quote (re-grep)
     for f in valid:
@@ -337,9 +346,13 @@ function write_audit_log(task_id, stage, iter, findings, raw_outputs):
         f.evidence.excerpt = redact_secrets(f.evidence.excerpt)
         f.evidence.source = redact_secrets(f.evidence.source)
 
-    # Step 5. Compute verdict
+    # Step 5. Compute verdict. A malformed record blocks the run so dropping
+    # invalid input cannot turn an otherwise empty findings set into PASS.
     non_discarded = [f for f in valid if not f.discarded]
-    if any(f.severity == "high" for f in non_discarded):
+    if malformed:
+        verdict = "BLOCKED"
+        verdict_reason = "finding_schema_invalid"
+    elif any(f.severity == "high" for f in non_discarded):
         verdict = "BLOCKED"
     elif any(f.severity == "medium" for f in non_discarded):
         verdict = "CONDITIONAL"

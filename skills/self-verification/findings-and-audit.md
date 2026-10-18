@@ -1,6 +1,6 @@
 ---
 name: self-verification-findings
-description: Findings schema, 7 validator rules, severity/category anchors, evidence format, verdict logic, audit-log writer pseudocode. Fragment of `self-verification`; load when emitting or validating /dr-verify findings.
+description: Findings schema, validator rules, severity/category anchors, evidence format, verdict logic, and audit-log writer contract. Fragment of `self-verification`; load when emitting or validating /dr-verify findings.
 ---
 
 ## Findings Schema
@@ -20,6 +20,8 @@ evidence:
 suggested_fix: <optional, free-text ≤500 chars>
 check_name: <string>                # OPTIONAL — Layer 1 fills in (ac_coverage_grep, file_touched_audit, shellcheck, ...)
 peer_review_provider: deepseek | groq | openrouter | ...   # OPTIONAL — Layer 2 fills in
+resolution: actionable | advisory | unresolved       # OPTIONAL only for legacy records; required on new records
+round: <int>                                           # required with resolution; current 1-based verify iteration
 
 # Post-write metadata (written by audit logger):
 discarded: true | false
@@ -40,6 +42,28 @@ agent_origin: reviewer | tester | security | codex_single | floor_pipeline | pee
 6. `severity ∈ {high, medium, low}` (strict enum).
 7. `ac_criteria` MUST be array (may be empty `[]`).
 8. `suggested_fix` length ≤500 chars (optional).
+
+### Resolution and Round
+
+`dev-tools/validate-self-verification-findings.py` is the executable validator and
+normalizer used by `/dr-verify` before it writes the audit log. Legacy records
+with neither `resolution` nor `round` remain valid and retain their legacy shape.
+New records must supply both fields: `resolution` is exactly `actionable`,
+`advisory`, or `unresolved`; `round` is the 1-based iteration that emitted the
+record and must match the current iteration within `max_iter`. Supplying only one
+field is invalid. `confidence` is not part of the schema and is rejected.
+
+The live `/dr-verify` consumer uses `--upgrade-legacy`: legacy producer output
+with neither field is promoted to `resolution=unresolved` at the current round,
+so missing metadata cannot imply that a finding was resolved. Stored old audit
+records remain readable without this option.
+
+At the iteration cap, `unresolved` remains `unresolved`. The cap is not evidence
+of resolution: the validator never converts a finding to a fixed/closed state,
+and `fixed` is not an accepted resolution value. Findings marked `absent` are
+discarded before verdict calculation even if an emitter labels them advisory;
+they cannot be kept alive by adding a confidence value. `verified_absence` stays
+evidence-backed and cannot be discarded.
 
 ## Severity Anchors
 
@@ -97,17 +121,16 @@ function write_audit_log(task_id, stage, iter, findings, raw_outputs):
         layer = f.get("source_layer", "dispatch")  # legacy v1 findings default to dispatch
         source_layer_breakdown[layer] = source_layer_breakdown.get(layer, 0) + 1
 
-    # Step 1. Validate each finding against 7 schema rules
-    valid, malformed = [], []
-    for f in findings:
-        if validate_schema(f): valid.append(f)
-        else: malformed.append(f)
-
-    # Step 2. Auto-discard type=absent
-    for f in valid:
-        if f.evidence.type == "absent":
-            f.discarded = True
-            f.discard_reason = "no_evidence_provided"
+    # Step 1. Validate and normalize using the executable consumer. It returns
+    # normalized `findings` plus a `malformed` array; malformed records are
+    # preserved in the audit log but excluded from verdict calculation.
+    validation = run_json(
+        "python3 ${DATARIM_RUNTIME}/dev-tools/validate-self-verification-findings.py",
+        stdin={"findings": findings},
+        args=["--round", iter, "--max-iter", max_iter],
+    )
+    valid = validation.findings
+    malformed = validation.malformed
 
     # Step 3. Verify file_quote (re-grep)
     for f in valid:
@@ -125,9 +148,13 @@ function write_audit_log(task_id, stage, iter, findings, raw_outputs):
         f.evidence.excerpt = redact_secrets(f.evidence.excerpt)
         f.evidence.source = redact_secrets(f.evidence.source)
 
-    # Step 5. Compute verdict
+    # Step 5. Compute verdict. A malformed record blocks the run so dropping
+    # invalid input cannot turn an otherwise empty findings set into PASS.
     non_discarded = [f for f in valid if not f.discarded]
-    if any(f.severity == "high" for f in non_discarded):
+    if malformed:
+        verdict = "BLOCKED"
+        verdict_reason = "finding_schema_invalid"
+    elif any(f.severity == "high" for f in non_discarded):
         verdict = "BLOCKED"
     elif any(f.severity == "medium" for f in non_discarded):
         verdict = "CONDITIONAL"

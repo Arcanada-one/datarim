@@ -45,9 +45,10 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
      - **claude path**: spawn 3 parallel subagents via `Agent` tool (`subagent_type=reviewer`/`tester`/`security`; tool whitelist: Read, Grep, Glob, Bash read-only — **NO** Write/Edit). Each receives self-contained context package. Findings tagged `source_layer: "dispatch"`.
      - **codex path** *([experimental] fallback only — see skill §Runtime-Aware Switch)*: single-prompt loop with canonical adversarial framing.
    - **Findings dedupe across layers**: tuple `(artifact_ref, ac_criteria, category)`. First-source wins in priority order: floor → peer_review → dispatch.
-7. **ITERATE**: `max-iter` cap, stop-condition checks per Loop Exit Criteria 4-level hierarchy (skill §5).
-8. **WRITE AUDIT LOG**: Append-only file `datarim/qa/verify-{task-id}-{stage}-{iter}.md` per skill §Audit Log Writer pseudocode. Apply `chmod a-w` post-write. Include: validated findings, malformed section, verdict, raw outputs (truncated if >2k chars), and `source_layer_breakdown: {floor: N, peer_review: M, dispatch: K}` summary header field.
-9. **EMIT VERDICT**: BLOCKED / CONDITIONAL / PASS per skill §Verdict Logic. CTA per `cta-format.md` (FAIL-routing for BLOCKED).
+7. **VALIDATE AGGREGATED FINDINGS**: Serialize the deduplicated findings as a JSON array and pipe it to `python3 "${DATARIM_RUNTIME:?}/dev-tools/validate-self-verification-findings.py" --round "$iter" --max-iter "$max_iter" --upgrade-legacy`. The live command promotes old producer records with neither new field to `resolution=unresolved` at the current round; previously stored legacy audit records remain valid when read without that option. Use the emitted `findings` array as the validated records and retain `malformed` records in the audit log. Exit 1 means one or more records were malformed: exclude those records from severity-based calculation, preserve them in the malformed section, and set the overall verifier result to `BLOCKED` with reason `finding_schema_invalid` so invalid findings cannot produce PASS. Invocation/usage errors (exit 2) stop the run as a verifier error; they cannot produce PASS.
+8. **ITERATE**: Apply the Loop Exit Criteria 4-level hierarchy (skill §5), using the validated records. New records carry `resolution: actionable|advisory|unresolved` and `round` equal to the current 1-based iteration; legacy records with neither field remain valid. `actionable` means a finding has an evidence-backed follow-up action; `advisory` is a retained non-blocking observation; `unresolved` remains open. At `max-iter`, keep any unresolved finding `unresolved`; reaching the limit never implies fixed or closed. No automatic fix is applied.
+9. **WRITE AUDIT LOG**: Append-only file `datarim/qa/verify-{task-id}-{stage}-{iter}.md` using the validated JSON output and the audit-writer contract in the skill. Apply `chmod a-w` post-write. Include: validated findings, malformed section, verdict, raw outputs (truncated if >2k chars), and `source_layer_breakdown: {floor: N, peer_review: M, dispatch: K}` summary header field.
+10. **EMIT VERDICT**: If malformed records exist, emit `BLOCKED` with `finding_schema_invalid`; otherwise use BLOCKED / CONDITIONAL / PASS per skill §Verdict Logic. CTA per `cta-format.md` (FAIL-routing for BLOCKED).
 
 ## Stages
 
@@ -60,7 +61,7 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
 
 ## Findings Schema
 
-Refer skill §Findings Schema (canonical YAML block + 7 validator rules + 3 severity anchors + 4 category anchors + 3 evidence types + auto-discard + verifiability + secret redaction).
+Refer skill §Findings Schema and `skills/self-verification/findings-and-audit.md` (canonical fields, eight preserved schema rules, executable validator, legacy compatibility, resolution/round contract, severity/category anchors, evidence types, auto-discard, verifiability and secret redaction).
 
 ## Verdict Logic
 

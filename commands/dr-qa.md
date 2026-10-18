@@ -139,6 +139,21 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 - Flag any **skipped steps** with reason assessment
 - Flag any **unplanned steps** that were added during implementation
 - Check that step ordering was respected (dependencies honored)
+- Classify each planned deliverable as `DONE`, `PARTIAL`, `NOT DONE`, `CHANGED`, or `UNVERIFIABLE`, using the gstack plan-completion distinctions re-expressed below.
+- For every status other than `DONE`, record one discrepancy reason: `scope cut`, `context exhaustion`, `misunderstood`, `blocked`, or `forgotten`, and cite the evidence supporting that reason. Do not infer a reason from status alone.
+- A deliverable is the specified output itself: code that handles or generates a deliverable does not make the deliverable `DONE`.
+
+**Status meanings:**
+
+| Status | Meaning |
+|--------|---------|
+| `DONE` | The deliverable itself is present and the applicable evidence verifies it. |
+| `PARTIAL` | Some work exists, but the deliverable is incomplete. |
+| `NOT DONE` | Verification produced evidence that the deliverable is absent or not implemented. |
+| `CHANGED` | The intended goal was achieved by a materially different implementation; describe the difference. |
+| `UNVERIFIABLE` | Available evidence cannot prove or disprove completion; name the exact manual check or missing evidence. |
+
+For `PARTIAL`, `NOT DONE`, `CHANGED`, and `UNVERIFIABLE`, select one discrepancy reason from the listed set and explain it with evidence. For `CHANGED`, cite both the planned approach and what replaced it. For `UNVERIFIABLE`, do not present the item as complete.
 
 **Verdict:** PASS | PASS_WITH_NOTES | FAIL
 
@@ -147,7 +162,9 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 
 | Step | Status | Notes |
 |------|--------|-------|
-| 1. {desc} | Done / Skipped / Modified | {detail} |
+| 1. {desc} | DONE / PARTIAL / NOT DONE / CHANGED / UNVERIFIABLE | {detail} |
+
+**Discrepancy reasons:** {step → scope cut / context exhaustion / misunderstood / blocked / forgotten, with evidence; or "None"}
 
 **Skipped steps:** {list with risk assessment or "None"}
 **Unplanned additions:** {list or "None"}
