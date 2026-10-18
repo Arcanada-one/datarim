@@ -37,7 +37,8 @@ setup() {
 
 @test "every declared snapshot producer stage is accepted by the writer" {
     local producer_files producer_count=0 file section stage_line stage command_name
-    producer_files="$(rg -l '^## Stage Snapshot Emission' "$REPO_ROOT/commands" | sort)"
+    producer_files="$(find "$REPO_ROOT/commands" -type f -name '*.md' \
+        -exec grep -l '^## Stage Snapshot Emission' {} + | sort)"
     [ -n "$producer_files" ]
     while IFS= read -r file; do
         section="$(sed -n '/^## Stage Snapshot Emission/,$p' "$file")"

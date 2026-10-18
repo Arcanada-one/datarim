@@ -1,6 +1,6 @@
 ---
 name: human-summary
-description: Plain-language operator recap for /dr-qa, /dr-compliance, /dr-archive, and /dr-auto. Four compatible sub-sections; completeness before brevity, with no hard word cap.
+description: Plain-language recap for /dr-qa, /dr-compliance, /dr-archive, and /dr-auto. Four compatible sections; completeness before brevity; no hard word cap.
 current_aal: 1
 target_aal: 2
 ---
