@@ -80,12 +80,16 @@ PY
 @test "release authority is trusted main plus one SSH-signed annotated tag" {
   cd "$REPO_ROOT"
   workflow=.github/workflows/release.yml
+  verifier=dev-tools/verify-release-tag.sh
   grep -F 'workflow_dispatch:' "$workflow"
   grep -F 'release_tag:' "$workflow"
   ! grep -F "tags: ['v*']" "$workflow"
-  grep -F 'gpg.ssh.allowedSignersFile=.github/ssh-signing-allowed-signers' "$workflow"
-  grep -F 'test "$EXPECTED_REF" = refs/heads/main' "$workflow"
-  grep -F 'test "$(git cat-file -t "$tag")" = tag' "$workflow"
+  grep -F '[[ "$workflow_ref" == refs/heads/main ]]' "$verifier"
+  grep -F 'gpg.ssh.allowedSignersFile=$allowed_signers' "$verifier"
+  grep -F 'verify-tag "$ref"' "$verifier"
+  grep -F '[[ "$(git -C "$repo" cat-file -t "$ref")" == tag ]]' "$verifier"
+  grep -F 'merge-base --is-ancestor "$fetched_sha" "$main_sha"' "$verifier"
+  grep -F 'dev-tools/verify-release-tag.sh classify' "$workflow"
   grep -F 'git tag --merged "${release_sha}^" --list' "$workflow"
   grep -F 'classification_sha="$release_sha"' "$workflow"
   grep -F -- '--from "$previous_tag" --to "$classification_sha"' "$workflow"

@@ -43,6 +43,7 @@ class HistoryBootstrapTests(unittest.TestCase):
         (self.repo / "dev-tools").mkdir()
         shutil.copy2(HELPER, self.repo / "dev-tools/check-history-bootstrap.py")
         shutil.copy2(ROOT / "dev-tools/release-classify.sh", self.repo / "dev-tools/release-classify.sh")
+        shutil.copy2(ROOT / "dev-tools/verify-release-tag.sh", self.repo / "dev-tools/verify-release-tag.sh")
         (self.repo / ".datarim").mkdir()
         self.contract = {
             "schema": "DatarimHistoryBootstrap/v1", "version": "4.2.2",
@@ -220,11 +221,12 @@ class HistoryBootstrapTests(unittest.TestCase):
         result = self.helper("release", source_sha=self.prepared, release_sha=self.prepared, tree_sha=self.tree)
         self.assertNotEqual(result.returncode, 0)
 
-    def test_release_tag_cannot_point_away_from_main(self):
+    def test_nonancestor_release_tag_is_refused(self):
         self.cutover()
-        self.git("commit", "-q", "--allow-empty", "-m", "fix: newer main")
-        self.git("push", "-q", "origin", "HEAD:main")
-        result = self.workflow()
+        foreign = self.git("commit-tree", self.tree, input="chore: unrelated root\n").stdout.strip()
+        self.git("tag", "-s", "v4.2.3", foreign, "-m", "release 4.2.3\nbump_level=patch")
+        self.git("push", "-q", "origin", "refs/tags/v4.2.3")
+        result = self.workflow(tag="v4.2.3")
         self.assertNotEqual(result.returncode, 0)
 
 
