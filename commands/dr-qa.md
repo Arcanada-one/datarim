@@ -155,9 +155,11 @@ outcome explicitly.
 3. Run the read-only validator:
 
    ```bash
+   REPO_ROOT="$(git rev-parse --show-toplevel)"
+   TASK_ID="example-task"
    python3 "${DATARIM_RUNTIME:?}/dev-tools/check-ui-dx-evidence.py" \
-     --root <repo-root> \
-     --evidence <repo-root>/datarim/qa/<task-id>/ui-dx-evidence.json
+     --root "$REPO_ROOT" \
+     --evidence "$REPO_ROOT/datarim/qa/$TASK_ID/ui-dx-evidence.json"
    ```
 
 4. Inspect cited evidence and report the validator output. The validator checks

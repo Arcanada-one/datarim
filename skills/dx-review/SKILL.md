@@ -25,9 +25,11 @@ For an applicable developer journey, fill in the evidence contract described
 below and validate it with:
 
 ```bash
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+TASK_ID="example-task"
 python3 "${DATARIM_RUNTIME:?}/dev-tools/check-ui-dx-evidence.py" \
-  --root <repo-root> \
-  --evidence <repo-root>/datarim/qa/<task-id>/ui-dx-evidence.json
+  --root "$REPO_ROOT" \
+  --evidence "$REPO_ROOT/datarim/qa/$TASK_ID/ui-dx-evidence.json"
 ```
 
 The checker is read-only. It verifies the schema, source revision, applicability,
