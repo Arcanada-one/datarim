@@ -2,8 +2,8 @@
 #
 # Spec-regression tests for the human-summary contract.
 #
-# Verifies that the three operator-facing commands (/dr-qa, /dr-compliance,
-# /dr-archive) reference the human-summary skill and that the skill itself
+# Verifies that the operator-facing commands (/dr-qa, /dr-compliance,
+# /dr-archive, /dr-auto) reference the human-summary skill and that the skill itself
 # carries the four mandated sub-headings, the RU+EN mini-examples, and the
 # Option C banlist + whitelist + per-paragraph escape-hatch contract.
 #
@@ -15,6 +15,7 @@ WHITELIST="${BATS_TEST_DIRNAME}/../skills/human-summary/whitelist.txt"
 CMD_QA="${BATS_TEST_DIRNAME}/../commands/dr-qa.md"
 CMD_COMPLIANCE="${BATS_TEST_DIRNAME}/../commands/dr-compliance.md"
 CMD_ARCHIVE="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
+CMD_AUTO="${BATS_TEST_DIRNAME}/../commands/dr-auto.md"
 
 # 1
 @test "skill file exists" {
@@ -196,5 +197,48 @@ CMD_ARCHIVE="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
 @test "skill caps escape-hatch paragraphs per task" {
     # Per Option C: 3rd gated paragraph → warn; 5th → block.
     run grep -E "(2 paragraphs|two paragraphs|paragraph budget|paragraph cap)" "$SKILL"
+    [ "$status" -eq 0 ]
+}
+
+# These are static prompt-contract checks only. They do not prove a delegated
+# agent emitted the summary in a live chat; runtime delivery remains NOT_MEASURED.
+
+# 25 — fail-before on the pre-fix source: /dr-auto did not require this handoff.
+@test "dr-auto forwards delegated reflection states through the human-summary skill" {
+    run grep -F 'skills/human-summary/SKILL.md' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+    run grep -F 'current reflection artifact' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+    run grep -F 'compliance report when one exists' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+    for state in 'pending approval' 'held' 'applied' 'rejected'; do
+        run grep -F "$state" "$CMD_AUTO"
+        [ "$status" -eq 0 ]
+    done
+    run grep -F 'Do not reduce this handoff to the compliance verdict' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+    run grep -F 'When compliance ran, include its recorded verdict in the summary' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+}
+
+# 26 — omission controls: absent evidence or skipped stages cannot become "none".
+@test "dr-auto preserves reflection and compliance omission states" {
+    run grep -F 'If reflection is absent, stale, or unavailable, report it as unmeasured' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+    run grep -F 'do not imply reflection ran' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+    run grep -F 'Say "no proposals" only when the current reflection artifact confirms none' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+}
+
+# 27 — propagation controls: summary rules retain status and application evidence.
+@test "human-summary distinguishes proposal states and requires application evidence" {
+    for phrase in 'No proposals:' 'Pending approval:' 'Held:' 'Applied:' 'Rejected:'; do
+        run grep -F "$phrase" "$SKILL"
+        [ "$status" -eq 0 ]
+    done
+    run grep -F 'actual learning/evolution record' "$SKILL"
+    [ "$status" -eq 0 ]
+    run grep -F 'source prompt contract' "$SKILL"
     [ "$status" -eq 0 ]
 }

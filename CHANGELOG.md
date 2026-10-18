@@ -8,6 +8,10 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 - Product Discovery now includes a Decision Record method and strategist scope modes. New DecisionRecord v2 records keep evidence acceptance, business outcome, recommendation, and action authority separate; a strategist GO does not grant execution authority. Existing v1 records remain readable, and the strict reader rejects v2 GO records without counterevidence.
 
+### Fixed
+
+- `/dr-auto` now carries delegated reflection proposals into its single operator summary, preserving pending, held, applied, and rejected states. Missing reflection evidence is reported as unmeasured, and applied status requires an evolution record or equivalent evidence; this source contract does not claim live chat delivery.
+
 ## [4.3.7] — 2026-10-06
 
 ### Fixed
