@@ -286,7 +286,7 @@ selection=$(jq -ce --slurpfile contract "$contract" --arg task "$task" --arg now
     require(all(.attempts[]; type == "object" and (.actor | text)
         and (.revision | type == "string" and test("^([0-9a-f]{40}|[0-9a-f]{64})$"))
         and (.contract_sha256 | digest) and (.scope_sha256 | digest)
-        and (if $has_inputs then .inputs_sha256 == $ih and (.inputs_sha256 | digest) else true end)
+        and (if $has_inputs then (.inputs_sha256 | digest) else true end)
         and (.cases | type == "array" and all(.[]; case_record))
         and (.timestamp | stamp) and .timestamp >= $bundle.implementation_started_at
         and .timestamp <= $now and (.stage | rank) >= 0);
@@ -314,6 +314,7 @@ selection=$(jq -ce --slurpfile contract "$contract" --arg task "$task" --arg now
         . as $a | ($a.stage | rank) as $r |
         [$cases[] | select((.spec.required_stage | rank) <= $r)] as $due |
         ($a.actor | text) and $a.revision == $revision and $a.contract_sha256 == $ch and $a.scope_sha256 == $sh
+        and (if $has_inputs then $a.inputs_sha256 == $ih and ($a.inputs_sha256 | digest) else true end)
         and ($a.cases | type == "array" and length == ($due|length))
         and all($due[]; . as $d |
             [$a.cases[] | select(.criterion_id == $d.criterion_id and .case_id == $d.case_id)] as $matches |

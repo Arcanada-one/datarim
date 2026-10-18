@@ -160,6 +160,42 @@ class EvidenceLoop(unittest.TestCase):
         result = self.call("compliance")
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_superseded_input_attempts_keep_history_without_blocking_return_to_baseline(self):
+        fixture = self.root / "fixture.json"
+        fixture.write_text('{"input":"A"}\n')
+        self.bind_inputs([{"kind": "file", "path": "fixture.json"}])
+        baseline_preflight = copy.deepcopy(self.bundle["preflight"])
+        baseline_digest = baseline_preflight["inputs_sha256"]
+        baseline_head = self.git("rev-parse", "HEAD")
+        do_a, qa_a, compliance_a = copy.deepcopy(self.bundle["attempts"])
+
+        fixture.write_text('{"input":"B"}\n')
+        digest_b = json.loads(self.call("snapshot").stdout)["inputs_sha256"]
+        self.assertNotEqual(digest_b, baseline_digest)
+        qa_b = copy.deepcopy(qa_a)
+        qa_b["inputs_sha256"] = digest_b
+        fixture.write_text('{"input":"A"}\n')
+
+        archive_a = self.attempt("archive")
+        self.bundle["attempts"] = [do_a, qa_b, qa_a, compliance_a, archive_a]
+        result = self.call("archive")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["verdict"], "STAGE_PASS")
+        self.assertEqual(self.bundle["preflight"], baseline_preflight)
+        self.assertEqual(self.git("rev-parse", "HEAD"), baseline_head)
+
+        archive_b = copy.deepcopy(archive_a)
+        archive_b["inputs_sha256"] = digest_b
+        self.bundle["attempts"] = [do_a, qa_a, compliance_a, archive_b]
+        self.reject("archive")
+
+        malformed_superseded = copy.deepcopy(qa_b)
+        malformed_superseded["inputs_sha256"] = "not-a-digest"
+        self.bundle["attempts"] = [do_a, malformed_superseded, qa_a, compliance_a, archive_a]
+        self.reject("archive")
+        self.assertEqual(self.bundle["preflight"], baseline_preflight)
+        self.assertEqual(self.git("rev-parse", "HEAD"), baseline_head)
+
     def test_changed_fixture_schema_or_untracked_input_blocks_same_head(self):
         paths = ["fixture.json", "schema.json", "untracked.data"]
         for path in paths:
