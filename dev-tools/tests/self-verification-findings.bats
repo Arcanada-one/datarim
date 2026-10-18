@@ -138,7 +138,9 @@ setup() {
 
 @test "dr-verify invokes the executable validator and upgrades legacy producer output" {
     command_file="${BATS_TEST_DIRNAME}/../../commands/dr-verify.md"
+    audit_file="${BATS_TEST_DIRNAME}/../../skills/self-verification/findings-and-audit.md"
     grep -Fq 'validate-self-verification-findings.py' "$command_file"
-    grep -Fq -- '--upgrade-legacy' "$command_file"
+    grep -Fq 'validate-self-verification-findings.py" --round "$iter" --max-iter "$max_iter" --upgrade-legacy' "$command_file"
     grep -Fq 'finding_schema_invalid' "$command_file"
+    grep -Fq 'args=["--round", iter, "--max-iter", max_iter, "--upgrade-legacy"]' "$audit_file"
 }

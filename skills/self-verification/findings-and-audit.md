@@ -121,13 +121,15 @@ function write_audit_log(task_id, stage, iter, findings, raw_outputs):
         layer = f.get("source_layer", "dispatch")  # legacy v1 findings default to dispatch
         source_layer_breakdown[layer] = source_layer_breakdown.get(layer, 0) + 1
 
-    # Step 1. Validate and normalize using the executable consumer. It returns
-    # normalized `findings` plus a `malformed` array; malformed records are
-    # preserved in the audit log but excluded from verdict calculation.
+    # Step 1. Live runs normalize legacy producer output to unresolved at this
+    # iteration. Read-only validation of stored legacy audit records omits
+    # --upgrade-legacy. The consumer returns normalized `findings` plus a
+    # `malformed` array; malformed records remain in the audit log but are
+    # excluded from verdict calculation.
     validation = run_json(
         "python3 ${DATARIM_RUNTIME}/dev-tools/validate-self-verification-findings.py",
         stdin={"findings": findings},
-        args=["--round", iter, "--max-iter", max_iter],
+        args=["--round", iter, "--max-iter", max_iter, "--upgrade-legacy"],
     )
     valid = validation.findings
     malformed = validation.malformed
