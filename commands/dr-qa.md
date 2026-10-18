@@ -214,8 +214,10 @@ For `PARTIAL`, `NOT DONE`, `CHANGED`, and `UNVERIFIABLE`, select one discrepancy
 After writing the QA report, run the read-only structural validator against its existing Layer 3 section:
 
 ```bash
+TASK_ID="example-task"
+REPORT_PATH="datarim/qa/qa-report-${TASK_ID}.md"
 python3 "${DATARIM_RUNTIME:?}/dev-tools/check-plan-completion.py" \
-  --report datarim/qa/qa-report-{TASK-ID}.md
+  --report "$REPORT_PATH"
 ```
 
 Exit 0 means the recorded rows contain supported statuses and required fields;
