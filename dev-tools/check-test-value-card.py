@@ -14,7 +14,7 @@ FIELDS = ("protects", "fails_when", "why_new", "seam", "no_claim")
 MAX_FIELD_BYTES = 160
 PLACEHOLDER = re.compile(r"^(?:|<[^>]+>|tbd|todo|n/?a|none)$", re.IGNORECASE)
 CAUSAL_TRIGGER = re.compile(
-    r"\b(?:if|when|remov\w*|disabl\w*|omit\w*|inver\w*|bypass\w*|"
+    r"\b(?:remov\w*|disabl\w*|omit\w*|inver\w*|bypass\w*|"
     r"corrupt\w*|mutat\w*|break\w*|missing|absent|wrong|invalid)\b",
     re.IGNORECASE,
 )
