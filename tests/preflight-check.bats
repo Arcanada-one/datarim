@@ -204,6 +204,7 @@ source_script() {
     run check_docker_pressure
     warn=$(jq '[.[] | select(.name=="docker_pressure" and .status=="warning")] | length' "$REPORT_FILE")
     [ "$warn" -eq 0 ]
+    [ "$(jq -r '.[0].actual' "$REPORT_FILE")" = "2.33" ]
 }
 
 @test "T10 check_docker_pressure: warn (reclaimable > 10GB)" {
@@ -213,6 +214,72 @@ source_script() {
     run check_docker_pressure
     warn=$(jq '[.[] | select(.name=="docker_pressure" and .status=="warning")] | length' "$REPORT_FILE")
     [ "$warn" -gt 0 ]
+}
+
+# Refuse an unknown metric with the existing warning policy, never zero/pass.
+assert_docker_pressure_unknown() {
+    prepend_path
+    source_script
+    check_docker_pressure
+    [ "$WARN_COUNT" -eq 1 ]
+    [ "$FATAL_COUNT" -eq 0 ]
+    jq -e 'length == 1 and .[0].status == "warning" and .[0].actual == "unknown"' "$REPORT_FILE"
+}
+
+@test "check_docker_pressure: actual zero rows are measured zero" {
+    jq -c '.Reclaimable = "0B (0%)"' "$FIX/docker-df-ok.json" > "$TMPROOT/zero.json"
+    mock_cmd_file docker "$TMPROOT/zero.json"
+    prepend_path
+    source_script
+    check_docker_pressure
+    jq -e '.[0].status == "ok" and .[0].actual == "0.00"' "$REPORT_FILE"
+}
+
+@test "check_docker_pressure: SI decimal units, no percentage required" {
+    jq -c 'if .Type == "Images" then .Reclaimable = "1114000kB" else .Reclaimable = "0B" end' "$FIX/docker-df-ok.json" > "$TMPROOT/units.json"
+    mock_cmd_file docker "$TMPROOT/units.json"
+    prepend_path
+    source_script
+    check_docker_pressure
+    # Decimal kB scales by 1000; keep the existing GiB reporting convention.
+    jq -e '.[0].status == "ok" and .[0].actual == "1.04"' "$REPORT_FILE"
+}
+
+@test "check_docker_pressure: missing row is unknown" {
+    head -n 3 "$FIX/docker-df-ok.json" > "$TMPROOT/missing.json"
+    mock_cmd_file docker "$TMPROOT/missing.json"
+    assert_docker_pressure_unknown
+}
+
+@test "check_docker_pressure: duplicate row is unknown" {
+    cat "$FIX/docker-df-ok.json" > "$TMPROOT/duplicate.json"
+    head -n 1 "$FIX/docker-df-ok.json" >> "$TMPROOT/duplicate.json"
+    mock_cmd_file docker "$TMPROOT/duplicate.json"
+    assert_docker_pressure_unknown
+}
+
+@test "check_docker_pressure: missing, malformed or unsupported size is unknown" {
+    for expression in 'del(.Reclaimable)' '.Reclaimable = "-1GB"' '.Reclaimable = "1GiB"' '.Reclaimable = null' '.Reclaimable = 0' 'if .Type == "Images" then .Reclaimable = "N/A" else . end'; do
+        echo '[]' > "$REPORT_FILE"
+        jq -c "$expression" "$FIX/docker-df-ok.json" > "$TMPROOT/bad.json"
+        mock_cmd_file docker "$TMPROOT/bad.json"
+        assert_docker_pressure_unknown
+    done
+}
+
+@test "check_docker_pressure: malformed JSON and old nested fixture shape are unknown" {
+    for data in '{' '{"Images":{"ReclaimableBytes":0}}'; do
+        echo '[]' > "$REPORT_FILE"
+        printf '%s\n' "$data" > "$TMPROOT/bad.json"
+        mock_cmd_file docker "$TMPROOT/bad.json"
+        assert_docker_pressure_unknown
+    done
+}
+
+@test "check_docker_pressure: Docker command failure refuses even valid stdout" {
+    mock_cmd_file docker "$FIX/docker-df-ok.json"
+    echo 'exit 7' >> "$MOCK_BIN/docker"
+    assert_docker_pressure_unknown
 }
 
 # ---------- check_ram_swap ----------

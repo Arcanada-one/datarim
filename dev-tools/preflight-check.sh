@@ -152,15 +152,31 @@ check_vault() {
 
 check_docker_pressure() {
     local out reclaim_bytes reclaim_gb
-    out="$(docker system df --format json 2>/dev/null || true)"
-    if [[ -z "$out" ]]; then
-        append_finding "docker_pressure" "warning" "cli_unavailable" "no_output" "stable"
+    if ! out="$(docker system df --format json 2>/dev/null)"; then
+        append_finding "docker_pressure" "warning" "cli_unavailable" "unknown" "stable"
         return 0
     fi
-    reclaim_bytes="$(echo "$out" | jq -r '
-        [.Images.ReclaimableBytes, .Containers.ReclaimableBytes,
-         .Volumes.ReclaimableBytes, .BuildCache.ReclaimableBytes]
-        | map(. // 0) | add')"
+    if [[ -z "$out" ]]; then
+        append_finding "docker_pressure" "warning" "cli_unavailable" "unknown" "stable"
+        return 0
+    fi
+    # Docker emits four JSON rows with rounded SI Reclaimable strings, not
+    # nested byte counters. Unknown schema/units must never become zero.
+    if ! reclaim_bytes="$(printf '%s\n' "$out" | jq -ers '
+        def reclaim_bytes:
+            if type != "string" then error("missing reclaimable size") else
+                (capture("^(?<n>[0-9]+(?:\\.[0-9]+)?)(?<u>B|kB|MB|GB|TB|PB|EB)(?: \\([0-9]+%\\))?$")
+                    // error("unsupported reclaimable size")) as $size
+                | ($size.n | tonumber) *
+                    {B:1,kB:1e3,MB:1e6,GB:1e9,TB:1e12,PB:1e15,EB:1e18}[$size.u]
+                | if isfinite then . else error("invalid reclaimable size") end
+            end;
+        if (map(.Type) | sort) != ["Build Cache","Containers","Images","Local Volumes"]
+        then error("unsupported Docker usage rows")
+        else map(.Reclaimable | reclaim_bytes) | add end' 2>/dev/null)"; then
+        append_finding "docker_pressure" "warning" "parse_failed" "unknown" "JSON-row reclaimable sizes"
+        return 0
+    fi
     reclaim_gb="$(awk -v b="$reclaim_bytes" 'BEGIN {printf "%.2f", b/1024/1024/1024}')"
     if awk -v g="$reclaim_gb" -v t="$PREFLIGHT_DOCKER_RECLAIM_THRESHOLD_GB" \
         'BEGIN {exit !(g > t)}'; then
