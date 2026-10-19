@@ -4,6 +4,25 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.5.0] — 2026-10-19
+
+### Added
+
+- Live evidence binds verification attempts to declared input manifests. Superseded attempts remain recorded, and a selected attempt cannot pass when its inputs have drifted.
+- `/dr-verify` validates self-verification finding records and their resolution states through the live command path; unresolved findings remain unresolved at the iteration cap.
+- `/dr-qa` adds a QA-charter template and coverage checker alongside plan-completion validation. The test-value-card template and semantic checker run through the existing framework gate; test-environment checks remain a separate `/dr-qa` subcheck.
+- `/dr-design` records applicable UI states and journey plans, while `/dr-qa` reviews applicable UI and developer journeys with source-bound evidence. Rubric scores remain review aids, not measured user outcomes.
+
+### Fixed
+
+- Corrected compliance reports are revalidated against their actual reserved report path before status is updated; unresolved results remain blocked.
+- Release classification accepts only signed, verified tags whose targets are ancestors of protected `main`, and the release job verifies the tag again before publication.
+- The CI `jsonschema` installer is pinned to the canonical PyPI wheel and its verified digest.
+
+### Changed
+
+- Maintainer release guidance now specifies source and archive privacy-evidence requirements, including inventory revision, effective period and coverage binding. This documents the required process; it does not assert privacy clearance or runtime acceptance.
+
 ## [4.4.0] — 2026-10-18
 
 ### Added
