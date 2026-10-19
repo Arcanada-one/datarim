@@ -10,7 +10,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 4.4.0](https://img.shields.io/badge/Version-4.4.0-green.svg)](VERSION)
+[![Version: 4.5.0](https://img.shields.io/badge/Version-4.5.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -35,6 +35,11 @@ Autonomous execution keeps permission and irreversible-action boundaries. JEV ad
 language, with English defaults and shared settings for standalone reporting.
 [Configure languages](documentation/how-to/configure-languages.md). Fixed report
 labels disclose English fallback when a requested catalog is unavailable.
+
+**New in 4.5.0:** Live evidence is bound to declared input manifests, while
+`/dr-qa` validates plan-completion records and test value cards through their
+production consumers. The changelog summarizes the related QA, review-guidance
+and release-pipeline improvements.
 
 **New in 4.4.0:** `/dr-quick` keeps read-only lookups informational and starts a
 mutating task's persisted baseline before its first write. It records a learning
