@@ -267,7 +267,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND the matching per-tas
 2. Stage-specific suppression hooks:
    - Step 3 backlog item selection prompt — resolve via Ladder L1 (grep backlog by description match) before AskUserQuestion.
    - Step 3.5 Architectural-superseding probe — cancel/reframe/proceed decision resolved through Ladder L1-L2 (read the referenced sibling archive(s)); non-tty/CI default remains "proceed", logged once the init-task file exists.
-   - Step 4 PRD waiver gate (L3-4) — resolve via Ladder L3 (operator-preference lookup in MEMORY.md feedback).
+   - Step 4 PRD waiver gate (L3-4) — resolve to option (a), `/dr-prd`, unless the operator has stated a waiver for this task (in the brief, the init-task append-log or a recorded answer). A general memory preference is not a waiver for a specific task, and the agent never states a waiver itself. `/dr-do` Step 5.8 and `/dr-auto` re-check the condition mechanically before implementation.
 3. Discovered gaps → apply L1 Inline Resolution Rule ([definition](../skills/autonomous-mode/SKILL.md)) per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
 4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:?}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
 5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).

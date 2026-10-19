@@ -175,3 +175,8 @@ setup() {
     [ "$status" -eq 0 ]
     [ "$output" -ge 1 ]
 }
+
+@test "Acceptance and Evidence Loop requires cases observable after every planned step" {
+    run grep -F "stays observable after every planned step of the same task" "$REPO_DIR/skills/immutability/SKILL.md"
+    [ "$status" -eq 0 ]
+}
