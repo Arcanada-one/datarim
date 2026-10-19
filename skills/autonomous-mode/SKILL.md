@@ -120,6 +120,10 @@ Some recurring decisions are pre-resolved by policy and MUST NOT be surfaced as 
   related escalation permitted is a billable/destructive external action on the test
   env with no safe-mode (`dry_run` / read-only / content-only) equivalent — that
   hits the Hard-gated Action Boundary below.
+- **Missing PRD on an L3/L4 task.** When `spec-graph-gate.sh --stage do` exits 2
+  with `required PRD missing`, run the prd stage before any implementation. Do not
+  ask the operator whether a PRD is needed, and do not write a `**PRD waived:**`
+  line. A waiver is valid only when the operator has stated one for this task.
 
 ### Ambiguity definition
 

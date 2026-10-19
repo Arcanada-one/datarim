@@ -140,6 +140,8 @@ A Level 3 or Level 4 task MAY waive `/dr-prd` regeneration if all conditions hol
 
 When waived, `tasks.md` MUST include a line `**PRD waived:**` with the parent reference and rationale. Absent this line, `/dr-plan` for L3-4 requires PRD generation.
 
+The waiver is the operator's decision; an agent never records one on the operator's behalf. The condition is enforced before implementation, not only at compliance. `/dr-do` (Step 5.8) and `/dr-auto` (before the first `do` dispatch) run `spec-graph-gate.sh --stage do`. For an L3-4 task with neither a PRD nor this line, it exits 2 with `required PRD missing`. Both commands then stop and route to `/dr-prd`.
+
 ## Unified Task Numbering
 
 The same task ID persists across the whole lifecycle:

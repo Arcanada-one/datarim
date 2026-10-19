@@ -224,7 +224,12 @@ Incorrect (4-space, silently ignored by the validator):
   non-overridden wishes it is required when spec-graph hard mode is active:
   the value MUST be `V-AC-N`, not «—». Deleted, superseded, or operator-overridden
   wishes retain the advisory form. Renames in the PRD are recorded in the item's
-  status_history with `stage: append-merge`.
+  status_history with `stage: append-merge`. Any other value, such as an
+  acceptance-contract criterion id, is read by the spec graph as no link at
+  all. `check-expectations-checklist.sh --task` therefore emits the advisory
+  `linked-ac-not-vac-token` for it. Settle the value before the file enters a
+  live-evidence contract `scope`: after that, the edit invalidates every
+  recorded attempt.
 - **`override`** is plain prose, optional. When the current status is
   `partial` or `missed`, an override of fewer than 10 characters is treated
   as absent and the verify mode emits `BLOCKED`.

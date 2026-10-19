@@ -4,6 +4,15 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- L3/L4 tasks are checked for a PRD or an operator-stated waiver before implementation starts. `/dr-do` Step 5.8 and `/dr-auto` run `spec-graph-gate.sh --stage do` before the first do dispatch and route to `/dr-prd` on `required PRD missing`. Previously the missing PRD surfaced only at compliance. Under `/dr-auto` the `/dr-init` waiver prompt resolves to `/dr-prd` unless the operator stated a waiver for the task, and the agent never records a waiver itself.
+- The acceptance-case guidance asks for outcomes that stay observable after every planned step of the task. When a later step removes the observed mechanism, the case names the observation after that removal.
+
+### Added
+
+- `check-expectations-checklist.sh --task` emits the advisory `linked-ac-not-vac-token` for a `linked_ac` value that is neither `V-AC-N` nor the no-link dash. The spec graph reads such a value as no link. The advisory reports it while the expectations file can still be edited without invalidating recorded evidence.
+
 ## [4.5.0] — 2026-10-19
 
 ### Added

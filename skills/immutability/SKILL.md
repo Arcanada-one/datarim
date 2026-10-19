@@ -72,6 +72,13 @@ main-flow cases MUST NOT mix. Scope includes changed
 deliverables and verification inputs; missing planned/deleted files have an
 explicit missing sentinel. No traversal or symlinks are allowed.
 
+Write each case on an outcome that
+stays observable after every planned step of the same task. When a later
+planned step removes the mechanism a case would observe (a switch, a flag, a
+temporary log line), the case names how the same outcome is observed after
+that removal. A case that only the removed mechanism
+could satisfy cannot be re-verified at QA or compliance.
+
 An optional top-level `inputs` array adds freshness bindings beyond `scope`:
 
 - `{ "kind": "file", "path": "relative/path" }` binds a regular file's

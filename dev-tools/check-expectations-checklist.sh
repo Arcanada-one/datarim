@@ -7,7 +7,9 @@
 #
 #   --task <ID>     — structural validation of a single expectations file
 #                     (frontmatter shape, '## Ожидания' heading, per-item
-#                     wish_id/status/История format).
+#                     wish_id/status/История format). A linked_ac value
+#                     that is neither V-AC-N nor the no-link dash emits the
+#                     advisory linked-ac-not-vac-token (never an error).
 #                     Exit 0 = OK, 1 = malformed/missing, 2 = usage error.
 #
 #   --verify <ID>   — verify-routing mode for QA/COMPLIANCE/ARCHIVE: read the
@@ -273,6 +275,7 @@ parse_items() {
             wish_id = ""; wish_id_count = 0; status = ""; override_text = ""; evidence_type = ""
             override_by = ""; override_class = ""; override_artifact = ""
             verification_mode = ""; evidence_artifact = ""; success_criterion = ""
+            linked_ac = ""
             customer_derived = ""
             requirement_id = ""; surface_class = ""; visitor_visible = ""; delivery_receipt = ""
             customer_derived_count = 0
@@ -354,6 +357,7 @@ parse_items() {
                 wish_id = ""; wish_id_count = 0; status = ""; override_text = ""; evidence_type = ""
                 override_by = ""; override_class = ""; override_artifact = ""
                 verification_mode = ""; evidence_artifact = ""; success_criterion = ""
+                linked_ac = ""
                 customer_derived = ""
                 requirement_id = ""; surface_class = ""; visitor_visible = ""; delivery_receipt = ""
                 customer_derived_count = 0
@@ -413,6 +417,11 @@ parse_items() {
                 if (match($0, /^  - evidence_artifact:[ \t]*/)) {
                     evidence_artifact = substr($0, RLENGTH + 1)
                     sub(/[ \t]+$/, "", evidence_artifact)
+                    in_history = 0; in_status = 0; next
+                }
+                if (match($0, /^  - linked_ac:[ \t]*/)) {
+                    linked_ac = substr($0, RLENGTH + 1)
+                    sub(/[ \t]+$/, "", linked_ac)
                     in_history = 0; in_status = 0; next
                 }
                 # Capture success criterion for heuristic-advisory (v3 empirical wishes).
@@ -732,6 +741,29 @@ parse_items() {
                         printf "ERROR: %s: item %d customer_derived=false must omit customer binding fields\n", f, current_item > "/dev/stderr"
                         errors++
                     }
+                }
+            }
+            # linked_ac format advisory. The spec-graph link collector keeps
+            # only V-AC tokens, so any other value reads as "no linked V-AC"
+            # in graph-complete-l3 once the file may already be frozen in a
+            # live-evidence contract scope. Warn here, while the edit is cheap.
+            # Advisory only: never counted as an error.
+            if (linked_ac != "") {
+                bad_links = ""
+                link_value = linked_ac
+                # Alternation, not a bracket list: a byte-mode awk would
+                # strip single bytes of the two-byte guillemets elsewhere.
+                gsub(/`|"|«|»/, "", link_value)
+                n_links = split(link_value, link_tokens, /[,; \t]+/)
+                for (li = 1; li <= n_links; li++) {
+                    tok = link_tokens[li]
+                    if (tok == "" || tok == "-" || tok == "—" || tok == "–") continue
+                    if (tok ~ /^V-AC-[A-Z]?[0-9]+(\.[0-9]+)?$/) continue
+                    bad_links = bad_links (bad_links == "" ? "" : ", ") tok
+                }
+                if (bad_links != "") {
+                    printf "ADVISORY: %s: item %d linked-ac-not-vac-token: %s (%s; graph-complete-l3 reads a non-V-AC link as no link — use the PRD V-AC-N id or the no-link dash before the file is frozen)\n", \
+                        f, current_item, wish_id, bad_links > "/dev/stderr"
                 }
             }
             ovr_len = length(override_text)
