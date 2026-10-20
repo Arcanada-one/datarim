@@ -278,6 +278,22 @@ jev doctor
   `~/.local/state/jev/projects/` hold a `hook_delivery` record from it;
   `not_measured` before that.
 
+### Client executable missing (false negative on non-interactive PATH)
+
+`jev doctor` and the launchers resolve Claude / Codex / Cursor binaries from
+`CLAUDE_BIN` / `CODEX_BIN` / `CURSOR_BIN` when set, then from `PATH`, then from
+well-known directories: `~/.local/bin`, `~/.npm-global/bin`, and
+`/opt/orca/agent-bin` when that directory exists. Cursor still falls back to
+`agent`. Before starting a client they also prepend those directories to `PATH`
+so child tools resolve the same way.
+
+If an interactive shell finds `codex` but a non-interactive `jev doctor`
+reports `codex: executable missing`, the usual host cause is a bashrc that
+adds npm/global agent dirs **after** an early `return` for non-interactive
+shells. Put those `PATH` exports above that return (before the
+non-interactive early exit). Host PATH fixes help other tools; Jev itself no
+longer depends on that shell startup order for discovery.
+
 ## Codex needs two approvals in its own UI
 
 Writing the hooks does not make Codex run them. It asks twice, in the TUI, and

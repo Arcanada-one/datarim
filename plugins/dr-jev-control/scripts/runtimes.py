@@ -27,7 +27,9 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import queue
+import shutil
 import subprocess
 import threading
 import time
@@ -100,7 +102,7 @@ class ClaudeRuntime(BaseRuntime):
         self.tier = tier
         self.extra_args = list(extra_args or [])
         self.cwd = cwd
-        self.bin = bin_path or os.environ.get("CLAUDE_BIN", "claude")
+        self.bin = bin_path or resolve_client_binary("claude") or "claude"
         self.session = None
 
     def start(self, task):
@@ -317,7 +319,7 @@ class CodexRuntime(BaseRuntime):
         self.tier = tier
         self.extra_args = list(extra_args or [])
         self.cwd = cwd
-        self.bin = bin_path or os.environ.get("CODEX_BIN", "codex")
+        self.bin = bin_path or resolve_client_binary("codex") or "codex"
         self.thread_id = None
         self.proc = None
         self._q = None
@@ -581,8 +583,7 @@ class CursorRuntime(CodexRuntime):
     reports_usage = False
 
     def __init__(self, tier, **kwargs):
-        import shutil
-        kwargs.setdefault('bin_path', os.environ.get('CURSOR_BIN') or shutil.which('cursor-agent') or 'agent')
+        kwargs.setdefault('bin_path', resolve_client_binary('cursor') or 'agent')
         super().__init__(tier, **kwargs)
         self._result_seen = False
         self._result_ok = False
@@ -661,13 +662,52 @@ class CursorRuntime(CodexRuntime):
 REGISTRY = {"claude": ClaudeRuntime, "codex": CodexRuntime, "cursor": CursorRuntime}
 
 
+def agent_search_dirs():
+    """Directories that commonly hold agent CLIs outside a minimal PATH."""
+    home = Path.home()
+    dirs = [home / '.local' / 'bin', home / '.npm-global' / 'bin']
+    orca = Path('/opt/orca/agent-bin')
+    if orca.is_dir():
+        dirs.append(orca)
+    return dirs
+
+
+def _is_executable(path):
+    return path.is_file() and os.access(path, os.X_OK)
+
+
+def resolve_client_binary(agent):
+    """Resolve a client CLI; honour *_BIN, PATH, then well-known install dirs."""
+    default_names = {
+        'claude': ('claude',),
+        'codex': ('codex',),
+        'cursor': ('cursor-agent', 'agent'),
+    }.get(agent)
+    if not default_names:
+        return None
+    override = os.environ.get(agent.upper() + '_BIN')
+    names = (override,) if override else default_names
+    for name in names:
+        if not name:
+            continue
+        found = shutil.which(name)
+        if found:
+            return found
+        path = Path(name)
+        if path.is_absolute() or os.path.sep in name or (os.path.altsep and os.path.altsep in name):
+            if _is_executable(path):
+                return str(path)
+            continue
+        for directory in agent_search_dirs():
+            candidate = directory / name
+            if _is_executable(candidate):
+                return str(candidate)
+    return None
+
+
 def available(name):
     """Whether the runtime's CLI is actually installed."""
-    import shutil
-    binary = {"claude": os.environ.get("CLAUDE_BIN", "claude"),
-              "codex": os.environ.get("CODEX_BIN", "codex"),
-              "cursor": os.environ.get("CURSOR_BIN") or shutil.which('cursor-agent') or 'agent'}.get(name)
-    return bool(binary and shutil.which(binary))
+    return bool(resolve_client_binary(name))
 
 
 def build(name, tier, **kw):
