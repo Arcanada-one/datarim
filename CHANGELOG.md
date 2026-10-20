@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.6.0] — 2026-10-20
+
 ### Changed
 
 - L3/L4 tasks are checked for a PRD or an operator-stated waiver before implementation starts. `/dr-do` Step 5.8 and `/dr-auto` run `spec-graph-gate.sh --stage do` before the first do dispatch and route to `/dr-prd` on `required PRD missing`. Previously the missing PRD surfaced only at compliance. Under `/dr-auto` the `/dr-init` waiver prompt resolves to `/dr-prd` unless the operator stated a waiver for the task, and the agent never records a waiver itself.
