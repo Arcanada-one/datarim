@@ -290,9 +290,9 @@ so child tools resolve the same way.
 If an interactive shell finds `codex` but a non-interactive `jev doctor`
 reports `codex: executable missing`, the usual host cause is a bashrc that
 adds npm/global agent dirs **after** an early `return` for non-interactive
-shells. Put those `PATH` exports above that return (the pattern used on
-arcana-devs). Host PATH fixes help other tools; Jev itself no longer depends
-on that shell startup order for discovery.
+shells. Put those `PATH` exports above that return (before the
+non-interactive early exit). Host PATH fixes help other tools; Jev itself no
+longer depends on that shell startup order for discovery.
 
 ## Codex needs two approvals in its own UI
 
