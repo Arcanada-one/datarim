@@ -66,9 +66,89 @@ EVENTS = {
     'cursor': [('beforeSubmitPrompt', None), ('beforeShellExecution', None),
                ('postToolUse', None)],
 }
+HOOK_PATHS = {'claude': '.claude/settings.json', 'codex': '.codex/hooks.json',
+              'cursor': '.cursor/hooks.json'}
 
 
 _VERSIONED = re.compile(r'\d+\.\d+')
+
+
+def owned_jev_command(command, owned_roots):
+    """True when a hook command names a Jev script under an owned root."""
+    try:
+        words = shlex.split(command)
+    except (ValueError, TypeError):
+        return False
+    for word in words:
+        path = Path(word)
+        if path.name not in (ENTRY_NAME, 'jev_hook.py', 'project_hook.py', 'hook_user_prompt.py',
+                             'hook_pre_tool.py', 'hook_post_tool.py'):
+            continue
+        if path.is_absolute() and any(path.is_relative_to(root) for root in owned_roots):
+            return True
+    return False
+
+
+def clients_with_managed_hooks(home, owned_roots):
+    """Clients whose live hook config already carries a managed Jev command."""
+    found = []
+    for client, relative in HOOK_PATHS.items():
+        path = home/relative
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError, TypeError):
+            continue
+        hooks = data.get('hooks') if isinstance(data, dict) else None
+        if not isinstance(hooks, dict):
+            continue
+        for entries in hooks.values():
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                if client == 'cursor':
+                    commands = [entry.get('command', '')]
+                else:
+                    commands = [h.get('command', '') for h in entry.get('hooks') or []
+                                if isinstance(h, dict)]
+                if any(owned_jev_command(command, owned_roots) for command in commands):
+                    found.append(client)
+                    break
+            else:
+                continue
+            break
+    return found
+
+
+def manifest_clients(manifest):
+    """Known client ids recorded on a host-installation.json object."""
+    if not isinstance(manifest, dict):
+        return []
+    return [c for c in (manifest.get('clients') or []) if c in EVENTS]
+
+
+def active_runtime_clients(home):
+    """Clients listed on the runtime the host pointer currently names, if any."""
+    pointer = home/'.config/jev/installation.json'
+    if not pointer.is_file() or pointer.is_symlink():
+        return []
+    try:
+        data = json.loads(pointer.read_text())
+        runtime = Path(data['runtime']).resolve(strict=True)
+        return manifest_clients(json.loads((runtime/'host-installation.json').read_text()))
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+
+
+def resolve_host_clients(requested, home, owned_roots, existing_manifest=None):
+    """Sorted union of this run, the active/target manifests, and live managed hooks."""
+    return sorted(set(requested)
+                  | set(manifest_clients(existing_manifest))
+                  | set(active_runtime_clients(home))
+                  | set(clients_with_managed_hooks(home, owned_roots)))
 
 
 def _version_pinned(path):
@@ -130,18 +210,6 @@ def merge_hooks(original, client, runtime, owned_roots, *, register=True, entry_
             raise ValueError('Unsupported Cursor hook config version')
         out['version'] = 1
     hooks = out.setdefault('hooks', {})
-    def owned(command):
-        try:
-            words = shlex.split(command)
-        except (ValueError, TypeError):
-            return False
-        for word in words:
-            path = Path(word)
-            if path.name not in (ENTRY_NAME, 'jev_hook.py', 'project_hook.py', 'hook_user_prompt.py', 'hook_pre_tool.py', 'hook_post_tool.py'):
-                continue
-            if path.is_absolute() and any(path.is_relative_to(root) for root in owned_roots):
-                return True
-        return False
     # Remove legacy Jev entries even when their event is no longer registered.
     for event, entries in list(hooks.items()):
         if not isinstance(entries, list):
@@ -151,13 +219,14 @@ def merge_hooks(original, client, runtime, owned_roots, *, register=True, entry_
             if not isinstance(entry, dict):
                 raise ValueError('Hook entry must be an object')
             if client == 'cursor':
-                if not owned(entry.get('command', '')):
+                if not owned_jev_command(entry.get('command', ''), owned_roots):
                     kept.append(entry)
             else:
                 commands = entry.get('hooks', [])
                 if not isinstance(commands, list) or any(not isinstance(h, dict) for h in commands):
                     raise ValueError('Hook commands must be objects')
-                remaining = [h for h in commands if not owned(h.get('command', ''))]
+                remaining = [h for h in commands
+                             if not owned_jev_command(h.get('command', ''), owned_roots)]
                 if remaining:
                     kept.append(dict(entry, hooks=remaining))
         hooks[event] = kept
@@ -248,9 +317,15 @@ def install(args):
     # whatever `python3` comes first on the caller's PATH.
     shebang = '#!' + interpreter if not re.search(r'\s', interpreter) else '#!/usr/bin/env python3'
     files[entry] = ENTRY_SOURCE.replace('#!/usr/bin/env python3', shebang, 1).encode()
-    paths = {'claude': '.claude/settings.json', 'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json'}
+    existing_manifest = None
+    if (runtime/'host-installation.json').is_file():
+        try:
+            existing_manifest = json.loads((runtime/'host-installation.json').read_text())
+        except (OSError, ValueError, TypeError):
+            existing_manifest = None
+    clients = resolve_host_clients(args.client, home, owned, existing_manifest)
     for client in args.client:
-        target = safe_path(home, paths[client])
+        target = safe_path(home, HOOK_PATHS[client])
         original = json.loads(target.read_text()) if target.exists() else {}
         files[target] = (json.dumps(merge_hooks(original, client, runtime, owned, entry_point=entry), indent=2)+'\n').encode()
     for name in ('jev', 'jevcodex', 'jevclaude', 'jevcursor'):
@@ -265,7 +340,7 @@ def install(args):
         raise ValueError('Existing key must be a private regular file')
     if args.dry_run:
         print(json.dumps({'source_sha': sha, 'source_dirty': bool(dirty), 'runtime': str(runtime),
-                          'files': [str(p) for p in files], 'key_file': str(key),
+                          'clients': clients, 'files': [str(p) for p in files], 'key_file': str(key),
                           'codex_trust': 'requires native /hooks review; never bypassed'}, indent=2))
         return
     original = {path: path.read_bytes() if path.exists() else None for path in files}
@@ -275,6 +350,9 @@ def install(args):
     atomic_write(backup/'files.json', json.dumps({str(p): v.decode() if v is not None else None
                                                 for p,v in original.items()}).encode())
     runtime.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    metadata = {'schema': 1, 'runtime': str(runtime), 'source_sha': sha,
+                'config': str(config), 'key_file': str(key), 'state_dir': str(state),
+                'clients': clients, 'with_jev': True}
     if not runtime.exists():
         stage = Path(tempfile.mkdtemp(prefix='.stage-', dir=runtime.parent))
         try:
@@ -286,16 +364,14 @@ def install(args):
             for directory in ('scripts', 'config'):
                 shutil.copytree(source/'plugins/dr-jev-control'/directory, plugin/directory,
                                 ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
-            metadata = {'schema': 1, 'runtime': str(runtime), 'source_sha': sha,
-                        'config': str(config), 'key_file': str(key), 'state_dir': str(state),
-                        'clients': args.client, 'with_jev': True}
-            atomic_write(stage/'host-installation.json', json.dumps(metadata, indent=2).encode())
+            atomic_write(stage/'host-installation.json',
+                         (json.dumps(metadata, indent=2)+'\n').encode())
             stage.rename(runtime)
         finally:
             if stage.exists():
                 shutil.rmtree(stage)
-    metadata = json.loads((runtime/'host-installation.json').read_text())
-    if metadata.get('runtime') != str(runtime) or metadata.get('source_sha') != sha:
+    prior = json.loads((runtime/'host-installation.json').read_text())
+    if prior.get('runtime') != str(runtime) or prior.get('source_sha') != sha:
         raise ValueError('Existing runtime identity mismatch')
     try:
         # Detect concurrent changes immediately before publishing any config.
@@ -312,6 +388,10 @@ def install(args):
                 # Executable, so the documented `jev-hook ...` check runs it
                 # directly; clients still call it through the interpreter.
                 path.chmod(0o755)
+        # Always rewrite after a successful publish, including same-SHA reuse,
+        # so clients stays the sorted union even when the release tree is kept.
+        atomic_write(runtime/'host-installation.json',
+                     (json.dumps(metadata, indent=2)+'\n').encode())
     except Exception:
         for path, data in original.items():
             # Restore only files still equal to our proposed content.
@@ -321,8 +401,8 @@ def install(args):
                 else:
                     atomic_write(path, data)
         raise
-    report = {'installed': str(runtime), 'source_sha': sha, 'backup': str(backup),
-              'key_file': str(key), 'native_live': 'not_measured'}
+    report = {'installed': str(runtime), 'source_sha': sha, 'clients': clients,
+              'backup': str(backup), 'key_file': str(key), 'native_live': 'not_measured'}
     if 'codex' in args.client:
         # Writing the hook file is not installing the hook. Codex gates hooks
         # behind TWO prompts, both in the TUI, and a refusal at either one is

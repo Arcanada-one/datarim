@@ -61,6 +61,13 @@ the Jev entries only, leaving foreign ones alone.
 Add `--home` to install into a different account's home, and
 `--client cursor` if you use Cursor.
 
+Pass every client still in use on each install (`--client` is repeatable).
+The installer records the sorted union of this run, the active runtime
+manifest, and any client that already has a managed Jev hook, then rewrites
+`host-installation.json` even on a same-SHA reuse. `jev doctor` reports that
+same union as `hook_clients`, so a live Cursor registration is still checked
+when an older manifest listed only Claude.
+
 ## The API key
 
 The installer creates an **empty** key file, mode `0600`, in a private
