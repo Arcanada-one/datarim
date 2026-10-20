@@ -422,6 +422,39 @@ def _names_our_hook(command, entries, client, event):
             and words[2:] == [client, event])
 
 
+def _hook_commands(client, hooks, event):
+    """Command strings listed for one native event in a client hook file."""
+    commands = []
+    for entry in hooks.get(event) or []:
+        if not isinstance(entry, dict):
+            continue
+        if client == 'cursor':
+            commands.append(entry.get('command', ''))
+        else:
+            commands += [h.get('command', '') for h in entry.get('hooks') or [] if isinstance(h, dict)]
+    return commands
+
+
+def clients_with_registered_hooks(hook_files, entries):
+    """Clients that currently have a correctly named Jev hook for any registered event."""
+    found = []
+    for client in CLIENTS:
+        path = Path(hook_files[client])
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        hooks = data.get('hooks') if isinstance(data, dict) else None
+        hooks = hooks if isinstance(hooks, dict) else {}
+        if any(any(_names_our_hook(c, entries, client, event)
+                   for c in _hook_commands(client, hooks, event))
+               for event in REGISTERED_EVENTS[client]):
+            found.append(client)
+    return found
+
+
 def registration_findings(clients, hook_files, entries):
     """Findings for every selected client whose Jev hook file or entry is gone.
 
@@ -445,14 +478,7 @@ def registration_findings(clients, hook_files, entries):
         hooks = hooks if isinstance(hooks, dict) else {}
         missing = []
         for event in REGISTERED_EVENTS[client]:
-            commands = []
-            for entry in hooks.get(event) or []:
-                if not isinstance(entry, dict):
-                    continue
-                if client == 'cursor':
-                    commands.append(entry.get('command', ''))
-                else:
-                    commands += [h.get('command', '') for h in entry.get('hooks') or [] if isinstance(h, dict)]
+            commands = _hook_commands(client, hooks, event)
             if not any(_names_our_hook(c, entries, client, event) for c in commands):
                 missing.append(event)
         if missing:
@@ -561,9 +587,13 @@ def scope_hooks(host_mode, root, runtime, manifest, home=None):
     """
     home = Path(home or Path.home())
     if host_mode:
-        selected = [c for c in manifest.get('clients') or CLIENTS if c in CLIENTS]
+        recorded = [c for c in manifest.get('clients') or CLIENTS if c in CLIENTS]
         files = {c: home/rel for c, rel in HOST_HOOK_FILES.items()}
         entries = (str(home/'.local/share/jev/bin/jev-hook'), str(Path(runtime)/'scripts/jev_hook.py'))
+        # Host doctor must still see a client whose hooks are live even when
+        # host-installation.json omitted it (e.g. same-SHA Cursor add-on before
+        # the installer started rewriting the manifest clients union).
+        selected = sorted(set(recorded) | set(clients_with_registered_hooks(files, entries)))
         state = Path(manifest.get('state_dir') or home/'.local/state/jev')
         ledgers = sorted(state.glob('projects/*/sessions/*/ledger.jsonl'))
         config = Path(manifest['config']) if manifest.get('config') else None
