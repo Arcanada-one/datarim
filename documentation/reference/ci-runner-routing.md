@@ -52,12 +52,23 @@ provision shared runner hosts or pretend the missing fixture passed. A current
 customer-delivery failure on a different carrier reported missing socat; that
 runner prerequisite is separate from the demonstrated /usr/local write defect.
 
-Missing socat now has one qualified source-only bootstrap: on Ubuntu 24.04
-amd64, download the exact 1.8.0.0-4ubuntu0.1 archive package, verify SHA256
-46e854289b6b1c97e28be5d9293bea61e8633d00d6a65d9513f019c7232696fe,
-extract its data in an owned temporary directory, validate the binary loads,
-and copy only socat into the private tool prefix. No maintainer scripts or
+Missing socat has a qualified source-only bootstrap for two measured amd64
+packages. Ubuntu 24.04 uses archive package 1.8.0.0-4ubuntu0.1, SHA256
+46e854289b6b1c97e28be5d9293bea61e8633d00d6a65d9513f019c7232696fe. Ubuntu
+26.04 uses archive package 1.8.1.1-1, SHA256
+08f77c85ba1f399c8b21bc098afbce0dea90529e80c9673b7df9bc391bd3f001. The
+installer downloads that exact file, verifies the digest, extracts its data
+in an owned temporary directory, and validates that the binary loads. When
+the dynamic linker can load it, the installer copies only socat into the
+private tool prefix. When the binary needs `libwrap.so.0` and the image does
+not provide it, the installer downloads the matching hash-pinned libwrap0
+archive (Ubuntu 24.04: 7.6.q-33, SHA256
+36118b862539868408ee056411d6e470068d14c46e5296b29bfb744770f5d2ce; Ubuntu
+26.04: 7.6.q-36build2, SHA256
+a3784ca083c626c3ae41cdd32d4c5898554650dc77d2b54dbb1197a38198adf8), copies
+that one library into the private prefix, and installs a wrapper named socat
+that points only this process at that library. No maintainer scripts or
 system package install run. Unsupported distro/architecture, unavailable
-metadata tooling, bad digest or missing runtime libraries remain failures.
-The receiving CI must still prove the actual runner UID/runtime behavior.
-Tool prefixes are unique kernel-created directories within RUNNER_TEMP.
+metadata tooling, a bad digest, or a binary that still cannot load remain
+failures. The receiving CI must still prove the actual runner UID/runtime
+behavior. Tool prefixes are unique kernel-created directories within RUNNER_TEMP.

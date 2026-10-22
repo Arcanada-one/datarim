@@ -341,6 +341,20 @@ YAML
     [ "$status" -ne 0 ]
 }
 
+@test "private socat fixtures are hash-pinned for the measured Ubuntu releases" {
+    local inst="$ROOT/tests/ci-install-bats-deps.sh"
+    grep -q 'socat_1.8.0.0-4ubuntu0.1_amd64.deb' "$inst" \
+        && grep -q '46e854289b6b1c97e28be5d9293bea61e8633d00d6a65d9513f019c7232696fe' "$inst" \
+        && grep -q 'libwrap0_7.6.q-33_amd64.deb' "$inst" \
+        && grep -q '36118b862539868408ee056411d6e470068d14c46e5296b29bfb744770f5d2ce' "$inst" \
+        && grep -q 'ubuntu:24.04' "$inst" \
+        && grep -q 'socat_1.8.1.1-1_amd64.deb' "$inst" \
+        && grep -q '08f77c85ba1f399c8b21bc098afbce0dea90529e80c9673b7df9bc391bd3f001' "$inst" \
+        && grep -q 'libwrap0_7.6.q-36build2_amd64.deb' "$inst" \
+        && grep -q 'a3784ca083c626c3ae41cdd32d4c5898554650dc77d2b54dbb1197a38198adf8' "$inst" \
+        && grep -q 'ubuntu:26.04' "$inst"
+}
+
 @test "the CI toolchain installer pins bats and yq by digest" {
     local inst="$ROOT/tests/ci-install-bats-deps.sh"
     [ -f "$inst" ]

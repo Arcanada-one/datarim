@@ -91,29 +91,114 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-# Only the measured Ubuntu noble/amd64 socat package is qualified here.
-# Extract data into the caller-owned prefix: no dpkg install or maintainer scripts.
+# Point one private socat at the libwrap copied beside it. The prefix path is
+# restricted to characters mktemp produces so the generated wrapper cannot
+# break out of its assignments.
+write_private_socat_wrapper() {
+    local wrapper
+    wrapper="$PREFIX/bin/socat"
+    [[ "$PREFIX" =~ ^/[A-Za-z0-9._+/-]+$ ]] || return 1
+    [[ "$PREFIX" != *..* ]] || return 1
+    if ! cat > "$wrapper" << EOF
+#!/bin/sh
+set -eu
+libdir=$(printf '%q' "$PREFIX/lib")
+binary=$(printf '%q' "$PREFIX/libexec/socat")
+if [ -n "\${LD_LIBRARY_PATH:-}" ]; then
+    LD_LIBRARY_PATH="\$libdir:\$LD_LIBRARY_PATH"
+else
+    LD_LIBRARY_PATH="\$libdir"
+fi
+export LD_LIBRARY_PATH
+exec "\$binary" "\$@"
+EOF
+    then
+        return 1
+    fi
+    chmod 0755 "$wrapper" || return 1
+}
+
+# libwrap0 is not part of the minimized runner package list. Download the
+# release that matches the socat archive, verify it, and install a wrapper
+# only after the extracted binary actually loads against that library.
+install_private_socat_with_libwrap() {
+    local package_root socat_bin libwrap_url libwrap_digest lib_link
+    package_root="$1"
+    socat_bin="$2"
+    libwrap_url="$3"
+    libwrap_digest="$4"
+    if ! curl -fsSL --proto '=https' --tlsv1.2 --connect-timeout 10 --max-time 60 \
+            -o "$package_root/libwrap.deb" "$libwrap_url" \
+        || ! echo "$libwrap_digest  $package_root/libwrap.deb" | sha256sum -c - \
+        || ! dpkg-deb -x "$package_root/libwrap.deb" "$package_root/libwrap-extracted"; then
+        return 1
+    fi
+    lib_link="$package_root/libwrap-extracted/usr/lib/x86_64-linux-gnu/libwrap.so.0"
+    [[ -e "$lib_link" ]] || return 1
+    mkdir -p "$package_root/lib"
+    cp -L -- "$lib_link" "$package_root/lib/libwrap.so.0" || return 1
+    [[ -f "$package_root/lib/libwrap.so.0" && ! -L "$package_root/lib/libwrap.so.0" ]] || return 1
+    if ! LD_LIBRARY_PATH="$package_root/lib" "$socat_bin" -V >/dev/null 2>&1; then
+        return 1
+    fi
+    mkdir -p "$PREFIX/bin" "$PREFIX/lib" "$PREFIX/libexec"
+    if ! install -m 0755 "$socat_bin" "$PREFIX/libexec/socat" \
+        || ! install -m 0644 "$package_root/lib/libwrap.so.0" "$PREFIX/lib/libwrap.so.0" \
+        || ! write_private_socat_wrapper \
+        || ! "$PREFIX/bin/socat" -V >/dev/null 2>&1; then
+        rm -f -- "$PREFIX/bin/socat" "$PREFIX/libexec/socat" "$PREFIX/lib/libwrap.so.0"
+        return 1
+    fi
+}
+
+# Measured Ubuntu amd64 socat packages only. Each digest was checked against
+# the downloaded archive file. Extract data into the caller-owned prefix:
+# no dpkg install and no maintainer scripts. Any other distro stays unqualified.
+# A binary that already loads is copied alone. A binary that cannot load
+# because libwrap.so.0 is absent gets the matching hash-pinned libwrap0.
 install_private_socat() {
-    local distro package_root
-    for tool in curl dpkg dpkg-deb sha256sum mktemp install awk tar; do
+    local distro package_root url digest libwrap_url libwrap_digest socat_bin
+    for tool in curl dpkg dpkg-deb sha256sum mktemp install awk tar cp; do
         command -v "$tool" >/dev/null 2>&1 || return 1
     done
     [[ "$PREFIX" == /* && "$PREFIX" != /usr/local ]] || return 1
     [[ -r /etc/os-release ]] || return 1
     distro="$(awk -F= '/^ID=/{gsub(/"/,"",$2); id=$2} /^VERSION_ID=/{gsub(/"/,"",$2); ver=$2} END{printf "%s:%s",id,ver}' /etc/os-release)"
-    [[ "$distro" == ubuntu:24.04 && "$(dpkg --print-architecture)" == amd64 ]] || return 1
+    [[ "$(dpkg --print-architecture)" == amd64 ]] || return 1
+    case "$distro" in
+        ubuntu:24.04)
+            url="https://archive.ubuntu.com/ubuntu/pool/main/s/socat/socat_1.8.0.0-4ubuntu0.1_amd64.deb"
+            digest="46e854289b6b1c97e28be5d9293bea61e8633d00d6a65d9513f019c7232696fe"
+            libwrap_url="https://archive.ubuntu.com/ubuntu/pool/main/t/tcp-wrappers/libwrap0_7.6.q-33_amd64.deb"
+            libwrap_digest="36118b862539868408ee056411d6e470068d14c46e5296b29bfb744770f5d2ce"
+            ;;
+        ubuntu:26.04)
+            url="https://archive.ubuntu.com/ubuntu/pool/main/s/socat/socat_1.8.1.1-1_amd64.deb"
+            digest="08f77c85ba1f399c8b21bc098afbce0dea90529e80c9673b7df9bc391bd3f001"
+            libwrap_url="https://archive.ubuntu.com/ubuntu/pool/main/t/tcp-wrappers/libwrap0_7.6.q-36build2_amd64.deb"
+            libwrap_digest="a3784ca083c626c3ae41cdd32d4c5898554650dc77d2b54dbb1197a38198adf8"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
     package_root="$(mktemp -d)" || return 1
+    socat_bin="$package_root/extracted/usr/bin/socat"
     if ! curl -fsSL --proto '=https' --tlsv1.2 --connect-timeout 10 --max-time 60 \
-        -o "$package_root/socat.deb" \
-        https://archive.ubuntu.com/ubuntu/pool/main/s/socat/socat_1.8.0.0-4ubuntu0.1_amd64.deb \
-        || ! echo "46e854289b6b1c97e28be5d9293bea61e8633d00d6a65d9513f019c7232696fe  $package_root/socat.deb" | sha256sum -c - \
+            -o "$package_root/socat.deb" "$url" \
+        || ! echo "$digest  $package_root/socat.deb" | sha256sum -c - \
         || ! dpkg-deb -x "$package_root/socat.deb" "$package_root/extracted" \
-        || ! "$package_root/extracted/usr/bin/socat" -V >/dev/null; then
+        || ! [[ -x "$socat_bin" ]]; then
         rm -rf -- "$package_root"
         return 1
     fi
-    mkdir -p "$PREFIX/bin"
-    if ! install -m 0755 "$package_root/extracted/usr/bin/socat" "$PREFIX/bin/socat"; then
+    if "$socat_bin" -V >/dev/null 2>&1; then
+        mkdir -p "$PREFIX/bin"
+        if ! install -m 0755 "$socat_bin" "$PREFIX/bin/socat"; then
+            rm -rf -- "$package_root"
+            return 1
+        fi
+    elif ! install_private_socat_with_libwrap "$package_root" "$socat_bin" "$libwrap_url" "$libwrap_digest"; then
         rm -rf -- "$package_root"
         return 1
     fi
