@@ -56,6 +56,16 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 
 5.7. **PERSISTENT CODE CONTRACTS (MANDATORY when `CONTRACTS` exists in the touched subtree or an ancestor):** Read the applicable directory-scoped contracts before editing. Treat them as invariants that survive the task that introduced them. A conflict between the current plan and an existing contract triggers the normal Return-to-Plan/Return-to-Source transition; do not weaken/delete a contract merely to make the implementation pass. Run `${DATARIM_RUNTIME:?}/dev-tools/check-code-contracts.sh --root <workspace-root>` before handing off to QA.
 
+5.8. **L3-L4 PRD PRE-FLIGHT** (every L3-L4 task, code or not; before any implementation work):
+    ```bash
+    "${DATARIM_RUNTIME:?}/dev-tools/spec-graph-gate.sh" \
+        --task {TASK-ID} --stage do --root <repo-root> --format json
+    ```
+    -   Exit 2 with `required PRD missing`: the task has neither a PRD nor a documented `**PRD waived:**` line. STOP and route to `/dr-prd {TASK-ID}`. Only the operator may state a waiver instead. The agent never writes a `**PRD waived:**` line on the operator's behalf. A waiver the operator states is recorded per `skills/datarim-system/task-identity-and-context.md` § PRD Waiver Policy.
+    -   Any other exit 2 (a required plan, task description or expectations file is missing): STOP and route to the stage that owns the missing artefact.
+    -   Exit 0 continues. L1-L2 tasks report `SKIP`. Advisory findings are expected at this point, because evidence has not been recorded yet. They do not block.
+    -   Rationale: whether a PRD is required is known before work starts. Found only at compliance, it costs a NON-COMPLIANT round and a PRD written after the fact. Step 7.6 re-runs the same gate after implementation.
+
 6.  **PRE-FLIGHT CHECK** (L3-L4 code tasks only):
     Before writing any code, verify readiness:
     ```

@@ -187,6 +187,74 @@ class HostInstallTests(unittest.TestCase):
         self.assertEqual(outside.read_text(), 'unchanged')
         self.assertFalse((self.home/'.claude/settings.json').exists())
 
+    def test_same_sha_cursor_install_unions_manifest_clients(self):
+        """Claude then same-SHA Cursor: manifest lists both; Cursor hooks present."""
+        self.args.client = ['claude']
+        self.install()
+        runtime = self.home/'.local/share/jev/releases'/self.sha
+        self.assertEqual(json.loads((runtime/'host-installation.json').read_text())['clients'],
+                         ['claude'])
+        self.args.client = ['cursor']
+        self.install()
+        meta = json.loads((runtime/'host-installation.json').read_text())
+        self.assertEqual(meta['clients'], ['claude', 'cursor'])
+        cursor = json.loads((self.home/'.cursor/hooks.json').read_text())
+        for event in ('beforeSubmitPrompt', 'beforeShellExecution', 'postToolUse'):
+            self.assertTrue(any('jev-hook' in entry.get('command', '')
+                                for entry in cursor['hooks'][event]), event)
+        claude = json.loads((self.home/'.claude/settings.json').read_text())
+        self.assertIn('UserPromptSubmit', claude['hooks'])
+
+    def test_doctor_unions_live_cursor_hooks_missing_from_manifest(self):
+        """Stale manifest clients=['claude'] with live Cursor hooks still doctor Cursor."""
+        self.args.client = ['claude', 'cursor']
+        self.install()
+        runtime = self.home/'.local/share/jev/releases'/self.sha
+        meta_path = runtime/'host-installation.json'
+        meta = json.loads(meta_path.read_text())
+        meta['clients'] = ['claude']
+        meta_path.write_text(json.dumps(meta, indent=2) + '\n')
+        env = dict(os.environ, HOME=str(self.home), CLAUDE_BIN='/usr/bin/true',
+                   CODEX_BIN='/usr/bin/true', CURSOR_BIN='/usr/bin/true')
+        run = subprocess.run([sys.executable, str(runtime/'scripts/jev.py'), 'doctor',
+                              '--agent=cursor'], cwd=self.project, env=env,
+                             capture_output=True, text=True, timeout=30)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        report = json.loads(run.stdout)
+        self.assertEqual(report['hook_clients'], ['claude', 'cursor'])
+        self.assertEqual(report['findings'], [])
+        path = self.home/'.cursor/hooks.json'
+        data = json.loads(path.read_text())
+        del data['hooks']['beforeSubmitPrompt']
+        path.write_text(json.dumps(data, indent=2) + '\n')
+        run = subprocess.run([sys.executable, str(runtime/'scripts/jev.py'), 'doctor',
+                              '--agent=cursor'], cwd=self.project, env=env,
+                             capture_output=True, text=True, timeout=30)
+        report = json.loads(run.stdout)
+        self.assertEqual(run.returncode, 1)
+        self.assertIn('cursor', report['hook_clients'])
+        self.assertTrue(any('cursor: Jev hook not registered for beforeSubmitPrompt' in f
+                            for f in report['findings']), report['findings'])
+
+    def test_foreign_orca_cursor_hooks_survive_merge(self):
+        target = self.home/'.cursor/hooks.json'
+        target.parent.mkdir()
+        target.write_text(json.dumps({'version': 1, 'hooks': {
+            'beforeShellExecution': [
+                {'command': '/opt/orca/bin/orca-hook cursor beforeShellExecution', 'timeout': 10},
+            ],
+            'sessionStart': [
+                {'command': '/opt/orca/bin/orca-session', 'timeout': 5},
+            ],
+        }}))
+        self.args.client = ['cursor']
+        self.install()
+        data = json.loads(target.read_text())
+        shell = [e['command'] for e in data['hooks']['beforeShellExecution']]
+        self.assertIn('/opt/orca/bin/orca-hook cursor beforeShellExecution', shell)
+        self.assertEqual(sum('jev-hook' in c for c in shell), 1)
+        self.assertEqual(data['hooks']['sessionStart'][0]['command'], '/opt/orca/bin/orca-session')
+
 
 class StableInterpreter(unittest.TestCase):
     """Hook commands must survive an interpreter upgrade: a versioned path

@@ -413,7 +413,7 @@ a protected path"}}`.
 
 | Question | Check | Expected |
 |---|---|---|
-| Do the clients call the hooks? | Use a client for one short session in the project (read a file, run a harmless shell command), then `tail -n 3 .datarim-runtime/state/jev/ledger.jsonl` | `hook_delivery` records naming the client (`"client": "claude"`, `"codex"` or `"cursor"`). Floor denials return before the ledger write and are not recorded. Host Jev keeps its ledgers under `~/.local/state/jev/projects/`. |
+| Do the clients call the hooks? | Use a client for one short session in the project (read a file, run a harmless shell command), then `tail -n 3 .datarim-runtime/state/jev/ledger.jsonl` | `hook_delivery` records naming the client (`"client": "claude"`, `"codex"` or `"cursor"`). A floor denial appends one `safety_floor_deny` event with a scrubbed command and the reason when the ledger is writable. The command stays denied when that append fails. Host Jev keeps its ledgers under `~/.local/state/jev/projects/`. |
 | Is Jev installed and scoped correctly? | `jev doctor --agent=<client>` | the fields listed above; after that session `native_agents_live` shows the client as `live` |
 | Are the task files well-formed? | `bash .datarim-runtime/scripts/datarim-doctor.sh --root="$PWD"`, or `/dr-doctor` in a client | `OK: datarim/ structure compliant` |
 
@@ -531,7 +531,7 @@ backups).
 | `jev install: Host Jev requires the pinned provider endpoint` | `~/.config/jev/config.json` has another `api.base_url`. Restore `https://api.typesafe.ai/v1/systemone`. |
 | `jev: No project-local Datarim installation in this directory` | You are outside the project (or the project has no install). `cd` into it. |
 | `jev: Nested repository is not an approved project context` | Reinstall with `--context <relative/path>` for that repository. |
-| `jev doctor` exits `1` with `<client>: executable missing` | That client is not installed or not on `PATH`. Use `--agent=` for the clients you have, or set `CLAUDE_BIN` / `CODEX_BIN` / `CURSOR_BIN`. |
+| `jev doctor` exits `1` with `<client>: executable missing` | That client is not installed, not on `PATH`, and not under `~/.local/bin` or `~/.npm-global/bin`. Use `--agent=` for the clients you have, or set `CLAUDE_BIN` / `CODEX_BIN` / `CURSOR_BIN`. See [Jev without Datarim](documentation/how-to/jev-without-datarim.md#client-executable-missing-false-negative-on-non-interactive-path). |
 | `claude: native AGENTS requires >=2.1.277` | Only affects loading your project's `AGENTS.md` natively; `/dr-*` commands do not depend on it. Update Claude Code to clear the finding. Where Claude Code still does not load `AGENTS.md`, update with `--claude-import`. |
 | `<client>: Jev hook file missing` or `Jev hook not registered for <event>` | The hook file or entry was deleted or rewritten by hand or by another tool. Run `update.sh --project "$PROJECT"` to register it again. |
 | Jev hooks run twice | Host Jev and a project `--with-jev` install without `--host-jev`. Update the project with `--with-jev --host-jev`. |

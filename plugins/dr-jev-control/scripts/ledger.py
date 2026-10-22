@@ -165,6 +165,29 @@ def ledger_path(cfg, *, strict=False):
     return Path(tel['path']) if tel.get('path') else state_dir() / 'ledger.jsonl'
 
 
+#: Audit event for a deterministic safety-floor denial. One record per deny.
+FLOOR_DENIAL_EVENT = 'safety_floor_deny'
+
+
+def log_floor_denial(cfg, command, reason, **fields):
+    """Append one safety-floor denial. Never raises.
+
+    `command` is stored only inside the scrubbed `data` object. The text slot
+    stays empty so a secret in the command cannot be recovered from the hash.
+    Telemetry that is switched off records nothing. A write failure leaves the
+    caller's deny decision untouched.
+    """
+    try:
+        if not isinstance(cfg, dict):
+            return
+        data = dict(fields)
+        data['command'] = command if isinstance(command, str) else ''
+        data['reason'] = reason if isinstance(reason, str) else ''
+        log_event(cfg, FLOOR_DENIAL_EVENT, '', data)
+    except Exception:
+        return
+
+
 def log_event(cfg, event, text, data):
     """Append one record. Never raises -- telemetry must not break routing."""
     tel = cfg.get("telemetry", {}) or {}

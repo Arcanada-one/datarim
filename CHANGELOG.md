@@ -4,6 +4,32 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- A safety-floor denial appends one `safety_floor_deny` ledger event with a scrubbed command and the deny reason. The command stays denied when the append fails. The reason categories are listed in `plugins/dr-jev-control/docs/safety-floor-categories.md` and checked against the strings `destructive_reason` returns.
+
+### Fixed
+
+- The unprivileged CI socat bootstrap accepts the hash-pinned Ubuntu 26.04 archive package as well as the existing Ubuntu 24.04 package. When the extracted binary cannot load `libwrap.so.0`, the installer adds the matching hash-pinned libwrap0 in the private prefix. `ubuntu-latest` now runs 26.04, and the previous 24.04-only fixture stopped the bats shards before any suite ran. Other distros, a bad digest, and a binary that still cannot load still fail closed.
+
+## [4.6.1] — 2026-10-22
+
+### Changed
+
+- When a test-tier run informs a production-impact prediction, the test-environment gate requires a bounded, read-only comparison of relevant settings on both tiers. It excludes secret values and voids the prediction when the comparison cannot be made safely.
+- When an acceptance contract is superseded, compliance and `/dr-qa` require every case text to be compared and changed cases with material semantic differences to be recorded in Return-to-Source.
+
+## [4.6.0] — 2026-10-20
+
+### Changed
+
+- L3/L4 tasks are checked for a PRD or an operator-stated waiver before implementation starts. `/dr-do` Step 5.8 and `/dr-auto` run `spec-graph-gate.sh --stage do` before the first do dispatch and route to `/dr-prd` on `required PRD missing`. Previously the missing PRD surfaced only at compliance. Under `/dr-auto` the `/dr-init` waiver prompt resolves to `/dr-prd` unless the operator stated a waiver for the task, and the agent never records a waiver itself.
+- The acceptance-case guidance asks for outcomes that stay observable after every planned step of the task. When a later step removes the observed mechanism, the case names the observation after that removal.
+
+### Added
+
+- `check-expectations-checklist.sh --task` emits the advisory `linked-ac-not-vac-token` for a `linked_ac` value that is neither `V-AC-N` nor the no-link dash. The spec graph reads such a value as no link. The advisory reports it while the expectations file can still be edited without invalidating recorded evidence.
+
 ## [4.5.0] — 2026-10-19
 
 ### Added
