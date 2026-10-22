@@ -56,6 +56,7 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 - Compare diff against PRD requirements and task acceptance criteria
 - Flag: unimplemented requirements, out-of-scope changes, missing edge cases
 - When a task's backlog entry states a root cause explicitly (e.g. "fixed-port collision", "missing index", "race on shutdown"), verify the stated cause against a live repro **before** accepting the implemented fix. A misidentified root cause in the backlog leads to misdirected rounds: the fix targets the wrong axis, passes a weak gate, and the real defect survives. A short manual repro at re-validate time surfaces the mismatch cheaply.
+- When an acceptance contract is superseded, inventory and compare the full text of every case in both the original and replacement versions, including cases expected to remain unchanged. In the Return-to-Source record, name every added, removed, or changed case and describe each material semantic difference (for example, changed pass criteria, scope, evidence, command, or threshold); use redacted excerpts if case text contains sensitive material. Preserve both contract versions. An unaccounted change or a relaxation without an explicit basis is a finding routed to the stage that changed the contract. This comparison does not authorize rewriting the contract, and static wiring tests do not perform the semantic review.
 
 ### 2. Code Simplification
 - Check: functions >50 lines, deeply nested logic, duplicate code

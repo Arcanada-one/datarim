@@ -14,6 +14,14 @@ Before the verdict run `check-live-evidence.sh --root <repo-root> --contract
 is BLOCKED, never notes; return discrepancies to work and repeat verification
 and review. STAGE_PASS lists later-stage pending cases and does not claim them
 delivered. Legacy marker inspection cannot substitute for this strict gate.
+When the task supersedes an acceptance contract, compare the full text of every
+case in both the original and replacement versions before the verdict. Record
+each added, removed, or changed case in Return-to-Source and describe material
+semantic differences; preserve both versions and redact sensitive excerpts.
+An unaccounted change or unsupported relaxation is a finding. Follow the same
+case-by-case rule in `skills/compliance/SKILL.md` § Software Checklist, step 1.
+Static wiring tests confirm that this instruction is present; they do not perform
+the case-by-case semantic review.
 
 **Role**: Reviewer Agent
 **Source**: `${DATARIM_RUNTIME:?}/agents/reviewer.md`
