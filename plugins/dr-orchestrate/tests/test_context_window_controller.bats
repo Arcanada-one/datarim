@@ -185,10 +185,46 @@ win() { run bash "$CONTROLLER" evaluate --used-percent "$1" --window-tokens "$2"
 
 @test "concurrent prepare has exactly one winner per runtime instance" {
   seed_task
-  prepare_tx codex full_clear >"$BATS_TEST_TMPDIR/a" 2>/dev/null & a=$!
-  prepare_tx codex full_clear >"$BATS_TEST_TMPDIR/b" 2>/dev/null & b=$!
-  winners=0; wait "$a" && winners=$((winners + 1)); wait "$b" && winners=$((winners + 1))
-  [ "$winners" -eq 1 ] && [ "$(find "$DR_ORCH_CONTEXT_STATE/transactions" -name '*.json' | wc -l)" -eq 1 ]
+  a_dir="$BATS_TEST_TMPDIR/concurrent-a"; b_dir="$BATS_TEST_TMPDIR/concurrent-b"
+  mkdir -m 700 "$a_dir" "$b_dir"
+  (
+    date -u +%Y-%m-%dT%H:%M:%SZ >"$a_dir/start_utc"
+    if prepare_tx codex full_clear; then child_exit=0; else child_exit=$?; fi
+    printf '%s\n' "$child_exit" >"$a_dir/prepare_exit"
+    date -u +%Y-%m-%dT%H:%M:%SZ >"$a_dir/end_utc"
+    exit "$child_exit"
+  ) >"$a_dir/stdout" 2>"$a_dir/stderr" & a=$!
+  (
+    date -u +%Y-%m-%dT%H:%M:%SZ >"$b_dir/start_utc"
+    if prepare_tx codex full_clear; then child_exit=0; else child_exit=$?; fi
+    printf '%s\n' "$child_exit" >"$b_dir/prepare_exit"
+    date -u +%Y-%m-%dT%H:%M:%SZ >"$b_dir/end_utc"
+    exit "$child_exit"
+  ) >"$b_dir/stdout" 2>"$b_dir/stderr" & b=$!
+  if wait "$a"; then a_wait_exit=0; else a_wait_exit=$?; fi
+  if wait "$b"; then b_wait_exit=0; else b_wait_exit=$?; fi
+  winners=0
+  if [ "$a_wait_exit" -eq 0 ]; then winners=$((winners + 1)); fi
+  if [ "$b_wait_exit" -eq 0 ]; then winners=$((winners + 1)); fi
+  transaction_inventory="$(find "$DR_ORCH_CONTEXT_STATE/transactions" -type f -name '*.json' -print | LC_ALL=C sort)"
+  transaction_count="$(printf '%s\n' "$transaction_inventory" | awk 'NF { count++ } END { print count + 0 }')"
+
+  printf '# concurrent-prepare diagnostic\n' >&3
+  printf '# child=a pid=%s start_utc=%s end_utc=%s prepare_exit=%s wait_exit=%s\n' \
+    "$a" "$(cat "$a_dir/start_utc")" "$(cat "$a_dir/end_utc")" "$(cat "$a_dir/prepare_exit")" "$a_wait_exit" >&3
+  printf '# child=b pid=%s start_utc=%s end_utc=%s prepare_exit=%s wait_exit=%s\n' \
+    "$b" "$(cat "$b_dir/start_utc")" "$(cat "$b_dir/end_utc")" "$(cat "$b_dir/prepare_exit")" "$b_wait_exit" >&3
+  printf '# assertion_operands winners=%s transactions=%s expected=1,1\n' "$winners" "$transaction_count" >&3
+  printf '# transaction_inventory=%s\n' "${transaction_inventory:-<empty>}" >&3
+  for child_dir in "$a_dir" "$b_dir"; do
+    printf '# synthetic_stderr=%s\n' "$(basename "$child_dir")" >&3
+    if [ -s "$child_dir/stderr" ]; then
+      while IFS= read -r stderr_line; do printf '#   %s\n' "$stderr_line" >&3; done <"$child_dir/stderr"
+    else
+      printf '#   <empty>\n' >&3
+    fi
+  done
+  [ "$winners" -eq 1 ] && [ "$transaction_count" -eq 1 ]
 }
 
 @test "transaction cap fails closed when all 64 records are protected" {
