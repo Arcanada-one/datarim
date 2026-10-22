@@ -291,6 +291,54 @@ def descriptor_state(descriptor):
     return state
 
 
+def _floor_telemetry():
+    """Telemetry object from the configured file, or {} when it cannot be read.
+
+    The advisory kill switch is not consulted. It disables routing, and this
+    audit belongs to the floor that stays on after that switch. An unreadable
+    file keeps the ledger default (enabled) and still requires an explicit path.
+    """
+    path = os.environ.get('DATARIM_JEV_CONFIG')
+    if not path:
+        return {}
+    try:
+        config = json.loads(Path(path).read_text())
+    except Exception:
+        return {}
+    tel = config.get('telemetry', {}) if isinstance(config, dict) else {}
+    return tel if isinstance(tel, dict) else {}
+
+
+def _record_floor_denial(command, reason):
+    """Append one scrubbed floor denial when a ledger location is already known.
+
+    A missing location, a disabled telemetry switch, or a write error returns
+    without changing the denial printed by the caller. The cwd fallback in
+    `state_dir` is intentionally not used: an unconfigured hook must not create
+    a ledger beside an arbitrary working directory.
+    """
+    try:
+        from ledger import log_floor_denial
+        tel = _floor_telemetry()
+        if not tel.get('enabled', True):
+            return
+        target = tel.get('path')
+        if not target:
+            state = os.environ.get('JEV_STATE_DIR') or os.environ.get('DATARIM_JEV_STATE')
+            if not state:
+                root = os.environ.get('DATARIM_PROJECT_ROOT')
+                if root:
+                    state = str(Path(root) / '.datarim-runtime' / 'state' / 'jev')
+            if not state:
+                return
+            target = str(Path(state) / 'ledger.jsonl')
+        log_floor_denial(
+            {'telemetry': {'enabled': True, 'path': target, 'store_prompt_text': False}},
+            command, reason, blocked=True)
+    except Exception:
+        return
+
+
 def main():
     try:p=json.load(sys.stdin)
     except Exception:return 0
@@ -313,6 +361,10 @@ def main():
     cmd=str(inp.get('cmd', inp.get('command',''))) if shell_tool and isinstance(inp,dict) else ''
     reason=destructive_reason(cmd)
     if reason:
+        try:
+            _record_floor_denial(cmd, reason)
+        except Exception:
+            pass
         print(json.dumps({"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":f"Jev deterministic safety floor blocked a destructive command ({reason})."}}));return 0
 
     # Advisory layer. Absent (import failed) means the floor above has already

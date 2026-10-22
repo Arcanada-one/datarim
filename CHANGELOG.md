@@ -4,6 +4,14 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- A safety-floor denial appends one `safety_floor_deny` ledger event with a scrubbed command and the deny reason. The command stays denied when the append fails. The reason categories are listed in `plugins/dr-jev-control/docs/safety-floor-categories.md` and checked against the strings `destructive_reason` returns.
+
+### Fixed
+
+- The unprivileged CI socat bootstrap accepts the hash-pinned Ubuntu 26.04 archive package as well as the existing Ubuntu 24.04 package. When the extracted binary cannot load `libwrap.so.0`, the installer adds the matching hash-pinned libwrap0 in the private prefix. `ubuntu-latest` now runs 26.04, and the previous 24.04-only fixture stopped the bats shards before any suite ran. Other distros, a bad digest, and a binary that still cannot load still fail closed.
+
 ## [4.6.0] — 2026-10-20
 
 ### Changed
