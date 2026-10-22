@@ -4,6 +4,10 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- A safety-floor denial appends one `safety_floor_deny` ledger event with a scrubbed command and the deny reason. The command stays denied when the append fails. The reason categories are listed in `plugins/dr-jev-control/docs/safety-floor-categories.md` and checked against the strings `destructive_reason` returns.
+
 ## [4.6.0] — 2026-10-20
 
 ### Changed
