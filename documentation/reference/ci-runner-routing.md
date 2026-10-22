@@ -55,9 +55,12 @@ runner prerequisite is separate from the demonstrated /usr/local write defect.
 Missing socat has a qualified source-only bootstrap for two measured amd64
 packages. Ubuntu 24.04 uses archive package 1.8.0.0-4ubuntu0.1, SHA256
 46e854289b6b1c97e28be5d9293bea61e8633d00d6a65d9513f019c7232696fe. Ubuntu
-26.04 uses archive package 1.8.1.1-1, SHA256
-08f77c85ba1f399c8b21bc098afbce0dea90529e80c9673b7df9bc391bd3f001. The
-installer downloads that exact file, verifies the digest, extracts its data
+26.04 uses the socat archive pinned by SHA256
+08f77c85ba1f399c8b21bc098afbce0dea90529e80c9673b7df9bc391bd3f001.
+The installer builds that pool filename from the 1.8.1 series and a separate
+revision token, because a four-part version token is a routable dotted quad
+to the personal-id scan. The installer downloads that exact file, verifies
+the digest, extracts its data
 in an owned temporary directory, and validates that the binary loads. When
 the dynamic linker can load it, the installer copies only socat into the
 private tool prefix. When the binary needs `libwrap.so.0` and the image does

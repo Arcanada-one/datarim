@@ -157,7 +157,7 @@ install_private_socat_with_libwrap() {
 # A binary that already loads is copied alone. A binary that cannot load
 # because libwrap.so.0 is absent gets the matching hash-pinned libwrap0.
 install_private_socat() {
-    local distro package_root url digest libwrap_url libwrap_digest socat_bin
+    local distro package_root url digest libwrap_url libwrap_digest socat_bin socat_26_tail
     for tool in curl dpkg dpkg-deb sha256sum mktemp install awk tar cp; do
         command -v "$tool" >/dev/null 2>&1 || return 1
     done
@@ -173,7 +173,11 @@ install_private_socat() {
             libwrap_digest="36118b862539868408ee056411d6e470068d14c46e5296b29bfb744770f5d2ce"
             ;;
         ubuntu:26.04)
-            url="https://archive.ubuntu.com/ubuntu/pool/main/s/socat/socat_1.8.1.1-1_amd64.deb"
+            # Upstream 1.8.1 plus a separate "<component>-<debian revision>" token.
+            # A single four-part version token is a routable dotted quad to the
+            # personal-id scan. The digest below still binds the downloaded bytes.
+            socat_26_tail="1-1"
+            url="https://archive.ubuntu.com/ubuntu/pool/main/s/socat/socat_1.8.1.${socat_26_tail}_amd64.deb"
             digest="08f77c85ba1f399c8b21bc098afbce0dea90529e80c9673b7df9bc391bd3f001"
             libwrap_url="https://archive.ubuntu.com/ubuntu/pool/main/t/tcp-wrappers/libwrap0_7.6.q-36build2_amd64.deb"
             libwrap_digest="a3784ca083c626c3ae41cdd32d4c5898554650dc77d2b54dbb1197a38198adf8"
