@@ -15,6 +15,124 @@ HELPER="${BATS_TEST_DIRNAME}/../dev-tools/next-free-id.sh"
 CMDS_DIR="${BATS_TEST_DIRNAME}/../commands"
 
 RES_DIR_REL="datarim/.id-reservations"
+R01_DIAGNOSTIC_TOTAL_LIMIT=66176
+
+_r01_trace_record_is_valid() {
+    local line="$1" LC_ALL=C
+    local events='(reserve_dir_create|gc_age|gc_remove|gc_remove_result|claim_probe|candidate_probe|initial_mkdir|stale_age|stale_predicate|reclaim_decision|reclaim_remove|reclaim_remove_result|reclaim_mkdir|stamp_epoch|stamp_pid|publish_marker|stdout_attempt|release_remove|release_remove_result)'
+    local candidate='(TUNE-[0-9]{4}|unknown)'
+    local identity='([0-9]+:[0-9]+|unknown)'
+    local epoch='([0-9]+|unknown)'
+    local age='(-?[0-9]+|unknown)'
+    local ttl='([0-9]+|unknown)'
+    local operation_rc='([0-9]+|unknown)'
+    local decisions='(none|created|fresh|stale|absent|lost|claimed_names|claimed_live|claimed_tasks|claimed_backlog|claimed_init_lock|claimed_reservation|unclaimed|published|attempt|failed|released|succeeded|unknown)'
+    local monotonic='([0-9]+|unknown)'
+    local schema="^([1-9][0-9]*)\\|([0-9]+)\\|${events}\\|${candidate}\\|${identity}\\|${identity}\\|${identity}\\|${epoch}\\|${age}\\|${ttl}\\|${operation_rc}\\|${decisions}\\|${monotonic}$"
+    (( ${#line} <= 512 )) || return 1
+    [[ "$line" =~ $schema ]]
+}
+
+_r01_buffer_diagnostic_line() {
+    local line="$1" LC_ALL=C
+    local bytes=$((${#line} + 1))
+    (( ${#R01_DIAGNOSTIC_BUFFER} + bytes <= R01_DIAGNOSTIC_TOTAL_LIMIT )) || return 1
+    R01_DIAGNOSTIC_BUFFER+="${line}"$'\n'
+    return 0
+}
+
+_r01_stderr_summary() {
+    local stderr_file="$1" stderr_text warning_re
+    if [[ ! -e "$stderr_file" ]]; then
+        printf 'unavailable'
+        return 0
+    fi
+    if [[ ! -s "$stderr_file" ]]; then
+        printf 'empty'
+        return 0
+    fi
+    stderr_text="$(<"$stderr_file")"
+    warning_re='^WARNING: ID (TUNE-[0-9]{4}) (already claimed \(parallel-session race\)|reserved by a parallel session) — auto-bumping to next free ID$'
+    if [[ "$stderr_text" =~ $warning_re ]]; then
+        printf 'warning:%s' "${BASH_REMATCH[1]}"
+    else
+        printf 'other-omitted'
+    fi
+}
+
+_r01_append_trace_block() {
+    local trace_file="$1" child="$2" record seen=0 omitted=0 state=complete
+    local original_buffer="$R01_DIAGNOSTIC_BUFFER"
+    if [[ -f "$trace_file" && -r "$trace_file" ]]; then
+        if while IFS= read -r record || [[ -n "$record" ]]; do
+            seen=$((seen + 1))
+            if (( seen > 64 )); then
+                omitted=$((omitted + 1))
+                state=capped
+                break
+            fi
+            if _r01_trace_record_is_valid "$record"; then
+                _r01_buffer_diagnostic_line "$record" || return 1
+            else
+                omitted=$((omitted + 1))
+            fi
+        done < "$trace_file" 2>/dev/null; then
+            :
+        else
+            R01_DIAGNOSTIC_BUFFER="$original_buffer"
+            omitted=0
+            state=unavailable
+        fi
+    else
+        state=unavailable
+    fi
+    _R01_TRACE_OMITTED="$omitted"
+    _R01_TRACE_STATE="$state"
+    return 0
+}
+
+_r01_emit_failure_diagnostics() {
+    local id1="$1" status1="$2" err1="$3" trace1="$4"
+    local id2="$5" status2="$6" err2="$7" trace2="$8"
+    local summary_id1="$id1" summary_id2="$id2" summary_status1="$status1" summary_status2="$status2"
+    local stderr1 stderr2 LC_ALL=C
+
+    [[ "$summary_id1" =~ ^TUNE-[0-9]{4}$ ]] || summary_id1=unknown
+    [[ "$summary_id2" =~ ^TUNE-[0-9]{4}$ ]] || summary_id2=unknown
+    if [[ ! "$summary_status1" =~ ^(0|[1-9][0-9]{0,2})$ ]] || (( summary_status1 > 255 )); then summary_status1=unknown; fi
+    if [[ ! "$summary_status2" =~ ^(0|[1-9][0-9]{0,2})$ ]] || (( summary_status2 > 255 )); then summary_status2=unknown; fi
+    stderr1="$(_r01_stderr_summary "$err1")"
+    stderr2="$(_r01_stderr_summary "$err2")"
+
+    R01_DIAGNOSTIC_BUFFER=''
+    _r01_append_trace_block "$trace1" 1 || return 0
+    local omitted1="$_R01_TRACE_OMITTED"
+    local state1="$_R01_TRACE_STATE"
+    local trace1_block="$R01_DIAGNOSTIC_BUFFER"
+    R01_DIAGNOSTIC_BUFFER=''
+    _r01_append_trace_block "$trace2" 2 || return 0
+    local omitted2="$_R01_TRACE_OMITTED"
+    local state2="$_R01_TRACE_STATE"
+    local trace2_block="$R01_DIAGNOSTIC_BUFFER"
+
+    R01_DIAGNOSTIC_BUFFER=''
+    _r01_buffer_diagnostic_line 'R01_DIAGNOSTIC/1' || return 0
+    _r01_buffer_diagnostic_line "child=1 id=${summary_id1} exit=${summary_status1} stderr=${stderr1} trace_omitted=${omitted1} trace_state=${state1}" || return 0
+    _r01_buffer_diagnostic_line 'trace=1:begin' || return 0
+    R01_DIAGNOSTIC_BUFFER+="${trace1_block}"
+    _r01_buffer_diagnostic_line 'trace=1:end' || return 0
+    _r01_buffer_diagnostic_line "child=2 id=${summary_id2} exit=${summary_status2} stderr=${stderr2} trace_omitted=${omitted2} trace_state=${state2}" || return 0
+    _r01_buffer_diagnostic_line 'trace=2:begin' || return 0
+    R01_DIAGNOSTIC_BUFFER+="${trace2_block}"
+    _r01_buffer_diagnostic_line 'trace=2:end' || return 0
+    _r01_buffer_diagnostic_line 'R01_DIAGNOSTIC_END' || return 0
+    (( ${#R01_DIAGNOSTIC_BUFFER} <= R01_DIAGNOSTIC_TOTAL_LIMIT )) || return 0
+
+    # One bounded, best-effort write to Bats' failure stream. A broken FD3 is
+    # intentionally unable to alter the result of the original assertion.
+    if printf '%s' "$R01_DIAGNOSTIC_BUFFER" 2>/dev/null >&3; then :; else :; fi
+    return 0
+}
 
 setup() {
     FIXTURE_DIR="$(mktemp -d)"
@@ -72,20 +190,171 @@ teardown() {
     [ -s "${TRACE2}" ]
     [ "$(wc -l < "${TRACE1}")" -le 64 ]
     [ "$(wc -l < "${TRACE2}")" -le 64 ]
-    awk -F'|' 'length($0) > 512 || NF != 12 { exit 1 }' "${TRACE1}"
-    awk -F'|' 'length($0) > 512 || NF != 12 { exit 1 }' "${TRACE2}"
+    awk -F'|' 'length($0) > 512 || NF != 13 || $13 !~ /^([0-9]+|unknown)$/ { exit 1 }' "${TRACE1}"
+    awk -F'|' 'length($0) > 512 || NF != 13 || $13 !~ /^([0-9]+|unknown)$/ { exit 1 }' "${TRACE2}"
     grep -q '|stdout_attempt|' "${TRACE1}"
     grep -q '|stdout_attempt|' "${TRACE2}"
     # Both must be well-formed and different
     [[ "${ID1}" =~ ^TUNE-[0-9]{4}$ ]]
     [[ "${ID2}" =~ ^TUNE-[0-9]{4}$ ]]
+    if [[ "${ID1}" == "${ID2}" ]]; then
+        _r01_emit_failure_diagnostics "$ID1" "$STATUS1" "${ERR1}" "${TRACE1}" \
+            "$ID2" "$STATUS2" "${ERR2}" "${TRACE2}"
+    fi
     [ "${ID1}" != "${ID2}" ]
+}
+
+@test "R01 diagnostic output is bounded, whole-record validated, and failure-only" {
+    OUT1="${FIXTURE_DIR}/child-1.stdout"
+    OUT2="${FIXTURE_DIR}/child-2.stdout"
+    ERR1="${FIXTURE_DIR}/child-1.stderr"
+    ERR2="${FIXTURE_DIR}/child-2.stderr"
+    TRACE1="${FIXTURE_DIR}/child-1.trace"
+    TRACE2="${FIXTURE_DIR}/child-2.trace"
+    DIAGNOSTIC="${FIXTURE_DIR}/diagnostic.fd3"
+    CALLER_STDOUT="${FIXTURE_DIR}/diagnostic.stdout"
+    CALLER_STDERR="${FIXTURE_DIR}/diagnostic.stderr"
+    printf 'TUNE-0001\n' > "$OUT1"
+    printf 'TUNE-0001\n' > "$OUT2"
+    printf 'WARNING: ID TUNE-0001 reserved by a parallel session — auto-bumping to next free ID\n' > "$ERR1"
+    printf 'PRIVATE_PATH=/hidden/fixture\n' > "$ERR2"
+    printf '1|123|initial_mkdir|TUNE-0001|1:2|1:3|1:4|unknown|unknown|1800|0|created|100\n' > "$TRACE1"
+    printf 'malformed|PRIVATE_PATH=/hidden/fixture\n' >> "$TRACE1"
+    printf '2|123|secret_event|TUNE-0001|1:2|1:3|1:4|unknown|unknown|1800|0|created|101\n' >> "$TRACE1"
+    printf '3|123|initial_mkdir|TUNE-0001|../hidden|1:3|1:4|unknown|unknown|1800|0|created|102\n' >> "$TRACE1"
+    printf '4|123|initial_mkdir|TUNE-0001|1:2|1:3|1:4|unknown|unknown|1800|0|created|NOW\n' >> "$TRACE1"
+    printf '5|123|initial_mkdir|TUNE-0001|1:2|1:3|1:4|unknown|unknown|1800|0|created|103|extra\n' >> "$TRACE1"
+    printf '%0513d\n' 7 >> "$TRACE1"
+    : > "$TRACE2"
+    for ((record=1; record<=65; record++)); do
+        printf '%s|124|initial_mkdir|TUNE-0001|1:2|1:3|1:4|unknown|unknown|1800|0|created|%s\n' \
+            "$record" "$record" >> "$TRACE2"
+    done
+    if _r01_emit_failure_diagnostics TUNE-0001 0 "$ERR1" "$TRACE1" TUNE-0001 0 "$ERR2" "$TRACE2" \
+        > "$CALLER_STDOUT" 2> "$CALLER_STDERR" 3> "$DIAGNOSTIC"; then
+        EMIT_STATUS=0
+    else
+        EMIT_STATUS=$?
+    fi
+    [ "$EMIT_STATUS" -eq 0 ] \
+        && [ ! -s "$CALLER_STDOUT" ] \
+        && [ ! -s "$CALLER_STDERR" ] \
+        && grep -q '^child=1 id=TUNE-0001 exit=0 stderr=warning:TUNE-0001 trace_omitted=6 trace_state=complete$' "$DIAGNOSTIC" \
+        && grep -q '^child=2 id=TUNE-0001 exit=0 stderr=other-omitted trace_omitted=1 trace_state=capped$' "$DIAGNOSTIC" \
+        && grep -q '^1|123|initial_mkdir|TUNE-0001|1:2|1:3|1:4|unknown|unknown|1800|0|created|100$' "$DIAGNOSTIC" \
+        && { record_count="$(grep -c '^[0-9]' "$DIAGNOSTIC")"; [ "$record_count" -eq 65 ] || { printf 'expected 65 emitted trace rows, got %s\n' "$record_count"; cat "$DIAGNOSTIC"; return 1; }; } \
+        && ! grep -q 'PRIVATE_PATH\|/hidden/fixture\|malformed\|secret_event\|NOW\|extra' "$DIAGNOSTIC" \
+        && [ "$(wc -c < "$DIAGNOSTIC")" -le "$R01_DIAGNOSTIC_TOTAL_LIMIT" ]
+}
+
+@test "R01 trace summary counts only observed omissions and labels unreadable input" {
+    TRACE="${FIXTURE_DIR}/trace-summary.trace"
+    R01_DIAGNOSTIC_BUFFER=''
+    for ((record=1; record<=64; record++)); do
+        printf '%s|124|initial_mkdir|TUNE-0001|1:2|1:3|1:4|unknown|unknown|1800|0|created|%s\n' \
+            "$record" "$record" >> "$TRACE"
+    done
+    _r01_append_trace_block "$TRACE" 1
+    [ "$_R01_TRACE_OMITTED" -eq 0 ]
+    [ "$_R01_TRACE_STATE" = complete ]
+    [ "$(grep -c '^[0-9]' <<< "$R01_DIAGNOSTIC_BUFFER")" -eq 64 ]
+
+    printf '65|124|initial_mkdir|TUNE-0001|1:2|1:3|1:4|unknown|unknown|1800|0|created|65\n' >> "$TRACE"
+    R01_DIAGNOSTIC_BUFFER=''
+    _r01_append_trace_block "$TRACE" 1
+    [ "$_R01_TRACE_OMITTED" -eq 1 ]
+    [ "$_R01_TRACE_STATE" = capped ]
+    [ "$(grep -c '^[0-9]' <<< "$R01_DIAGNOSTIC_BUFFER")" -eq 64 ]
+
+    printf '66|124|not-valid-and-beyond-observation|TUNE-0001|1:2|1:3|1:4|unknown|unknown|1800|0|created|66\n' >> "$TRACE"
+    R01_DIAGNOSTIC_BUFFER=''
+    _r01_append_trace_block "$TRACE" 1
+    [ "$_R01_TRACE_OMITTED" -eq 1 ]
+    [ "$_R01_TRACE_STATE" = capped ]
+
+    mkdir "${FIXTURE_DIR}/unreadable-trace-directory"
+    R01_DIAGNOSTIC_BUFFER=''
+    _r01_append_trace_block "${FIXTURE_DIR}/unreadable-trace-directory" 1
+    [ "$_R01_TRACE_OMITTED" -eq 0 ]
+    [ "$_R01_TRACE_STATE" = unavailable ]
+}
+
+@test "R01 diagnostic sink failure does not replace the distinct-ID assertion" {
+    ERR="${FIXTURE_DIR}/broken-fd3.stderr"
+    TRACE="${FIXTURE_DIR}/broken-fd3.trace"
+    printf 'TUNE-0001\n' > "${FIXTURE_DIR}/child.stdout"
+    : > "${FIXTURE_DIR}/child.stderr"
+    printf '1|123|initial_mkdir|TUNE-0001|1:2|1:3|1:4|unknown|unknown|1800|0|created|100\n' > "$TRACE"
+    if (
+        _r01_emit_failure_diagnostics TUNE-0001 0 "${FIXTURE_DIR}/child.stderr" "$TRACE" \
+            TUNE-0001 0 "${FIXTURE_DIR}/child.stderr" "$TRACE" 3>&-
+        [ TUNE-0001 != TUNE-0001 ]
+    ) > /dev/null 2> "$ERR"; then
+        ASSERTION_STATUS=0
+    else
+        ASSERTION_STATUS=$?
+    fi
+    [ "$ASSERTION_STATUS" -eq 1 ] && [ ! -s "$ERR" ]
+}
+
+@test "R01 monotonic clock records shared values and fails back to unknown" {
+    SPY_BIN="${FIXTURE_DIR}/clock-spy"
+    mkdir -p "$SPY_BIN"
+    cat > "${SPY_BIN}/perl" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${D5_PERL_FAIL:-0}" == "1" ]]; then
+    exit 1
+fi
+value=0
+[[ -r "$D5_CLOCK_COUNTER" ]] && read -r value < "$D5_CLOCK_COUNTER"
+value=$((value + 1))
+printf '%s\n' "$value" > "$D5_CLOCK_COUNTER"
+printf '%s\n' "$value"
+EOF
+    chmod +x "${SPY_BIN}/perl"
+
+    VALID_ROOT="${FIXTURE_DIR}/clock-valid"
+    FALLBACK_ROOT="${FIXTURE_DIR}/clock-fallback"
+    mkdir -p "${VALID_ROOT}/datarim" "${FALLBACK_ROOT}/datarim"
+    : > "${VALID_ROOT}/datarim/tasks.md"
+    : > "${FALLBACK_ROOT}/datarim/tasks.md"
+    VALID_OUT="${FIXTURE_DIR}/clock-valid.stdout"
+    VALID_ERR="${FIXTURE_DIR}/clock-valid.stderr"
+    VALID_TRACE="${FIXTURE_DIR}/clock-valid.trace"
+    VALID_COUNTER="${FIXTURE_DIR}/clock-valid.counter"
+    FALLBACK_OUT="${FIXTURE_DIR}/clock-fallback.stdout"
+    FALLBACK_ERR="${FIXTURE_DIR}/clock-fallback.stderr"
+    FALLBACK_TRACE="${FIXTURE_DIR}/clock-fallback.trace"
+    if _D5_TUNE0285_TRACE=1 D5_PERL_FAIL=0 D5_CLOCK_COUNTER="${VALID_COUNTER}" PATH="${SPY_BIN}:${PATH}" \
+        bash "${HELPER}" TUNE "${VALID_ROOT}" > "$VALID_OUT" 2> "$VALID_ERR" 9> "$VALID_TRACE"; then
+        VALID_STATUS=0
+    else
+        VALID_STATUS=$?
+    fi
+    if _D5_TUNE0285_TRACE=1 D5_PERL_FAIL=1 D5_CLOCK_COUNTER="${FIXTURE_DIR}/unused-counter" PATH="${SPY_BIN}:${PATH}" \
+        bash "${HELPER}" TUNE "${FALLBACK_ROOT}" > "$FALLBACK_OUT" 2> "$FALLBACK_ERR" 9> "$FALLBACK_TRACE"; then
+        FALLBACK_STATUS=0
+    else
+        FALLBACK_STATUS=$?
+    fi
+    [ "$VALID_STATUS" -eq 0 ] \
+        && [ "$FALLBACK_STATUS" -eq 0 ] \
+        && [ "$(cat "$VALID_OUT")" = "TUNE-0001" ] \
+        && [ "$(cat "$FALLBACK_OUT")" = "TUNE-0001" ] \
+        && [ ! -s "$VALID_ERR" ] \
+        && [ ! -s "$FALLBACK_ERR" ] \
+        && cmp -s "$VALID_OUT" "$FALLBACK_OUT" \
+        && cmp -s "$VALID_ERR" "$FALLBACK_ERR" \
+        && awk -F'|' 'NF != 13 || $13 !~ /^[0-9]+$/ || (NR > 1 && $13 <= previous) { exit 1 } { previous=$13 } END { if (NR == 0) exit 1 }' "$VALID_TRACE" \
+        && awk -F'|' 'NF != 13 || $13 != "unknown" { exit 1 } END { if (NR == 0) exit 1 }' "$FALLBACK_TRACE"
 }
 
 @test "R08: diagnostic-off path does not read filesystem identities" {
     STAT_REAL="$(command -v stat)"
+    PERL_REAL="$(command -v perl)"
     SPY_BIN="${FIXTURE_DIR}/spy-bin"
     STAT_CALLED="${FIXTURE_DIR}/stat-called"
+    MONOTONIC_CALLED="${FIXTURE_DIR}/monotonic-called"
     OUT="${FIXTURE_DIR}/disabled.stdout"
     ERR="${FIXTURE_DIR}/disabled.stderr"
     mkdir -p "${SPY_BIN}"
@@ -95,8 +364,15 @@ teardown() {
 exec "$D5_STAT_REAL" "$@"
 EOF
     chmod +x "${SPY_BIN}/stat"
+    cat > "${SPY_BIN}/perl" <<'EOF'
+#!/usr/bin/env bash
+: > "$D5_MONOTONIC_CALLED"
+exec "$D5_PERL_REAL" "$@"
+EOF
+    chmod +x "${SPY_BIN}/perl"
     unset _D5_TUNE0285_TRACE
     if PATH="${SPY_BIN}:${PATH}" D5_STAT_CALLED="${STAT_CALLED}" D5_STAT_REAL="${STAT_REAL}" \
+        D5_MONOTONIC_CALLED="${MONOTONIC_CALLED}" D5_PERL_REAL="${PERL_REAL}" \
         bash "${HELPER}" "TUNE" "${FIXTURE_DIR}" >"${OUT}" 2>"${ERR}"; then
         STATUS=0
     else
@@ -106,6 +382,7 @@ EOF
     [ "$(cat "${OUT}")" = "TUNE-0001" ]
     [ ! -s "${ERR}" ]
     [ ! -e "${STAT_CALLED}" ]
+    [ ! -e "${MONOTONIC_CALLED}" ]
 }
 
 @test "R09: a closed diagnostic sink cannot change allocation result" {
@@ -125,8 +402,10 @@ EOF
 @test "R10: a full trace cap stops later identity stats" {
     LOW_CAP_HELPER="${FIXTURE_DIR}/next-free-id-low-cap.sh"
     STAT_REAL="$(command -v stat)"
+    PERL_REAL="$(command -v perl)"
     SPY_BIN="${FIXTURE_DIR}/spy-bin"
     STAT_CALLS="${FIXTURE_DIR}/stat-calls"
+    MONOTONIC_CALLS="${FIXTURE_DIR}/monotonic-calls"
     OUT="${FIXTURE_DIR}/cap.stdout"
     ERR="${FIXTURE_DIR}/cap.stderr"
     TRACE="${FIXTURE_DIR}/cap.trace"
@@ -140,8 +419,16 @@ printf 'stat\n' >> "$D5_STAT_CALLS"
 exec "$D5_STAT_REAL" "$@"
 EOF
     chmod +x "${SPY_BIN}/stat"
+    cat > "${SPY_BIN}/perl" <<'EOF'
+#!/usr/bin/env bash
+printf 'clock\n' >> "$D5_MONOTONIC_CALLS"
+exec "$D5_PERL_REAL" "$@"
+EOF
+    chmod +x "${SPY_BIN}/perl"
     : > "${STAT_CALLS}"
+    : > "${MONOTONIC_CALLS}"
     if _D5_TUNE0285_TRACE=1 PATH="${SPY_BIN}:${PATH}" D5_STAT_CALLS="${STAT_CALLS}" D5_STAT_REAL="${STAT_REAL}" \
+        D5_MONOTONIC_CALLS="${MONOTONIC_CALLS}" D5_PERL_REAL="${PERL_REAL}" \
         bash "${LOW_CAP_HELPER}" "TUNE" "${FIXTURE_DIR}" >"${OUT}" 2>"${ERR}" 9>"${TRACE}"; then
         STATUS=0
     else
@@ -157,6 +444,8 @@ EOF
     [ "$(sed -n '4p' "${TRACE}" | cut -d'|' -f3)" = "candidate_probe" ]
     ! grep -qE '\|(initial_mkdir|reclaim_mkdir)\|' "${TRACE}"
     [ "$(wc -l < "${STAT_CALLS}")" -eq 2 ]
+    [ "$(wc -l < "${MONOTONIC_CALLS}")" -eq "$(wc -l < "${TRACE}")" ]
+    [ "$(wc -l < "${MONOTONIC_CALLS}")" -eq 4 ]
     if [[ -n "${D5_TUNE0285_EVIDENCE_DIR:-}" ]]; then
         cp "${TRACE}" "${D5_TUNE0285_EVIDENCE_DIR}/cap.trace"
         cp "${STAT_CALLS}" "${D5_TUNE0285_EVIDENCE_DIR}/cap.stat-calls"
