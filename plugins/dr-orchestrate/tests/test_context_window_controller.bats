@@ -231,19 +231,76 @@ win() { run bash "$CONTROLLER" evaluate --used-percent "$1" --window-tokens "$2"
   run bash -c '
     source "$1"
     unset DR_ORCH_TEST_DIAGNOSTICS
-    birth_log="$2"; kind_log="$3"; identity_log="$4"; lock="$5"
+    birth_log="$2"; kind_log="$3"; identity_log="$4"; mono_log="$5"; lock="$6"
     ctx_process_birth() { printf x >>"$birth_log"; printf 123; }
     ctx_lock_kind() { printf x >>"$kind_log"; printf test; }
     ctx_path_identity() { printf x >>"$identity_log"; printf identity; }
+    ctx_test_monotonic_time() { printf x >>"$mono_log"; printf 1.000000000; }
     chmod() { return 23; }
     if ctx_lock_acquire "$lock"; then exit 90; else lock_rc=$?; fi
     [ "$lock_rc" -eq 23 ] || exit 91
     [ "$(wc -c <"$birth_log")" -eq 1 ] || exit 92
-    [ ! -e "$kind_log" ] && [ ! -e "$identity_log" ] || exit 93
+    [ ! -e "$kind_log" ] && [ ! -e "$identity_log" ] && [ ! -e "$mono_log" ] || exit 93
   ' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" \
     "$BATS_TEST_TMPDIR/birth-calls" "$BATS_TEST_TMPDIR/kind-calls" \
-    "$BATS_TEST_TMPDIR/identity-calls" "$BATS_TEST_TMPDIR/chmod-failure.lock"
+    "$BATS_TEST_TMPDIR/identity-calls" "$BATS_TEST_TMPDIR/monotonic-calls" \
+    "$BATS_TEST_TMPDIR/chmod-failure.lock"
   [ "$status" -eq 0 ]
+}
+
+@test "prepare trace has per-process sequence and monotonic ordering fields" {
+  run bash -c '
+    export CTX_TEST_TRACE_SEQ=77 CTX_TEST_TRACE_PID="${BASHPID:-$$}"
+    for child in a b; do
+      bash -c '\''
+        source "$1"
+        export DR_ORCH_TEST_DIAGNOSTICS=prepare-lock-v1 DR_ORCH_TEST_ALLOW_UNBOUND=1
+        ctx_test_trace diagnostic-first "" none none none none none observed
+        ctx_test_trace diagnostic-second "" none none none none none observed
+      '\'' _ "$1"
+    done
+  ' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" 2>&1
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | grep -c 'D5_PREPARE_TRACE/1 ' )" -eq 4 ] \
+    && awk '
+      /D5_PREPARE_TRACE\/1 / {
+        seq=""; pid=""; mono=""
+        for (i=1; i<=NF; i++) {
+          if ($i ~ /^seq=/) { split($i,a,"="); seq=a[2] }
+          if ($i ~ /^caller_pid=/) { split($i,a,"="); pid=a[2] }
+          if ($i ~ /^mono_s=/) { split($i,a,"="); mono=a[2] }
+        }
+        if (seq !~ /^[0-9]+$/ || mono !~ /^[0-9]+\.[0-9]{9}$/) exit 1
+        expected=(count%2)+1
+        if (seq != expected || (count>0 && mono+0 < previous+0)) exit 1
+        if (count%2==0) {
+          if (count>0 && pid==previous_pid) exit 1
+          pair_pid=pid
+        } else if (pid!=pair_pid) exit 1
+        previous=mono; count++
+        previous_pid=pid
+      }
+      END { if (count!=4) exit 1 }
+    ' <<<"$output"
+}
+
+@test "lock trace records fixture root and lock identities at acquire and release boundaries" {
+  run bash -c '
+    source "$1"
+    export DR_ORCH_TEST_DIAGNOSTICS=prepare-lock-v1 DR_ORCH_TEST_ALLOW_UNBOUND=1
+    root="$2"; mkdir -p "$root/instances"; lock="$root/instances/.lifecycle.lock"
+    ctx_test_trace lock-acquire-start "$lock" lifecycle none none none none waiting
+    mkdir "$lock"
+    ctx_test_trace lock-mkdir-acquired "$lock" lifecycle "$$" self none none acquired
+    ctx_test_trace lock-release-start "$lock" lifecycle "$$" self none none starting
+    rmdir "$lock"
+    ctx_test_trace lock-directory-remove-result "$lock" lifecycle "$$" self none 0 removed
+  ' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" \
+    "$BATS_TEST_TMPDIR/trace-fixture" 2>&1
+  [ "$status" -eq 0 ] \
+    && [ "$(printf '%s\n' "$output" | grep -c 'root_identity=[0-9][0-9]*:[0-9][0-9]*')" -eq 4 ] \
+    && [[ "$output" == *"event=lock-acquire-start caller_pid="*"lock_identity=absent"*"event=lock-mkdir-acquired"*"lock_identity="*"event=lock-release-start"*"event=lock-directory-remove-result"*"lock_identity=absent"* ]] \
+    && [[ "$output" != *"$BATS_TEST_TMPDIR"* ]]
 }
 
 @test "prepare diagnostic state is allowlisted and newline content is not emitted" {
