@@ -33,6 +33,11 @@ def main() -> None:
             "commands": ["synthetic-command"],
             "inputs": ["synthetic-input"],
             "surfaces": ["cli"],
+            **({"checkpoint_chain": None} if mode == "null-checkpoint-chain" else {}),
+            **({"checkpoint_chain": {"required": True}} if mode in {
+                "chain", "missing-chain", "stale-checkpoint", "dangling-checkpoint",
+                "duplicate-checkpoint", "cyclic-checkpoint", "attempts-only",
+            } else {}),
             "probes": [
                 {"id": "returns-result", "surface": "cli", "required": True,
                  "description": "The command returns the declared result."},
@@ -94,6 +99,35 @@ def main() -> None:
         "captured_at": "2026-10-18T12:00:00Z",
         "probes": probes,
     }
+    if mode in {"chain", "stale-checkpoint", "dangling-checkpoint", "duplicate-checkpoint", "cyclic-checkpoint"}:
+        checkpoint_rows = []
+        for index, probe in enumerate(probes):
+            observation_hash = digest(probe["observed"].encode("utf-8"))
+            if mode == "stale-checkpoint" and index == 0:
+                observation_hash = "0" * 64
+            checkpoint_rows.append({
+                "id": f"checkpoint-{index + 1}",
+                "prior_checkpoint_id": None if index == 0 else f"checkpoint-{index}",
+                "probe_id": probe["id"],
+                "observation_sha256": observation_hash,
+                "artifact_sha256": probe["artifact"]["sha256"],
+                "hypothesis": f"Synthetic hypothesis {index + 1} predicts the next probe result.",
+                "next_probe_id": probes[index + 1]["id"] if index + 1 < len(probes) else None,
+            })
+        if mode == "dangling-checkpoint":
+            checkpoint_rows[0]["next_probe_id"] = "missing-probe"
+        if mode == "duplicate-checkpoint":
+            checkpoint_rows[1]["id"] = checkpoint_rows[0]["id"]
+        if mode == "cyclic-checkpoint":
+            checkpoint_rows[0]["prior_checkpoint_id"] = checkpoint_rows[-1]["id"]
+        evidence["checkpoint_chains"] = [{
+            "behaviour_id": "synthetic-behaviour",
+            "checkpoints": checkpoint_rows,
+        }]
+    if mode == "null-checkpoint-chains":
+        evidence["checkpoint_chains"] = None
+    if mode == "attempts-only":
+        evidence["attempts"] = [{"timestamp": "2026-10-18T12:00:00Z", "probe_id": "returns-result"}]
     (run / "evidence.json").write_text(
         json.dumps(evidence, sort_keys=True, indent=2) + "\n", encoding="utf-8"
     )

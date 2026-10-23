@@ -25,6 +25,7 @@ applicable surfaces, and required probes.
       "commands": ["<exact verification command>"],
       "inputs": ["<synthetic or otherwise authorized input>"],
       "surfaces": ["cli"],
+      "checkpoint_chain": { "required": false },
       "probes": [
         {
           "id": "<stable-probe-id>",
@@ -90,10 +91,32 @@ The bundle uses this shape; replace all placeholders with measured values:
 
 ## Checkpoint linkage
 
-An ordered array of attempts is not a hypothesis-linked checkpoint chain. If
-the evidence format does not define a validated relation from the next probe
-to the prior observation and its hypothesis, record checkpoint linkage as
-deferred in the task record. Do not infer the relation from chronology alone.
+Set `checkpoint_chain.required` to `true` on a behaviour when its verification
+must show a causal sequence. A required chain needs at least two of that
+behaviour's declared probes. In the run's `evidence.json`, add
+`checkpoint_chains`, an array of objects with `behaviour_id` and `checkpoints`.
+Each checkpoint has exactly these fields:
+
+- `id`: stable, unique checkpoint id.
+- `prior_checkpoint_id`: `null` for the first checkpoint, then the preceding
+  checkpoint id in array order.
+- `probe_id`: the declared probe whose observation this checkpoint records.
+- `observation_sha256`: SHA-256 of the exact UTF-8 `observed` string in that
+  probe's evidence entry.
+- `artifact_sha256`: the digest of that probe entry's retained artifact.
+- `hypothesis`: a concrete, falsifiable expectation based on that observation.
+- `next_probe_id`: the next checkpoint's probe id; `null` on the final
+  checkpoint.
+
+The validator checks the ordered links, unique ids, same-behaviour probe
+references, passing prior probe outcomes, exact observation and artifact pins,
+and the evidence run's existing charter/source pins. Missing or malformed
+required chains fail closed. An `attempts[]` chronology does not satisfy this
+contract. Legacy charters without `checkpoint_chain` retain ordinary probe
+coverage behavior and the output says `checkpoint_linkage=NOT_MEASURED`; that
+result is not a linkage pass. A structural pass checks declared references and
+digests only. It does not establish that a hypothesis is scientifically sound,
+that an observation is authentic, or that a live system behaves as reported.
 
 ## Validator call path
 
@@ -113,5 +136,5 @@ python3 "${DATARIM_RUNTIME:?}/dev-tools/check-qa-charter-coverage.py" \
 Any nonzero result blocks charter coverage. A successful result proves only
 that the required probes in the exact charter have current, digest-bound
 evidence at the named source revision; it does not prove semantic correctness
-beyond those assertions, checkpoint linkage, runtime acceptance, or production
-readiness.
+beyond those assertions, runtime acceptance, or production readiness. A
+`checkpoint_linkage=PASS` result reports structural chain validation only.

@@ -19,6 +19,25 @@ setup() {
     --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
   [ "$status" -eq 0 ]
   [[ "$output" == *"CHARTER_COVERAGE PASS"* ]]
+  [[ "$output" == *"checkpoint_linkage=NOT_MEASURED"* ]]
+}
+
+@test "explicit null checkpoint_chain is rejected instead of treated as legacy omission" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" null-checkpoint-chain "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"invalid_charter"*"checkpoint_chain must contain boolean required"* ]]
+}
+
+@test "explicit null checkpoint_chains is rejected as malformed evidence" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" null-checkpoint-chains "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"invalid_checkpoint_chain"*"checkpoint_chains must be an array"* ]]
 }
 
 @test "omitted required probe blocks coverage" {
@@ -64,6 +83,77 @@ setup() {
     --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
   [ "$status" -eq 1 ]
   [[ "$output" == *"required_probe_not_pass"* ]]
+}
+
+@test "production CLI validates a multi-step hypothesis-linked chain" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" chain "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"checkpoint_linkage=PASS transitions=1"* ]]
+}
+
+@test "required chain missing from current evidence blocks" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" missing-chain "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"missing_checkpoint_chain"* ]]
+}
+
+@test "a timestamped attempts list does not satisfy required linkage" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" attempts-only "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"missing_checkpoint_chain"* ]]
+}
+
+@test "stale prior observation pin blocks the chain" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" stale-checkpoint "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"stale_checkpoint_observation"* ]]
+}
+
+@test "dangling next-probe reference blocks the chain" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" dangling-checkpoint "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"out_of_order_checkpoint"* ]]
+}
+
+@test "duplicate checkpoint ids block the chain" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" duplicate-checkpoint "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"duplicate_checkpoint"* ]]
+}
+
+@test "cyclic predecessor relation blocks the chain" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" cyclic-checkpoint "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"invalid_checkpoint_relation"* ]]
+}
+
+@test "legacy charter preserves coverage and reports linkage not measured" {
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"checkpoint_linkage=NOT_MEASURED"* ]]
 }
 
 @test "Layer 4h adds charter coverage without replacing test-environment checks" {
