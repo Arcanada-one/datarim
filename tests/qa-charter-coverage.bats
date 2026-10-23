@@ -22,6 +22,25 @@ setup() {
   [[ "$output" == *"checkpoint_linkage=NOT_MEASURED"* ]]
 }
 
+@test "relative spelling of the canonical repository root remains accepted" {
+  run bash -c 'cd "$1" && exec python3 "$2" --root repo --charter "$3" --evidence "$4"' \
+    _ "$BATS_TEST_TMPDIR" "$VALIDATOR" \
+    "$ROOT/datarim/qa/example/qa-charter.md" \
+    "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"CHARTER_COVERAGE PASS"* ]]
+}
+
+@test "direct symlink spelling of repository root is refused as invalid_root" {
+  ln -s "$ROOT" "$BATS_TEST_TMPDIR/root-alias"
+  run bash -c 'cd "$1" && exec python3 "$2" --root root-alias --charter "$3" --evidence "$4"' \
+    _ "$BATS_TEST_TMPDIR" "$VALIDATOR" \
+    "$ROOT/datarim/qa/example/qa-charter.md" \
+    "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"CHARTER_COVERAGE FAIL reason=invalid_root"* ]]
+}
+
 @test "explicit null checkpoint_chain is rejected instead of treated as legacy omission" {
   python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" null-checkpoint-chain "$ROOT"
   run python3 "$VALIDATOR" --root "$ROOT" \

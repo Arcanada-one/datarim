@@ -376,12 +376,15 @@ def main() -> int:
     parser.add_argument("--evidence", required=True, help="immutable run-<UTC>/evidence.json")
     args = parser.parse_args()
     try:
-        root_candidate = Path(args.root).resolve(strict=True)
+        root_argument = Path(args.root)
+        if root_argument.is_symlink():
+            fail("invalid_root", "--root must be the non-symlink git repository root")
+        root_candidate = root_argument.resolve(strict=True)
         root = Path(subprocess.check_output(
             ["git", "-C", str(root_candidate), "rev-parse", "--show-toplevel"],
             text=True, stderr=subprocess.DEVNULL, timeout=5,
         ).strip()).resolve(strict=True)
-        if root != root_candidate or root_candidate.is_symlink():
+        if root != root_candidate:
             fail("invalid_root", "--root must be the non-symlink git repository root")
         charter = input_file(args.charter, root, "charter")
         evidence = input_file(args.evidence, root, "evidence")
