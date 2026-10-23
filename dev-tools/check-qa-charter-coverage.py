@@ -160,7 +160,93 @@ def parse_charter(path: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]]
             if not isinstance(probe.get("required"), bool) or not is_text(probe.get("description")):
                 fail("invalid_charter", f"probe {probe_id}: required and description are required")
             probes[probe_id] = probe
+        linkage = behaviour.get("checkpoint_chain")
+        if linkage is not None and (
+            not isinstance(linkage, dict)
+            or set(linkage) != {"required"}
+            or not isinstance(linkage.get("required"), bool)
+        ):
+            fail("invalid_charter", f"behaviour {behaviour_id}: checkpoint_chain must contain boolean required")
+        if isinstance(linkage, dict) and linkage["required"] and len(behaviour["probes"]) < 2:
+            fail("invalid_charter", f"behaviour {behaviour_id}: a required checkpoint chain needs at least two probes")
     return charter, probes
+
+
+def validate_checkpoint_chains(
+    charter: dict[str, Any], probes: dict[str, dict[str, Any]], evidence: dict[str, Any],
+    seen: dict[str, dict[str, Any]], run_dir: Path,
+) -> int | None:
+    """Validate explicitly requested chains; None means legacy linkage is unmeasured."""
+    behaviours = {item["id"]: item for item in charter["behaviours"]}
+    required = {key for key, value in behaviours.items()
+                if isinstance(value.get("checkpoint_chain"), dict)
+                and value["checkpoint_chain"].get("required") is True}
+    chains = evidence.get("checkpoint_chains")
+    if chains is None:
+        if required:
+            fail("missing_checkpoint_chain", "charter requires checkpoint linkage but evidence has no checkpoint_chains")
+        return None
+    if not isinstance(chains, list):
+        fail("invalid_checkpoint_chain", "checkpoint_chains must be an array")
+
+    by_behaviour: dict[str, dict[str, Any]] = {}
+    checkpoint_ids: set[str] = set()
+    for chain in chains:
+        if not isinstance(chain, dict) or set(chain) != {"behaviour_id", "checkpoints"}:
+            fail("invalid_checkpoint_chain", "each chain needs exactly behaviour_id and checkpoints")
+        behaviour_id = chain.get("behaviour_id")
+        if not is_text(behaviour_id) or behaviour_id not in behaviours or behaviour_id in by_behaviour:
+            fail("invalid_checkpoint_chain", "chain behaviour is undeclared or duplicated")
+        checkpoints = chain.get("checkpoints")
+        if not isinstance(checkpoints, list) or len(checkpoints) < 2:
+            fail("invalid_checkpoint_chain", f"behaviour {behaviour_id}: chain needs at least two checkpoints")
+        declared_probe_ids = {item["id"] for item in behaviours[behaviour_id]["probes"]}
+        probe_sequence: list[str] = []
+        for index, point in enumerate(checkpoints):
+            if not isinstance(point, dict) or set(point) != {
+                "id", "prior_checkpoint_id", "probe_id", "observation_sha256",
+                "artifact_sha256", "hypothesis", "next_probe_id",
+            }:
+                fail("invalid_checkpoint_chain", "checkpoint fields do not match the declared contract")
+            checkpoint_id = point.get("id")
+            probe_id = point.get("probe_id")
+            if (not is_text(checkpoint_id) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", checkpoint_id)
+                    or checkpoint_id in checkpoint_ids):
+                fail("duplicate_checkpoint", "checkpoint ids must be valid and globally unique")
+            checkpoint_ids.add(checkpoint_id)
+            if not is_text(probe_id) or probe_id not in declared_probe_ids or probe_id not in seen:
+                fail("dangling_checkpoint_probe", f"checkpoint {checkpoint_id} does not bind an evidenced probe in its behaviour")
+            entry = seen[probe_id]
+            if entry.get("outcome") != "pass":
+                fail("checkpoint_probe_not_pass", f"checkpoint {checkpoint_id} refers to a non-passing probe")
+            if not SHA256.fullmatch(str(point.get("observation_sha256") or "")) or point["observation_sha256"] != digest(entry["observed"].encode("utf-8")):
+                fail("stale_checkpoint_observation", f"checkpoint {checkpoint_id} does not bind the exact prior observation")
+            artifact = entry.get("artifact")
+            if not isinstance(artifact, dict) or point.get("artifact_sha256") != artifact.get("sha256"):
+                fail("stale_checkpoint_artifact", f"checkpoint {checkpoint_id} does not bind the prior artifact digest")
+            # The ordinary probe pass has already checked the artifact's path and bytes.
+            if not is_text(point.get("hypothesis")):
+                fail("invalid_checkpoint_hypothesis", f"checkpoint {checkpoint_id} needs a concrete hypothesis")
+            next_probe = point.get("next_probe_id")
+            if index < len(checkpoints) - 1:
+                next_point = checkpoints[index + 1]
+                if not isinstance(next_point, dict) or next_probe != next_point.get("probe_id"):
+                    fail("out_of_order_checkpoint", f"checkpoint {checkpoint_id} must point to the next listed checkpoint probe")
+                if point.get("prior_checkpoint_id") != (None if index == 0 else checkpoints[index - 1].get("id")):
+                    fail("invalid_checkpoint_relation", f"checkpoint {checkpoint_id} has a dangling, cyclic, or out-of-order predecessor")
+            else:
+                if next_probe is not None or point.get("prior_checkpoint_id") != checkpoints[index - 1].get("id"):
+                    fail("invalid_checkpoint_relation", f"checkpoint {checkpoint_id} must terminate the ordered chain")
+            probe_sequence.append(probe_id)
+        if len(set(probe_sequence)) != len(probe_sequence):
+            fail("checkpoint_cycle", f"behaviour {behaviour_id}: a probe may appear only once in the chain")
+        by_behaviour[behaviour_id] = chain
+    missing = required - set(by_behaviour)
+    if missing:
+        fail("missing_checkpoint_chain", "required checkpoint chain missing: " + ",".join(sorted(missing)))
+    if not by_behaviour:
+        return None
+    return sum(len(chain["checkpoints"]) - 1 for chain in by_behaviour.values())
 
 
 def run_revision(root: Path) -> str:
@@ -230,7 +316,7 @@ def verify_artifact(run_dir: Path, artifact: Any, root: Path, probe_id: str) -> 
         fail("artifact_digest_mismatch", f"probe {probe_id}: artifact bytes do not match sha256")
 
 
-def validate(root: Path, charter_path: Path, evidence_path: Path) -> tuple[int, int, int, str]:
+def validate(root: Path, charter_path: Path, evidence_path: Path) -> tuple[int, int, int, str, int | None]:
     charter, probes = parse_charter(charter_path)
     evidence = load_json(evidence_path, "invalid_evidence")
     if not isinstance(evidence, dict) or evidence.get("schema") != EVIDENCE_SCHEMA:
@@ -279,7 +365,8 @@ def validate(root: Path, charter_path: Path, evidence_path: Path) -> tuple[int, 
     nonpass = [probe_id for probe_id in required if seen[probe_id]["outcome"] != "pass"]
     if nonpass:
         fail("required_probe_not_pass", "required probe outcome is not pass: " + ",".join(nonpass))
-    return len(required), len(seen), len(probes) - len(seen), revision
+    linked = validate_checkpoint_chains(charter, probes, evidence, seen, run_dir)
+    return len(required), len(seen), len(probes) - len(seen), revision, linked
 
 
 def main() -> int:
@@ -298,7 +385,7 @@ def main() -> int:
             fail("invalid_root", "--root must be the non-symlink git repository root")
         charter = input_file(args.charter, root, "charter")
         evidence = input_file(args.evidence, root, "evidence")
-        required, recorded, optional_missing, revision = validate(root, charter, evidence)
+        required, recorded, optional_missing, revision, linked = validate(root, charter, evidence)
     except CoverageError as exc:
         print(f"CHARTER_COVERAGE FAIL reason={exc.code}: {exc}")
         return 1
@@ -307,7 +394,8 @@ def main() -> int:
         return 1
     print(
         f"CHARTER_COVERAGE PASS required={required} recorded={recorded} "
-        f"optional_unrecorded={optional_missing} source_revision={revision}"
+        f"optional_unrecorded={optional_missing} source_revision={revision} "
+        f"checkpoint_linkage={'PASS transitions=' + str(linked) if linked is not None else 'NOT_MEASURED'}"
     )
     return 0
 
