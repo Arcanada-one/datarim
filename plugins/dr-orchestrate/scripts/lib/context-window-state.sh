@@ -188,21 +188,37 @@ ctx_trace_safe_state() {
   esac
 }
 
+ctx_test_monotonic_time() {
+  perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e 'printf "%.9f\n", clock_gettime(CLOCK_MONOTONIC)' 2>/dev/null || printf unavailable
+}
+
 ctx_test_trace() {
   ctx_test_diagnostics_enabled || return 0
   local event="$1" lock="${2:-}" kind="${3:-none}" owner_pid="${4:-none}" owner_birth="${5:-none}"
   local current_birth="${6:-none}" probe_rc="${7:-none}" outcome="${8:-none}" root="${9:-}"
-  local matches="${10:-none}" state="${11:-none}" lock_identity=absent root_identity=absent caller="$$" caller_birth ts
+  local matches="${10:-none}" state="${11:-none}" lock_identity=absent root_identity=absent caller="${BASHPID:-$$}" caller_birth ts mono_s sequence
   local extra="${12:-none}"
+  if [ "${CTX_TEST_TRACE_PID:-}" != "$caller" ]; then
+    CTX_TEST_TRACE_PID="$caller"; CTX_TEST_TRACE_SEQ=0
+  fi
+  case "${CTX_TEST_TRACE_SEQ:-0}" in ''|*[!0-9]*) CTX_TEST_TRACE_SEQ=0 ;; esac
+  CTX_TEST_TRACE_SEQ=$((10#${CTX_TEST_TRACE_SEQ:-0} + 1)); sequence="$CTX_TEST_TRACE_SEQ"
   caller_birth="$(ctx_process_birth "$caller" 2>/dev/null || printf unavailable)"
   ts="$(date -u +%s.%N)"
+  mono_s="$(ctx_test_monotonic_time 2>/dev/null || printf unavailable)"
   [ "$owner_birth" != self ] || owner_birth="$(ctx_process_birth "$owner_pid" 2>/dev/null || printf unavailable)"
   [ "$current_birth" != self ] || current_birth="$(ctx_process_birth "$owner_pid" 2>/dev/null || printf unavailable)"
+  if [ -z "$root" ]; then
+    case "$kind:$lock" in
+      lifecycle:*/instances/.lifecycle.lock) root="${lock%/instances/.lifecycle.lock}" ;;
+      transaction-store:*/transactions/.store.lock) root="${lock%/transactions/.store.lock}" ;;
+    esac
+  fi
   if [ -n "$lock" ] && [ -d "$lock" ]; then lock_identity="$(ctx_path_identity "$lock" 2>/dev/null || printf unavailable)"; fi
   if [ -n "$root" ] && [ -d "$root" ]; then root_identity="$(ctx_path_identity "$root" 2>/dev/null || printf unavailable)"; fi
   state="$(ctx_trace_safe_state "$state")"
-  printf 'D5_PREPARE_TRACE/1 ts=%s event=%s caller_pid=%s caller_birth=%s lock_kind=%s lock_identity=%s owner_pid=%s owner_birth=%s current_birth=%s probe_rc=%s outcome=%s root_identity=%s instance_scope=fixture scan_matches=%s tx_state=%s extra=%s\n' \
-    "$ts" "$event" "$caller" "$caller_birth" "$kind" "$lock_identity" "$owner_pid" "$owner_birth" \
+  printf 'D5_PREPARE_TRACE/1 ts=%s mono_s=%s seq=%s event=%s caller_pid=%s caller_birth=%s lock_kind=%s lock_identity=%s owner_pid=%s owner_birth=%s current_birth=%s probe_rc=%s outcome=%s root_identity=%s instance_scope=fixture scan_matches=%s tx_state=%s extra=%s\n' \
+    "$ts" "$mono_s" "$sequence" "$event" "$caller" "$caller_birth" "$kind" "$lock_identity" "$owner_pid" "$owner_birth" \
     "$current_birth" "$probe_rc" "$outcome" "$root_identity" "$matches" "$state" "$extra" >&2 || true
   return 0
 }
