@@ -717,7 +717,7 @@ shutdown_yield = "    time.sleep(0)  # TEST_DEADLINE_STALL_MUTATION\n"
 shutdown_race = (
     shutdown_yield
     + "    os.kill(os.getpid(), signal.SIGALRM)  # TEST_PENDING_TERMINAL_SIGNAL\n"
-    + "    time.sleep(0.25)  # TEST_LOGICAL_DEADLINE_SHUTDOWN_RACE\n"
+    + "    time.sleep(0.30)  # TEST_LOGICAL_DEADLINE_SHUTDOWN_RACE\n"
 )
 run_bounded_start = source.index("def run_bounded_process(")
 run_bounded_end = source.index("\nsignal.signal(", run_bounded_start)
