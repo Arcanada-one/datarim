@@ -145,14 +145,22 @@ ctx_process_birth() {
 }
 
 ctx_process_live() {
-  local pid="$1" state
+  local pid="$1" state lock="${2:-}" kind="${3:-none}" owner_birth="${4:-none}" current_birth="${5:-none}" result probe_rc=not-evaluated outcome
   [[ "$pid" =~ ^[0-9]+$ ]] || return 1
   if [ -r "/proc/$pid/stat" ]; then
     state="$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null || true)"
   else
     state="$(ps -p "$pid" -o stat= 2>/dev/null | awk 'NR==1{print substr($1,1,1)}')"
   fi
-  case "$state" in Z|X|'') return 1 ;; *) kill -0 "$pid" 2>/dev/null ;; esac
+  case "$state" in
+    Z|X|'') result=1; outcome=non-live-state ;;
+    *) if kill -0 "$pid" 2>/dev/null; then result=0; probe_rc=0; else result=$?; probe_rc="$result"; fi; outcome=kill-0 ;;
+  esac
+  ctx_test_trace owner-live-probe "$lock" "$kind" "$pid" "$owner_birth" "$current_birth" "$probe_rc" "$outcome"
+  if [[ "${DR_ORCH_TEST_DIAGNOSTICS:-}" == prepare-lock-v1 && "${DR_ORCH_TEST_ALLOW_UNBOUND:-0}" == 1 ]]; then
+    CTX_TEST_LIVENESS_RC="$result"
+  fi
+  return "$result"
 }
 
 ctx_path_identity() {
@@ -163,53 +171,148 @@ ctx_path_identity() {
   ' "$1"
 }
 
+# Diagnostic-only events for the isolated prepare Bats fixture. The existing
+# test opt-in is required as a second fence; no paths or ambient state are logged.
+ctx_lock_kind() {
+  case "$1" in */instances/.lifecycle.lock) printf lifecycle ;; */transactions/.store.lock) printf transaction-store ;; *) printf other ;; esac
+}
+
+ctx_test_diagnostics_enabled() {
+  [[ "${DR_ORCH_TEST_DIAGNOSTICS:-}" == prepare-lock-v1 && "${DR_ORCH_TEST_ALLOW_UNBOUND:-0}" == 1 ]]
+}
+
+ctx_trace_safe_state() {
+  case "$1" in
+    none|prepared|clear_claimed|clear_dispatched|compact_claimed|compact_dispatched|compact_complete_claimed|resume_claimed|resume_dispatched|completed|aborted) printf '%s' "$1" ;;
+    *) printf unknown ;;
+  esac
+}
+
+ctx_test_trace() {
+  ctx_test_diagnostics_enabled || return 0
+  local event="$1" lock="${2:-}" kind="${3:-none}" owner_pid="${4:-none}" owner_birth="${5:-none}"
+  local current_birth="${6:-none}" probe_rc="${7:-none}" outcome="${8:-none}" root="${9:-}"
+  local matches="${10:-none}" state="${11:-none}" lock_identity=absent root_identity=absent caller="$$" caller_birth ts
+  local extra="${12:-none}"
+  caller_birth="$(ctx_process_birth "$caller" 2>/dev/null || printf unavailable)"
+  ts="$(date -u +%s.%N)"
+  [ "$owner_birth" != self ] || owner_birth="$(ctx_process_birth "$owner_pid" 2>/dev/null || printf unavailable)"
+  [ "$current_birth" != self ] || current_birth="$(ctx_process_birth "$owner_pid" 2>/dev/null || printf unavailable)"
+  if [ -n "$lock" ] && [ -d "$lock" ]; then lock_identity="$(ctx_path_identity "$lock" 2>/dev/null || printf unavailable)"; fi
+  if [ -n "$root" ] && [ -d "$root" ]; then root_identity="$(ctx_path_identity "$root" 2>/dev/null || printf unavailable)"; fi
+  state="$(ctx_trace_safe_state "$state")"
+  printf 'D5_PREPARE_TRACE/1 ts=%s event=%s caller_pid=%s caller_birth=%s lock_kind=%s lock_identity=%s owner_pid=%s owner_birth=%s current_birth=%s probe_rc=%s outcome=%s root_identity=%s instance_scope=fixture scan_matches=%s tx_state=%s extra=%s\n' \
+    "$ts" "$event" "$caller" "$caller_birth" "$kind" "$lock_identity" "$owner_pid" "$owner_birth" \
+    "$current_birth" "$probe_rc" "$outcome" "$root_identity" "$matches" "$state" "$extra" >&2 || true
+  return 0
+}
+
 ctx_lock_reclaim_stale_owner() {
   local lock="$1" expected_identity="$2" expected_pid="$3" expected_birth="$4"
-  local owner="$lock/owner" claim="$lock/.reclaim" identity pid birth current stale
+  local owner="$lock/owner" claim="$lock/.reclaim" identity pid birth current stale kind=none
+  if ctx_test_diagnostics_enabled; then kind="$(ctx_lock_kind "$lock")"; fi
+  ctx_test_trace reclaim-start "$lock" "$kind" "$expected_pid" "$expected_birth" none none requested
 
-  mkdir "$claim" 2>/dev/null || return 1
+  if ! mkdir "$claim" 2>/dev/null; then
+    ctx_test_trace reclaim-claim "$lock" "$kind" "$expected_pid" "$expected_birth" none none unavailable
+    return 1
+  fi
   identity="$(ctx_path_identity "$lock" 2>/dev/null || true)"
   if [ "$identity" != "$expected_identity" ] || ! ctx_secure_regular "$owner" 600; then
+    ctx_test_trace reclaim-validation "$lock" "$kind" "$expected_pid" "$expected_birth" none none identity-or-owner-unavailable
     rmdir "$claim" 2>/dev/null || true
     return 1
   fi
   read -r pid birth <"$owner" || true
   current="$(ctx_process_birth "$pid" 2>/dev/null || true)"
+  if [[ "${DR_ORCH_TEST_DIAGNOSTICS:-}" == prepare-lock-v1 && "${DR_ORCH_TEST_ALLOW_UNBOUND:-0}" == 1 ]]; then CTX_TEST_LIVENESS_RC=not-evaluated; fi
   if [ "$pid" != "$expected_pid" ] || [ "$birth" != "$expected_birth" ] \
     || ! [[ "$pid" =~ ^[0-9]+$ && -n "$birth" ]] \
-    || { [ "$current" = "$birth" ] && ctx_process_live "$pid"; }; then
+    || { [ "$current" = "$birth" ] && ctx_process_live "$pid" "$lock" "$kind" "$birth" "$current"; }; then
+    ctx_test_trace reclaim-validation "$lock" "$kind" "$pid" "$birth" "$current" "${CTX_TEST_LIVENESS_RC:-not-evaluated}" retained
     rmdir "$claim" 2>/dev/null || true
     return 1
   fi
+  ctx_test_trace reclaim-validation "$lock" "$kind" "$pid" "$birth" "$current" "${CTX_TEST_LIVENESS_RC:-not-evaluated}" stale
 
   stale="${lock}.stale.$$.$RANDOM"
   if ! mv "$lock" "$stale" 2>/dev/null; then
+    ctx_test_trace reclaim-rename "$lock" "$kind" "$pid" "$birth" "$current" none failed
     rmdir "$claim" 2>/dev/null || true
     return 1
   fi
+  ctx_test_trace reclaim-rename "$stale" "$kind" "$pid" "$birth" "$current" none renamed
   rm -f "$stale/owner"
   rmdir "$stale/.reclaim" "$stale" 2>/dev/null || return 1
 }
 
 ctx_lock_acquire() {
-  local lock="$1" tries=0 owner pid birth current identity
+  local lock="$1" tries=0 owner pid birth current identity kind=none probe_rc mkdir_rc owner_write_rc owner_mode_rc owner_write_outcome owner_mode_outcome
+  if ctx_test_diagnostics_enabled; then kind="$(ctx_lock_kind "$lock")"; fi
   owner="$lock/owner"
-  while ! mkdir "$lock" 2>/dev/null; do
+  ctx_test_trace lock-acquire-start "$lock" "$kind"
+  while :; do
+    if mkdir "$lock" 2>/dev/null; then break; else mkdir_rc=$?; fi
+    ctx_test_trace lock-mkdir-result "$lock" "$kind" none none none "$mkdir_rc" failed
+    pid= birth= current=
     identity="$(ctx_path_identity "$lock" 2>/dev/null || true)"
     if ctx_secure_regular "$owner" 600; then
       read -r pid birth <"$owner" || true
       current="$(ctx_process_birth "$pid" 2>/dev/null || true)"
-      if [[ "$pid" =~ ^[0-9]+$ && -n "$birth" ]] && { [ "$current" != "$birth" ] || ! ctx_process_live "$pid"; }; then
-        ctx_lock_reclaim_stale_owner "$lock" "$identity" "$pid" "$birth" && continue
+      if [[ "${DR_ORCH_TEST_DIAGNOSTICS:-}" == prepare-lock-v1 && "${DR_ORCH_TEST_ALLOW_UNBOUND:-0}" == 1 ]]; then CTX_TEST_LIVENESS_RC=not-evaluated; fi
+      if [[ "$pid" =~ ^[0-9]+$ && -n "$birth" ]] && { [ "$current" != "$birth" ] || ! ctx_process_live "$pid" "$lock" "$kind" "$birth" "$current"; }; then
+        probe_rc="${CTX_TEST_LIVENESS_RC:-not-evaluated}"
+        ctx_test_trace owner-predicate "$lock" "$kind" "$pid" "$birth" "$current" "$probe_rc" reclaim-candidate
+        ctx_test_trace reclaim-candidate "$lock" "$kind" "$pid" "$birth" "$current" "$probe_rc" requested
+        if ctx_lock_reclaim_stale_owner "$lock" "$identity" "$pid" "$birth"; then
+          ctx_test_trace reclaim-result "$lock" "$kind" "$pid" "$birth" "$current" "$probe_rc" reclaimed
+          continue
+        else
+          ctx_test_trace reclaim-result "$lock" "$kind" "$pid" "$birth" "$current" "$probe_rc" not-reclaimed
+        fi
+      else
+        probe_rc="${CTX_TEST_LIVENESS_RC:-not-evaluated}"
+        ctx_test_trace owner-predicate "$lock" "$kind" "$pid" "$birth" "$current" "$probe_rc" retain
       fi
+    else
+      ctx_test_trace owner-unavailable "$lock" "$kind" none none none none not-secure
     fi
-    tries=$((tries + 1)); [ "$tries" -lt 300 ] || return 1
+    tries=$((tries + 1))
+    if [ "$tries" -ge 300 ]; then
+      ctx_test_trace lock-acquire-timeout "$lock" "$kind" "${pid:-none}" "${birth:-none}" "${current:-none}" "$mkdir_rc" timeout '' none none "$tries"
+      return 1
+    fi
     sleep 0.01
   done
-  printf '%s %s\n' "$$" "$(ctx_process_birth "$$")" >"$owner"; chmod 600 "$owner"
+  ctx_test_trace lock-mkdir-acquired "$lock" "$kind" "$$" self none none acquired
+  ctx_test_trace owner-publish-start "$lock" "$kind" "$$" none none none started
+  printf '%s %s\n' "$$" "$(ctx_process_birth "$$")" >"$owner"
+  owner_write_rc=$?
+  if [ "$owner_write_rc" -eq 0 ]; then owner_write_outcome=written; else owner_write_outcome=failed; fi
+  ctx_test_trace owner-record-write-result "$lock" "$kind" "$$" self self "$owner_write_rc" "$owner_write_outcome"
+  chmod 600 "$owner"
+  owner_mode_rc=$?
+  if [ "$owner_write_rc" -eq 0 ] && [ "$owner_mode_rc" -eq 0 ]; then owner_mode_outcome=published; else owner_mode_outcome=failed; fi
+  ctx_test_trace owner-mode-result "$lock" "$kind" "$$" self self "$owner_mode_rc" "$owner_mode_outcome"
+  return "$owner_mode_rc"
 }
 
-ctx_lock_release() { rm -f "$1/owner"; rmdir "$1" 2>/dev/null || true; }
+ctx_lock_release() {
+  local lock="$1" kind
+  kind=none
+  if ctx_test_diagnostics_enabled; then kind="$(ctx_lock_kind "$lock")"; fi
+  ctx_test_trace lock-release-start "$lock" "$kind" "$$" self none none starting
+  rm -f "$lock/owner"
+  local rm_rc=$?
+  local rm_outcome failed_outcome
+  if [ "$rm_rc" -eq 0 ]; then rm_outcome=removed; else rm_outcome=failed; fi
+  ctx_test_trace lock-owner-remove-result "$lock" "$kind" "$$" self none "$rm_rc" "$rm_outcome"
+  local rmdir_rc
+  if rmdir "$lock" 2>/dev/null; then rmdir_rc=0; else rmdir_rc=$?; fi
+  if [ "$rmdir_rc" -eq 0 ]; then failed_outcome=removed; else failed_outcome=failed; fi
+  ctx_test_trace lock-directory-remove-result "$lock" "$kind" "$$" self none "$rmdir_rc" "$failed_outcome"
+  return 0
+}
 
 ctx_instance_safe() { [[ "$1" =~ ^[a-f0-9]{32}$ ]]; }
 ctx_incarnation_safe() { [[ "$1" =~ ^[a-f0-9]{32}$ ]]; }

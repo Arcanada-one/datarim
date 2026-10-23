@@ -68,6 +68,10 @@ def main() -> None:
     outcomes = ["pass", "pass"]
     if mode == "not-run":
         outcomes[0] = "not run"
+    elif mode == "invalid-outcome-list":
+        outcomes[0] = []
+    elif mode == "invalid-outcome-object":
+        outcomes[0] = {}
     probes = [
         {
             "id": "returns-result",
