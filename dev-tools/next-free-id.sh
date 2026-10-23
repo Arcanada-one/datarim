@@ -89,37 +89,70 @@ fi
 _D5_TRACE_SEQUENCE=0
 _D5_TRACE_EVENTS=0
 _D5_TRACE_EVENT_LIMIT=64
+_D5_TRACE_CUTOFF=0
+_D5_TRACE_START_NS=""
+_D5_TRACE_NOW_NS="unknown"
 _D5_TRACE_ROOT=""
 _D5_TRACE_STORE=""
 _D5_TRACE_ROOT_DEVINO="unknown"
 _D5_TRACE_STORE_DEVINO="unknown"
 
 _d5_trace_can_emit() {
-    [[ "${_D5_TRACE_ENABLED:-0}" == "1" ]] && (( _D5_TRACE_EVENTS < _D5_TRACE_EVENT_LIMIT ))
+    [[ "${_D5_TRACE_ENABLED:-0}" == "1" && "${_D5_TRACE_CUTOFF:-0}" == "0" ]] \
+        && (( _D5_TRACE_EVENTS < _D5_TRACE_EVENT_LIMIT ))
+}
+
+# Soft sampling cutoff for trace-only probes. The monotonic-clock process used
+# to check the boundary is itself in-flight work and may exceed five seconds;
+# after it returns, no later probe is scheduled once the cutoff has elapsed.
+_d5_trace_check_time() {
+    _d5_trace_can_emit || return 1
+    local now
+    if ! now="$(perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC \
+        -e 'printf "%.0f\n", clock_gettime(CLOCK_MONOTONIC) * 1000000000' 2>/dev/null)" \
+        || ! [[ "$now" =~ ^[0-9]+$ ]]; then
+        _D5_TRACE_CUTOFF=1
+        _D5_TRACE_NOW_NS="unknown"
+        return 1
+    fi
+    if [[ -z "$_D5_TRACE_START_NS" ]]; then
+        _D5_TRACE_START_NS="$now"
+    elif (( now - _D5_TRACE_START_NS >= 5000000000 )); then
+        _D5_TRACE_CUTOFF=1
+        _D5_TRACE_NOW_NS="unknown"
+        return 1
+    fi
+    _D5_TRACE_NOW_NS="$now"
+    return 0
 }
 
 _d5_trace_identity() {
-    _d5_trace_can_emit || { printf 'unknown'; return 0; }
+    _D5_TRACE_IDENTITY_RESULT="unknown"
+    _d5_trace_can_emit || return 0
     local path="$1" identity
+    _d5_trace_check_time || return 0
     if identity="$(stat -Lc '%d:%i' -- "$path" 2>/dev/null)"; then
         :
-    elif identity="$(stat -f '%d:%i' "$path" 2>/dev/null)"; then
-        :
     else
-        identity="unknown"
+        if _d5_trace_check_time; then
+            if identity="$(stat -f '%d:%i' "$path" 2>/dev/null)"; then
+                :
+            else
+                identity="unknown"
+            fi
+        else
+            identity="unknown"
+        fi
     fi
-    if [[ "$identity" =~ ^[0-9]+:[0-9]+$ ]]; then
-        printf '%s' "$identity"
-    else
-        printf 'unknown'
-    fi
+    [[ "$identity" =~ ^[0-9]+:[0-9]+$ ]] && _D5_TRACE_IDENTITY_RESULT="$identity"
+    return 0
 }
 
 _d5_trace_event() {
     _d5_trace_can_emit || return 0
     local event="$1" candidate="${2:-unknown}" marker_devino="unknown"
     local epoch="${3:-unknown}" age="${4:-unknown}" ttl="${5:-unknown}"
-    local operation_rc="${6:-unknown}" decision="${7:-none}" marker line
+    local operation_rc="${6:-unknown}" decision="${7:-none}" marker line mono_ns
 
     case "$event" in
         reserve_dir_create|gc_age|gc_remove|gc_remove_result|claim_probe|candidate_probe|initial_mkdir|stale_age|stale_predicate|reclaim_decision|reclaim_remove|reclaim_remove_result|reclaim_mkdir|stamp_epoch|stamp_pid|publish_marker|stdout_attempt|release_remove|release_remove_result)
@@ -137,17 +170,25 @@ _d5_trace_event() {
         *) decision="unknown" ;;
     esac
 
-    if [[ "$candidate" != "unknown" && -d "${_D5_TRACE_STORE}/${candidate}" ]]; then
+    if [[ "$candidate" != "unknown" ]]; then
         marker="${_D5_TRACE_STORE}/${candidate}"
-        marker_devino="$(_d5_trace_identity "$marker")"
+        _d5_trace_check_time || return 0
+        if [[ -d "$marker" ]]; then
+            _d5_trace_identity "$marker"
+            marker_devino="$_D5_TRACE_IDENTITY_RESULT"
+        fi
     fi
+    # The time-check clock call is the final diagnostic-only probe for this
+    # event and supplies its timestamp. It may itself run beyond the soft cap.
+    _d5_trace_check_time || return 0
+    mono_ns="$_D5_TRACE_NOW_NS"
     _D5_TRACE_SEQUENCE=$((_D5_TRACE_SEQUENCE + 1))
     _D5_TRACE_EVENTS=$((_D5_TRACE_EVENTS + 1))
-    printf -v line '%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s' \
+    printf -v line '%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s' \
         "$_D5_TRACE_SEQUENCE" "$$" "$event" "$candidate" \
         "$_D5_TRACE_ROOT_DEVINO" "$_D5_TRACE_STORE_DEVINO" "$marker_devino" \
-        "$epoch" "$age" "$ttl" "$operation_rc" "$decision"
-    if (( ${#line} > 512 )); then return 0; fi
+        "$epoch" "$age" "$ttl" "$operation_rc" "$decision" "$mono_ns"
+    if (( ${#line} + 1 > 512 )); then return 0; fi
     if printf '%s\n' "$line" 2>/dev/null >&9; then :; else :; fi
     return 0
 }
@@ -173,10 +214,10 @@ if [[ "${1:-}" == "--release" ]]; then
         _D5_TRACE_ROOT="$REL_ROOT"
         _D5_TRACE_STORE="${REL_ROOT}/${RESERVATION_SUBDIR}"
         if _d5_trace_can_emit; then
-            _D5_TRACE_ROOT_DEVINO="$(_d5_trace_identity "$REL_ROOT")"
-            if [[ -d "$_D5_TRACE_STORE" ]]; then
-                _D5_TRACE_STORE_DEVINO="$(_d5_trace_identity "$_D5_TRACE_STORE")"
-            fi
+            _d5_trace_identity "$REL_ROOT"
+            _D5_TRACE_ROOT_DEVINO="$_D5_TRACE_IDENTITY_RESULT"
+            _d5_trace_identity "$_D5_TRACE_STORE"
+            _D5_TRACE_STORE_DEVINO="$_D5_TRACE_IDENTITY_RESULT"
             _d5_trace_event release_remove "$REL_ID" unknown unknown unknown unknown attempt
         fi
         if _d5_trace_can_emit; then
@@ -516,10 +557,10 @@ if [[ "$_D5_TRACE_ENABLED" == "1" ]]; then
             _D5_TRACE_RESERVE_DIR_DECISION=unknown
         fi
         if _d5_trace_can_emit; then
-            _D5_TRACE_ROOT_DEVINO="$(_d5_trace_identity "$DATARIM_ROOT")"
-            if [[ -d "$RESERVE_DIR" ]]; then
-                _D5_TRACE_STORE_DEVINO="$(_d5_trace_identity "$RESERVE_DIR")"
-            fi
+            _d5_trace_identity "$DATARIM_ROOT"
+            _D5_TRACE_ROOT_DEVINO="$_D5_TRACE_IDENTITY_RESULT"
+            _d5_trace_identity "$RESERVE_DIR"
+            _D5_TRACE_STORE_DEVINO="$_D5_TRACE_IDENTITY_RESULT"
             _d5_trace_event reserve_dir_create unknown unknown unknown "$RESERVATION_TTL" "$_D5_TRACE_RESERVE_DIR_RC" "$_D5_TRACE_RESERVE_DIR_DECISION"
         fi
     else
