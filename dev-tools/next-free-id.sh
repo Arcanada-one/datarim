@@ -80,6 +80,78 @@ MAX_ID_NUM=9999
 
 RESERVATION_SUBDIR="datarim/.id-reservations"
 
+# Test-only, opt-in diagnostic trace. Production behavior is unchanged unless
+# the focused R01 test explicitly sets _D5_TUNE0285_TRACE=1 and passes FD 9.
+_D5_TRACE_ENABLED=0
+if [[ "${_D5_TUNE0285_TRACE:-}" == "1" ]]; then
+    _D5_TRACE_ENABLED=1
+fi
+_D5_TRACE_SEQUENCE=0
+_D5_TRACE_EVENTS=0
+_D5_TRACE_EVENT_LIMIT=64
+_D5_TRACE_ROOT=""
+_D5_TRACE_STORE=""
+_D5_TRACE_ROOT_DEVINO="unknown"
+_D5_TRACE_STORE_DEVINO="unknown"
+
+_d5_trace_can_emit() {
+    [[ "${_D5_TRACE_ENABLED:-0}" == "1" ]] && (( _D5_TRACE_EVENTS < _D5_TRACE_EVENT_LIMIT ))
+}
+
+_d5_trace_identity() {
+    _d5_trace_can_emit || { printf 'unknown'; return 0; }
+    local path="$1" identity
+    if identity="$(stat -Lc '%d:%i' -- "$path" 2>/dev/null)"; then
+        :
+    elif identity="$(stat -f '%d:%i' "$path" 2>/dev/null)"; then
+        :
+    else
+        identity="unknown"
+    fi
+    if [[ "$identity" =~ ^[0-9]+:[0-9]+$ ]]; then
+        printf '%s' "$identity"
+    else
+        printf 'unknown'
+    fi
+}
+
+_d5_trace_event() {
+    _d5_trace_can_emit || return 0
+    local event="$1" candidate="${2:-unknown}" marker_devino="unknown"
+    local epoch="${3:-unknown}" age="${4:-unknown}" ttl="${5:-unknown}"
+    local operation_rc="${6:-unknown}" decision="${7:-none}" marker line
+
+    case "$event" in
+        reserve_dir_create|gc_age|gc_remove|gc_remove_result|claim_probe|candidate_probe|initial_mkdir|stale_age|stale_predicate|reclaim_decision|reclaim_remove|reclaim_remove_result|reclaim_mkdir|stamp_epoch|stamp_pid|publish_marker|stdout_attempt|release_remove|release_remove_result)
+            ;;
+        *) event="unknown" ;;
+    esac
+    if [[ ! "$candidate" =~ ^TUNE-[0-9]{4}$ ]]; then candidate="unknown"; fi
+    if [[ ! "$epoch" =~ ^[0-9]+$ ]]; then epoch="unknown"; fi
+    if [[ ! "$age" =~ ^-?[0-9]+$ ]]; then age="unknown"; fi
+    if [[ ! "$ttl" =~ ^[0-9]+$ ]]; then ttl="unknown"; fi
+    if [[ ! "$operation_rc" =~ ^[0-9]+$ ]]; then operation_rc="unknown"; fi
+    case "$decision" in
+        none|created|fresh|stale|absent|lost|claimed_names|claimed_live|claimed_tasks|claimed_backlog|claimed_init_lock|claimed_reservation|unclaimed|published|attempt|failed|released|succeeded|unknown)
+            ;;
+        *) decision="unknown" ;;
+    esac
+
+    if [[ "$candidate" != "unknown" && -d "${_D5_TRACE_STORE}/${candidate}" ]]; then
+        marker="${_D5_TRACE_STORE}/${candidate}"
+        marker_devino="$(_d5_trace_identity "$marker")"
+    fi
+    _D5_TRACE_SEQUENCE=$((_D5_TRACE_SEQUENCE + 1))
+    _D5_TRACE_EVENTS=$((_D5_TRACE_EVENTS + 1))
+    printf -v line '%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s' \
+        "$_D5_TRACE_SEQUENCE" "$$" "$event" "$candidate" \
+        "$_D5_TRACE_ROOT_DEVINO" "$_D5_TRACE_STORE_DEVINO" "$marker_devino" \
+        "$epoch" "$age" "$ttl" "$operation_rc" "$decision"
+    if (( ${#line} > 512 )); then return 0; fi
+    if printf '%s\n' "$line" 2>/dev/null >&9; then :; else :; fi
+    return 0
+}
+
 # --release mode: `next-free-id.sh --release <ID> <DATARIM_ROOT>`
 if [[ "${1:-}" == "--release" ]]; then
     if [[ $# -lt 3 ]]; then
@@ -97,7 +169,33 @@ if [[ "${1:-}" == "--release" ]]; then
         echo "ERROR: DATARIM_ROOT '${REL_ROOT}' does not exist or is not a directory" >&2
         exit 1
     fi
-    rm -rf "${REL_ROOT:?}/${RESERVATION_SUBDIR}/${REL_ID:?}" 2>/dev/null || true
+    if [[ "$_D5_TRACE_ENABLED" == "1" ]]; then
+        _D5_TRACE_ROOT="$REL_ROOT"
+        _D5_TRACE_STORE="${REL_ROOT}/${RESERVATION_SUBDIR}"
+        if _d5_trace_can_emit; then
+            _D5_TRACE_ROOT_DEVINO="$(_d5_trace_identity "$REL_ROOT")"
+            if [[ -d "$_D5_TRACE_STORE" ]]; then
+                _D5_TRACE_STORE_DEVINO="$(_d5_trace_identity "$_D5_TRACE_STORE")"
+            fi
+            _d5_trace_event release_remove "$REL_ID" unknown unknown unknown unknown attempt
+        fi
+        if _d5_trace_can_emit; then
+            if rm -rf "${REL_ROOT:?}/${RESERVATION_SUBDIR}/${REL_ID:?}" 2>/dev/null; then
+                _D5_TRACE_RELEASE_RC=0
+                _D5_TRACE_RELEASE_DECISION=succeeded
+            else
+                _D5_TRACE_RELEASE_RC=$?
+                _D5_TRACE_RELEASE_DECISION=unknown
+            fi
+            if _d5_trace_can_emit; then
+                _d5_trace_event release_remove_result "$REL_ID" unknown unknown unknown "$_D5_TRACE_RELEASE_RC" "$_D5_TRACE_RELEASE_DECISION"
+            fi
+        else
+            rm -rf "${REL_ROOT:?}/${RESERVATION_SUBDIR}/${REL_ID:?}" 2>/dev/null || true
+        fi
+    else
+        rm -rf "${REL_ROOT:?}/${RESERVATION_SUBDIR}/${REL_ID:?}" 2>/dev/null || true
+    fi
     exit 0
 fi
 
@@ -110,6 +208,10 @@ fi
 
 PREFIX="$1"
 DATARIM_ROOT="$2"
+if [[ "$_D5_TRACE_ENABLED" == "1" ]]; then
+    _D5_TRACE_ROOT="$DATARIM_ROOT"
+    _D5_TRACE_STORE="${DATARIM_ROOT}/${RESERVATION_SUBDIR}"
+fi
 
 # Regex-validate prefix: starts uppercase, then 1–9 uppercase letters/digits (Security S1)
 if ! [[ "$PREFIX" =~ ^[A-Z][A-Z0-9]{1,9}$ ]]; then
@@ -166,10 +268,18 @@ _reservation_age() {
     now="$(date +%s)"
     epoch="$(cat "${marker}/epoch" 2>/dev/null)" || epoch=""
     if ! [[ "$epoch" =~ ^[0-9]+$ ]]; then
-        echo 0
+        if [[ "${2:-}" == "trace" ]]; then
+            printf '0\tunknown\n'
+        else
+            echo 0
+        fi
         return 0
     fi
-    echo $(( now - epoch ))
+    if [[ "${2:-}" == "trace" ]]; then
+        printf '%s\t%s\n' "$(( now - epoch ))" "$epoch"
+    else
+        echo $(( now - epoch ))
+    fi
 }
 
 # A reservation is "fresh" (counts as claimed) when its marker exists and its
@@ -177,6 +287,30 @@ _reservation_age() {
 _reservation_is_fresh() {
     local id="$1"
     local marker="${RESERVE_DIR}/${id}"
+    if _d5_trace_can_emit; then
+        local age_info age epoch predicate_rc decision
+        if [[ ! -d "$marker" ]]; then
+            _d5_trace_event stale_predicate "$id" unknown unknown "$RESERVATION_TTL" 1 absent
+            return 1
+        fi
+        age_info="$(_reservation_age "$marker" trace)"
+        age="${age_info%%$'\t'*}"
+        epoch="${age_info#*$'\t'}"
+        if (( age <= RESERVATION_TTL )); then
+            predicate_rc=0
+            decision="fresh"
+        else
+            predicate_rc=1
+            decision="stale"
+        fi
+        if _d5_trace_can_emit; then
+            _d5_trace_event stale_age "$id" "$epoch" "$age" "$RESERVATION_TTL" unknown "$decision"
+        fi
+        if _d5_trace_can_emit; then
+            _d5_trace_event stale_predicate "$id" "$epoch" "$age" "$RESERVATION_TTL" "$predicate_rc" "$decision"
+        fi
+        return "$predicate_rc"
+    fi
     [[ -d "$marker" ]] || return 1
     (( $(_reservation_age "$marker") <= RESERVATION_TTL ))
 }
@@ -187,7 +321,40 @@ _reservation_gc() {
     local marker
     for marker in "$RESERVE_DIR"/*/; do
         [[ -d "$marker" ]] || continue
-        if (( $(_reservation_age "$marker") > RESERVATION_TTL )); then
+        if _d5_trace_can_emit; then
+            local id age_info age epoch
+            id="${marker%/}"
+            id="${id##*/}"
+            age_info="$(_reservation_age "$marker" trace)"
+            age="${age_info%%$'\t'*}"
+            epoch="${age_info#*$'\t'}"
+            if (( age > RESERVATION_TTL )); then
+                if _d5_trace_can_emit; then
+                    _d5_trace_event gc_age "$id" "$epoch" "$age" "$RESERVATION_TTL" unknown stale
+                fi
+                if _d5_trace_can_emit; then
+                    _d5_trace_event gc_remove "$id" "$epoch" "$age" "$RESERVATION_TTL" unknown attempt
+                fi
+                if _d5_trace_can_emit; then
+                    if rm -rf "$marker" 2>/dev/null; then
+                        _D5_TRACE_GC_RM_RC=0
+                        _D5_TRACE_GC_RM_DECISION=succeeded
+                    else
+                        _D5_TRACE_GC_RM_RC=$?
+                        _D5_TRACE_GC_RM_DECISION=unknown
+                    fi
+                    if _d5_trace_can_emit; then
+                        _d5_trace_event gc_remove_result "$id" "$epoch" "$age" "$RESERVATION_TTL" "$_D5_TRACE_GC_RM_RC" "$_D5_TRACE_GC_RM_DECISION"
+                    fi
+                else
+                    rm -rf "$marker" 2>/dev/null || true
+                fi
+            else
+                if _d5_trace_can_emit; then
+                    _d5_trace_event gc_age "$id" "$epoch" "$age" "$RESERVATION_TTL" unknown fresh
+                fi
+            fi
+        elif (( $(_reservation_age "$marker") > RESERVATION_TTL )); then
             rm -rf "$marker" 2>/dev/null || true
         fi
     done
@@ -199,18 +366,136 @@ _reservation_gc() {
 _reservation_try() {
     local id="$1"
     local marker="${RESERVE_DIR}/${id}"
+    local initial_mkdir_rc reclaim_mkdir_rc
     if mkdir "$marker" 2>/dev/null; then
-        date +%s > "${marker}/epoch" 2>/dev/null || true
-        echo "$$" > "${marker}/pid" 2>/dev/null || true
-        return 0
-    fi
-    # Marker already exists — reclaim only if stale, else we lost the race.
-    if ! _reservation_is_fresh "$id"; then
-        rm -rf "$marker" 2>/dev/null || true
-        if mkdir "$marker" 2>/dev/null; then
+        if _d5_trace_can_emit; then
+            _d5_trace_event initial_mkdir "$id" unknown unknown "$RESERVATION_TTL" 0 created
+        fi
+        if _d5_trace_can_emit; then
+            if date +%s > "${marker}/epoch" 2>/dev/null; then
+                _D5_TRACE_EPOCH_RC=0
+            else
+                _D5_TRACE_EPOCH_RC=$?
+            fi
+            if _d5_trace_can_emit; then
+                _d5_trace_event stamp_epoch "$id" unknown unknown "$RESERVATION_TTL" "$_D5_TRACE_EPOCH_RC" attempt
+            fi
+        else
             date +%s > "${marker}/epoch" 2>/dev/null || true
+        fi
+        if _d5_trace_can_emit; then
+            if echo "$$" > "${marker}/pid" 2>/dev/null; then
+                _D5_TRACE_PID_RC=0
+            else
+                # shellcheck disable=SC2320 # Preserve the suppressed echo status for the trace.
+                _D5_TRACE_PID_RC=$?
+            fi
+            if _d5_trace_can_emit; then
+                _d5_trace_event stamp_pid "$id" unknown unknown "$RESERVATION_TTL" "$_D5_TRACE_PID_RC" attempt
+            fi
+        else
             echo "$$" > "${marker}/pid" 2>/dev/null || true
+        fi
+        if _d5_trace_can_emit; then
+            if (( _D5_TRACE_EPOCH_RC == 0 && _D5_TRACE_PID_RC == 0 )); then
+                _D5_TRACE_PUBLISH_RC=0
+                _D5_TRACE_PUBLISH_DECISION=published
+            else
+                _D5_TRACE_PUBLISH_RC=unknown
+                _D5_TRACE_PUBLISH_DECISION=unknown
+            fi
+            _d5_trace_event publish_marker "$id" unknown unknown "$RESERVATION_TTL" "$_D5_TRACE_PUBLISH_RC" "$_D5_TRACE_PUBLISH_DECISION"
+        fi
+        return 0
+    else
+        initial_mkdir_rc=$?
+        if _d5_trace_can_emit; then
+            _d5_trace_event initial_mkdir "$id" unknown unknown "$RESERVATION_TTL" "$initial_mkdir_rc" unknown
+        fi
+    fi
+
+    # Marker already exists — reclaim only if stale, else we lost the race.
+    if _d5_trace_can_emit; then
+        if _reservation_is_fresh "$id"; then
+            if _d5_trace_can_emit; then
+                _d5_trace_event reclaim_decision "$id" unknown unknown "$RESERVATION_TTL" 0 fresh
+            fi
+            return 1
+        fi
+        if _d5_trace_can_emit; then
+            _d5_trace_event reclaim_decision "$id" unknown unknown "$RESERVATION_TTL" 1 unknown
+        fi
+        if _d5_trace_can_emit; then
+            _d5_trace_event reclaim_remove "$id" unknown unknown "$RESERVATION_TTL" unknown attempt
+        fi
+        if _d5_trace_can_emit; then
+            if rm -rf "$marker" 2>/dev/null; then
+                _D5_TRACE_RECLAIM_RM_RC=0
+                _D5_TRACE_RECLAIM_RM_DECISION=succeeded
+            else
+                _D5_TRACE_RECLAIM_RM_RC=$?
+                _D5_TRACE_RECLAIM_RM_DECISION=unknown
+            fi
+            if _d5_trace_can_emit; then
+                _d5_trace_event reclaim_remove_result "$id" unknown unknown "$RESERVATION_TTL" "$_D5_TRACE_RECLAIM_RM_RC" "$_D5_TRACE_RECLAIM_RM_DECISION"
+            fi
+        else
+            rm -rf "$marker" 2>/dev/null || true
+        fi
+        if mkdir "$marker" 2>/dev/null; then
+            if _d5_trace_can_emit; then
+                _d5_trace_event reclaim_mkdir "$id" unknown unknown "$RESERVATION_TTL" 0 created
+            fi
+            if _d5_trace_can_emit; then
+                if date +%s > "${marker}/epoch" 2>/dev/null; then
+                    _D5_TRACE_EPOCH_RC=0
+                else
+                    _D5_TRACE_EPOCH_RC=$?
+                fi
+                if _d5_trace_can_emit; then
+                    _d5_trace_event stamp_epoch "$id" unknown unknown "$RESERVATION_TTL" "$_D5_TRACE_EPOCH_RC" attempt
+                fi
+            else
+                date +%s > "${marker}/epoch" 2>/dev/null || true
+            fi
+            if _d5_trace_can_emit; then
+                if echo "$$" > "${marker}/pid" 2>/dev/null; then
+                    _D5_TRACE_PID_RC=0
+                else
+                    # shellcheck disable=SC2320 # Preserve the suppressed echo status for the trace.
+                    _D5_TRACE_PID_RC=$?
+                fi
+                if _d5_trace_can_emit; then
+                    _d5_trace_event stamp_pid "$id" unknown unknown "$RESERVATION_TTL" "$_D5_TRACE_PID_RC" attempt
+                fi
+            else
+                echo "$$" > "${marker}/pid" 2>/dev/null || true
+            fi
+            if _d5_trace_can_emit; then
+                if (( _D5_TRACE_EPOCH_RC == 0 && _D5_TRACE_PID_RC == 0 )); then
+                    _D5_TRACE_PUBLISH_RC=0
+                    _D5_TRACE_PUBLISH_DECISION=published
+                else
+                    _D5_TRACE_PUBLISH_RC=unknown
+                    _D5_TRACE_PUBLISH_DECISION=unknown
+                fi
+                _d5_trace_event publish_marker "$id" unknown unknown "$RESERVATION_TTL" "$_D5_TRACE_PUBLISH_RC" "$_D5_TRACE_PUBLISH_DECISION"
+            fi
             return 0
+        else
+            reclaim_mkdir_rc=$?
+            if _d5_trace_can_emit; then
+                _d5_trace_event reclaim_mkdir "$id" unknown unknown "$RESERVATION_TTL" "$reclaim_mkdir_rc" unknown
+            fi
+        fi
+    else
+        if ! _reservation_is_fresh "$id"; then
+            rm -rf "$marker" 2>/dev/null || true
+            if mkdir "$marker" 2>/dev/null; then
+                date +%s > "${marker}/epoch" 2>/dev/null || true
+                echo "$$" > "${marker}/pid" 2>/dev/null || true
+                return 0
+            fi
         fi
     fi
     return 1
@@ -221,7 +506,28 @@ _reservation_try() {
 # name sweep below. Sweeping stale ones first keeps an abandoned marker from
 # inflating the ceiling; a FRESH one is a real claim and should raise it.
 
-mkdir -p "$RESERVE_DIR" 2>/dev/null || true
+if [[ "$_D5_TRACE_ENABLED" == "1" ]]; then
+    if _d5_trace_can_emit; then
+        if mkdir -p "$RESERVE_DIR" 2>/dev/null; then
+            _D5_TRACE_RESERVE_DIR_RC=0
+            _D5_TRACE_RESERVE_DIR_DECISION=succeeded
+        else
+            _D5_TRACE_RESERVE_DIR_RC=$?
+            _D5_TRACE_RESERVE_DIR_DECISION=unknown
+        fi
+        if _d5_trace_can_emit; then
+            _D5_TRACE_ROOT_DEVINO="$(_d5_trace_identity "$DATARIM_ROOT")"
+            if [[ -d "$RESERVE_DIR" ]]; then
+                _D5_TRACE_STORE_DEVINO="$(_d5_trace_identity "$RESERVE_DIR")"
+            fi
+            _d5_trace_event reserve_dir_create unknown unknown unknown "$RESERVATION_TTL" "$_D5_TRACE_RESERVE_DIR_RC" "$_D5_TRACE_RESERVE_DIR_DECISION"
+        fi
+    else
+        mkdir -p "$RESERVE_DIR" 2>/dev/null || true
+    fi
+else
+    mkdir -p "$RESERVE_DIR" 2>/dev/null || true
+fi
 _reservation_gc
 
 TASKS_FILE="${DATARIM_ROOT}/datarim/tasks.md"
@@ -418,22 +724,42 @@ is_claimed() {
     local id="$1"
 
     # Structural surfaces, matched loosely here on purpose.
-    if grep -qiF -- "$id" "$NAMES_FILE" 2>/dev/null; then return 0; fi
-    if grep -qiF -- "$id" "$LIVE_FILE" 2>/dev/null; then return 0; fi
+    if grep -qiF -- "$id" "$NAMES_FILE" 2>/dev/null; then
+        if _d5_trace_can_emit; then _d5_trace_event claim_probe "$id" unknown unknown "$RESERVATION_TTL" 0 claimed_names; fi
+        return 0
+    fi
+    if grep -qiF -- "$id" "$LIVE_FILE" 2>/dev/null; then
+        if _d5_trace_can_emit; then _d5_trace_event claim_probe "$id" unknown unknown "$RESERVATION_TTL" 0 claimed_live; fi
+        return 0
+    fi
 
     # Full text of the index files: a prose-only mention ("renumbered from
     # {ID}") is still somebody's claim. It must not lift the ceiling, and it
     # must not be handed out either.
-    if [[ -f "$TASKS_FILE" ]] && grep -qF -- "$id" "$TASKS_FILE" 2>/dev/null; then return 0; fi
-    if [[ -f "$BACKLOG_FILE" ]] && grep -qF -- "$id" "$BACKLOG_FILE" 2>/dev/null; then return 0; fi
+    if [[ -f "$TASKS_FILE" ]] && grep -qF -- "$id" "$TASKS_FILE" 2>/dev/null; then
+        if _d5_trace_can_emit; then _d5_trace_event claim_probe "$id" unknown unknown "$RESERVATION_TTL" 0 claimed_tasks; fi
+        return 0
+    fi
+    if [[ -f "$BACKLOG_FILE" ]] && grep -qF -- "$id" "$BACKLOG_FILE" 2>/dev/null; then
+        if _d5_trace_can_emit; then _d5_trace_event claim_probe "$id" unknown unknown "$RESERVATION_TTL" 0 claimed_backlog; fi
+        return 0
+    fi
 
     # An in-flight init-lock marker is an atomic claim by a concurrent session
     # that has not yet written tasks.md.
-    if [[ -d "${DATARIM_ROOT}/datarim/.locks/${id}.init-lock" ]]; then return 0; fi
+    if [[ -d "${DATARIM_ROOT}/datarim/.locks/${id}.init-lock" ]]; then
+        if _d5_trace_can_emit; then _d5_trace_event claim_probe "$id" unknown unknown "$RESERVATION_TTL" 0 claimed_init_lock; fi
+        return 0
+    fi
 
     # A FRESH reservation marker held by a parallel session in its read->write
     # window counts as claimed.
-    if _reservation_is_fresh "$id"; then return 0; fi
+    if _reservation_is_fresh "$id"; then
+        if _d5_trace_can_emit; then _d5_trace_event claim_probe "$id" unknown unknown "$RESERVATION_TTL" 0 claimed_reservation; fi
+        return 0
+    fi
+
+    if _d5_trace_can_emit; then _d5_trace_event claim_probe "$id" unknown unknown "$RESERVATION_TTL" 1 unclaimed; fi
 
     return 1
 }
@@ -471,6 +797,7 @@ _bump() {
 
 while : ; do
     if is_claimed "$CANDIDATE_ID"; then
+        if _d5_trace_can_emit; then _d5_trace_event candidate_probe "$CANDIDATE_ID" unknown unknown "$RESERVATION_TTL" 0 lost; fi
         if (( warned == 0 )); then
             echo "WARNING: ID ${CANDIDATE_ID} already claimed (parallel-session race) — auto-bumping to next free ID" >&2
             warned=1
@@ -478,6 +805,7 @@ while : ; do
         _bump
         continue
     fi
+    if _d5_trace_can_emit; then _d5_trace_event candidate_probe "$CANDIDATE_ID" unknown unknown "$RESERVATION_TTL" 0 unclaimed; fi
     if _reservation_try "$CANDIDATE_ID"; then
         break
     fi
@@ -499,4 +827,5 @@ fi
 
 # ── emit the chosen ID ────────────────────────────────────────────────────────
 
+if _d5_trace_can_emit; then _d5_trace_event stdout_attempt "$CANDIDATE_ID" unknown unknown "$RESERVATION_TTL" unknown attempt; fi
 printf '%s\n' "$CANDIDATE_ID"

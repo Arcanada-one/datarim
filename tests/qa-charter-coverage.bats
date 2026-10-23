@@ -104,6 +104,24 @@ setup() {
   [[ "$output" == *"required_probe_not_pass"* ]]
 }
 
+@test "list-valued probe outcome uses the named invalid_outcome refusal" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" invalid-outcome-list "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_outcome: probe returns-result: unsupported outcome" ]
+}
+
+@test "object-valued probe outcome uses the named invalid_outcome refusal" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" invalid-outcome-object "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_outcome: probe returns-result: unsupported outcome" ]
+}
+
 @test "production CLI validates a multi-step hypothesis-linked chain" {
   python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" chain "$ROOT"
   run python3 "$VALIDATOR" --root "$ROOT" \
