@@ -340,7 +340,7 @@ def validate(root: Path, charter_path: Path, evidence_path: Path) -> tuple[int, 
         if probe_id in seen:
             fail("duplicate_probe", f"probe evidence is duplicated: {probe_id}")
         outcome = entry.get("outcome")
-        if outcome not in OUTCOMES:
+        if not isinstance(outcome, str) or outcome not in OUTCOMES:
             fail("invalid_outcome", f"probe {probe_id}: unsupported outcome")
         if not is_text(entry.get("observed")):
             fail("invalid_evidence", f"probe {probe_id}: observed result is required")
