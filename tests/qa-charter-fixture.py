@@ -33,6 +33,7 @@ def main() -> None:
             "commands": ["synthetic-command"],
             "inputs": ["synthetic-input"],
             "surfaces": ["cli"],
+            **({"checkpoint_chain": None} if mode == "null-checkpoint-chain" else {}),
             **({"checkpoint_chain": {"required": True}} if mode in {
                 "chain", "missing-chain", "stale-checkpoint", "dangling-checkpoint",
                 "duplicate-checkpoint", "cyclic-checkpoint", "attempts-only",
@@ -123,6 +124,8 @@ def main() -> None:
             "behaviour_id": "synthetic-behaviour",
             "checkpoints": checkpoint_rows,
         }]
+    if mode == "null-checkpoint-chains":
+        evidence["checkpoint_chains"] = None
     if mode == "attempts-only":
         evidence["attempts"] = [{"timestamp": "2026-10-18T12:00:00Z", "probe_id": "returns-result"}]
     (run / "evidence.json").write_text(

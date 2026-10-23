@@ -161,7 +161,7 @@ def parse_charter(path: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]]
                 fail("invalid_charter", f"probe {probe_id}: required and description are required")
             probes[probe_id] = probe
         linkage = behaviour.get("checkpoint_chain")
-        if linkage is not None and (
+        if "checkpoint_chain" in behaviour and (
             not isinstance(linkage, dict)
             or set(linkage) != {"required"}
             or not isinstance(linkage.get("required"), bool)
@@ -181,11 +181,11 @@ def validate_checkpoint_chains(
     required = {key for key, value in behaviours.items()
                 if isinstance(value.get("checkpoint_chain"), dict)
                 and value["checkpoint_chain"].get("required") is True}
-    chains = evidence.get("checkpoint_chains")
-    if chains is None:
+    if "checkpoint_chains" not in evidence:
         if required:
             fail("missing_checkpoint_chain", "charter requires checkpoint linkage but evidence has no checkpoint_chains")
         return None
+    chains = evidence["checkpoint_chains"]
     if not isinstance(chains, list):
         fail("invalid_checkpoint_chain", "checkpoint_chains must be an array")
 
