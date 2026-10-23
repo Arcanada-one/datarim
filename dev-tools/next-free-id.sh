@@ -115,11 +115,26 @@ _d5_trace_identity() {
     fi
 }
 
+# Shared CLOCK_MONOTONIC timestamp for opt-in fixture traces. Keep this helper
+# local to the allocator so diagnostics do not couple modules. It is called
+# only while tracing is enabled and the per-process event cap has room.
+_d5_trace_monotonic_ns() {
+    _d5_trace_can_emit || { printf 'unknown'; return 0; }
+    local value
+    if value="$(perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC \
+        -e 'printf "%.0f\n", clock_gettime(CLOCK_MONOTONIC) * 1000000000' 2>/dev/null)" \
+        && [[ "$value" =~ ^[0-9]+$ ]]; then
+        printf '%s' "$value"
+    else
+        printf 'unknown'
+    fi
+}
+
 _d5_trace_event() {
     _d5_trace_can_emit || return 0
     local event="$1" candidate="${2:-unknown}" marker_devino="unknown"
     local epoch="${3:-unknown}" age="${4:-unknown}" ttl="${5:-unknown}"
-    local operation_rc="${6:-unknown}" decision="${7:-none}" marker line
+    local operation_rc="${6:-unknown}" decision="${7:-none}" marker line mono_ns
 
     case "$event" in
         reserve_dir_create|gc_age|gc_remove|gc_remove_result|claim_probe|candidate_probe|initial_mkdir|stale_age|stale_predicate|reclaim_decision|reclaim_remove|reclaim_remove_result|reclaim_mkdir|stamp_epoch|stamp_pid|publish_marker|stdout_attempt|release_remove|release_remove_result)
@@ -141,12 +156,16 @@ _d5_trace_event() {
         marker="${_D5_TRACE_STORE}/${candidate}"
         marker_devino="$(_d5_trace_identity "$marker")"
     fi
+    # Recheck immediately before the clock call: capped or disabled tracing
+    # must not start another diagnostic subprocess.
+    _d5_trace_can_emit || return 0
+    mono_ns="$(_d5_trace_monotonic_ns)"
     _D5_TRACE_SEQUENCE=$((_D5_TRACE_SEQUENCE + 1))
     _D5_TRACE_EVENTS=$((_D5_TRACE_EVENTS + 1))
-    printf -v line '%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s' \
+    printf -v line '%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s' \
         "$_D5_TRACE_SEQUENCE" "$$" "$event" "$candidate" \
         "$_D5_TRACE_ROOT_DEVINO" "$_D5_TRACE_STORE_DEVINO" "$marker_devino" \
-        "$epoch" "$age" "$ttl" "$operation_rc" "$decision"
+        "$epoch" "$age" "$ttl" "$operation_rc" "$decision" "$mono_ns"
     if (( ${#line} > 512 )); then return 0; fi
     if printf '%s\n' "$line" 2>/dev/null >&9; then :; else :; fi
     return 0
