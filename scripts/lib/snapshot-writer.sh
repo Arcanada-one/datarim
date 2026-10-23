@@ -251,11 +251,7 @@ write_stage_snapshot() {
     local snapshots_dir="$root/datarim/snapshots"
     local lock_dir="$snapshots_dir/.lock.${task_id}"
     local final_path="$snapshots_dir/${task_id}.snapshot.md"
-    local tmp_path="${final_path}.tmp.$$"
-    local body_tmp="${tmp_path}.body"
-    local raw_chunk="${body_tmp}.raw"
-    local fm_probe_path="${tmp_path}.frontmatter.probe"
-    local fm_final_path="${tmp_path}.frontmatter"
+    local tmp_path body_tmp raw_chunk fm_probe_path fm_final_path
 
     mkdir -p "$snapshots_dir"
     chmod 700 "$snapshots_dir" 2>/dev/null || true
@@ -266,6 +262,18 @@ write_stage_snapshot() {
             "$timeout" "$lock_dir" >&2
         return 3
     fi
+    # Bash keeps the parent's $$ value in subshells. Use mktemp so concurrent
+    # callers cannot share intermediate paths even when they inherited one PID.
+    if ! tmp_path="$(mktemp "${final_path}.tmp.XXXXXXXXXX")"; then
+        printf 'write_stage_snapshot: cannot allocate unique temporary path for %s\n' \
+            "$final_path" >&2
+        release_plugin_lock "$lock_dir"
+        return 1
+    fi
+    body_tmp="${tmp_path}.body"
+    raw_chunk="${body_tmp}.raw"
+    fm_probe_path="${tmp_path}.frontmatter.probe"
+    fm_final_path="${tmp_path}.frontmatter"
     _snapshot_writer_cleanup_lock_dir="$lock_dir"
     _snapshot_writer_cleanup_tmp_path="$tmp_path"
     _snapshot_writer_cleanup_body_tmp="$body_tmp"
