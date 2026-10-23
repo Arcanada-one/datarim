@@ -320,7 +320,7 @@ win() { run bash "$CONTROLLER" evaluate --used-percent "$1" --window-tokens "$2"
   [[ "$output" == *"event=lock-mkdir-result "*"probe_rc=17 outcome=failed"* ]]
   [[ "$output" == *"event=lock-acquire-timeout "*"probe_rc=17 outcome=timeout"*"extra=300"* ]]
   [[ "$output" == *"acquire_rc=1"* ]]
-  [ "$(printf '%s\n' "$output" | rg -c 'event=lock-mkdir-result ')" -eq 300 ]
+  [ "$(printf '%s\n' "$output" | grep -c 'event=lock-mkdir-result ')" -eq 300 ]
 }
 
 @test "transaction cap fails closed when all 64 records are protected" {

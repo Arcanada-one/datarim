@@ -254,7 +254,7 @@ ctx_lock_acquire() {
   while :; do
     if mkdir "$lock" 2>/dev/null; then break; else mkdir_rc=$?; fi
     ctx_test_trace lock-mkdir-result "$lock" "$kind" none none none "$mkdir_rc" failed
-    pid= birth= current=
+    pid='' birth='' current=''
     identity="$(ctx_path_identity "$lock" 2>/dev/null || true)"
     if ctx_secure_regular "$owner" 600; then
       read -r pid birth <"$owner" || true
