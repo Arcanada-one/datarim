@@ -147,14 +147,18 @@ _snapshot_writer_cleanup() {
     local status="${1:-0}"
 
     trap - EXIT INT TERM
-    rm -f -- \
+    if ! rm -f -- \
         "$_snapshot_writer_cleanup_tmp_path" \
         "$_snapshot_writer_cleanup_body_tmp" \
         "$_snapshot_writer_cleanup_raw_chunk" \
         "$_snapshot_writer_cleanup_fm_probe" \
-        "$_snapshot_writer_cleanup_fm_final"
+        "$_snapshot_writer_cleanup_fm_final"; then
+        [ "$status" -ne 0 ] || status=1
+    fi
     if [ -n "$_snapshot_writer_cleanup_lock_dir" ]; then
-        release_plugin_lock "$_snapshot_writer_cleanup_lock_dir"
+        if ! release_plugin_lock "$_snapshot_writer_cleanup_lock_dir"; then
+            [ "$status" -ne 0 ] || status=1
+        fi
     fi
 
     _snapshot_writer_cleanup_lock_dir=""
