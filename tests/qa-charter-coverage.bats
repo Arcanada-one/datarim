@@ -131,6 +131,34 @@ setup() {
   [[ "$output" == *"checkpoint_linkage=PASS transitions=1"* ]]
 }
 
+@test "production CLI hashes a valid non-ASCII checkpoint observation as exact UTF-8" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" unicode-scalar-chain "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 0 ] \
+    && [[ "$output" == *"CHARTER_COVERAGE PASS"* ]] \
+    && [[ "$output" == *"checkpoint_linkage=PASS transitions=1"* ]]
+}
+
+@test "production CLI refuses a lone high surrogate as invalid evidence" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" lone-high-surrogate-chain "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ] \
+    && [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_evidence: probe returns-result: observed result must be valid UTF-8 text" ]
+}
+
+@test "production CLI refuses a lone low surrogate as invalid evidence" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" lone-low-surrogate-chain "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ] \
+    && [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_evidence: probe returns-result: observed result must be valid UTF-8 text" ]
+}
+
 @test "required chain missing from current evidence blocks" {
   python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" missing-chain "$ROOT"
   run python3 "$VALIDATOR" --root "$ROOT" \
