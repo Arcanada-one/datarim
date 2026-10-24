@@ -278,8 +278,82 @@ def sandbox_prd_run(name, latest, *, history=(), brief_revision=None, include_br
         return result
 
 
+def mixed_v1_history_v2_successor():
+    with sandbox_root("mixed-v1-history-v2-successor") as root:
+        bundle = root / "datarim/insights/decisions" / TASK
+        bundle.mkdir(parents=True)
+        shutil.copy2(EVIDENCE_FIXTURE / "ledger.md", bundle / "ledger.md")
+        shutil.copytree(EVIDENCE_FIXTURE / "fixtures", bundle / "fixtures")
+        task_path = root / "datarim/tasks" / f"{TASK}-task-description.md"
+        task_path.parent.mkdir(parents=True)
+        acceptance = "- Synthetic route is authorized only for its exact bounded scope.\n- Parent criteria remain unchanged.\n"
+        task_path.write_text("# Task\n\n## Acceptance Criteria\n" + acceptance + "\n## Scope Advance Records\n", encoding="utf-8")
+
+        v1_front = {
+            "schema_version": "product-artifact/1", "id": "artifact:SYN-DECISION-001",
+            "artifact_type": "decision-record", "revision": 1, "status": "submitted",
+            "acceptance_state": "accepted", "source_digest": None, "supersedes": None,
+        }
+        v1_data = {
+            "question": "Which synthetic route should be selected?",
+            "options": [
+                {"id": "selected", "description": "Use the selected synthetic route.",
+                 "disposition": "selected", "rationale": "Fixture covers the declared outcome."},
+                {"id": "deferred", "description": "Defer unrelated behavior.",
+                 "disposition": "deferred", "rationale": "Outside the fixture scope."},
+            ],
+            "selected_option": "selected", "business_outcome": "continue", "evidence_refs": [],
+            "counterevidence_refs": [], "applicable_thresholds": ["Synthetic migration control only."],
+            "uncertainty": ["No live user outcome is measured."],
+            "reversal_conditions": ["Revise if the synthetic decision inputs change."],
+            "owner": "fixture-owner", "approved_scope_delta": "Synthetic route fixture only.",
+            "source_refs": [],
+            "provenance": {"recorder": "fixture-author", "recorded_at": "2026-10-14T00:00:00Z",
+                           "origin_kind": "synthetic_fixture"},
+        }
+        v1_path = bundle / "decision-r1.md"
+        v1_raw = write_artifact(v1_path, v1_front, v1_data)
+        v1_digest = sha(v1_raw)
+
+        v2_data, _, _ = decision_data("stop")
+        ledger_text = (EVIDENCE_FIXTURE / "ledger.md").read_text(encoding="utf-8")
+        ledger_data = yaml.safe_load(re.search(r"```product-artifact-data\n(.*?)\n```", ledger_text, re.S).group(1))
+        v2_data["evidence_refs"] = [ledger_data["entries"][0]["raw_ref"]]
+        v2_data["counterevidence_refs"] = [ledger_data["entries"][1]["raw_ref"]]
+        v2_front = {
+            "schema_version": "product-artifact/2", "id": v1_front["id"],
+            "artifact_type": "decision-record", "revision": 2, "status": "submitted",
+            "acceptance_state": "accepted", "source_digest": None,
+            "supersedes": {"id": v1_front["id"], "revision": 1, "digest": v1_digest},
+        }
+        v2_raw = write_artifact(bundle / "decision-r2.md", v2_front, v2_data)
+        v1_before_route = v1_path.read_bytes()
+
+        v1_check = run_checker(bundle, v1_path)
+        assert v1_check.returncode == 0, v1_check.stdout + v1_check.stderr
+        v2_check = run_checker(bundle, bundle / "decision-r2.md")
+        assert v2_check.returncode == 0, v2_check.stdout + v2_check.stderr
+        routed = route(root)
+        assert routed.returncode == 0, routed.stdout + routed.stderr
+        result = json.loads(routed.stdout)
+        expected_ref = {"id": v1_front["id"], "revision": 2, "digest": sha(v2_raw)}
+        expected_supersedes = {"id": v1_front["id"], "revision": 1, "digest": v1_digest}
+        assert result["route"] == "/dr-archive" and result["token"] == "PRODUCT_ROUTE_STOP", routed.stdout
+        assert result["research_status"] == "accepted" and result["delivery_work_created"] is False, routed.stdout
+        assert result["decision_ref"] == expected_ref and result["supersedes"] == expected_supersedes, routed.stdout
+        assert v1_path.read_bytes() == v1_before_route == v1_raw
+        assert sha(v1_path.read_bytes()) == v1_digest
+        print(
+            "TRANSCRIPT mixed-v1-history-v2-successor: "
+            f"v1-check=exit{v1_check.returncode}; v2-check=exit{v2_check.returncode}; "
+            f"route={result['token']}; latest_revision=2; "
+            "v1_bytes_unchanged=true; delivery_work_created=false"
+        )
+
+
 def main():
     granted = {"status": "granted", "authority_ref": "AUTH-SYN-001"}
+    mixed_v1_history_v2_successor()
     case("continue", lambda root: make_simple(root, "continue", authority=granted), "/dr-prd", "PRODUCT_ROUTE_CONTINUE", assert_continue_lineage)
     case("stop", lambda root: make_simple(root, "stop"), "/dr-archive", "PRODUCT_ROUTE_STOP")
     case("more-evidence", lambda root: make_simple(root, "more-evidence"), "/dr-do", "PRODUCT_ROUTE_MORE_EVIDENCE")
