@@ -298,6 +298,10 @@ RESERVE_DIR="${DATARIM_ROOT}/${RESERVATION_SUBDIR}"
 RESERVATION_TTL="${DATARIM_ID_RESERVATION_TTL:-1800}"
 if ! [[ "$RESERVATION_TTL" =~ ^[0-9]+$ ]]; then
     RESERVATION_TTL=1800
+else
+    # TTL is decimal seconds. Pin the radix so accepted leading-zero spellings
+    # such as 08 and 09 do not trigger Bash's octal parsing in later arithmetic.
+    RESERVATION_TTL=$((10#$RESERVATION_TTL))
 fi
 
 # Age of a reservation marker in seconds. A missing/unreadable epoch is treated
