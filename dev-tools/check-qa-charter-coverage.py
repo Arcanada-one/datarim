@@ -49,6 +49,16 @@ def fail(code: str, detail: str) -> None:
     raise CoverageError(code, detail)
 
 
+def print_cli_error(message: str) -> None:
+    """Write an error unchanged when encodable, escaping only unencodable text."""
+    encoding = sys.stdout.encoding or "utf-8"
+    try:
+        rendered = message.encode(encoding, errors="strict")
+    except UnicodeEncodeError:
+        rendered = message.encode(encoding, errors="backslashreplace")
+    sys.stdout.buffer.write(rendered + b"\n")
+
+
 def is_text(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip()) and not re.fullmatch(
         r"\s*(?:<[^>]+>|TODO|TBD|REPLACE_ME)\s*", value, re.IGNORECASE
@@ -405,10 +415,10 @@ def main() -> int:
         evidence = input_file(args.evidence, root, "evidence")
         required, recorded, optional_missing, revision, linked = validate(root, charter, evidence)
     except CoverageError as exc:
-        print(f"CHARTER_COVERAGE FAIL reason={exc.code}: {exc}")
+        print_cli_error(f"CHARTER_COVERAGE FAIL reason={exc.code}: {exc}")
         return 1
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        print(f"CHARTER_COVERAGE FAIL reason=source_or_path_error: {exc}")
+        print_cli_error(f"CHARTER_COVERAGE FAIL reason=source_or_path_error: {exc}")
         return 1
     print(
         f"CHARTER_COVERAGE PASS required={required} recorded={recorded} "

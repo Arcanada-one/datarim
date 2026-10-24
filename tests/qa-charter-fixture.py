@@ -163,6 +163,20 @@ def main() -> None:
     (run / "evidence.json").write_text(
         json.dumps(evidence, sort_keys=True, indent=2) + "\n", encoding="utf-8"
     )
+    duplicate_key_tokens = {
+        "duplicate-key-ascii": b'"duplicate-key"',
+        "duplicate-key-unicode": '"duplicate-雪"'.encode("utf-8"),
+        "duplicate-key-high-surrogate": b'"\\ud800"',
+        "duplicate-key-low-surrogate": b'"\\udc00"',
+    }
+    if mode in duplicate_key_tokens:
+        evidence_path = run / "evidence.json"
+        original = evidence_path.read_bytes()
+        if not original.endswith(b"}\n"):
+            raise SystemExit("fixture evidence did not end with a JSON object")
+        token = duplicate_key_tokens[mode]
+        repeated_members = b',\n  ' + token + b': null,\n  ' + token + b': null\n}\n'
+        evidence_path.write_bytes(original[:-2] + repeated_members)
     if mode == "mutable":
         (qa / "latest").symlink_to(run.name, target_is_directory=True)
 
