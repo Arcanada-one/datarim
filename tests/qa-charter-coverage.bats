@@ -122,6 +122,33 @@ setup() {
   [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_outcome: probe returns-result: unsupported outcome" ]
 }
 
+@test "production CLI refuses a lone surrogate probe id as invalid evidence" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" lone-high-surrogate-probe-id "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_evidence: probe id must be valid UTF-8 text" ]
+}
+
+@test "valid Unicode undeclared probe id retains unknown_probe refusal" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" unknown-unicode-probe-id "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = "CHARTER_COVERAGE FAIL reason=unknown_probe: evidence contains undeclared probe undeclared-雪" ]
+}
+
+@test "ASCII undeclared probe id retains unknown_probe refusal" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" unknown-probe-id "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = "CHARTER_COVERAGE FAIL reason=unknown_probe: evidence contains undeclared probe undeclared-probe" ]
+}
+
 @test "production CLI validates a multi-step hypothesis-linked chain" {
   python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" chain "$ROOT"
   run python3 "$VALIDATOR" --root "$ROOT" \
@@ -129,6 +156,34 @@ setup() {
     --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
   [ "$status" -eq 0 ]
   [[ "$output" == *"checkpoint_linkage=PASS transitions=1"* ]]
+}
+
+@test "production CLI hashes a valid non-ASCII checkpoint observation as exact UTF-8" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" unicode-scalar-chain "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 0 ] \
+    && [[ "$output" == *"CHARTER_COVERAGE PASS"* ]] \
+    && [[ "$output" == *"checkpoint_linkage=PASS transitions=1"* ]]
+}
+
+@test "production CLI refuses a lone high surrogate as invalid evidence" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" lone-high-surrogate-chain "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ] \
+    && [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_evidence: probe returns-result: observed result must be valid UTF-8 text" ]
+}
+
+@test "production CLI refuses a lone low surrogate as invalid evidence" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" lone-low-surrogate-chain "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ] \
+    && [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_evidence: probe returns-result: observed result must be valid UTF-8 text" ]
 }
 
 @test "required chain missing from current evidence blocks" {

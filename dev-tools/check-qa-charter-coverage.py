@@ -219,7 +219,14 @@ def validate_checkpoint_chains(
             entry = seen[probe_id]
             if entry.get("outcome") != "pass":
                 fail("checkpoint_probe_not_pass", f"checkpoint {checkpoint_id} refers to a non-passing probe")
-            if not SHA256.fullmatch(str(point.get("observation_sha256") or "")) or point["observation_sha256"] != digest(entry["observed"].encode("utf-8")):
+            observation_sha256 = point.get("observation_sha256")
+            if not SHA256.fullmatch(str(observation_sha256 or "")):
+                fail("stale_checkpoint_observation", f"checkpoint {checkpoint_id} does not bind the exact prior observation")
+            try:
+                observation_bytes = entry["observed"].encode("utf-8")
+            except UnicodeEncodeError:
+                fail("invalid_evidence", f"probe {probe_id}: observed result must be valid UTF-8 text")
+            if observation_sha256 != digest(observation_bytes):
                 fail("stale_checkpoint_observation", f"checkpoint {checkpoint_id} does not bind the exact prior observation")
             artifact = entry.get("artifact")
             if not isinstance(artifact, dict) or point.get("artifact_sha256") != artifact.get("sha256"):
@@ -335,6 +342,10 @@ def validate(root: Path, charter_path: Path, evidence_path: Path) -> tuple[int, 
         if not isinstance(entry, dict) or not is_text(entry.get("id")):
             fail("invalid_evidence", "each probe evidence entry needs an id")
         probe_id = entry["id"]
+        try:
+            probe_id.encode("utf-8")
+        except UnicodeEncodeError:
+            fail("invalid_evidence", "probe id must be valid UTF-8 text")
         if probe_id not in probes:
             fail("unknown_probe", f"evidence contains undeclared probe {probe_id}")
         if probe_id in seen:
