@@ -306,7 +306,7 @@ says. Persistent choices have their own switches: `jev permissions`, `jev on` /
 | Permission mode | `jev permissions full\|ask`: file `FULL_PERMISSIONS` in the same state directory; env `JEV_PERMISSIONS=full\|ask` overrides it for one launch | `scripts/jev.py` `full_permissions()` | no | `ask` |
 | Disable Jev advice for a shell | env `JEV_DISABLE=1` or `DATARIM_JEV_DISABLE=1` (the safety floor still runs) | `project_state.py` `disabled_reason()` | no | unset |
 | Codex model per Jev tier | env `DATARIM_CODEX_MODEL_HAIKU`, `_SONNET`, `_OPUS` | `scripts/jev.py`, `plugins/dr-jev-control/scripts/runtimes.py` | no | Codex account default, tier mapped to effort |
-| Cursor model per Jev tier | env `DATARIM_CURSOR_MODEL_HAIKU`, `_SONNET`, `_OPUS` | same | no | Cursor default model |
+| Cursor model | Do not set `DATARIM_CURSOR_MODEL_HAIKU`, `_SONNET`, `_OPUS` | n/a | no | Cursor selects the model itself (Auto) |
 | Client executable | env `CLAUDE_BIN`, `CODEX_BIN`, `CURSOR_BIN` | `scripts/jev.py` `binary()` | no | `claude`, `codex`, `cursor-agent` (or `agent`) on `PATH` |
 | Codex auto re-trust | env `JEV_NO_AUTO_TRUST=1` stops `jevcodex` (host Jev) from re-granting Codex trust to Jev's own hooks | `scripts/jev.py` | no | unset |
 | Execution-host map | env `DATARIM_EXEC_HOSTS_MAP`, a YAML map of which machine may run tasks for a workspace | `/dr-init`, `/dr-quick`, `/dr-next` via `dev-tools/lib/execution-host.sh` | no | `$HOME/.claude/local/config/execution-hosts.yml`; absent map means the check is skipped |
