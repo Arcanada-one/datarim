@@ -796,6 +796,62 @@ EOF
     [ "$CHOSEN" = "TUNE-0002" ]
 }
 
+@test "R05a: leading-zero TTL spellings are decimal and preserve fresh reservations" {
+    local ttl fixture marker epoch out err status
+    for ttl in 8 08 09; do
+        fixture="${FIXTURE_DIR}/ttl-fresh-${ttl}"
+        marker="${fixture}/${RES_DIR_REL}/TUNE-0001"
+        out="${FIXTURE_DIR}/ttl-fresh-${ttl}.stdout"
+        err="${FIXTURE_DIR}/ttl-fresh-${ttl}.stderr"
+        mkdir -p "${marker}" "${fixture}/documentation/archive/framework"
+        : > "${fixture}/datarim/tasks.md"
+        epoch="$(date +%s)"
+        printf '%s\n' "${epoch}" > "${marker}/epoch"
+
+        if env -i "PATH=${PATH}" LC_ALL=C TZ=UTC \
+            DATARIM_ID_RESERVATION_TTL="${ttl}" \
+            DATARIM_ID_TMUX_SESSIONS='' DATARIM_ID_GIT_REFS='' \
+            DATARIM_ID_WORKTREE_PATHS='' DATARIM_ID_GIT_LOG='' \
+            bash "${HELPER}" "TUNE" "${fixture}" > "${out}" 2> "${err}"; then
+            status=0
+        else
+            status=$?
+        fi
+        [ "${status}" -eq 0 ] || return 1
+        [ "$(cat "${out}")" = "TUNE-0002" ] || return 1
+        [ ! -s "${err}" ] || return 1
+        [ -d "${marker}" ] || return 1
+    done
+}
+
+@test "R05b: leading-zero TTL spellings reclaim reservations older than decimal TTL" {
+    local ttl fixture marker epoch out err status
+    for ttl in 8 08 09; do
+        fixture="${FIXTURE_DIR}/ttl-stale-${ttl}"
+        marker="${fixture}/${RES_DIR_REL}/TUNE-0001"
+        out="${FIXTURE_DIR}/ttl-stale-${ttl}.stdout"
+        err="${FIXTURE_DIR}/ttl-stale-${ttl}.stderr"
+        mkdir -p "${marker}" "${fixture}/documentation/archive/framework"
+        : > "${fixture}/datarim/tasks.md"
+        epoch="$(( $(date +%s) - 10 ))"
+        printf '%s\n' "${epoch}" > "${marker}/epoch"
+
+        if env -i "PATH=${PATH}" LC_ALL=C TZ=UTC \
+            DATARIM_ID_RESERVATION_TTL="${ttl}" \
+            DATARIM_ID_TMUX_SESSIONS='' DATARIM_ID_GIT_REFS='' \
+            DATARIM_ID_WORKTREE_PATHS='' DATARIM_ID_GIT_LOG='' \
+            bash "${HELPER}" "TUNE" "${fixture}" > "${out}" 2> "${err}"; then
+            status=0
+        else
+            status=$?
+        fi
+        [ "${status}" -eq 0 ] || return 1
+        [ "$(cat "${out}")" = "TUNE-0001" ] || return 1
+        [ ! -s "${err}" ] || return 1
+        [ -d "${marker}" ] || return 1
+    done
+}
+
 # R06: the reservation store is created and only the selected ID is reserved.
 @test "R06: selecting reserves exactly the chosen ID, no leaks" {
     run bash "${HELPER}" "TUNE" "${FIXTURE_DIR}"
