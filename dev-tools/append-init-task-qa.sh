@@ -269,7 +269,9 @@ fi
     fi
 } > "$TMP_FILE"
 
-mv -f "$TMP_FILE" "$INIT_FILE"
+if ! mv -f "$TMP_FILE" "$INIT_FILE" 2>/dev/null; then
+    fail_io "failed to publish Q&A append"
+fi
 TMP_FILE=""
 
 exit 0
