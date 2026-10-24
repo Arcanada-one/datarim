@@ -47,6 +47,12 @@ def main() -> None:
             ],
         }],
     }
+    if mode == "lone-high-surrogate-behaviour-id":
+        charter_data["behaviours"][0]["id"] = "behaviour-" + chr(0xD800)
+        del charter_data["behaviours"][0]["contract"]
+    elif mode == "unicode-behaviour-id-omitted-contract":
+        charter_data["behaviours"][0]["id"] = "behaviour-雪"
+        del charter_data["behaviours"][0]["contract"]
     charter_path = qa / "qa-charter.md"
     charter_path.write_text(
         "# Synthetic QA charter fixture\n\n"

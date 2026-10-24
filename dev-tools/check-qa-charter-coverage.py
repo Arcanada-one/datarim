@@ -131,6 +131,10 @@ def parse_charter(path: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]]
         if not isinstance(behaviour, dict) or not is_text(behaviour.get("id")):
             fail("invalid_charter", "each behaviour needs a non-empty id")
         behaviour_id = behaviour["id"]
+        try:
+            behaviour_id.encode("utf-8")
+        except UnicodeEncodeError:
+            fail("invalid_charter", "behaviour id must be UTF-8 encodable")
         if behaviour_id in behaviour_ids:
             fail("invalid_charter", "behaviour ids must be unique")
         behaviour_ids.add(behaviour_id)

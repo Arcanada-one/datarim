@@ -131,6 +131,24 @@ setup() {
   [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_evidence: probe id must be valid UTF-8 text" ]
 }
 
+@test "production CLI refuses an unencodable behaviour id with constant invalid charter" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" lone-high-surrogate-behaviour-id "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_charter: behaviour id must be UTF-8 encodable" ]
+}
+
+@test "valid Unicode behaviour id keeps ordinary missing-contract refusal" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" unicode-behaviour-id-omitted-contract "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_charter: behaviour behaviour-雪: contract is required" ]
+}
+
 @test "valid Unicode undeclared probe id retains unknown_probe refusal" {
   python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" unknown-unicode-probe-id "$ROOT"
   run python3 "$VALIDATOR" --root "$ROOT" \
