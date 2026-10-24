@@ -303,6 +303,66 @@ EOF
     grep -q 'Q&A by /dr-prd (round 1)' "$TMPROOT/datarim/tasks/TEST-0201-init-task.md"
 }
 
+@test "P2.1b utility reports final replace failure and cleans temp and lock" {
+    write_base_init_task "TEST-0205"
+    local init_file="$TMPROOT/datarim/tasks/TEST-0205-init-task.md"
+    local original="$TMPROOT/original.before"
+    local question="$TMPROOT/refusal-question.txt"
+    local answer="$TMPROOT/refusal-answer.txt"
+    local shim_dir="$TMPROOT/mv-shim"
+    local target="$init_file"
+    local receipt="$TMPROOT/mv-receipt.txt"
+    local out="$TMPROOT/refusal.stdout" err="$TMPROOT/refusal.stderr"
+    local real_mv status temp_count=0 temp
+    real_mv="$(command -v mv)"
+    cp "$init_file" "$original"
+    printf 'Synthetic refusal question.\n' > "$question"
+    printf 'Synthetic refusal answer.\n' > "$answer"
+    mkdir -p "$shim_dir"
+    cat > "$shim_dir/mv" <<'SHIM'
+#!/usr/bin/env bash
+set -u
+if [ "$#" -eq 3 ] \
+   && [ "$1" = "-f" ] \
+   && [ "$3" = "$CONTROL_EXPECTED_TARGET" ] \
+   && [[ "$2" == "$CONTROL_EXPECTED_PREFIX"* ]] \
+   && [ -f "$2" ]; then
+    printf 'match=exact_final_replace\nsource_regular=1\ntarget_present_before=1\nforced_rc=73\n' \
+        > "$CONTROL_RECEIPT"
+    exit 73
+fi
+exec "$CONTROL_REAL_MV" "$@"
+SHIM
+    chmod +x "$shim_dir/mv"
+
+    if env PATH="$shim_dir:$PATH" \
+        CONTROL_EXPECTED_TARGET="$target" \
+        CONTROL_EXPECTED_PREFIX="$TMPROOT/datarim/tasks/.TEST-0205.qa.append." \
+        CONTROL_RECEIPT="$receipt" CONTROL_REAL_MV="$real_mv" \
+        "$APPEND" --root "$TMPROOT" --task TEST-0205 --stage qa --round 1 \
+        --question-file "$question" --answer-file "$answer" \
+        --decided-by operator --summary synthetic-mv-refusal-control \
+        > "$out" 2> "$err"; then
+        status=0
+    else
+        status=$?
+    fi
+
+    for temp in "$TMPROOT/datarim/tasks"/.TEST-0205.qa.append.*; do
+        [ -e "$temp" ] && temp_count=$((temp_count + 1))
+    done
+    [ "$status" -eq 1 ] \
+        && [ ! -s "$out" ] \
+        && grep -Fxq 'ERROR: failed to publish Q&A append' "$err" \
+        && cmp -s "$original" "$init_file" \
+        && grep -Fxq 'match=exact_final_replace' "$receipt" \
+        && grep -Fxq 'source_regular=1' "$receipt" \
+        && grep -Fxq 'target_present_before=1' "$receipt" \
+        && grep -Fxq 'forced_rc=73' "$receipt" \
+        && [ "$temp_count" -eq 0 ] \
+        && [ ! -e "$TMPROOT/datarim/tasks/.TEST-0205.qa-lock" ]
+}
+
 @test "P2.2 utility supports decided-by agent with --rationale-file" {
     write_base_init_task "TEST-0202"
     local q="$TMPROOT/q.txt" a="$TMPROOT/a.txt" r="$TMPROOT/r.txt"
