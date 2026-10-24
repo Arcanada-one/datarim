@@ -298,25 +298,54 @@ EOF
     write_base_init_task "TEST-0205"
     local q1="$TMPROOT/q1.txt" a1="$TMPROOT/a1.txt"
     local q2="$TMPROOT/q2.txt" a2="$TMPROOT/a2.txt"
+    local out1="$TMPROOT/child-1.stdout" out2="$TMPROOT/child-2.stdout"
+    local err1="$TMPROOT/child-1.stderr" err2="$TMPROOT/child-2.stderr"
+    local pid1 pid2 status1 status2 child stdout_file stderr_file stream stream_file
     echo "Q1 round 1." > "$q1"; echo "A1." > "$a1"
     echo "Q2 round 2." > "$q2"; echo "A2." > "$a2"
 
     "$APPEND" --root "$TMPROOT" --task TEST-0205 --stage prd --round 1 \
         --question-file "$q1" --answer-file "$a1" --decided-by operator \
-        --summary "First parallel round." &
+        --summary "First parallel round." > "$out1" 2> "$err1" &
     pid1=$!
     "$APPEND" --root "$TMPROOT" --task TEST-0205 --stage plan --round 2 \
         --question-file "$q2" --answer-file "$a2" --decided-by operator \
-        --summary "Second parallel round." &
+        --summary "Second parallel round." > "$out2" 2> "$err2" &
     pid2=$!
-    wait "$pid1" && wait "$pid2"
+    if wait "$pid1"; then status1=0; else status1=$?; fi
+    if wait "$pid2"; then status2=0; else status2=$?; fi
 
-    # File must contain both headings, no duplicate framing.
     local file="$TMPROOT/datarim/tasks/TEST-0205-init-task.md"
-    grep -c 'Q&A by /dr-' "$file" | grep -q '^2$'
-    # Validator still happy.
+    local heading_count failed=0 marker validator_status
+    heading_count="$(grep -c 'Q&A by /dr-' "$file" || true)"
+    [ "$status1" -eq 0 ] || failed=1
+    [ "$status2" -eq 0 ] || failed=1
+    [ "$heading_count" = 2 ] || failed=1
+    for marker in \
+        'Q&A by /dr-prd (round 1)' 'Q&A by /dr-plan (round 2)' \
+        'Q1 round 1.' 'Q2 round 2.' 'A1.' 'A2.'; do
+        grep -Fq -- "$marker" "$file" || failed=1
+    done
+
+    # Validator still runs even when the content checks fail.
     run "$CHECK" --task TEST-0205 --root "$TMPROOT"
-    [ "$status" -eq 0 ]
+    local validator_status="$status"
+    [ "$validator_status" -eq 0 ] || failed=1
+
+    if [ "$failed" -ne 0 ]; then
+        printf 'P2.5 child exits: %s, %s; headings: %s; validator exit: %s\n' \
+            "$status1" "$status2" "$heading_count" "$validator_status"
+        for child in 1 2; do
+            if [ "$child" -eq 1 ]; then stdout_file="$out1"; stderr_file="$err1"; else stdout_file="$out2"; stderr_file="$err2"; fi
+            for stream in stdout stderr; do
+                if [ "$stream" = stdout ]; then stream_file="$stdout_file"; else stream_file="$stderr_file"; fi
+                printf 'child %s %s (first 1024 bytes):\n' "$child" "$stream"
+                head -c 1024 "$stream_file" || true
+                printf '\n'
+            done
+        done
+        return 1
+    fi
 }
 
 @test "P2.6 utility preserves init-task when its source read fails" {
