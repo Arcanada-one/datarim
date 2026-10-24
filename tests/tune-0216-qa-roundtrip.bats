@@ -241,6 +241,167 @@ EOF
     grep -q 'Q&A by /dr-prd (round 1)' "$TMPROOT/datarim/tasks/TEST-0201-init-task.md"
 }
 
+@test "P2.1b utility refuses an intermediate composition printf failure without publishing" {
+    write_base_init_task "TEST-0218"
+    local init_file="$TMPROOT/datarim/tasks/TEST-0218-init-task.md"
+    local original="$TMPROOT/TEST-0218-before.md"
+    local question="$TMPROOT/TEST-0218-question.txt"
+    local answer="$TMPROOT/TEST-0218-answer.txt"
+    local receipt="$TMPROOT/TEST-0218-printf-receipt.txt"
+    local expected_receipt="$TMPROOT/TEST-0218-expected-receipt.txt"
+    local out="$TMPROOT/TEST-0218.stdout" err="$TMPROOT/TEST-0218.stderr"
+    local append_abs append_sha_before append_sha_after status=0 temp_count=0 temp
+    local question_token='Synthetic TEST-0218 question token.'
+    local answer_token='Synthetic TEST-0218 answer token.'
+    append_abs="$(cd "$(dirname "$APPEND")" && pwd -P)/$(basename "$APPEND")"
+    append_sha_before="$(sha256sum "$append_abs" | awk '{print $1}')"
+    cp "$init_file" "$original"
+    printf '%s\n' "$question_token" > "$question"
+    printf '%s\n' "$answer_token" > "$answer"
+
+    if (
+        export P2_1B_HELPER="$append_abs"
+        export P2_1B_TOKEN="$question_token"
+        export P2_1B_MATCH_COUNT=0
+        exec 9>"$receipt"
+        printf() {
+            if [ "${BASH_SOURCE[1]:-}" = "$P2_1B_HELPER" ] \
+               && [ "$#" -eq 2 ] \
+               && [ "$1" = '%s\n\n' ] \
+               && [ "$2" = "$P2_1B_TOKEN" ]; then
+                if [ "$P2_1B_MATCH_COUNT" -eq 0 ]; then
+                    P2_1B_MATCH_COUNT=1
+                    builtin printf 'MATCH_FIRST\n' >&9
+                    return 73
+                fi
+                builtin printf 'MATCH_REPEAT\n' >&9
+                builtin printf "$@"
+                return $?
+            fi
+            builtin printf "$@"
+        }
+        export -f printf
+        exec "$append_abs" --root "$TMPROOT" --task TEST-0218 --stage qa --round 1 \
+            --question-file "$question" --answer-file "$answer" \
+            --decided-by operator --summary synthetic-intermediate-printf-refusal
+    ) > "$out" 2> "$err"; then
+        status=0
+    else
+        status=$?
+    fi
+
+    append_sha_after="$(sha256sum "$append_abs" | awk '{print $1}')"
+    printf 'MATCH_FIRST\n' > "$expected_receipt"
+    for temp in "$TMPROOT/datarim/tasks"/.TEST-0218.qa.append.*; do
+        [ -e "$temp" ] && temp_count=$((temp_count + 1))
+    done
+
+    [ "$status" -eq 1 ] \
+        && [ ! -s "$out" ] \
+        && [ "$(cat "$err")" = 'ERROR: failed to compose Q&A append' ] \
+        && [ "$append_sha_before" = "$append_sha_after" ] \
+        && cmp -s "$expected_receipt" "$receipt" \
+        && cmp -s "$original" "$init_file" \
+        && ! grep -Fq -- "$question_token" "$init_file" \
+        && ! grep -Fq -- "$answer_token" "$init_file" \
+        && [ "$temp_count" -eq 0 ] \
+        && [ ! -e "$TMPROOT/datarim/tasks/.TEST-0218.qa-lock" ]
+}
+
+@test "P2.1c utility refuses composition temp redirection failure without publishing" {
+    [ "$(id -u)" -ne 0 ] || skip "read-only file mode is bypassed by root"
+    write_base_init_task "TEST-0219"
+    local init_file="$TMPROOT/datarim/tasks/TEST-0219-init-task.md"
+    local tasks_dir="$TMPROOT/datarim/tasks"
+    local original="$TMPROOT/TEST-0219-before.md"
+    local question="$TMPROOT/TEST-0219-question.txt"
+    local answer="$TMPROOT/TEST-0219-answer.txt"
+    local shim_dir="$TMPROOT/TEST-0219-mktemp-shim"
+    local receipt="$TMPROOT/TEST-0219-mktemp-receipt.txt"
+    local expected_receipt="$TMPROOT/TEST-0219-expected-receipt.txt"
+    local out="$TMPROOT/TEST-0219.stdout" err="$TMPROOT/TEST-0219.stderr"
+    local append_abs append_sha_before append_sha_after expected_prefix expected_template
+    local real_mktemp status=0 temp_count=0 temp probe
+    append_abs="$(cd "$(dirname "$APPEND")" && pwd -P)/$(basename "$APPEND")"
+    append_sha_before="$(sha256sum "$append_abs" | awk '{print $1}')"
+    real_mktemp="$(command -v mktemp)"
+    expected_prefix="$(cd "$tasks_dir" && pwd -P)/.TEST-0219.qa.append."
+    expected_template="${expected_prefix}XXXXXX"
+
+    probe="$("$real_mktemp" "$tasks_dir/.TEST-0219-open-probe.XXXXXX")"
+    chmod 0400 "$probe" || { rm -f "$probe"; skip "fixture cannot set mode 0400"; }
+    if ( : > "$probe" ) 2>/dev/null; then
+        rm -f "$probe"
+        skip "fixture permits opening mode-0400 files for writing"
+    fi
+    rm -f "$probe"
+    cp "$init_file" "$original"
+    printf '%s\n' 'Synthetic TEST-0219 question token.' > "$question"
+    printf '%s\n' 'Synthetic TEST-0219 answer token.' > "$answer"
+    mkdir -p "$shim_dir"
+    cat > "$shim_dir/mktemp" <<'SHIM'
+#!/usr/bin/env bash
+set -u
+if [ "$#" -eq 1 ] && [ "$1" = "${P2_1C_EXPECTED_TEMPLATE:?}" ]; then
+    tmp="$("${P2_1C_REAL_MKTEMP:?}" "$@")" || exit $?
+    case "$tmp" in
+        "${P2_1C_EXPECTED_PREFIX:?}"*) path_ok=1 ;;
+        *) path_ok=0 ;;
+    esac
+    if [ -f "$tmp" ]; then regular=1; else regular=0; fi
+    if [ "$path_ok" -eq 1 ] && [ "$regular" -eq 1 ] && chmod 0400 "$tmp"; then
+        chmod_rc=0
+    else
+        chmod_rc=1
+    fi
+    if ( : > "$tmp" ) 2>/dev/null; then write_blocked=0; else write_blocked=1; fi
+    if [ "$path_ok" -ne 1 ] || [ "$regular" -ne 1 ] \
+       || [ "$chmod_rc" -ne 0 ] || [ "$write_blocked" -ne 1 ]; then
+        exit 75
+    fi
+    {
+        builtin printf 'MATCH_EXACT_TEMPLATE\n'
+        builtin printf 'CHMOD_RC_0\n'
+        builtin printf 'WRITE_BLOCKED_1\n'
+    } > "${P2_1C_RECEIPT:?}"
+    builtin printf '%s\n' "$tmp"
+    exit 0
+fi
+exec "${P2_1C_REAL_MKTEMP:?}" "$@"
+SHIM
+    chmod +x "$shim_dir/mktemp"
+
+    if env PATH="$shim_dir:$PATH" \
+        P2_1C_EXPECTED_TEMPLATE="$expected_template" \
+        P2_1C_EXPECTED_PREFIX="$expected_prefix" \
+        P2_1C_REAL_MKTEMP="$real_mktemp" P2_1C_RECEIPT="$receipt" \
+        "$append_abs" --root "$TMPROOT" --task TEST-0219 --stage qa --round 1 \
+        --question-file "$question" --answer-file "$answer" \
+        --decided-by operator --summary synthetic-compose-open-refusal \
+        > "$out" 2> "$err"; then
+        status=0
+    else
+        status=$?
+    fi
+
+    append_sha_after="$(sha256sum "$append_abs" | awk '{print $1}')"
+    printf 'MATCH_EXACT_TEMPLATE\nCHMOD_RC_0\nWRITE_BLOCKED_1\n' > "$expected_receipt"
+    for temp in "$tasks_dir"/.TEST-0219.qa.append.*; do
+        [ -e "$temp" ] && temp_count=$((temp_count + 1))
+    done
+    [ "$status" -eq 1 ] \
+        && [ ! -s "$out" ] \
+        && grep -Fq 'Permission denied' "$err" \
+        && grep -Fxq 'ERROR: failed to compose Q&A append' "$err" \
+        && [ "$append_sha_before" = "$append_sha_after" ] \
+        && cmp -s "$expected_receipt" "$receipt" \
+        && cmp -s "$original" "$init_file" \
+        && ! grep -Fq -- 'Synthetic TEST-0219 question token.' "$init_file" \
+        && ! grep -Fq -- 'Synthetic TEST-0219 answer token.' "$init_file" \
+        && [ "$temp_count" -eq 0 ] \
+        && [ ! -e "$tasks_dir/.TEST-0219.qa-lock" ]
+}
+
 @test "P2.2 utility supports decided-by agent with --rationale-file" {
     write_base_init_task "TEST-0202"
     local q="$TMPROOT/q.txt" a="$TMPROOT/a.txt" r="$TMPROOT/r.txt"

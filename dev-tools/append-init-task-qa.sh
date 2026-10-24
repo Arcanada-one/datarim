@@ -241,33 +241,51 @@ fi
     if ! cat "$INIT_FILE"; then
         fail_io "failed to read init-task file: $INIT_FILE"
     fi
-    printf '\n### %s — Q&A by /dr-%s (round %s)\n\n' "$TIMESTAMP" "$STAGE" "$ROUND"
-    printf '**Question (verbatim, asked by %s):**\n\n' "$ASKED_BY"
-    printf '%s\n\n' "$QUESTION_CONTENT"
-    printf '**Answer (verbatim, by %s):**\n\n' "$DECIDED_BY"
-    printf '%s\n\n' "$ANSWER_CONTENT"
-    printf '**Decided by:** %s\n\n' "$DECIDED_BY"
+    printf '\n### %s — Q&A by /dr-%s (round %s)\n\n' "$TIMESTAMP" "$STAGE" "$ROUND" \
+        || fail_io "failed to compose Q&A append"
+    printf '**Question (verbatim, asked by %s):**\n\n' "$ASKED_BY" \
+        || fail_io "failed to compose Q&A append"
+    printf '%s\n\n' "$QUESTION_CONTENT" \
+        || fail_io "failed to compose Q&A append"
+    printf '**Answer (verbatim, by %s):**\n\n' "$DECIDED_BY" \
+        || fail_io "failed to compose Q&A append"
+    printf '%s\n\n' "$ANSWER_CONTENT" \
+        || fail_io "failed to compose Q&A append"
+    printf '**Decided by:** %s\n\n' "$DECIDED_BY" \
+        || fail_io "failed to compose Q&A append"
     if [ -n "$RATIONALE_FILE" ]; then
         if [ "$DECIDED_BY" = "process-rule-artefact" ]; then
-            printf '**Process-rule artefacts:**\n\n'
+            printf '**Process-rule artefacts:**\n\n' \
+                || fail_io "failed to compose Q&A append"
         else
-            printf '**Decision rationale:**\n\n'
+            printf '**Decision rationale:**\n\n' \
+                || fail_io "failed to compose Q&A append"
         fi
-        printf '%s\n\n' "$RATIONALE_CONTENT"
+        printf '%s\n\n' "$RATIONALE_CONTENT" \
+            || fail_io "failed to compose Q&A append"
     fi
-    printf '**Summary (how it changes initial conditions):**\n\n'
-    printf '%s\n\n' "$SUMMARY"
+    printf '**Summary (how it changes initial conditions):**\n\n' \
+        || fail_io "failed to compose Q&A append"
+    printf '%s\n\n' "$SUMMARY" \
+        || fail_io "failed to compose Q&A append"
     if [ -n "$CONFLICT_WITH" ]; then
         if [ -n "$CONFLICT_DETAIL_FILE" ]; then
             printf '**Conflict with existing wish:** %s — %s\n\n' \
-                "$CONFLICT_WITH" "$CONFLICT_DETAIL_CONTENT"
+                "$CONFLICT_WITH" "$CONFLICT_DETAIL_CONTENT" \
+                || fail_io "failed to compose Q&A append"
         else
-            printf '**Conflict with existing wish:** %s — (see Summary)\n\n' "$CONFLICT_WITH"
+            printf '**Conflict with existing wish:** %s — (see Summary)\n\n' "$CONFLICT_WITH" \
+                || fail_io "failed to compose Q&A append"
         fi
     else
-        printf '**Conflict with existing wish:** none\n\n'
+        printf '**Conflict with existing wish:** none\n\n' \
+            || fail_io "failed to compose Q&A append"
     fi
 } > "$TMP_FILE"
+compose_status=$?
+if [ "$compose_status" -ne 0 ]; then
+    fail_io "failed to compose Q&A append"
+fi
 
 mv -f "$TMP_FILE" "$INIT_FILE"
 TMP_FILE=""

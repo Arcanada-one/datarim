@@ -155,7 +155,7 @@ _d5_trace_event() {
     local operation_rc="${6:-unknown}" decision="${7:-none}" marker line mono_ns
 
     case "$event" in
-        reserve_dir_create|gc_age|gc_remove|gc_remove_result|claim_probe|candidate_probe|initial_mkdir|stale_age|stale_predicate|reclaim_decision|reclaim_remove|reclaim_remove_result|reclaim_mkdir|stamp_epoch|stamp_pid|publish_marker|stdout_attempt|release_remove|release_remove_result)
+        reserve_dir_create|gc_age|gc_remove|gc_remove_result|claim_probe|candidate_probe|mkdir_attempt|initial_mkdir|stale_age|stale_predicate|reclaim_decision|reclaim_remove|reclaim_remove_result|reclaim_mkdir|stamp_epoch|stamp_pid|publish_marker|stdout_attempt|release_remove|release_remove_result)
             ;;
         *) event="unknown" ;;
     esac
@@ -412,6 +412,9 @@ _reservation_try() {
     local id="$1"
     local marker="${RESERVE_DIR}/${id}"
     local initial_mkdir_rc reclaim_mkdir_rc
+    if _d5_trace_can_emit; then
+        _d5_trace_event mkdir_attempt "$id" unknown unknown "$RESERVATION_TTL" unknown attempt
+    fi
     if mkdir "$marker" 2>/dev/null; then
         if _d5_trace_can_emit; then
             _d5_trace_event initial_mkdir "$id" unknown unknown "$RESERVATION_TTL" 0 created
@@ -486,6 +489,9 @@ _reservation_try() {
             fi
         else
             rm -rf "$marker" 2>/dev/null || true
+        fi
+        if _d5_trace_can_emit; then
+            _d5_trace_event mkdir_attempt "$id" unknown unknown "$RESERVATION_TTL" unknown attempt
         fi
         if mkdir "$marker" 2>/dev/null; then
             if _d5_trace_can_emit; then
