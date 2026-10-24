@@ -49,6 +49,16 @@ def fail(code: str, detail: str) -> None:
     raise CoverageError(code, detail)
 
 
+def print_cli_error(message: str) -> None:
+    """Write an error unchanged when encodable, escaping only unencodable text."""
+    encoding = sys.stdout.encoding or "utf-8"
+    try:
+        rendered = message.encode(encoding, errors="strict")
+    except UnicodeEncodeError:
+        rendered = message.encode(encoding, errors="backslashreplace")
+    sys.stdout.buffer.write(rendered + b"\n")
+
+
 def is_text(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip()) and not re.fullmatch(
         r"\s*(?:<[^>]+>|TODO|TBD|REPLACE_ME)\s*", value, re.IGNORECASE
@@ -131,6 +141,10 @@ def parse_charter(path: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]]
         if not isinstance(behaviour, dict) or not is_text(behaviour.get("id")):
             fail("invalid_charter", "each behaviour needs a non-empty id")
         behaviour_id = behaviour["id"]
+        try:
+            behaviour_id.encode("utf-8")
+        except UnicodeEncodeError:
+            fail("invalid_charter", "behaviour id must be UTF-8 encodable")
         if behaviour_id in behaviour_ids:
             fail("invalid_charter", "behaviour ids must be unique")
         behaviour_ids.add(behaviour_id)
@@ -219,7 +233,14 @@ def validate_checkpoint_chains(
             entry = seen[probe_id]
             if entry.get("outcome") != "pass":
                 fail("checkpoint_probe_not_pass", f"checkpoint {checkpoint_id} refers to a non-passing probe")
-            if not SHA256.fullmatch(str(point.get("observation_sha256") or "")) or point["observation_sha256"] != digest(entry["observed"].encode("utf-8")):
+            observation_sha256 = point.get("observation_sha256")
+            if not SHA256.fullmatch(str(observation_sha256 or "")):
+                fail("stale_checkpoint_observation", f"checkpoint {checkpoint_id} does not bind the exact prior observation")
+            try:
+                observation_bytes = entry["observed"].encode("utf-8")
+            except UnicodeEncodeError:
+                fail("invalid_evidence", f"probe {probe_id}: observed result must be valid UTF-8 text")
+            if observation_sha256 != digest(observation_bytes):
                 fail("stale_checkpoint_observation", f"checkpoint {checkpoint_id} does not bind the exact prior observation")
             artifact = entry.get("artifact")
             if not isinstance(artifact, dict) or point.get("artifact_sha256") != artifact.get("sha256"):
@@ -335,6 +356,10 @@ def validate(root: Path, charter_path: Path, evidence_path: Path) -> tuple[int, 
         if not isinstance(entry, dict) or not is_text(entry.get("id")):
             fail("invalid_evidence", "each probe evidence entry needs an id")
         probe_id = entry["id"]
+        try:
+            probe_id.encode("utf-8")
+        except UnicodeEncodeError:
+            fail("invalid_evidence", "probe id must be valid UTF-8 text")
         if probe_id not in probes:
             fail("unknown_probe", f"evidence contains undeclared probe {probe_id}")
         if probe_id in seen:
@@ -390,10 +415,10 @@ def main() -> int:
         evidence = input_file(args.evidence, root, "evidence")
         required, recorded, optional_missing, revision, linked = validate(root, charter, evidence)
     except CoverageError as exc:
-        print(f"CHARTER_COVERAGE FAIL reason={exc.code}: {exc}")
+        print_cli_error(f"CHARTER_COVERAGE FAIL reason={exc.code}: {exc}")
         return 1
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        print(f"CHARTER_COVERAGE FAIL reason=source_or_path_error: {exc}")
+        print_cli_error(f"CHARTER_COVERAGE FAIL reason=source_or_path_error: {exc}")
         return 1
     print(
         f"CHARTER_COVERAGE PASS required={required} recorded={recorded} "
