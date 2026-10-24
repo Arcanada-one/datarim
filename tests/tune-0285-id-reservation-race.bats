@@ -27,7 +27,7 @@ R01_DIAGNOSTIC_BUFFER=''
 
 _r01_trace_record_is_valid() {
     local line="$1" LC_ALL=C
-    local events='(reserve_dir_create|gc_age|gc_remove|gc_remove_result|claim_probe|candidate_probe|initial_mkdir|stale_age|stale_predicate|reclaim_decision|reclaim_remove|reclaim_remove_result|reclaim_mkdir|stamp_epoch|stamp_pid|publish_marker|stdout_attempt|release_remove|release_remove_result)'
+    local events='(reserve_dir_create|gc_age|gc_remove|gc_remove_result|claim_probe|candidate_probe|mkdir_attempt|initial_mkdir|stale_age|stale_predicate|reclaim_decision|reclaim_remove|reclaim_remove_result|reclaim_mkdir|stamp_epoch|stamp_pid|publish_marker|stdout_attempt|release_remove|release_remove_result)'
     local candidate='(TUNE-[0-9]{4}|unknown)'
     local identity='([0-9]+:[0-9]+|unknown)'
     local epoch='([0-9]+|unknown)'
@@ -39,6 +39,10 @@ _r01_trace_record_is_valid() {
     local schema="^([1-9][0-9]*)\\|([0-9]+)\\|${events}\\|${candidate}\\|${identity}\\|${identity}\\|${identity}\\|${epoch}\\|${age}\\|${ttl}\\|${operation_rc}\\|${decisions}\\|${monotonic}$"
     (( ${#line} + 1 <= R01_TRACE_RECORD_BYTES )) || return 1
     [[ "$line" =~ $schema ]]
+}
+
+@test "R01 strict trace validator accepts the bounded mkdir attempt event" {
+    _r01_trace_record_is_valid '1|12345|mkdir_attempt|TUNE-1234|unknown|unknown|unknown|unknown|unknown|1800|unknown|attempt|1234567890'
 }
 
 _r01_buffer_trace_record() {
