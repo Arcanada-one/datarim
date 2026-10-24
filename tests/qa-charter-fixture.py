@@ -37,6 +37,7 @@ def main() -> None:
             **({"checkpoint_chain": {"required": True}} if mode in {
                 "chain", "missing-chain", "stale-checkpoint", "dangling-checkpoint",
                 "duplicate-checkpoint", "cyclic-checkpoint", "attempts-only",
+                "unicode-scalar-chain", "lone-high-surrogate-chain", "lone-low-surrogate-chain",
             } else {}),
             "probes": [
                 {"id": "returns-result", "surface": "cli", "required": True,
@@ -46,6 +47,12 @@ def main() -> None:
             ],
         }],
     }
+    if mode == "lone-high-surrogate-behaviour-id":
+        charter_data["behaviours"][0]["id"] = "behaviour-" + chr(0xD800)
+        del charter_data["behaviours"][0]["contract"]
+    elif mode == "unicode-behaviour-id-omitted-contract":
+        charter_data["behaviours"][0]["id"] = "behaviour-雪"
+        del charter_data["behaviours"][0]["contract"]
     charter_path = qa / "qa-charter.md"
     charter_path.write_text(
         "# Synthetic QA charter fixture\n\n"
@@ -72,11 +79,18 @@ def main() -> None:
         outcomes[0] = []
     elif mode == "invalid-outcome-object":
         outcomes[0] = {}
+    observed_result = "synthetic result observed"
+    if mode == "unicode-scalar-chain":
+        observed_result = "synthetic result observed with Unicode \u2603"
+    elif mode == "lone-high-surrogate-chain":
+        observed_result = "synthetic result observed with " + chr(0xD800)
+    elif mode == "lone-low-surrogate-chain":
+        observed_result = "synthetic result observed with " + chr(0xDC00)
     probes = [
         {
             "id": "returns-result",
             "outcome": outcomes[0],
-            "observed": "synthetic result observed",
+            "observed": observed_result,
             "command": "synthetic-command",
             "exit_code": 0,
             **({"reason": "synthetic probe intentionally not run"} if outcomes[0] == "not run" else {}),
@@ -91,6 +105,12 @@ def main() -> None:
             "artifact": {"path": "probe.txt", "sha256": digest(artifact.read_bytes())},
         },
     ]
+    if mode == "unknown-probe-id":
+        probes[0]["id"] = "undeclared-probe"
+    elif mode == "unknown-unicode-probe-id":
+        probes[0]["id"] = "undeclared-雪"
+    elif mode == "lone-high-surrogate-probe-id":
+        probes[0]["id"] = "undeclared-" + chr(0xD800)
     if mode == "omit":
         probes.pop()
     if mode == "duplicate-required":
@@ -103,10 +123,18 @@ def main() -> None:
         "captured_at": "2026-10-18T12:00:00Z",
         "probes": probes,
     }
-    if mode in {"chain", "stale-checkpoint", "dangling-checkpoint", "duplicate-checkpoint", "cyclic-checkpoint"}:
+    if mode in {
+        "chain", "stale-checkpoint", "dangling-checkpoint", "duplicate-checkpoint", "cyclic-checkpoint",
+        "unicode-scalar-chain", "lone-high-surrogate-chain", "lone-low-surrogate-chain",
+    }:
         checkpoint_rows = []
         for index, probe in enumerate(probes):
-            observation_hash = digest(probe["observed"].encode("utf-8"))
+            if index == 0 and mode in {"lone-high-surrogate-chain", "lone-low-surrogate-chain"}:
+                # A surrogate has no strict UTF-8 encoding; keep the pin well-formed so the CLI
+                # can refuse the malformed observation at its own validation boundary.
+                observation_hash = "0" * 64
+            else:
+                observation_hash = digest(probe["observed"].encode("utf-8"))
             if mode == "stale-checkpoint" and index == 0:
                 observation_hash = "0" * 64
             checkpoint_rows.append({
@@ -135,6 +163,20 @@ def main() -> None:
     (run / "evidence.json").write_text(
         json.dumps(evidence, sort_keys=True, indent=2) + "\n", encoding="utf-8"
     )
+    duplicate_key_tokens = {
+        "duplicate-key-ascii": b'"duplicate-key"',
+        "duplicate-key-unicode": '"duplicate-雪"'.encode("utf-8"),
+        "duplicate-key-high-surrogate": b'"\\ud800"',
+        "duplicate-key-low-surrogate": b'"\\udc00"',
+    }
+    if mode in duplicate_key_tokens:
+        evidence_path = run / "evidence.json"
+        original = evidence_path.read_bytes()
+        if not original.endswith(b"}\n"):
+            raise SystemExit("fixture evidence did not end with a JSON object")
+        token = duplicate_key_tokens[mode]
+        repeated_members = b',\n  ' + token + b': null,\n  ' + token + b': null\n}\n'
+        evidence_path.write_bytes(original[:-2] + repeated_members)
     if mode == "mutable":
         (qa / "latest").symlink_to(run.name, target_is_directory=True)
 
