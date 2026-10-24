@@ -32,6 +32,68 @@ teardown() {
 # Helpers
 # ---------------------------------------------------------------------------
 
+# Count one fixed P2.5 marker without exposing the fixture path or contents.
+# "unknown" distinguishes an unavailable/read-error input from a measured zero.
+_p25_marker_count() {
+    local file="$1" marker="$2" result count grep_status
+    if [ ! -r "$file" ]; then
+        printf 'unknown'
+        return 0
+    fi
+    result="$( { grep -F -o -- "$marker" < "$file" 2>/dev/null | wc -l; printf ':%s' "${PIPESTATUS[0]}"; } 2>/dev/null )"
+    count="$(printf '%s' "${result%%:*}" | tr -d '[:space:]')"
+    grep_status="${result##*:}"
+    case "$grep_status" in
+        0|1)
+            case "$count" in
+                ''|*[!0-9]*) printf 'unknown' ;;
+                *) if [ "${#count}" -gt 20 ]; then printf 'overflow'; else printf '%s' "$count"; fi ;;
+            esac
+            ;;
+        *) printf 'unknown' ;;
+    esac
+}
+
+_p25_marker_presence() {
+    case "$1" in
+        unknown) printf 'unknown' ;;
+        overflow) printf 'yes' ;;
+        *[1-9]*) printf 'yes' ;;
+        *) printf 'no' ;;
+    esac
+}
+
+_p25_safe_marker_count() {
+    case "$1" in
+        unknown|overflow) printf '%s' "$1" ;;
+        ''|*[!0-9]*) printf 'unknown' ;;
+        *) if [ "${#1}" -gt 20 ]; then printf 'overflow'; else printf '%s' "$1"; fi ;;
+    esac
+}
+
+# Emit only fixed field names and bounded numeric/unknown values on Bats FD 3.
+# Counts over 20 digits become "overflow"; the complete block stays below 512 bytes.
+# Best-effort writes never affect the caller's assertion status.
+_p25_emit_marker_summary() {
+    local count1 count2 count3 count4 count5 count6
+    count1="$(_p25_safe_marker_count "${1:-}")"
+    count2="$(_p25_safe_marker_count "${2:-}")"
+    count3="$(_p25_safe_marker_count "${3:-}")"
+    count4="$(_p25_safe_marker_count "${4:-}")"
+    count5="$(_p25_safe_marker_count "${5:-}")"
+    count6="$(_p25_safe_marker_count "${6:-}")"
+    {
+        printf 'P2.5 marker summary v1\n' >&3 || :
+        printf 'prd_round_1_heading count=%s present=%s\n' "$count1" "$(_p25_marker_presence "$count1")" >&3 || :
+        printf 'plan_round_2_heading count=%s present=%s\n' "$count2" "$(_p25_marker_presence "$count2")" >&3 || :
+        printf 'question_round_1 count=%s present=%s\n' "$count3" "$(_p25_marker_presence "$count3")" >&3 || :
+        printf 'question_round_2 count=%s present=%s\n' "$count4" "$(_p25_marker_presence "$count4")" >&3 || :
+        printf 'answer_round_1 count=%s present=%s\n' "$count5" "$(_p25_marker_presence "$count5")" >&3 || :
+        printf 'answer_round_2 count=%s present=%s\n' "$count6" "$(_p25_marker_presence "$count6")" >&3 || :
+    } 2>/dev/null
+    return 0
+}
+
 # write_base_init_task <ID>
 # Writes a minimal valid init-task file with empty Append-log.
 write_base_init_task() {
@@ -317,7 +379,15 @@ EOF
 
     local file="$TMPROOT/datarim/tasks/TEST-0205-init-task.md"
     local heading_count failed=0 marker validator_status
+    local prd_round_1_count plan_round_2_count question_round_1_count question_round_2_count answer_round_1_count answer_round_2_count
     heading_count="$(grep -c 'Q&A by /dr-' "$file" || true)"
+    # Capture every fixed marker before any assertion can stop this test.
+    prd_round_1_count="$(_p25_marker_count "$file" 'Q&A by /dr-prd (round 1)')"
+    plan_round_2_count="$(_p25_marker_count "$file" 'Q&A by /dr-plan (round 2)')"
+    question_round_1_count="$(_p25_marker_count "$file" 'Q1 round 1.')"
+    question_round_2_count="$(_p25_marker_count "$file" 'Q2 round 2.')"
+    answer_round_1_count="$(_p25_marker_count "$file" 'A1.')"
+    answer_round_2_count="$(_p25_marker_count "$file" 'A2.')"
     [ "$status1" -eq 0 ] || failed=1
     [ "$status2" -eq 0 ] || failed=1
     [ "$heading_count" = 2 ] || failed=1
@@ -333,6 +403,10 @@ EOF
     [ "$validator_status" -eq 0 ] || failed=1
 
     if [ "$failed" -ne 0 ]; then
+        _p25_emit_marker_summary \
+            "$prd_round_1_count" "$plan_round_2_count" \
+            "$question_round_1_count" "$question_round_2_count" \
+            "$answer_round_1_count" "$answer_round_2_count" || true
         printf 'P2.5 child exits: %s, %s; headings: %s; validator exit: %s\n' \
             "$status1" "$status2" "$heading_count" "$validator_status"
         for child in 1 2; do
@@ -346,6 +420,59 @@ EOF
         done
         return 1
     fi
+}
+
+@test "P2.5 failure diagnostics report all markers when the first is missing" {
+    local file="$TMPROOT/synthetic-marker-fixture.txt"
+    local summary="$TMPROOT/marker-summary.txt"
+    cat > "$file" <<'EOF'
+Q&A by /dr-plan (round 2)
+Q1 round 1.
+Q2 round 2.
+A1.
+A2.
+synthetic-raw-content-sentinel
+EOF
+
+    local prd_round_1_count plan_round_2_count question_round_1_count question_round_2_count answer_round_1_count answer_round_2_count
+    prd_round_1_count="$( _p25_marker_count "$file" 'Q&A by /dr-prd (round 1)' )"
+    plan_round_2_count="$( _p25_marker_count "$file" 'Q&A by /dr-plan (round 2)' )"
+    question_round_1_count="$( _p25_marker_count "$file" 'Q1 round 1.' )"
+    question_round_2_count="$( _p25_marker_count "$file" 'Q2 round 2.' )"
+    answer_round_1_count="$( _p25_marker_count "$file" 'A1.' )"
+    answer_round_2_count="$( _p25_marker_count "$file" 'A2.' )"
+
+    # Model the original first marker predicate failing before later checks.
+    local predicate_failed=0
+    case "$prd_round_1_count" in
+        0|unknown) predicate_failed=1 ;;
+    esac
+    if [ "$predicate_failed" -ne 0 ]; then
+        _p25_emit_marker_summary \
+            "$prd_round_1_count" "$plan_round_2_count" \
+            "$question_round_1_count" "$question_round_2_count" \
+            "$answer_round_1_count" "$answer_round_2_count" 3>"$summary" || true
+    fi
+
+    # A closed diagnostic sink is best-effort and cannot clear the failed predicate.
+    local sink_status=0
+    _p25_emit_marker_summary \
+        "$prd_round_1_count" "$plan_round_2_count" \
+        "$question_round_1_count" "$question_round_2_count" \
+        "$answer_round_1_count" "$answer_round_2_count" 3>&- 2>/dev/null || sink_status=$?
+
+    [ "$predicate_failed" -eq 1 ] \
+        && [ "$sink_status" -eq 0 ] \
+        && grep -Fxq 'P2.5 marker summary v1' "$summary" \
+        && grep -Fxq 'prd_round_1_heading count=0 present=no' "$summary" \
+        && grep -Fxq 'plan_round_2_heading count=1 present=yes' "$summary" \
+        && grep -Fxq 'question_round_1 count=1 present=yes' "$summary" \
+        && grep -Fxq 'question_round_2 count=1 present=yes' "$summary" \
+        && grep -Fxq 'answer_round_1 count=1 present=yes' "$summary" \
+        && grep -Fxq 'answer_round_2 count=1 present=yes' "$summary" \
+        && [ "$(wc -c < "$summary" | tr -d '[:space:]')" -le 512 ] \
+        && ! grep -qF -- "$TMPROOT" "$summary" \
+        && ! grep -qF 'synthetic-raw-content-sentinel' "$summary"
 }
 
 @test "P2.6 utility preserves init-task when its source read fails" {
