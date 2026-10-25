@@ -42,8 +42,6 @@ def artifact(path):
     data_value = yaml.safe_load(data.group(1))
     if not isinstance(front_value, dict):
         raise ValueError("product artifact frontmatter must be a mapping")
-    if not isinstance(data_value, dict):
-        raise ValueError("product artifact data must be a mapping")
     return raw, front_value, data_value
 
 
@@ -141,6 +139,8 @@ def main():
     decision_docs = validate_revision_chain(decisions, "decision-record")
     latest_path = decisions[-1]
     latest_raw, latest_front, latest_data = decision_docs[-1]
+    if not isinstance(latest_data, dict):
+        raise ValueError("active product artifact data must be a mapping")
     decision_digest = digest(latest_raw)
     if latest_front.get("schema_version") != "product-artifact/2":
         refuse("invalid_artifact", detail="latest record is not DecisionRecord product-artifact/2")

@@ -380,7 +380,7 @@ def malformed_active_yaml_mapping_cases():
         "frontmatter", "[]", "product artifact frontmatter must be a mapping"
     )
     malformed_active_mapping_refusal(
-        "data", "null", "product artifact data must be a mapping"
+        "data", "null", "active product artifact data must be a mapping"
     )
 
 
