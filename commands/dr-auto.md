@@ -100,7 +100,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
      -   Exit 0 → dispatch `developer`. Advisory findings at this point do not block.
      -   `/dr-do` Step 5.8 runs the same check. Running it here keeps the orchestrator from spending a developer dispatch on a task that cannot pass compliance.
    - **L1 doc-only fast-path (narrow class).** When the task is classified L1 AND all three conditions hold — (a) the diff touches exactly one documentation file (markdown), (b) the change is small (no structural split, no new sections requiring architectural review), and (c) the change carries no runtime behaviour (no code, no configuration, no migration) — then instead of silently skipping `/dr-qa`, the orchestrator runs a lightweight inline check: style/banlist scan of the added lines plus a cross-reference grep (internal links resolve, no stale references introduced). If both checks pass, write a minimal `qa-stub` artefact (`datarim/qa/qa-stub-{TASK-ID}.md`) recording the checks performed and their outcomes. This stub counts as the QA artefact for this class (see `skills/compliance/SKILL.md` § Documentation Checklist). This fast-path does NOT apply to real code or infrastructure L1 tasks — those keep the normal routing and the full `/dr-qa` stage.
-   - **Terminal point:** the pipeline stops after a **successful `/dr-compliance`** (COMPLIANT or COMPLIANT_WITH_NOTES), which now writes the reflection internally (see `commands/dr-compliance.md` Step 8.5). `/dr-auto` does **not** dispatch an archive subagent — archival is left to the operator.
+   - **Terminal point:** the pipeline stops after a **successful `/dr-compliance`** (COMPLIANT or COMPLIANT_WITH_NOTES), which writes the reflection and runs the autonomous evolution decision step internally (see `commands/dr-compliance.md` Step 8.5). `/dr-auto` does **not** dispatch an archive subagent — archival is left to the operator.
    - **Stage-replay is normal.** Re-entering an already-completed stage (e.g. after a `/dr-qa` or `/dr-compliance` finding routes work back) updates or append-merges the existing stage artefact rather than failing "already done". The same task may pass through the same stage many times across review rounds; treat each pass as an update to that stage's artefact, not a fresh creation.
 
 ### Product-discovery research outcome routing
@@ -119,7 +119,7 @@ For a task with the persisted `profile: product-discovery` selector, keep resear
 
 9. **Terminal cleanup.** On success (a passing `/dr-compliance` + reflection) or a hard stop:
    - Remove the per-task marker `datarim/.auto/<TASK-ID>.mode` (resolve via `auto-mode-marker.sh resolve --root <workspace> --task-id <TASK-ID>`; also clear the legacy `datarim/.auto-mode-active` if it was written by a hand-run for this task-id).
-   - **Forward the delegated outcome into one operator summary before the CTA.** Load `${DATARIM_RUNTIME:?}/skills/human-summary/SKILL.md` and emit its four-section summary using the delegated task result, compliance report when one exists, and current reflection artifact when one exists. Preserve each proposal's number, class, category, target, rationale, and state (pending approval, held, applied, or rejected); do not reduce this handoff to the compliance verdict. Say "no proposals" only when the current reflection artifact confirms none. If reflection is absent, stale, or unavailable, report it as unmeasured. If compliance was skipped by design, state the skip reason and do not imply reflection ran. Pending Class A proposals must retain the approval decision requested; held proposals must retain their gate; say "applied" only when an evolution record or equivalent evidence confirms actual application. Do not emit a second recap. This is a static prompt handoff contract; it does not establish that a live delegated run delivered the summary to chat.
+   - **Forward the delegated outcome into one operator summary before the CTA.** Load `${DATARIM_RUNTIME:?}/skills/human-summary/SKILL.md` and emit its four-section summary using the delegated task result, compliance report when one exists, and current reflection artifact when one exists. Preserve each proposal's number, class, category, target, rationale, evidence, gates, and decision (`applied`, `declined`, or `deferred`); do not reduce this handoff to the compliance verdict. Say "no proposals" only when the current reflection artifact confirms none. If reflection is absent, stale, or unavailable, report it as unmeasured. If decision evidence is absent or stale, report it as unmeasured. If compliance was skipped by design, state the skip reason and do not imply reflection ran. Legacy reflection labels `pending approval`, `held`, `applied`, and `rejected` remain historical evidence; do not present them as the new autonomous decision. Reconcile them to `applied`, `declined`, or `deferred` only with a current decision record, or report the decision unmeasured. Say "applied" only when an evolution record and change evidence confirm actual application. Do not emit a second recap. This is a static prompt handoff contract; it does not establish that a live delegated run delivered the summary to chat.
      - When compliance ran, include its recorded verdict in the summary; when skipped by design (e.g. L1's init → do → archive), identify the skip reason.
      - Emit the summary after the marker is removed and immediately before the call-to-action block below.
    - Emit the standard call-to-action block defined in the cta-format skill.
@@ -168,3 +168,18 @@ This snapshot overwrites the last delegated sub-stage snapshot — the intended 
 - Skill: `skills/autonomous-mode/SKILL.md` — the operating rules every stage loads.
 - Mandate: `documentation/mandates/autonomous-agents.md` — the source-of-truth rules for autonomous behaviour.
 - Commands: `/dr-next` (the underlying mechanism for resume mode), `/dr-orchestrate` (parallel multi-task, complementary — command is core; the tmux/bot transport runner is the opt-in plugin, enabled via `/dr-plugin enable <abs-path>/plugins/dr-orchestrate`).
+
+
+## Optional autonomous finalization
+
+After passing compliance and the autonomous evolution decision step, resolve
+`autonomy.finalize` with `python3 "${DATARIM_RUNTIME:?}/dev-tools/resolve-finalize-mode.py"
+--root "$DATARIM_ROOT" --task-id "$TASK_ID"`. If `run` is true, invoke
+`/dr-finalize` for the same task and record each step's result. If `run` is
+false, retain the existing terminal point before archive. A resolver error
+refuses finalization and is reported; never treat it as `off`.
+
+Whenever this route creates a branch, worktree, temporary path, process, or
+container, append its exact identity to `datarim/finalize/{TASK-ID}.json` at
+creation time. Preserve existing entries and never infer ownership by name.
+`/dr-finalize` uses this ledger for safe cleanup.

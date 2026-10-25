@@ -87,6 +87,12 @@ commands:
   dr-archive:
     stage: archive
     requires: [dr-do]
+    precedes: [dr-finalize]
+    optional_at: []
+
+  dr-finalize:
+    stage: archive
+    requires: [dr-archive]
     precedes: []
     optional_at: []
 

@@ -19,6 +19,8 @@ import tempfile
 import time
 import uuid
 
+from local_overlay import collect as collect_overlay, sha as overlay_sha
+
 SOURCE = Path(__file__).resolve().parents[1]
 BEGIN = '<!-- datarim-project:begin -->'
 END = '<!-- datarim-project:end -->'
@@ -736,6 +738,51 @@ def _install(args):
             if path.is_file():
                 source_hash.update(str(path.relative_to(SOURCE)).encode())
                 source_hash.update(path.read_bytes())
+    overlay_files, overlay_bases, overlay_drift = collect_overlay(root, SOURCE)
+    overlay_digest = hashlib.sha256()
+    overlay_bytes = {relative: path.read_bytes() for relative, path in overlay_files.items()}
+    for relative, data in sorted(overlay_bytes.items()):
+        overlay_digest.update(relative.encode())
+        overlay_digest.update(str(overlay_bases[relative]).encode())
+        overlay_digest.update(data)
+    # A runtime file modified outside the overlay is not an update input.
+    # Refuse before any mutation and give the project an explicit migration path.
+    if previous:
+        recorded = previous.get('runtime_files')
+        if recorded is None:
+            # Pre-overlay installations did not record runtime hashes. Recover
+            # their baseline from the pinned source commit, or fail closed.
+            pinned = previous.get('source_sha')
+            if not pinned:
+                raise ValueError('Previous runtime has no file hashes or source pin; preserve it before update')
+            recorded = {}
+            for scope in SCOPES:
+                base = runtime / scope
+                if base.is_dir():
+                    for path in base.rglob('*'):
+                        if path.is_file():
+                            relative = str(path.relative_to(runtime))
+                            result = subprocess.run(['git', '-C', str(SOURCE), 'show', f'{pinned}:{relative}'],
+                                                    capture_output=True)
+                            if result.returncode != 0:
+                                raise ValueError(f'Cannot verify previous runtime file: {relative}')
+                            recorded[relative] = digest(result.stdout)
+        if not isinstance(recorded, dict):
+            raise ValueError('Invalid prior runtime file manifest')
+        changed_runtime = []
+        for relative, expected in recorded.items():
+            parts = Path(relative).parts if isinstance(relative, str) else ()
+            if (len(parts) < 2 or parts[0] not in SCOPES or '..' in parts or
+                    not isinstance(expected, str) or len(expected) != 64):
+                raise ValueError('Invalid prior runtime file manifest entry')
+            path = runtime / relative
+            if (not path.is_file() or any(parent.is_symlink() for parent in (path, *path.parents)
+                                             if parent == runtime or parent.is_relative_to(runtime))
+                    or digest(path.read_bytes()) != expected):
+                changed_runtime.append(relative)
+        if changed_runtime:
+            raise ValueError('Locally modified installed runtime; copy into datarim/local/ and register with '
+                             'scripts/local_overlay.py add before update: '+', '.join(sorted(changed_runtime)))
     files = {}
     snapshots = {}
     def read_initial(name):
@@ -791,10 +838,12 @@ def _install(args):
     # discoverable skill's description is loaded into every session, which is
     # the framework imposing itself again. Commands load skills by path.
     expose = getattr(args, 'expose_skills', False) or (previous or {}).get('expose_skills', False)
-    for skill in sorted((SOURCE / 'skills').rglob('SKILL.md')) if expose else []:
-        if is_ignored(skill, ignored):
-            continue
-        relative = str(skill.parent.relative_to(SOURCE/'skills'))
+    skill_paths = {str(p.relative_to(SOURCE/'skills')): p for p in (SOURCE / 'skills').rglob('SKILL.md')
+                   if not is_ignored(p, ignored)}
+    skill_paths.update({rel[len('skills/'):]: path for rel, path in overlay_files.items()
+                        if rel.startswith('skills/') and rel.endswith('/SKILL.md')})
+    for skill_rel, skill in sorted(skill_paths.items()) if expose else []:
+        relative = str(Path(skill_rel).parent)
         name = relative.replace('/', '-')
         header = skill.read_text().split('---', 2)
         if len(header) != 3 or header[0].strip():
@@ -804,9 +853,10 @@ def _install(args):
             raise ValueError(f'Skill discovery name collision: {name}')
         files[target] = ('---'+header[1]+'---\n\n'
             f'Read `{runtime}/skills/{relative}/SKILL.md`.\n').encode()
-    for command in sorted((SOURCE / 'commands').glob('*.md')):
-        if is_ignored(command, ignored):
-            continue
+    command_paths = {p.name: p for p in (SOURCE / 'commands').glob('*.md') if not is_ignored(p, ignored)}
+    command_paths.update({rel[len('commands/'):]: path for rel, path in overlay_files.items()
+                          if rel.startswith('commands/') and len(Path(rel).parts) == 2 and rel.endswith('.md')})
+    for _, command in sorted(command_paths.items()):
         files[f'.agents/skills/{command.stem}/SKILL.md'] = (
             f'---\nname: {command.stem}\ndescription: Run the project-local Datarim {command.stem} workflow command.\n---\n\n'
             + command_preamble(runtime) + f'Then read `{runtime}/commands/{command.name}` and follow it.\n').encode()
@@ -814,7 +864,7 @@ def _install(args):
     # Each vendor discovers skills through its own project-local directory.
     # Claude Code already has the commands in .claude/commands; a skill copy of
     # each would put 28 more descriptions into every Claude session.
-    command_stems = {c.stem for c in (SOURCE / 'commands').glob('*.md')}
+    command_stems = {Path(name).stem for name in command_paths}
     for name, data in list(files.items()):
         if name.startswith('.agents/skills/'):
             for vendor in ('.claude', '.cursor'):
@@ -830,6 +880,8 @@ def _install(args):
     link_action = 'remove' if owned_link else None
 
     # All files are checked before the first mutation.
+    if any(path.read_bytes() != overlay_bytes[relative] for relative, path in overlay_files.items()):
+        raise ValueError('Concurrent overlay modification before install')
     for name, data in files.items():
         target = safe_path(root, name)
         read_initial(name)
@@ -855,7 +907,8 @@ def _install(args):
                           'with_jev': args.with_jev, 'host_jev': args.host_jev, 'contexts': args.context,
                           'clients': list(clients)}))
         return
-    if (previous and previous.get('source_digest') == source_hash.hexdigest() and previous.get('with_jev') == args.with_jev
+    if (previous and previous.get('source_digest') == source_hash.hexdigest()
+            and previous.get('overlay_digest') == overlay_digest.hexdigest() and previous.get('with_jev') == args.with_jev
             and previous.get('host_jev', False) == args.host_jev
             and previous.get('contexts', []) == args.context
             and tuple(previous.get('clients') or CLIENTS) == clients
@@ -887,6 +940,10 @@ def _install(args):
                     return set(by_name(directory, names)) | {
                         n for n in names if is_ignored(Path(directory)/n, ignored)}
                 shutil.copytree(SOURCE / scope, stage / scope, symlinks=False, ignore=skip)
+        for relative, data in overlay_bytes.items():
+            target = stage / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
         for name in ('AGENTS.md', 'VERSION'):
             shutil.copy2(SOURCE / name, stage / name)
         (stage / 'bin').mkdir()
@@ -913,7 +970,10 @@ def _install(args):
             sha = subprocess.check_output(['git', '-C', str(SOURCE), 'rev-parse', 'HEAD'], text=True).strip()
         except subprocess.CalledProcessError:
             sha = None
-        manifest = {'schema': 1, 'project': str(root), 'source_sha': sha, 'source_digest': source_hash.hexdigest(),
+        manifest = {'schema': 1, 'project': str(root), 'source_sha': sha, 'source_path': str(SOURCE), 'source_digest': source_hash.hexdigest(), 'overlay_digest': overlay_digest.hexdigest(),
+                    'overlay_base_changed': overlay_drift,
+                    'runtime_files': {str(p.relative_to(stage)): digest(p.read_bytes())
+                                      for scope in SCOPES for p in (stage/scope).rglob('*') if p.is_file()},
                     'with_jev': args.with_jev, 'host_jev': args.host_jev, 'contexts': args.context,
                     'expose_skills': expose, 'clients': list(clients),
                     'created_dirs': created_client_directories(root, files, previous),
@@ -945,6 +1005,8 @@ def _install(args):
                 originals.pop(name)
         (stage/'original-files.json').write_text(json.dumps({n: v.decode() if v is not None else None for n,v in originals.items()}, indent=2)+'\n')
         (stage/'original-files.json').chmod(0o600)
+        if any(path.read_bytes() != overlay_bytes[relative] for relative, path in overlay_files.items()):
+            raise ValueError('Concurrent overlay modification during install')
         if archived_previous is not None:
             archived_previous.parent.mkdir(mode=0o700, exist_ok=True)
             old_runtime.rename(archived_previous)
@@ -996,6 +1058,8 @@ def _install(args):
             (runtime/'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
         mode = apply_permissions(root, args.host_jev, getattr(args, 'permissions', None))
         print(json.dumps({'status': 'installed', **manifest}))
+        if overlay_drift:
+            print(json.dumps({'overlay_upstream_base_changed': overlay_drift}), file=sys.stderr)
         print(report_block(root, args.host_jev, args.with_jev, mode, clients), file=sys.stderr)
     except Exception:
         recovery = []

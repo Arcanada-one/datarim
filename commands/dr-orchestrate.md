@@ -35,6 +35,13 @@ through snapshot-first `/dr-next <TASK-ID>`. See
 
 ## Cycle
 
+When this orchestrator dispatches `/dr-compliance` in an autonomous task,
+carry the task's autonomous-mode signal and matching marker into the compliance
+worker. On a passing verdict, wait for `/dr-compliance` Step 8.5 to complete
+its reflection and `skills/evolution/autonomous-apply.md` decision step before
+reporting the stage complete. Do not route around this step or claim a proposal
+was applied from a passing compliance verdict alone.
+
 1. `tmux capture-pane -p -t <pane>` — captures the current pane buffer.
 2. **Snapshot-First Resume.** If the buffer or job-queue identifies an active TASK-ID and `datarim/snapshots/{TASK-ID}.snapshot.md` is valid (`dev-tools/check-stage-snapshot-on-exit.sh --validate-frontmatter --task <ID>` returns exit 0), read the snapshot before invoking `semantic_parser.sh` and pass `recommended_next` to `subagent_resolver.sh` as `--hint <command>`. The snapshot read happens before resolver dispatch, so the resolver can still return a different command — the snapshot is a hint, not a constraint. If the snapshot is absent or malformed, skip this step without warning (V-AC-7 — the seventh verification acceptance criterion) and continue with prior behaviour. Consumer-side contract: `skills/dr-next-snapshot-replay/SKILL.md`.
 3. `semantic_parser.sh parse` — rule-based pass returns the selected action, confidence, and provenance. Learned matches are exact and must still name an action in the bundled/user trust registry.
@@ -119,3 +126,18 @@ tail -1 ~/.local/share/datarim-orchestrate/audit-"$(date -u +%Y-%m-%d)".jsonl | 
 - Resolver agent: `agents/dr-orchestrate-resolver.md` — plugin-backed; non-functional without the `dr-orchestrate` plugin's `subagent_resolver.sh`. See plugin README for setup.
 - Plugin README: `plugins/dr-orchestrate/README.md`
 - Provenance: `documentation/how-to/evolution-log.md`
+
+
+## Optional autonomous finalization
+
+After passing compliance and the autonomous evolution decision step, resolve
+`autonomy.finalize` with `python3 "${DATARIM_RUNTIME:?}/dev-tools/resolve-finalize-mode.py"
+--root "$DATARIM_ROOT" --task-id "$TASK_ID"`. If `run` is true, invoke
+`/dr-finalize` for the same task and record each step's result. If `run` is
+false, retain the existing terminal point before archive. A resolver error
+refuses finalization and is reported; never treat it as `off`.
+
+Whenever this route creates a branch, worktree, temporary path, process, or
+container, append its exact identity to `datarim/finalize/{TASK-ID}.json` at
+creation time. Preserve existing entries and never infer ownership by name.
+`/dr-finalize` uses this ledger for safe cleanup.

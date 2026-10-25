@@ -2,7 +2,7 @@
 
 > **GENERATED FILE. DO NOT EDIT.** Source: `dev-tools/command-graph.yaml`. Regenerate with `python3 dev-tools/framework-graph.py --write`.
 
-Full Command Inventory (29 commands)
+Full Command Inventory (30 commands)
 
 ```mermaid
 graph LR
@@ -20,6 +20,7 @@ graph LR
     dr-qa["/dr-qa"] --> dr-compliance["/dr-compliance"]
     dr-qa["/dr-qa"] --> dr-archive["/dr-archive"]
     dr-compliance["/dr-compliance"] --> dr-archive["/dr-archive"]
+    dr-archive["/dr-archive"] --> dr-finalize["/dr-finalize"]
     dr-status["/dr-status"]
     dr-save["/dr-save"] --> dr-continue["/dr-continue"]
     dr-continue["/dr-continue"] --> dr-next["/dr-next"]
@@ -50,6 +51,7 @@ graph LR
 - `/dr-qa` — stage `quality`
 - `/dr-compliance` — stage `hardening`
 - `/dr-archive` — stage `archive`
+- `/dr-finalize` — stage `archive`
 - `/dr-verify` — stage `quality` · entry point
 - `/dr-status` — stage `utility` · entry point
 - `/dr-next` — stage `utility` · entry point

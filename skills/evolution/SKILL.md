@@ -15,7 +15,7 @@ Datarim improves itself in two ways:
 1. **Growth** — on a passing `/dr-compliance` (Step 8.5), the `reflecting` skill analyzes lessons learned and proposes targeted improvements: new skills, updated agents, expanded templates. `/dr-archive` Step 0.5 generates reflection when the compliance stage did not produce a current artifact.
 2. **Maintenance** — periodically or on demand, `/dr-optimize` audits the framework for bloat, duplicates, broken references, and inefficiencies, then proposes cleanup and consolidation.
 
-Both paths require **explicit human approval** for every change. Evolution is how Datarim avoids repeating mistakes, accumulates institutional knowledge, and stays lean over time.
+Interactive paths require explicit human approval. A passing compliance stage in `/dr-auto` or `/dr-orchestrate` uses the autonomous decision contract in `autonomous-apply.md`. Evolution is how Datarim avoids repeating mistakes, accumulates institutional knowledge, and stays lean over time.
 
 ---
 
@@ -28,8 +28,8 @@ The agent:
 2. Identifies patterns that could benefit future tasks
 3. Generates zero or more Evolution Proposals
 4. **Bloat check**: Counts total skills, agents, commands. If any threshold is exceeded (see Health Metrics below), suggests running `/dr-optimize`
-5. Presents proposals to the human for approval
-6. Applies only approved changes
+5. In interactive mode, presents proposals to the human. In autonomous mode, decides each proposal under `autonomous-apply.md`.
+6. Applies only proposals whose required gates pass and records every decision.
 
 ### Explicit: Via `/dr-optimize` (Maintenance)
 
@@ -48,7 +48,7 @@ When creating new components, the skill-creator agent:
 2. Prefers updating existing components over creating new ones
 3. Follows the Anti-Bloat Rule (below)
 
-**No automatic modifications.** Every change requires explicit human approval across all paths.
+Automatic application is enabled by default only for effective `/dr-auto` and `/dr-orchestrate` runs, subject to the opt-out and gates in `autonomous-apply.md`. Other paths retain human approval.
 
 > **Historical note (v1.10.0):** the standalone `/dr-reflect` command was retired and consolidated into `/dr-archive` Step 0.5 via the `reflecting` skill. The primary trigger later moved to passing `/dr-compliance` Step 8.5; archive Step 0.5 remains the freshness-aware fallback, so reflection is still required before archive. Disaster-recovery procedures for runtime files live in `skills/utilities/recovery.md` (cross-referenced from `disaster-recovery.md`).
 
@@ -141,6 +141,9 @@ Each proposal is a self-contained block.
 ---
 
 ## Human Approval Gate
+
+This section governs interactive runs and explicit maintenance commands.
+Autonomous compliance evolution uses `autonomous-apply.md` instead.
 
 After presenting proposals, the agent MUST:
 

@@ -97,6 +97,8 @@ _strip_prefix() {
 # opened as a path. Globbing is disabled so a '*' in a cell cannot expand.
 _classify() {
     local cat="$1" tgt="$2" tok stripped lc
+    lc="$(printf '%s' "$cat" | tr '[:upper:]' '[:lower:]')"
+    case "$lc" in *promotion-candidate*) printf 'promotion'; return ;; esac
     local IFS=' ,+'
     set -f
     for tok in $tgt; do
@@ -106,7 +108,6 @@ _classify() {
         esac
     done
     set +f
-    lc="$(printf '%s' "$cat" | tr '[:upper:]' '[:lower:]')"
     case "$lc" in *memory*) printf 'promotion'; return ;; esac
     case "$tgt" in *memory/*) printf 'promotion'; return ;; esac
     printf 'other'

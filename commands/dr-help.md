@@ -30,6 +30,7 @@ Not every task goes through every stage. Datarim routes tasks based on complexit
 | `/dr-do` | Execution | Execute the plan using TDD (for code) or structured iteration (for other work). **Gap discovery** spawns researcher subagent on unknowns. |
 | `/dr-qa` | Quality | Multi-layer quality verification: PRD alignment, design conformance, plan completeness, output quality. |
 | `/dr-compliance` | Hardening | Post-QA hardening. 7-step workflow: revalidate, simplify, check references, coverage, lint, tests, harden. |
+| `/dr-finalize` | Finalize | Archive, publish and push task-owned work, clean only ledgered merged work, complete configured tracker, and report each result. |
 | `/dr-archive` | Archive | Archive the completed task. Performs reflection (Step 0.5) + evolution proposals, then stores context and updates backlog. |
 
 ### Execution Modes (5)

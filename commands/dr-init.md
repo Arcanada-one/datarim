@@ -233,6 +233,10 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     - Exit 1 or exit 2 is a hard INIT failure for a framework task. Do not
       continue to PRD/plan and do not recapture later from `/dr-do`.
 
+When the operator explicitly requests autonomous finalization while creating a task, record `finalize_requested: true` in that task's init-task frontmatter. Never infer the request from a global setting or the existence of a ledger; an absent field means no task request. `autonomy.finalize: off` still blocks finalization.
+
+4.6-bis. **SEED FINALIZATION OWNERSHIP LEDGER**: after the task ID and init-task file are committed to the task record, create `datarim/finalize/{TASK-ID}.json` if absent with `{"schema":1,"owned":{"paths":[],"worktrees":[],"branches":[],"processes":[],"containers":[]}}`. Never replace an existing ledger. Every later stage appends exact task-created resources when it creates them; `/dr-finalize` accepts only those exact entries for cleanup. This ledger itself is task-owned documentation, not a blanket deletion permit.
+
 4.7. **WRITE EXPECTATIONS SKELETON** (mandatory for all complexity levels L1-L4 — see `${DATARIM_RUNTIME:?}/skills/expectations-checklist/SKILL.md` § When the file is created):
     - Compute `EXPECTATIONS_FILE="datarim/tasks/{TASK-ID}-expectations.md"`.
     - Skip silently when `EXPECTATIONS_FILE` already exists (re-run `/dr-init` on backlog ID, or operator-amended skeleton from a prior cycle) — preserve operator edits.

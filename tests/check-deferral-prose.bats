@@ -56,6 +56,7 @@ All wishes met. Fix implemented, tested, and committed to origin.
 EOF
     run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
     [ "$status" -eq 0 ]
+    [[ "$output" == *"PASS: no self-inflicted deferral (touched-source: explicit; touched-count: 2)"* ]]
 }
 
 @test "PASS: deferral phrase about an UNTOUCHED (foreign) file" {

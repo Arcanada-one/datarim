@@ -70,7 +70,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of best-practice rationale. Layer 3b will verify each agent-decision against the implementation.
     -   On contradiction with an expectation: add `--conflict-with <wish_id>` (+ optional `--conflict-detail-file`); CTA MUST route back to `/dr-do --focus-items <wish_id>` for closure.
     -   Skip if no clarification rounds occurred.
-7.  **OUTPUT**: Write `datarim/qa/qa-report-{task-id}.md` with results, including the § Deferred Items (session-scoped) table below (empty/`None` by default; populate whenever a layer identifies a gap that this pass is knowingly not fixing).
+7.  **OUTPUT**: Write `datarim/qa/qa-report-{task-id}.md` with results, including the § Deferred Items (session-scoped) table below (empty/`None` by default; populate whenever a layer identifies a gap that this pass is knowingly not fixing). Before recording or announcing `ALL_PASS` or `CONDITIONAL_PASS`, run all three QA-side gates against the current candidate: `check-live-evidence.sh --root <repo-root> --contract <acceptance.json> --evidence <evidence.json> --stage qa`, `check-qa-charter-coverage.py --root <repo-root> --charter <current-charter> --evidence <current-run-evidence>`, and `check-qa-verdict-blocked.sh --qa-report <candidate-report>`. Every gate must exit 0. A `BLOCKED` or `FAIL` frontmatter verdict cannot be reported as a QA pass. When the acceptance contract supersedes a prior version, also run `check-qa-contract-version.py --contract <acceptance.json> --charter <current-charter>`; a stale charter blocks PASS. Record exact commands, exit codes, and evidence paths in the report; a nonzero or missing check routes to BLOCKED.
 8.  **HUMAN SUMMARY**:
     - Load `${DATARIM_RUNTIME:?}/skills/human-summary/SKILL.md`.
     - Emit the localized operator-summary section with the four semantic sub-sections and markers from `skills/human-summary/SKILL.md`, before the CTA. Use the resolved reply preference.
@@ -530,6 +530,13 @@ predicted production impact and the operator remediation required.
 **Verdict:** SKIP | PASS | FAIL
 
 ### 4h. QA Charter Coverage and Test-Environment Verification
+
+Before certifying any cited QA run directory, run
+`python3 "${DATARIM_RUNTIME:?}/dev-tools/check-qa-run-fail-lines.py" --run-dir <run-dir> --manifest <run-dir>/fail-line-disposition.json`.
+The manifest accounts for every `FAIL` line in retained `.log`, `.txt`, and
+`.out` files. Each line must name a failing case or a harness fix proved by
+re-evaluating its exact recorded response. An orphan line, absent manifest,
+or failed replay makes Layer 4h FAIL and the overall verdict BLOCKED.
 
 #### QA Charter Coverage subcheck — mandatory for every `/dr-qa` task
 

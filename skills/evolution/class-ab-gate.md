@@ -19,7 +19,7 @@ Examples of Class A:
 - Add a new `*.md` template for a recurring pattern
 - Fix a cross-reference or typo
 
-**Approval path:** `/dr-archive` Step 0.5 (reflecting skill) → user approval → apply to runtime → curate to repo. Normal flow.
+**Interactive approval path:** `/dr-archive` Step 0.5 (reflecting skill) → user approval → apply within the workspace scope. In effective autonomous mode, Class A follows `autonomous-apply.md` after a passing compliance verdict.
 
 ## Class B — Operating-model changes (PRD update required BEFORE approval)
 
@@ -68,6 +68,12 @@ For consumer projects, PRD substitutes in priority order:
 4. **None of the above** — then the proposal is really a framework-level Class B change disguised as a project-level one. Escalate to Datarim framework PRD update (`PRD-datarim-sdlc-framework.md`) instead of inlining into the project.
 
 **Rule:** a Class B proposal always needs a written contract artifact that ratifies it. Never apply a Class B change whose only justification is a reflection entry. Reflection proposes; a contract ratifies.
+
+In effective autonomous mode, the agent drafts the PRD or equivalent project
+contract first and obtains concurrence from an independent blind reviewer in
+a separate agent context that did not write the change. A missing or negative
+review defers the proposal. The technical gates and target boundary are in
+`autonomous-apply.md`. The interactive approval path above remains available.
 
 ---
 
