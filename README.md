@@ -10,7 +10,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 4.6.1](https://img.shields.io/badge/Version-4.6.1-green.svg)](VERSION)
+[![Version: 4.7.0](https://img.shields.io/badge/Version-4.7.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -39,6 +39,8 @@ labels disclose English fallback when a requested catalog is unavailable.
 **New in 4.6.0:** L3/L4 tasks are checked for a PRD (or an operator-stated waiver) before implementation starts, `linked_ac` values that are not `V-AC-N` tokens get an early advisory, and acceptance cases must stay observable after every planned step.
 
 **New in 4.6.1:** Test-environment settings used for production-impact predictions are compared through bounded read-only access, with unsafe or unavailable comparisons voiding the prediction. Superseded acceptance contracts receive a complete case-by-case semantic comparison.
+
+**New in 4.7.0:** Autonomous evolution now reaches a per-proposal decision in `/dr-auto` and `/dr-orchestrate`. Consumer projects keep local improvements in a project-owned overlay that survives updates; optional `/dr-finalize` coordinates delivery and task-owned cleanup.
 
 **New in 4.5.0:** Live evidence is bound to declared input manifests, while
 `/dr-qa` validates plan-completion records and test value cards through their

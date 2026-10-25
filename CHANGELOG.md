@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.7.0] — 2026-10-25
+
 ### Added
 
 - Autonomous evolution decisions now run after passing compliance in `/dr-auto` and `/dr-orchestrate`, with Class B PRD and independent blind-review gates, per-proposal logging, local-only consumer routing, and an opt-out.
