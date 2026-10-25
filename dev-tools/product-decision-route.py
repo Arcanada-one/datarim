@@ -38,7 +38,13 @@ def artifact(path):
     data = re.search(r"```product-artifact-data\n(.*?)\n```\n?", text, re.S)
     if not front or not data:
         raise ValueError(f"malformed product artifact: {path.name}")
-    return raw, yaml.safe_load(front.group(1)), yaml.safe_load(data.group(1))
+    front_value = yaml.safe_load(front.group(1))
+    data_value = yaml.safe_load(data.group(1))
+    if not isinstance(front_value, dict):
+        raise ValueError("product artifact frontmatter must be a mapping")
+    if not isinstance(data_value, dict):
+        raise ValueError("product artifact data must be a mapping")
+    return raw, front_value, data_value
 
 
 def result(route, token, **fields):
