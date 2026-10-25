@@ -63,6 +63,25 @@ write_reflection() {
     [[ "$output" == *"reuse"* ]]
 }
 
+@test "versioned current report basis reuses reflection" {
+    versioned="$TMP/datarim/reports/compliance-report-$TASK-v2.md"
+    printf 'verdict: COMPLIANT\nnewer report\n' > "$versioned"
+    basis="$("$SCRIPT" --emit-basis "$versioned")"
+    write_reflection "$basis"
+    run "$SCRIPT" --task "$TASK" --root "$TMP"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"reuse"* ]]
+}
+
+@test "matching unsuffixed report is stale when a newer version exists" {
+    basis="$("$SCRIPT" --emit-basis "$REPORT")"
+    write_reflection "$basis"
+    printf 'verdict: COMPLIANT\nnewer report\n' > "$TMP/datarim/reports/compliance-report-$TASK-v2.md"
+    run "$SCRIPT" --task "$TASK" --root "$TMP"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"stale"* ]]
+}
+
 @test "branch 4: basis mismatches current report -> regenerate (exit 1)" {
     write_reflection "deadbeefdeadbeef"
     run "$SCRIPT" --task "$TASK" --root "$TMP"

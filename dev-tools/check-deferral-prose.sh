@@ -62,7 +62,6 @@ ROOT="."
 BACKLOG=""
 TASKS=""
 PHRASES=""
-REPORT=0
 EXTRA_REPOS=()
 
 while [ $# -gt 0 ]; do
@@ -74,7 +73,7 @@ while [ $# -gt 0 ]; do
         --tasks)          [ $# -ge 2 ] || usage; TASKS="$2"; shift 2 ;;
         --phrases)        [ $# -ge 2 ] || usage; PHRASES="$2"; shift 2 ;;
         --extra-repo)     [ $# -ge 2 ] || usage; EXTRA_REPOS+=("$2"); shift 2 ;;
-        --report)         REPORT=1; shift ;;
+        --report)         shift ;;  # accepted for caller compatibility; clean PASS is unconditional
         -h|--help)        usage ;;
         *)                usage ;;
     esac
@@ -361,7 +360,9 @@ if [ "$blocked" -eq 1 ]; then
     exit 1
 fi
 
-if [ "$REPORT" -eq 1 ]; then
-    echo "PASS: no self-inflicted deferral (touched-source: $touched_source)"
+touched_count=0
+if [ -n "$TOUCHED_SET" ]; then
+    touched_count="$(printf '%s\n' "$TOUCHED_SET" | wc -l | tr -d '[:space:]')"
 fi
+echo "PASS: no self-inflicted deferral (touched-source: $touched_source; touched-count: $touched_count)"
 exit 0

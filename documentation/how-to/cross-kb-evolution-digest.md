@@ -1,19 +1,21 @@
 # How to surface cross-KB evolution
 
 Datarim self-evolution runs **per knowledge base**. Every managed KB (the framework's own KB
-plus every project/space KB) keeps its own `datarim/history/evolution-log.md`. When a task in a
-non-framework KB evolves the shared `~/.claude` runtime, the log entry lands in *that* KB's log —
-so an operator who only watches the framework KB never sees it. Project-local `feedback-memory`
-lessons decay locally and never surface as framework evolution at all.
+plus every project/space KB) keeps its own `datarim/history/evolution-log.md`. A consumer
+run keeps its edits inside that workspace and records every reusable lesson as a
+`promotion-candidate`, including locally applied rules. The digest lets a
+framework maintainer discover those candidates without consumer code writing
+to the public framework repository.
 
 `dev-tools/cross-kb-evolution-digest.sh` closes that gap. It reads the per-KB evolution-log
 across an operator-configured set of KB roots and prints **one** digest with two buckets:
 
-- **Framework evolution** — rows whose Target is a shared-runtime surface
-  (`skills/`/`agents/`/`commands/`/`templates/` or `CLAUDE.md`, with or without a `~/.claude/`
-  prefix). These already changed the shared runtime, elsewhere, silently.
-- **Promotion candidates** — project-local lessons (`feedback-memory` category or a `memory/`
-  Target) that may warrant promotion to framework evolution.
+- **Framework evolution** — historical rows whose Target names a shared-runtime
+  surface (`skills/`/`agents/`/`commands/`/`templates/` or `AGENTS.md`). Treat
+  consumer rows as observations, not proof that the public source changed.
+- **Promotion candidates** — rows with `promotion-candidate` category,
+  including locally applied `AGENTS.md` rules, plus legacy project-local
+  lessons (`feedback-memory` category or a `memory/` Target).
 
 It is strictly **read-only** over every KB and never mutates or auto-applies anything.
 

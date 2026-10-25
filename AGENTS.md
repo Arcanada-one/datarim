@@ -231,8 +231,9 @@ Before writing ANY file to `datarim/`:
 | `/dr-qa` | Quality | Multi-layer verification (PRD, design, plan, output quality) |
 | `/dr-verify` | Verification | Standalone self-verification (on-demand). Tri-layer: Layer 1 deterministic floor + Layer 2 cross-model peer-review (DeepSeek default) + Layer 3 native runtime dispatch. Findings-only mode. |
 | `/dr-compliance` | Hardening | 7-step post-QA hardening |
+| `/dr-finalize` | Finalize | Archive, task-owned delivery and cleanup, configured tracker, final report; `autonomy.finalize` controls autonomous routing. |
 | `/dr-archive` | Archive | Reflection (Step 0.5: lessons learned + framework evolution proposals) + complete task + update backlog + reset context |
-| `/dr-auto` | Autonomous | Autonomous-execution meta-command. Turns on the FB-1..8 mandate (eight feedback-rules - see `skills/autonomous-agents/`), the L1 Inline Resolution Rule (close small gaps in-line rather than asking), and the autonomous-ops scope ([definition](skills/autonomous-mode/SKILL.md)) by default through env var `DATARIM_AUTO_MODE=1` + per-task file marker `datarim/.auto/<TASK-ID>.mode`. The five-level Question Suppression Ladder ([definition](skills/autonomous-mode/SKILL.md)) suppresses pipeline clarification questions; L1 Class A gaps close inline; hard-gated actions still escalate to the operator. Subagent orchestrator: spawns the matching agent per stage (planner/architect/developer/reviewer/compliance) via the Agent tool and summarises each result. Terminal point is a passing `/dr-compliance` + reflection - it does NOT run the final `/dr-archive`. Stage-replay allowed (re-entering a stage updates its artefact). Two modes - Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"`). Canonical contract in `skills/autonomous-mode/SKILL.md`. |
+| `/dr-auto` | Autonomous | Autonomous-execution meta-command. Turns on the FB-1..8 mandate (eight feedback-rules - see `skills/autonomous-agents/`), the L1 Inline Resolution Rule (close small gaps in-line rather than asking), and the autonomous-ops scope ([definition](skills/autonomous-mode/SKILL.md)) by default through env var `DATARIM_AUTO_MODE=1` + per-task file marker `datarim/.auto/<TASK-ID>.mode`. The five-level Question Suppression Ladder ([definition](skills/autonomous-mode/SKILL.md)) suppresses pipeline clarification questions; L1 Class A gaps close inline; hard-gated actions still escalate to the operator. Subagent orchestrator: spawns the matching agent per stage (planner/architect/developer/reviewer/compliance) via the Agent tool and summarises each result. Terminal point is a passing `/dr-compliance` + reflection unless `autonomy.finalize` enables `/dr-finalize`. Stage-replay allowed (re-entering a stage updates its artefact). Two modes - Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"`). Canonical contract in `skills/autonomous-mode/SKILL.md`. |
 | `/dr-status` | Utility | Check current task and backlog status |
 | `/dr-next` | Utility | Resume from last checkpoint |
 | `/dr-quick` | Utility | Fast-lane for trivial fixes / quick lookups — `QCK-XXXX`, weak-model KB scan, short `quick/` archive. Skips PRD/plan/design/QA/compliance |
@@ -261,7 +262,7 @@ Before writing ANY file to `datarim/`:
 > rule, and every learned action stays subject to per-space policy and the immutable
 > hard-gated floor.
 
-Command files: `${DATARIM_RUNTIME:?}/commands/{name}.md` (29 commands, including the plugin command)
+Command files: `${DATARIM_RUNTIME:?}/commands/{name}.md` (30 commands, including the plugin command)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 

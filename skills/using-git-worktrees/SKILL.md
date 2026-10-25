@@ -53,7 +53,7 @@ Honor any existing declared preference without asking. If the user declines cons
 
 ### 1a. Native Worktree Tools (preferred)
 
-The user has asked for an isolated workspace (Step 0 consent). Do you already have a way to create a worktree? It might be a native tool exposed by your runtime — examples include names like `EnterWorktree`, `WorktreeCreate`, a `/worktree` command, or a `--worktree` flag. If you do, use it and skip to Step 3.
+The user has asked for an isolated workspace (Step 0 consent). Do you already have a way to create a worktree? It might be a native tool exposed by your runtime — examples include names like `EnterWorktree`, `WorktreeCreate`, a `/worktree` command, or a `--worktree` flag. If you do, use it and continue to Step 2 with the observed new path and branch.
 
 Native tools handle directory placement, branch creation, and cleanup automatically. Using `git worktree add` when you have a native tool creates phantom state your runtime can't see or manage.
 
@@ -114,6 +114,17 @@ cd "$path"
 ```
 
 **Sandbox fallback:** if `git worktree add` fails with a permission error (sandbox denial), tell the user the sandbox blocked worktree creation and you're working in the current directory instead. Then run setup and baseline tests in place.
+
+## Step 2: Record Task Ownership
+
+For a task-bound creation, this is a MUST for native tools and the git fallback, in interactive and autonomous runs. Resolve the task's Datarim root and exact task ID. Observe the new absolute worktree path and branch from the creating tool or `git worktree list --porcelain`; do not guess either value. Immediately after creation run:
+
+```bash
+python3 "${DATARIM_RUNTIME:?}/dev-tools/finalize-safety.py" add --ledger "$DATARIM_ROOT/datarim/finalize/$TASK_ID.json" --kind worktree --value "$ABSOLUTE_WORKTREE_PATH"
+python3 "${DATARIM_RUNTIME:?}/dev-tools/finalize-safety.py" add --ledger "$DATARIM_ROOT/datarim/finalize/$TASK_ID.json" --kind branch --value "$BRANCH_NAME"
+```
+
+The helper creates a missing ledger, writes atomically, and deduplicates. Do not hand-edit JSON. If either registration fails, preserve the new worktree and branch, report the gap, and stop dependent finalization; `/dr-finalize` cannot remove an unregistered resource. An already existing worktree from Step 0 is not newly task-created and must not be registered as owned.
 
 ## Step 3: Project Setup
 

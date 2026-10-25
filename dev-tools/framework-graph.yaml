@@ -13,6 +13,7 @@ inventory:
   - dr-dream
   - dr-edit
   - dr-explain
+  - dr-finalize
   - dr-help
   - dr-init
   - dr-next
@@ -157,6 +158,7 @@ inventory:
   - skills/datarim-system/path-and-storage.md
   - skills/datarim-system/routing-invariants.md
   - skills/datarim-system/task-identity-and-context.md
+  - skills/evolution/autonomous-apply.md
   - skills/evolution/class-ab-gate.md
   - skills/evolution/dev-tools-pattern.md
   - skills/evolution/disaster-recovery.md
@@ -217,6 +219,7 @@ inventory:
   - skills/writing-plans/plan-document-reviewer-prompt.md
   templates:
   - SECURITY.md
+  - acceptance-contract.md
   - accepted-risk.yml
   - activeContext-template.md
   - archive-template.md
@@ -1625,6 +1628,10 @@ edges:
   source: commands/dr-archive.md
   to: skill:test-env-verification
 - from: command:dr-archive
+  relation: precedes
+  source: dev-tools/command-graph.yaml
+  to: command:dr-finalize
+- from: command:dr-archive
   relation: requires
   source: dev-tools/command-graph.yaml
   to: command:dr-do
@@ -1964,6 +1971,14 @@ edges:
   relation: loads
   source: commands/dr-explain.md
   to: skill:human-outcome-reporting
+- from: command:dr-finalize
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
+- from: command:dr-finalize
+  relation: requires
+  source: dev-tools/command-graph.yaml
+  to: command:dr-archive
 - from: command:dr-help
   relation: loads
   source: AGENTS.md
@@ -2783,6 +2798,10 @@ edges:
 - from: skill:autonomous-mode
   relation: loads
   source: skills/autonomous-mode/SKILL.md
+  to: fragment:skills/evolution/autonomous-apply.md
+- from: skill:autonomous-mode
+  relation: loads
+  source: skills/autonomous-mode/SKILL.md
   to: skill:autonomous-mode
 - from: skill:autonomous-mode
   relation: loads
@@ -3131,11 +3150,11 @@ edges:
 - from: skill:reflecting
   relation: loads
   source: skills/reflecting/SKILL.md
-  to: fragment:skills/evolution/class-ab-gate.md
+  to: fragment:skills/evolution/autonomous-apply.md
 - from: skill:reflecting
   relation: loads
   source: skills/reflecting/SKILL.md
-  to: fragment:skills/evolution/stack-agnostic-gate.md
+  to: fragment:skills/evolution/class-ab-gate.md
 - from: skill:reflecting
   relation: loads
   source: skills/reflecting/SKILL.md

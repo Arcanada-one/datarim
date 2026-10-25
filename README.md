@@ -23,7 +23,7 @@ Datarim coordinates AI agents, takes tasks through their required stages autonom
 | Main capability | What it does for you | Start here |
 |-----------------|----------------------|------------|
 | **Agent orchestration** | Coordinates stage specialists, checkpoints and feedback instead of requiring you to run each step. The optional transport plugin also drives terminal sessions and keeps an audit trail. | [`/dr-orchestrate`](commands/dr-orchestrate.md) and [orchestration setup](plugins/dr-orchestrate/README.md) |
-| **Autonomous execution** | `/dr-auto` starts from your brief or resumes a task, selects the next stage, delegates work, checks results and continues through passing compliance and reflection. Final archive remains a separate step. | [`/dr-auto "Describe the outcome you need"`](commands/dr-auto.md) |
+| **Autonomous execution** | `/dr-auto` starts from your brief or resumes a task, selects the next stage, delegates work, checks results and continues through passing compliance and reflection. Finalization is available when `autonomy.finalize` enables it. | [`/dr-auto "Describe the outcome you need"`](commands/dr-auto.md) |
 | **Quick task execution** | `/dr-quick` handles tiny edits and lookups without the full requirements, planning, design, QA and compliance cycle. Changes still require acceptance evidence and confirmation that they reached the shared main branch; larger work returns to the full workflow. | [`/dr-quick "Describe the small task"`](commands/dr-quick.md) |
 | **JEV model classification** | Classifies the task and advises a model tier and reasoning effort; its separate deterministic safety floor checks commands. Routing advice needs a JEV key, while the safety floor works without one. | [`jevcodex`, `jevclaude`, `jevcursor`](documentation/tutorials/initialize-datarim-with-jev.md) |
 
@@ -133,7 +133,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 19 specialized agents, 81 reusable skills, and 29 commands that guide
+It includes 19 specialized agents, 81 reusable skills, and 30 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -216,7 +216,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
-- **29 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone + /dr-quick fast-lane + /dr-wizard interactive task-spec wizard, 3 content (write, edit, publish), 5 framework
+- **30 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone + /dr-quick fast-lane + /dr-wizard interactive task-spec wizard, 3 content (write, edit, publish), 5 framework
   and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), utilities (status, next,
   help), and 2 standalone tools (factcheck, humanize).
 
@@ -489,6 +489,7 @@ same name.
 | `/dr-qa` | Quality | Run quality checks. PRD alignment, design conformance, plan completeness, output quality. |
 | `/dr-compliance` | Compliance | Post-QA hardening. Validates against PRD, checks for regressions, security audit. |
 | `/dr-verify` | Verification | Standalone on-demand self-verification of any artefact. Tri-layer: deterministic shell floor (`--floor-only`, zero LLM cost) + peer review + native runtime dispatch. Findings-only — it never auto-fixes. |
+| `/dr-finalize` | Finalize | Archive, publish, commit and push, safe cleanup, tracker, and final report. |
 | `/dr-archive` | Archive | Archive the task. Step 0.5 runs reflection (analyze, propose framework updates). Steps 1-7 store context, update backlog, reset for the next task. |
 | `/dr-auto` | Autonomous | Meta-command for autonomous execution. Activates FB-1..8 ([definition](skills/autonomous-mode/SKILL.md)) mandate + L1 Inline Resolution Rule as default-on via env var + file marker. Question Suppression Ladder (5 levels) suppresses pipeline Q&A; L1 Class A gaps close inline; hard-gated actions escalate to operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts. Uses the writer agent. |
@@ -981,8 +982,8 @@ and why it exists.
 datarim/
   agents/            # Agent personas (19 agents)
   skills/            # Knowledge modules (81 skills)
-  commands/          # Slash commands (29 commands)
-  templates/         # Task and document templates (31 templates)
+  commands/          # Slash commands (30 commands)
+  templates/         # Task and document templates (32 templates)
   documentation/              # Extended documentation and use cases
   AGENTS.md          # Framework rules (commands read it from .datarim-runtime/)
   install.sh         # Project installer (see INSTALL.md)

@@ -6,6 +6,21 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Added
 
+- Autonomous evolution decisions now run after passing compliance in `/dr-auto` and `/dr-orchestrate`, with Class B PRD and independent blind-review gates, per-proposal logging, local-only consumer routing, and an opt-out.
+- Proposal 1: QA PASS now requires live-evidence, charter-coverage, and verdict gates at the verdict point; a blocked frontmatter cannot certify PASS.
+- Proposal 2: `/dr-auto` QA stage summaries name all three QA-side gates and their evidence.
+- Proposal 3: `/dr-do` loads unique-violation domain-normalization guidance before a merge request when database errors are mapped to domain results.
+- Proposal 4: compliance uses merged pull-request touched-file lists for already-merged dual-repo changes.
+- Proposal 5: superseding acceptance contracts require a current-version QA charter before PASS.
+- Proposal 6: QA run directories require disposition of every retained FAIL line, with failing-case or recorded-response replay evidence.
+- Proposal 7: acceptance-case environments state protected invariants and contemporaneous guards.
+- Proposal 8: clean deferral scans always print a PASS marker with touched-set source and size.
+- Proposal 9: reflection freshness resolves the newest versioned compliance report.
+
+- `/dr-finalize` coordinates archive, delivery, ledger-bounded cleanup, configured tracker completion, and a final report. `autonomy.finalize` opts `/dr-auto` and `/dr-orchestrate` into finalization at project or user scope.
+- Consumer projects can track `datarim/local/` overrides for skills, commands, agents, templates, and dev-tools. Install/update composes them into the runtime and client adapters, reports upstream base drift, and refuses direct runtime edits before replacement.
+- Finalization ownership is recorded at resource creation by an atomic, deduplicating helper in interactive and autonomous stages. Worktree cleanup verifies exact ledger ownership and a clean registered worktree before removal.
+
 - A safety-floor denial appends one `safety_floor_deny` ledger event with a scrubbed command and the deny reason. The command stays denied when the append fails. The reason categories are listed in `plugins/dr-jev-control/docs/safety-floor-categories.md` and checked against the strings `destructive_reason` returns.
 
 ### Fixed

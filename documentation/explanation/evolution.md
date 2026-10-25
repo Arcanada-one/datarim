@@ -1,82 +1,43 @@
 # Self-Evolution
 
-Datarim improves itself based on real project experience. This document explains how.
+Datarim turns repeated task lessons into proposals during reflection. A passing
+`/dr-compliance` writes the reflection, then runs the evolution decision step
+inside `/dr-auto` and `/dr-orchestrate`. Interactive runs present proposals for
+human selection. `/dr-archive` presents unresolved proposals even when it
+reuses a fresh reflection.
 
-## How It Works
+## Decisions and evidence
 
-1. After completing a task, `/dr-archive` Step 0.5 (invoking `skills/reflecting/SKILL.md`) analyzes what worked and what didn't
-2. The agent proposes framework updates (new patterns, improved skills, refined agent behaviors)
-3. **Human reviews and approves** each proposal -- no automatic changes
-4. Approved changes are applied and logged in `datarim/docs/evolution-log.md`
+Each proposal receives `apply`, `decline`, or `defer` with a written rationale.
+The agent considers recurrence, impact, blast radius, reversibility, evidence,
+and gate results. Class A can be applied after its gates pass. Class B changes
+the operating contract and needs a PRD draft plus concurrence from an
+independent blind reviewer before application. The current KB records every
+decision in `datarim/history/evolution-log.md`; the reflection records its
+corresponding status.
 
-## Growth Categories
+An isolated candidate receives the proposed change first. The stack-agnostic,
+history-agnostic, and English-only body checks, tests reading every touched
+file, and the full Bats suite run sequentially on that candidate before its
+bytes reach the live instruction surface. A failed gate declines that proposal
+without a live edit. A publication failure restores only its original bytes. A passing compliance verdict or a proposal alone does not
+prove that an improvement was applied.
 
-| Category | Target | Example |
-|----------|--------|---------|
-| skill-update | Existing skill file | Add property-based testing section to testing.md |
-| agent-update | Agent capabilities | Add GraphQL expertise to architect.md |
-| claude-md-update | Project CLAUDE.md | Add new convention discovered during task |
-| new-template | New template file | Create API migration checklist template |
-| new-skill | New skill file | Create accessibility.md after a11y task |
+## Where changes land
 
-## Optimization Categories
+In the framework source KB, an applied change lands on a signed feature
+branch and goes through a PR and CI. In a consumer KB, executable changes
+land in project-owned `datarim/local/`, composed with upstream on update. Project rules can also
+land in `AGENTS.md`. Both survive `update.sh`.
+Every reusable consumer lesson is also logged as a promotion candidate for
+the cross-KB evolution digest, including locally applied rules. Local
+application and framework promotion are separate outcomes. Consumer runs
+never write to the public framework repository.
 
-Used by `/dr-optimize` for framework maintenance:
+Automatic application defaults to enabled in the two autonomous routes. A
+workspace can set `auto_apply: false` in `datarim/config/evolution.yaml`;
+decisions and logs still occur. See the [how-to guide](../how-to/autonomous-evolution.md)
+and [configuration reference](../reference/autonomous-evolution.md).
 
-| Category | Description |
-|----------|-------------|
-| prune-skill | Remove unused or redundant skill |
-| prune-agent | Remove unused or redundant agent |
-| merge-skills | Combine overlapping skills into one |
-| merge-agents | Combine agents with overlapping roles |
-| split-skill | Break an oversized skill into focused parts |
-| rewrite-skill | Rewrite a skill for clarity or accuracy |
-| fix-description | Correct agent/skill/command descriptions |
-| fix-references | Fix broken file paths and cross-references |
-| sync-docs | Update docs to match current agents, skills, commands |
-
-## Health Metrics
-
-The framework should stay lean. Run `/dr-optimize` when any threshold is exceeded:
-
-| Metric | Threshold | Action |
-|--------|-----------|--------|
-| Skills | >20 | Audit for merges and prunes |
-| Agents | >18 | Audit for overlapping roles |
-| Commands | >25 | Audit for redundant commands |
-
-## Maintenance Commands
-
-- **`/dr-optimize`** -- Audit the framework itself: prune unused skills, merge duplicates, fix broken references, sync documentation. Run periodically or when the framework feels bloated.
-- **`/dr-dream`** -- Maintain the knowledge base (`datarim/` directory): organize misplaced files, deduplicate content, cross-reference documents, archive stale content.
-
-## What Should NOT Evolve
-
-- Core pipeline structure (init -> ... -> archive)
-- Path resolution rules
-- Security controls
-- Human approval requirement itself
-
-## Evolution Log Format
-
-`datarim/docs/evolution-log.md`:
-
-<!-- gate:history-allowed -->
-```markdown
-| Date | Task ID | Category | Target | Change | Rationale |
-|------|---------|----------|--------|--------|-----------|
-| 2026-04-09 | TASK-0001 | skill-update | testing.md | Added property-based testing | Caught 3 edge cases unit tests missed |
-```
-<!-- /gate:history-allowed -->
-
-## Anti-Bloat Rule
-
-Prefer updating existing files over creating new ones. The framework should stay lean. When in doubt, merge rather than create.
-
-## Rollback
-
-Every evolution change is a discrete file edit. Use git history to revert any change:
-```bash
-git log --oneline -- skills/testing/SKILL.md
-git checkout <commit> -- skills/testing/SKILL.md
-```
+`/dr-optimize` remains an explicit maintenance command. It audits component
+counts and duplication; it does not inherit the automatic growth path.

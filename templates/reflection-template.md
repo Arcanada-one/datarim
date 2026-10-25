@@ -47,7 +47,9 @@ Verified by `dev-tools/check-known-fix-persistence.sh` at `/dr-archive` Step 0.6
 - **Why:** {evidence from this task}
 - **Impact:** {low | medium | high}
 - **PRD reference (required for Class B):** {path to PRD section authorizing this change, or "N/A" for Class A}
-- **Status:** pending approval
+- **Status:** {pending approval | applied | declined | deferred} (autonomous runs must resolve every proposal)
+- **Decision rationale:** {recurrence, impact, blast radius, reversibility, and evidence}
+- **Gates:** {each applicable gate and result; not run is not pass}
 
 ## Metrics
 - Files changed:

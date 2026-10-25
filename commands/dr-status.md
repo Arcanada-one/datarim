@@ -169,3 +169,14 @@ After printing status, MUST emit a CTA block ([definition](../skills/cta-format/
 - Always include `/dr-help` as escape hatch (command reference)
 
 The CTA block MUST follow the canonical format (numbered, exactly one primary recommendation marker per `cta-format.md`, `---` HR). Variant B is mandatory for `/dr-status` whenever ≥2 active tasks exist — `/dr-status` is the discovery surface for parallel work.
+
+
+## Autonomous finalization setting
+
+For the resolved project and task, run
+`python3 "${DATARIM_RUNTIME:?}/dev-tools/resolve-finalize-mode.py" --root "$DATARIM_ROOT" --task-id "$TASK_ID"`
+and display `mode`, `source`, `task_requested`, and `run`. The project
+`datarim/config.yaml` overrides the user-global XDG setting; default is
+`off`. An invalid setting is a finding, not a silent fallback.
+
+For an installed project, also show the read-only local-overlay summary from `python3 "${DATARIM_RUNTIME:?}/scripts/local_overlay.py" status --project "$DATARIM_ROOT"` when available.

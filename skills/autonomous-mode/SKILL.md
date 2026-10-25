@@ -143,6 +143,10 @@ Do not invent a safe default. A future flag "assumed default — confirm at arch
 
 ## L1 Inline Resolution Rule
 
+This rule resolves task-local gaps within the current project. Evolution
+proposals use `skills/evolution/autonomous-apply.md`; this L1 rule does not
+authorize writes to a framework source or another workspace.
+
 This rule applies across **every** stage of a `/dr-auto` cycle: `init`, `prd`, `plan`, `do`, `qa`, `compliance`, `archive` — not only the `/dr-archive` reflection step.
 
 ### Decision tree
@@ -272,6 +276,7 @@ When auto-mode is active (env var + matching marker), this command:
    - <for /dr-do: apply the L1 Inline Rule against gaps discovered during execution>
    - <for /dr-archive: consume auto-inline-log.md before reflection>
 3. For any discovered gap: apply the L1 Inline Rule per `skills/autonomous-mode/SKILL.md`; log to `datarim/tasks/{TASK-ID}-auto-inline-log.md` when resolved inline.
+4. A QA stage-pass claim requires current successful `check-live-evidence.sh`, `check-qa-charter-coverage.py`, and `check-qa-verdict-blocked.sh` results; name all three and their evidence in the `/dr-auto` stage summary. A passing evidence gate alone is insufficient.
 4. For hard-gated actions: escalate to the operator via Ladder L5, log through `"${DATARIM_RUNTIME:?}/dev-tools/append-init-task-qa.sh" --decided-by operator`.
 ```
 

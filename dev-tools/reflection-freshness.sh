@@ -80,7 +80,30 @@ case "$TASK" in
 esac
 
 REFLECTION="$ROOT/datarim/reflection/reflection-$TASK.md"
-REPORT="$ROOT/datarim/reports/compliance-report-$TASK.md"
+REPORT=""
+report_version=0
+# The report writer reserves the unsuffixed path first, then -v2, -v3, ... .
+# Resolve the highest existing version without creating another report.
+for candidate in "$ROOT/datarim/reports/compliance-report-$TASK.md" \
+                 "$ROOT/datarim/reports/compliance-report-$TASK"-v*.md; do
+    [ -f "$candidate" ] || continue
+    base="${candidate##*/}"
+    if [ "$base" = "compliance-report-$TASK.md" ]; then
+        version=1
+    elif [[ "$base" == "compliance-report-$TASK-v"*".md" ]]; then
+        suffix="${base#"compliance-report-$TASK-v"}"
+        suffix="${suffix%.md}"
+        [[ "$suffix" =~ ^[0-9]+$ ]] || continue
+        version=$((10#$suffix))
+        [ "$version" -ge 2 ] || continue
+    else
+        continue
+    fi
+    if [ "$version" -gt "$report_version" ]; then
+        REPORT="$candidate"
+        report_version="$version"
+    fi
+done
 
 # Branch 1: reflection file absent -> regenerate.
 if [ ! -f "$REFLECTION" ]; then
@@ -99,8 +122,8 @@ if [ -z "$STORED_BASIS" ]; then
 fi
 
 # No compliance report to compare against -> treat as stale (regenerate).
-if [ ! -f "$REPORT" ]; then
-    echo "regenerate: compliance report absent ($REPORT) — cannot confirm freshness"
+if [ -z "$REPORT" ]; then
+    echo "regenerate: compliance report absent ($ROOT/datarim/reports/compliance-report-${TASK}[-vN].md) — cannot confirm freshness"
     exit 1
 fi
 

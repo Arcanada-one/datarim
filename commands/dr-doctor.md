@@ -145,3 +145,16 @@ After `/dr-doctor` finishes, emit a CTA block ([definition](../skills/cta-format
 - Always include `/dr-status` as escape hatch.
 
 The CTA block MUST follow the canonical format (numbered list, one primary recommendation marker, `---` HR). Variant-B menu of other active tasks when more than one is active. Exact marker tokens live in `cta-format.md`.
+
+
+## Autonomous finalization setting
+
+For the resolved project and task, run
+`python3 "${DATARIM_RUNTIME:?}/dev-tools/resolve-finalize-mode.py" --root "$DATARIM_ROOT" --task-id "$TASK_ID"`
+and display `mode`, `source`, `task_requested`, and `run`. The project
+`datarim/config.yaml` overrides the user-global XDG setting; default is
+`off`. An invalid setting is a finding, not a silent fallback.
+
+## Project-local overlay diagnostics
+
+Run `python3 "${DATARIM_RUNTIME:?}/scripts/local_overlay.py" status --project "$DATARIM_ROOT"` and display overlay presence, file count, paths whose recorded upstream base hash changed, and installed runtime files modified outside the overlay. The probe is read-only. A missing overlay is a normal zero-file result; an unsafe or unregistered overlay is a finding. Do not auto-rewrite the overlay or turn upstream drift into an update failure.

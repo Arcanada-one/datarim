@@ -12,6 +12,7 @@ applicable surfaces, and required probes.
 ```qa-charter-json
 {
   "schema": "DatarimQaCharter/v1",
+  "contract_version": "<version of the acceptance contract being certified>",
   "owner": "<person or accountable role>",
   "behaviours": [
     {
