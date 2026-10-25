@@ -2,6 +2,8 @@
 
 This opt-in plugin provides structured product-research artifacts and product-framing guidance, including the Decision Record method and its strategist scope-modes fragment. It supports research and recording a bounded decision; it does not validate market demand, accept evidence on behalf of an owner, authorize execution, spending, outreach, publishing, deployment, merge, or task closure.
 
+For task-oriented instructions on selecting the profile and reading decision routes, see the [Product Discovery how-to](../../documentation/how-to/product-discovery-profile-and-decision-routing.md). The guide is repository documentation; it is not part of the installed skill bundle.
+
 ## Enable
 
 From a project with Datarim installed, run `scripts/dr-plugin.sh enable /absolute/path/to/plugins/product-discovery`. The pack is disabled until explicitly enabled. Disable it with `scripts/dr-plugin.sh disable product-discovery`; workspace artifacts and history remain in place.
