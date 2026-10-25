@@ -385,6 +385,33 @@ def malformed_active_yaml_mapping_cases():
     )
 
 
+def malformed_active_supersedes_json_refusal():
+    with tempfile.TemporaryDirectory(prefix="malformed-active-supersedes-") as temp:
+        root = Path(temp)
+        bundle, _, _, _, _, _ = make_task(
+            root, decision_data("continue", front_acceptance="submitted")
+        )
+        active = bundle / "decision-r1.md"
+        raw = active.read_text(encoding="utf-8")
+        pattern = re.compile(r"(?m)^supersedes: null$")
+        assert len(list(pattern.finditer(raw))) == 1, "first-revision supersedes field is not unique"
+        malformed = pattern.sub("supersedes: !!set {invalid: null}", raw, count=1)
+        active.write_text(malformed, encoding="utf-8")
+        before = active.read_bytes()
+
+        routed = route(root)
+        assert routed.returncode == 1
+        assert routed.stderr == ""
+        result = json.loads(routed.stdout)
+        assert result == {
+            "detail": "active DecisionRecord supersedes reference is invalid",
+            "route": "/dr-status",
+            "token": "PRODUCT_REFUSE_ARTIFACT_INVALID",
+        }
+        assert active.read_bytes() == before
+        print("TRANSCRIPT malformed-active-supersedes: exit=1; typed_refusal=true; fixture_unchanged=true")
+
+
 def malformed_active_product_brief_mapping_refusal(replacement):
     granted = {"status": "granted", "authority_ref": "AUTH-SYN-001"}
     with sandbox_root("malformed-active-product-brief-mapping") as root:
@@ -480,6 +507,7 @@ def main():
     granted = {"status": "granted", "authority_ref": "AUTH-SYN-001"}
     mixed_v1_history_v2_successor()
     malformed_active_yaml_mapping_cases()
+    malformed_active_supersedes_json_refusal()
     malformed_active_product_brief_mapping_cases()
     active_product_brief_input_revisions_cases()
     scope_advance_id_cases()

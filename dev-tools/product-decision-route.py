@@ -99,6 +99,24 @@ def validate_revision_chain(paths, kind):
     return documents
 
 
+def valid_active_supersedes(paths, documents):
+    """Check only the active record's supersedes value before early JSON routes."""
+    front = documents[-1][1]
+    if "supersedes" not in front:
+        return False
+    supersedes = front["supersedes"]
+    if len(paths) == 1:
+        return supersedes is None
+    return (
+        isinstance(supersedes, dict)
+        and set(supersedes) == {"id", "revision", "digest"}
+        and isinstance(supersedes.get("id"), str)
+        and type(supersedes.get("revision")) is int
+        and isinstance(supersedes.get("digest"), str)
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", supersedes["digest"]) is not None
+    )
+
+
 def lineage(decision_ref, front):
     return {"decision_ref": decision_ref, "supersedes": front.get("supersedes")}
 
@@ -145,6 +163,8 @@ def main():
     if latest_front.get("schema_version") != "product-artifact/2":
         refuse("invalid_artifact", detail="latest record is not DecisionRecord product-artifact/2")
         return 0
+    if not valid_active_supersedes(decisions, decision_docs):
+        raise ValueError("active DecisionRecord supersedes reference is invalid")
     decision_ref = {"id": latest_front.get("id"), "revision": latest_front.get("revision"), "digest": decision_digest}
     if latest_front.get("status") == "superseded":
         result("/dr-do", TOKENS["superseded"], **lineage(decision_ref, latest_front), research_status="stale", delivery_work_created=False)
