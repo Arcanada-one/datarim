@@ -529,7 +529,13 @@ def main():
     case("r2-continue-with-r1-advance", lambda root: make_task(root, decision_data("continue", authority=granted), history=[prior], advance_revision=1), "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
     case("C-r2-stop-with-historical-brief", lambda root: make_task(root, decision_data("stop"), history=[prior]), "/dr-archive", "PRODUCT_ROUTE_STOP")
     case("D-r2-more-evidence-with-historical-brief", lambda root: make_task(root, decision_data("more-evidence"), history=[prior]), "/dr-do", "PRODUCT_ROUTE_MORE_EVIDENCE")
+    case("latest-status-draft", lambda root: make_simple(root, "continue", authority=granted, status="draft"), "/dr-qa", "PRODUCT_ROUTE_EVIDENCE_PENDING")
     case("latest-status-superseded", lambda root: make_simple(root, "continue", authority=granted, status="superseded"), "/dr-do", "PRODUCT_ROUTE_SUPERSEDED")
+
+    def assert_invalid_status(result, front, decision_ref, brief, parent_hash):
+        assert result["detail"] == "E_STATUS_INVALID", result
+    case("latest-status-unknown", lambda root: make_simple(root, "continue", authority=granted, status="mystery"),
+         "/dr-status", "PRODUCT_REFUSE_ARTIFACT_INVALID", assert_invalid_status)
 
     def checker_pair_refusal(root):
         made = make_task(root, decision_data("continue", authority=granted))
