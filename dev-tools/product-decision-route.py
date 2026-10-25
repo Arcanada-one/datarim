@@ -189,6 +189,8 @@ def main():
     brief_docs = validate_revision_chain(briefs, "product-brief")
     latest_brief_path = briefs[-1]
     brief_raw, brief_front, brief_data = brief_docs[-1]
+    if not isinstance(brief_data, dict):
+        raise ValueError("active product artifact data must be a mapping")
     brief_digest = digest(brief_raw)
     brief_ref = {"id": brief_front.get("id"), "revision": brief_front.get("revision"), "digest": brief_digest}
     if (brief_front.get("artifact_type") != "product-brief" or brief_front.get("status") != "ready_for_delivery"

@@ -384,10 +384,40 @@ def malformed_active_yaml_mapping_cases():
     )
 
 
+def malformed_active_product_brief_mapping_refusal(replacement):
+    granted = {"status": "granted", "authority_ref": "AUTH-SYN-001"}
+    with sandbox_root("malformed-active-product-brief-mapping") as root:
+        made = make_task(root, decision_data("continue", authority=granted))
+        brief_path = made[0] / "product-brief-r1.md"
+        raw = brief_path.read_text(encoding="utf-8")
+        pattern = re.compile(r"(?<=```product-artifact-data\n).*?(?=\n```)", re.S)
+        matches = list(pattern.finditer(raw))
+        assert len(matches) == 1, "active ProductBrief data fence is not unique"
+        assert isinstance(yaml.safe_load(matches[0].group(0)), dict), "fixture must begin with mapping data"
+        brief_path.write_text(
+            raw[:matches[0].start()] + replacement + raw[matches[0].end():], encoding="utf-8"
+        )
+
+        routed = route(root)
+        assert routed.returncode == 1, f"exit={routed.returncode}; {routed.stdout}{routed.stderr}"
+        assert routed.stderr == "", f"unexpected stderr: {routed.stderr}"
+        result = json.loads(routed.stdout)
+        assert result["route"] == "/dr-status", routed.stdout
+        assert result["token"] == "PRODUCT_REFUSE_ARTIFACT_INVALID", routed.stdout
+        assert result["detail"] == "active product artifact data must be a mapping", routed.stdout
+        print(f"TRANSCRIPT malformed-active-product-brief-{replacement}: typed_refusal=true")
+
+
+def malformed_active_product_brief_mapping_cases():
+    malformed_active_product_brief_mapping_refusal("null")
+    malformed_active_product_brief_mapping_refusal("[]")
+
+
 def main():
     granted = {"status": "granted", "authority_ref": "AUTH-SYN-001"}
     mixed_v1_history_v2_successor()
     malformed_active_yaml_mapping_cases()
+    malformed_active_product_brief_mapping_cases()
     case("continue", lambda root: make_simple(root, "continue", authority=granted), "/dr-prd", "PRODUCT_ROUTE_CONTINUE", assert_continue_lineage)
     case("stop", lambda root: make_simple(root, "stop"), "/dr-archive", "PRODUCT_ROUTE_STOP")
     case("more-evidence", lambda root: make_simple(root, "more-evidence"), "/dr-do", "PRODUCT_ROUTE_MORE_EVIDENCE")
