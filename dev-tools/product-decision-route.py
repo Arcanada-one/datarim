@@ -198,6 +198,10 @@ def main():
         refuse("brief_missing", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref)
         return 0
     inputs = brief_data.get("input_revisions", [])
+    if inputs is None:
+        inputs = []
+    elif not isinstance(inputs, list):
+        raise ValueError("ProductBrief input_revisions must be a list")
     if not any(ref == decision_ref for ref in inputs):
         stale_input = any(isinstance(ref, dict) and ref.get("id") == decision_ref["id"]
                           and type(ref.get("revision")) is int and ref["revision"] < decision_ref["revision"] for ref in inputs)

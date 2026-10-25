@@ -413,11 +413,45 @@ def malformed_active_product_brief_mapping_cases():
     malformed_active_product_brief_mapping_refusal("[]")
 
 
+def active_product_brief_input_revisions_case(value):
+    granted = {"status": "granted", "authority_ref": "AUTH-SYN-001"}
+
+    def setup(root):
+        made = make_task(root, decision_data("continue", authority=granted))
+        brief_path = made[0] / "product-brief-r1.md"
+        raw = brief_path.read_text(encoding="utf-8")
+        pattern = re.compile(r"```product-artifact-data\n(.*?)\n```", re.S)
+        matches = list(pattern.finditer(raw))
+        assert len(matches) == 1, "active ProductBrief data fence is not unique"
+        data = yaml.safe_load(matches[0].group(1))
+        assert isinstance(data, dict) and isinstance(data.get("input_revisions"), list)
+        data["input_revisions"] = value
+        replacement = yaml.safe_dump(data, sort_keys=False, allow_unicode=True).rstrip()
+        brief_path.write_text(raw[:matches[0].start(1)] + replacement + raw[matches[0].end(1):], encoding="utf-8")
+        made = list(made)
+        made[4] = brief_path.read_bytes()
+        return tuple(made)
+
+    return setup
+
+
+def assert_invalid_input_revisions(result, front, decision_ref, brief, parent_hash):
+    assert result["detail"] == "ProductBrief input_revisions must be a list"
+
+
+def active_product_brief_input_revisions_cases():
+    case("continue-null-product-brief-input-revisions", active_product_brief_input_revisions_case(None),
+         "/dr-status", "PRODUCT_REFUSE_PRODUCT_BRIEF_INPUT_MISMATCH")
+    case("continue-scalar-product-brief-input-revisions", active_product_brief_input_revisions_case(7),
+         "/dr-status", "PRODUCT_REFUSE_ARTIFACT_INVALID", assert_invalid_input_revisions, allow_error=True)
+
+
 def main():
     granted = {"status": "granted", "authority_ref": "AUTH-SYN-001"}
     mixed_v1_history_v2_successor()
     malformed_active_yaml_mapping_cases()
     malformed_active_product_brief_mapping_cases()
+    active_product_brief_input_revisions_cases()
     case("continue", lambda root: make_simple(root, "continue", authority=granted), "/dr-prd", "PRODUCT_ROUTE_CONTINUE", assert_continue_lineage)
     case("stop", lambda root: make_simple(root, "stop"), "/dr-archive", "PRODUCT_ROUTE_STOP")
     case("more-evidence", lambda root: make_simple(root, "more-evidence"), "/dr-do", "PRODUCT_ROUTE_MORE_EVIDENCE")
