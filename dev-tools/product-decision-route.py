@@ -38,7 +38,11 @@ def artifact(path):
     data = re.search(r"```product-artifact-data\n(.*?)\n```\n?", text, re.S)
     if not front or not data:
         raise ValueError(f"malformed product artifact: {path.name}")
-    return raw, yaml.safe_load(front.group(1)), yaml.safe_load(data.group(1))
+    front_value = yaml.safe_load(front.group(1))
+    data_value = yaml.safe_load(data.group(1))
+    if not isinstance(front_value, dict):
+        raise ValueError("product artifact frontmatter must be a mapping")
+    return raw, front_value, data_value
 
 
 def result(route, token, **fields):
@@ -95,6 +99,24 @@ def validate_revision_chain(paths, kind):
     return documents
 
 
+def valid_active_supersedes(paths, documents):
+    """Check only the active record's supersedes value before early JSON routes."""
+    front = documents[-1][1]
+    if "supersedes" not in front:
+        return False
+    supersedes = front["supersedes"]
+    if len(paths) == 1:
+        return supersedes is None
+    return (
+        isinstance(supersedes, dict)
+        and set(supersedes) == {"id", "revision", "digest"}
+        and isinstance(supersedes.get("id"), str)
+        and type(supersedes.get("revision")) is int
+        and isinstance(supersedes.get("digest"), str)
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", supersedes["digest"]) is not None
+    )
+
+
 def lineage(decision_ref, front):
     return {"decision_ref": decision_ref, "supersedes": front.get("supersedes")}
 
@@ -135,10 +157,14 @@ def main():
     decision_docs = validate_revision_chain(decisions, "decision-record")
     latest_path = decisions[-1]
     latest_raw, latest_front, latest_data = decision_docs[-1]
+    if not isinstance(latest_data, dict):
+        raise ValueError("active product artifact data must be a mapping")
     decision_digest = digest(latest_raw)
     if latest_front.get("schema_version") != "product-artifact/2":
         refuse("invalid_artifact", detail="latest record is not DecisionRecord product-artifact/2")
         return 0
+    if not valid_active_supersedes(decisions, decision_docs):
+        raise ValueError("active DecisionRecord supersedes reference is invalid")
     decision_ref = {"id": latest_front.get("id"), "revision": latest_front.get("revision"), "digest": decision_digest}
     if latest_front.get("status") == "superseded":
         result("/dr-do", TOKENS["superseded"], **lineage(decision_ref, latest_front), research_status="stale", delivery_work_created=False)
@@ -183,6 +209,8 @@ def main():
     brief_docs = validate_revision_chain(briefs, "product-brief")
     latest_brief_path = briefs[-1]
     brief_raw, brief_front, brief_data = brief_docs[-1]
+    if not isinstance(brief_data, dict):
+        raise ValueError("active product artifact data must be a mapping")
     brief_digest = digest(brief_raw)
     brief_ref = {"id": brief_front.get("id"), "revision": brief_front.get("revision"), "digest": brief_digest}
     if (brief_front.get("artifact_type") != "product-brief" or brief_front.get("status") != "ready_for_delivery"
@@ -190,6 +218,10 @@ def main():
         refuse("brief_missing", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref)
         return 0
     inputs = brief_data.get("input_revisions", [])
+    if inputs is None:
+        inputs = []
+    elif not isinstance(inputs, list):
+        raise ValueError("ProductBrief input_revisions must be a list")
     if not any(ref == decision_ref for ref in inputs):
         stale_input = any(isinstance(ref, dict) and ref.get("id") == decision_ref["id"]
                           and type(ref.get("revision")) is int and ref["revision"] < decision_ref["revision"] for ref in inputs)
@@ -203,6 +235,14 @@ def main():
         refuse("invalid_artifact", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref, detail=check_text)
         return 0
     authority = latest_data.get("authority_to_act") or {}
+    invalid_advance_id = any(
+        isinstance(item, dict)
+        and (not isinstance(item.get("id"), str) or not item["id"].strip())
+        for item in advances
+    )
+    if invalid_advance_id:
+        refuse("authorization_mismatch", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref)
+        return 0
     ids = [item.get("id") for item in advances if isinstance(item, dict)]
     matching = [item for item in advances if isinstance(item, dict) and item.get("status") == "authorized" and item.get("decision_ref") == decision_ref]
     if len(ids) != len(set(ids)) or len(matching) > 1:
