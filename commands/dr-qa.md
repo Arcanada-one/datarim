@@ -14,6 +14,14 @@ Before the verdict run `check-live-evidence.sh --root <repo-root> --contract
 is BLOCKED, never notes; return discrepancies to work and repeat verification
 and review. STAGE_PASS lists later-stage pending cases and does not claim them
 delivered. Legacy marker inspection cannot substitute for this strict gate.
+When the task supersedes an acceptance contract, compare the full text of every
+case in both the original and replacement versions before the verdict. Record
+each added, removed, or changed case in Return-to-Source and describe material
+semantic differences; preserve both versions and redact sensitive excerpts.
+An unaccounted change or unsupported relaxation is a finding. Follow the same
+case-by-case rule in `skills/compliance/SKILL.md` § Software Checklist, step 1.
+Static wiring tests confirm that this instruction is present; they do not perform
+the case-by-case semantic review.
 
 **Role**: Reviewer Agent
 **Source**: `${DATARIM_RUNTIME:?}/agents/reviewer.md`
@@ -547,9 +555,15 @@ framework-only tasks; those existing task types still retain their
    It binds the evidence to the exact charter bytes and current `HEAD`, checks
    every required probe and its outcome, validates retained artifact digests,
    and refuses mutable aliases, symlinked paths, and evidence outside a
-   concrete `run-<UTC>/` directory. The checker writes no files. Evidence
-   producers create a fresh run directory exclusively and never overwrite a
-   prior run or baseline.
+   concrete `run-<UTC>/` directory. If a behaviour declares
+   `checkpoint_chain.required: true`, it also requires an ordered
+   `checkpoint_chains` entry: each stable checkpoint id binds the prior
+   checkpoint, exact prior probe observation and artifact digests, a concrete
+   hypothesis, and the next probe id. Each chain must contain at least two
+   probes from the same behaviour, with no duplicate, dangling, cyclic or
+   out-of-order links. The checker writes no files. Evidence producers create
+   a fresh run directory exclusively and never overwrite a prior run or
+   baseline.
 3. Independently compare each required evidence entry with the charter. A
    missing or duplicate required probe, stale charter/source pin, invalid
    artifact path or digest, or any required outcome other than `pass` makes
@@ -563,10 +577,13 @@ framework-only tasks; those existing task types still retain their
    **FAIL**, the overall QA result **BLOCKED**, and routes to `/dr-do`. It may
    not be downgraded to `PASS_WITH_NOTES`.
 
-Checkpoint chains are not inferred from `attempts[]`. If no schema validates
-the next probe's relation to a prior observation and hypothesis, record
-checkpoint linkage as deferred in the task record; that does not change the
-charter-coverage verdict.
+An `attempts[]` list or chronological timestamps do not prove a checkpoint
+chain. A missing or malformed required chain makes charter coverage **FAIL**.
+Legacy charters without a required chain preserve their existing probe coverage
+behavior; the checker reports `checkpoint_linkage=NOT_MEASURED`. A
+`checkpoint_linkage=PASS` reports structural reference and digest validation,
+not the scientific quality or authenticity of a hypothesis or observation, and
+not runtime, pilot, or production acceptance.
 
 The test-environment condition and steps below remain unchanged and run as a
 separate subcheck. Layer 4h passes only when charter coverage passes and the

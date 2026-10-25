@@ -52,6 +52,43 @@ Spec: `skills/cta-format/SKILL.md`. Template: `templates/cta-template.md`. Tests
 | `/dr-archive` | Archive | reviewer (Step 0.5 reflection) + planner (Steps 1-7) | Reflection + evolution proposals + complete task + update backlog + reset context. For deploy-class tasks, Step 0.4 (Prod-Merge Verification Gate) blocks archive until the production merge is done AND verified. Archive doc follows `templates/archive-template.md` (v2.14.0+): four top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги» — plus an audit addendum under `---` carrying `### verification_outcome`, `### Acceptance Criteria`, `### Lessons Learned`, `### Operator Handoff`, `### Related`. The «Как решили» section is a single-level bullet list that maps each operator-brief bullet to a quoted item + Russian status word (выполнено / частично / не выполнено / неприменимо) + one or two plain-language sentences; expectations fold into the same list with marker «(уточнение брифа)». Emits CTA. |
 | `/dr-auto` | Autonomous | orchestrator (spawns per-stage subagents) | Subagent orchestrator that drives a task from its current status to a passing `/dr-compliance` + reflection — it does NOT run the final `/dr-archive`. Spawns the matching agent per stage (planner/architect/developer/reviewer/compliance) via the Agent tool and summarises each result to decide the next stage. Activates `autonomous-mode.md` via env var `DATARIM_AUTO_MODE=1` + marker `datarim/.auto-mode-active`; the Question Suppression Ladder suppresses clarification questions; hard-gated actions still escalate to the operator. Stage-replay allowed. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"`). Emits CTA + stage snapshot `stage: auto`. |
 
+## ID reservation helper
+
+[`/dr-init`](../../commands/dr-init.md) and `/dr-quick` call the shared helper
+to choose an ID:
+
+```sh
+"${DATARIM_RUNTIME:?}/dev-tools/next-free-id.sh" <PREFIX> "$DATARIM_ROOT"
+```
+
+`DATARIM_ROOT` is the workspace root, the parent of `datarim/`, and must contain
+`datarim/tasks.md` or `datarim/backlog.md`. The helper prints the selected ID to
+stdout. It checks existing claim surfaces and attempts to create a reservation
+marker at `datarim/.id-reservations/<ID>` before printing. A printed ID is not
+proof of concurrent uniqueness; check for a collision before writing it.
+
+| Setting or action | Behavior |
+|-------------------|----------|
+| `DATARIM_ID_RESERVATION_TTL` | Non-negative decimal seconds. Unset, empty, or any value containing non-digits falls back silently to `1800`. |
+| Leading zeroes | Parsed as decimal: `08` means eight seconds and `09` means nine seconds. |
+| Numeric range | Bash arithmetic has a finite, platform-dependent integer range. The helper does not impose a portable upper bound; keep the value within the range supported by the Bash running it. |
+| Selection result | On the normal path, the helper prints an ID. It may still print one if writing marker metadata fails; output alone does not confirm a complete marker. Invalid arguments, a missing task ledger, or exhaustion of the four-digit ID space return non-zero. |
+| Fresh marker | A marker with age less than or equal to the TTL is treated as fresh. A missing or unreadable epoch is treated as age zero, so the marker remains fresh. |
+| Stale marker | A marker becomes stale only when its age is greater than the TTL. Cleanup is attempted during a later ID selection; there is no background expiry timer. |
+| Explicit release | `"${DATARIM_RUNTIME:?}/dev-tools/next-free-id.sh" --release <ID> "$DATARIM_ROOT"` attempts to remove that marker. For valid arguments, removal errors are suppressed and the helper may still exit zero, so success does not confirm removal. The TTL setting does not affect this release operation. |
+
+The reservation directory is local runtime state. The helper's marker and
+collision checks are best-effort coordination; they do not establish that
+concurrent invocations always receive distinct IDs. Treat the output as a
+candidate and verify it is still unused before persisting it.
+
+For example, this sets an eight-second TTL; the leading zero does not make the
+value octal:
+
+```sh
+DATARIM_ID_RESERVATION_TTL=08 "${DATARIM_RUNTIME:?}/dev-tools/next-free-id.sh" TUNE "$DATARIM_ROOT"
+```
+
 `/dr-plan` binds the specialized decision to the current task, invocation, and
 canonical-scope digest. The read-only
 `dev-tools/check-strategist-gate-record.sh` validates the closed 18-field

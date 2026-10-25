@@ -94,7 +94,10 @@ the input, public CI explicitly skips that test and cannot establish operational
 baseline coverage. The replay mocks evaluation and never executes command strings.
 
 The ledger is under `.datarim-runtime/state/jev/`; use `jev stats` to inspect
-predicted versus observed decisions. Key material lives outside that directory
+predicted versus observed decisions. A safety-floor denial appends one
+`safety_floor_deny` event there: a scrubbed command and the reason from
+[safety floor categories](docs/safety-floor-categories.md). The denial stands
+when that append fails. Key material lives outside that directory
 in `config/credentials/jev/api-key`. The installer preserves both across updates.
 
 `config/jev-control.json` in this plugin is the **template**, not a live settings

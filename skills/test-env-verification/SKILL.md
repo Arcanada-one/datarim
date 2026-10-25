@@ -82,9 +82,23 @@ PASS / SKIP / NO-TEST-ENV record from this gate is a hard block.
    blocked-by-environment finding and fall back to the deployed-bundle check (the
    built asset contains the change) + the component/live-render Playwright run from
    `/dr-qa` Layer 4f — do NOT silently skip the frontend.
-5. **Record** everything in the QA report under `### Layer 4h — Test-Environment Verification`:
+5. **Compare outcome-deciding settings before making a production prediction.**
+   If a test-tier run is being used to predict production impact (such as
+   availability, rejected requests, latency, or resource use), enumerate only
+   the settings relevant to that outcome and compare their values on both tiers
+   through authorized, read-only access. Record only the minimum relevant
+   setting identifiers and non-secret values needed to show the comparison;
+   redact sensitive identifiers or values. Never inspect, copy, or report secret
+   values. If a relevant value is secret, unreadable, or cannot be compared
+   safely, record it as redacted and the comparison as **NOT_MEASURED**; the
+   production-impact prediction is void. A mismatch also voids that prediction
+   until a separately authorized change and a new comparison. This step grants
+   no authority to change either tier or perform a remote/production operation.
+6. **Record** everything in the QA report under `### Layer 4h — Test-Environment Verification`:
    the resolved environment + source, the CI deploy pipeline + job result, the exact
-   backend/frontend commands, captured output, and the per-surface verdict.
+   backend/frontend commands, captured output, the bounded redacted settings
+   comparison and its read-only source when a production prediction was made,
+   any **NOT_MEASURED** setting and voided prediction, and the per-surface verdict.
 
 ## Verdict
 

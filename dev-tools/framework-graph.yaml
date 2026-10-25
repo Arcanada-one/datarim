@@ -2355,6 +2355,10 @@ edges:
 - from: command:dr-qa
   relation: loads
   source: commands/dr-qa.md
+  to: skill:compliance
+- from: command:dr-qa
+  relation: loads
+  source: commands/dr-qa.md
   to: skill:cta-format
 - from: command:dr-qa
   relation: loads

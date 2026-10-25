@@ -413,7 +413,7 @@ a protected path"}}`.
 
 | Question | Check | Expected |
 |---|---|---|
-| Do the clients call the hooks? | Use a client for one short session in the project (read a file, run a harmless shell command), then `tail -n 3 .datarim-runtime/state/jev/ledger.jsonl` | `hook_delivery` records naming the client (`"client": "claude"`, `"codex"` or `"cursor"`). Floor denials return before the ledger write and are not recorded. Host Jev keeps its ledgers under `~/.local/state/jev/projects/`. |
+| Do the clients call the hooks? | Use a client for one short session in the project (read a file, run a harmless shell command), then `tail -n 3 .datarim-runtime/state/jev/ledger.jsonl` | `hook_delivery` records naming the client (`"client": "claude"`, `"codex"` or `"cursor"`). A floor denial appends one `safety_floor_deny` event with a scrubbed command and the reason when the ledger is writable. The command stays denied when that append fails. Host Jev keeps its ledgers under `~/.local/state/jev/projects/`. |
 | Is Jev installed and scoped correctly? | `jev doctor --agent=<client>` | the fields listed above; after that session `native_agents_live` shows the client as `live` |
 | Are the task files well-formed? | `bash .datarim-runtime/scripts/datarim-doctor.sh --root="$PWD"`, or `/dr-doctor` in a client | `OK: datarim/ structure compliant` |
 
