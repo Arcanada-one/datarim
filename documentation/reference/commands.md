@@ -2,7 +2,7 @@
 
 The primary entry points are [autonomous execution with `/dr-auto`](../../commands/dr-auto.md), [agent orchestration with `/dr-orchestrate`](../../commands/dr-orchestrate.md), [the fast lane with `/dr-quick`](../../commands/dr-quick.md), and [JEV classification through the native launchers](../tutorials/initialize-datarim-with-jev.md). Human-facing output follows one reporting policy; exact machine handoffs retain their protocols.
 
-Datarim provides 27 slash commands in the `/dr-*` namespace for Claude Code (plus 2 standalone `/factcheck` and `/humanize` commands). Commands are grouped by category.
+Datarim provides 28 slash commands in the `/dr-*` namespace for Claude Code (plus 2 standalone `/factcheck` and `/humanize` commands). Commands are grouped by category.
 
 ## Unified CTA Block (v1.16.0)
 
@@ -37,7 +37,7 @@ When `/dr-qa` returns BLOCKED or `/dr-compliance` returns NON-COMPLIANT, the CTA
 
 Spec: `skills/cta-format/SKILL.md`. Template: `templates/cta-template.md`. Tests: `tests/cta-format.bats` (39 spec-regression tests + 3 fixtures).
 
-## Pipeline Commands (10)
+## Pipeline Commands (11)
 
 | Command | Stage | Agent | Description |
 |---------|-------|-------|-------------|
