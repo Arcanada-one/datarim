@@ -53,7 +53,7 @@ def decision_data(outcome="continue", authority=None, evidence="accepted", front
 def make_task(root, latest, *, history=(), include_brief=True, brief_revision=None,
               brief_acceptance="accepted", brief_status="ready_for_delivery", advance_revision=None,
               advance_auth="AUTH-SYN-001", advance_scope=None, parent_hash_override=None, broken_chain=False,
-              force_advance=False, brief_revisions=1):
+              force_advance=False, brief_revisions=1, advance_id=None):
     bundle = root / "datarim/insights/decisions" / TASK
     bundle.mkdir(parents=True, exist_ok=True)
     shutil.copy2(EVIDENCE_FIXTURE / "ledger.md", bundle / "ledger.md")
@@ -117,7 +117,8 @@ def make_task(root, latest, *, history=(), include_brief=True, brief_revision=No
         if (authority.get("status") != "granted" and not (force_advance and revision == advance_revision)) or revision != advance_revision:
             continue
         advance = {
-            "id": f"SYN-SCOPE-{revision:03d}", "status": "authorized", "decision_ref": decision_refs[revision],
+            "id": advance_id if advance_id is not None else f"SYN-SCOPE-{revision:03d}",
+            "status": "authorized", "decision_ref": decision_refs[revision],
             "authorization_ref": advance_auth if advance_auth is not None else authority.get("authority_ref"),
             "authorized_scope": advance_scope if advance_scope is not None else ["Synthetic route fixture only."],
             "parent_acceptance_contract_sha256": parent_hash_override or parent_hash,
@@ -446,13 +447,42 @@ def active_product_brief_input_revisions_cases():
          "/dr-status", "PRODUCT_REFUSE_ARTIFACT_INVALID", assert_invalid_input_revisions, allow_error=True)
 
 
+def scope_advance_id_cases():
+    granted = {"status": "granted", "authority_ref": "AUTH-SYN-001"}
+    case("scope-advance-list-id", lambda root: make_task(
+             root, decision_data("continue", authority=granted), advance_id=[]),
+         "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
+    case("scope-advance-object-id", lambda root: make_task(
+             root, decision_data("continue", authority=granted), advance_id={}),
+         "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
+
+    def duplicate_advance_ids(root):
+        made = make_task(root, decision_data("continue", authority=granted))
+        task_path = made[1]
+        records = re.findall(r"\x60{3}json\s*\n(.*?)\n\x60{3}", task_path.read_text(), re.S)
+        record = json.loads(records[-1])
+        with task_path.open("a", encoding="utf-8") as stream:
+            stream.write("\x60\x60\x60json\n" + json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n\x60\x60\x60\n")
+        return made
+    case("duplicate-scope-advance-id", duplicate_advance_ids,
+         "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
+
+    case("continue", lambda root: make_simple(root, "continue", authority=granted),
+         "/dr-prd", "PRODUCT_ROUTE_CONTINUE", assert_continue_lineage)
+    prior = decision_data("continue", authority=granted)
+    case("B-r2-continue-with-current-brief-and-historical-brief",
+         lambda root: make_task(root, decision_data("continue", authority=granted),
+                                history=[prior], brief_revisions=2),
+         "/dr-prd", "PRODUCT_ROUTE_CONTINUE", assert_continue_lineage)
+
+
 def main():
     granted = {"status": "granted", "authority_ref": "AUTH-SYN-001"}
     mixed_v1_history_v2_successor()
     malformed_active_yaml_mapping_cases()
     malformed_active_product_brief_mapping_cases()
     active_product_brief_input_revisions_cases()
-    case("continue", lambda root: make_simple(root, "continue", authority=granted), "/dr-prd", "PRODUCT_ROUTE_CONTINUE", assert_continue_lineage)
+    scope_advance_id_cases()
     case("stop", lambda root: make_simple(root, "stop"), "/dr-archive", "PRODUCT_ROUTE_STOP")
     case("more-evidence", lambda root: make_simple(root, "more-evidence"), "/dr-do", "PRODUCT_ROUTE_MORE_EVIDENCE")
     case("evidence-rejected", lambda root: make_simple(root, "continue", evidence="rejected"), "/dr-qa", "PRODUCT_ROUTE_EVIDENCE_PENDING")
@@ -469,19 +499,9 @@ def main():
     case("r2-stop-over-authorized-r1", lambda root: make_task(root, decision_data("stop"), history=[prior]), "/dr-archive", "PRODUCT_ROUTE_STOP", assert_revision_two)
     case("r2-continue-with-r1-brief", lambda root: make_task(root, decision_data("continue", authority=granted), history=[prior], brief_revision=1, advance_revision=1), "/dr-do", "PRODUCT_ROUTE_SUPERSEDED")
     case("r2-continue-with-r1-advance", lambda root: make_task(root, decision_data("continue", authority=granted), history=[prior], advance_revision=1), "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
-    case("B-r2-continue-with-current-brief-and-historical-brief", lambda root: make_task(root, decision_data("continue", authority=granted), history=[prior], brief_revisions=2), "/dr-prd", "PRODUCT_ROUTE_CONTINUE", assert_continue_lineage)
     case("C-r2-stop-with-historical-brief", lambda root: make_task(root, decision_data("stop"), history=[prior]), "/dr-archive", "PRODUCT_ROUTE_STOP")
     case("D-r2-more-evidence-with-historical-brief", lambda root: make_task(root, decision_data("more-evidence"), history=[prior]), "/dr-do", "PRODUCT_ROUTE_MORE_EVIDENCE")
     case("latest-status-superseded", lambda root: make_simple(root, "continue", authority=granted, status="superseded"), "/dr-do", "PRODUCT_ROUTE_SUPERSEDED")
-
-    def duplicate_advance_ids(root):
-        made = make_task(root, decision_data("continue", authority=granted))
-        task_path = made[1]
-        record = json.loads(re.findall(r"```json\s*\n(.*?)\n```", task_path.read_text(), re.S)[-1])
-        with task_path.open("a", encoding="utf-8") as stream:
-            stream.write("```json\n" + json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n```\n")
-        return made
-    case("duplicate-scope-advance-id", duplicate_advance_ids, "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
 
     def checker_pair_refusal(root):
         made = make_task(root, decision_data("continue", authority=granted))

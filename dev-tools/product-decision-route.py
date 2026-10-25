@@ -215,6 +215,14 @@ def main():
         refuse("invalid_artifact", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref, detail=check_text)
         return 0
     authority = latest_data.get("authority_to_act") or {}
+    invalid_advance_id = any(
+        isinstance(item, dict)
+        and (not isinstance(item.get("id"), str) or not item["id"].strip())
+        for item in advances
+    )
+    if invalid_advance_id:
+        refuse("authorization_mismatch", **lineage(decision_ref, latest_front), product_brief_ref=brief_ref)
+        return 0
     ids = [item.get("id") for item in advances if isinstance(item, dict)]
     matching = [item for item in advances if isinstance(item, dict) and item.get("status") == "authorized" and item.get("decision_ref") == decision_ref]
     if len(ids) != len(set(ids)) or len(matching) > 1:
