@@ -166,10 +166,14 @@ def main():
     if not valid_active_supersedes(decisions, decision_docs):
         raise ValueError("active DecisionRecord supersedes reference is invalid")
     decision_ref = {"id": latest_front.get("id"), "revision": latest_front.get("revision"), "digest": decision_digest}
-    if latest_front.get("status") == "superseded":
+    status = latest_front.get("status")
+    if status not in ("draft", "submitted", "superseded"):
+        refuse("invalid_artifact", **lineage(decision_ref, latest_front), detail="E_STATUS_INVALID")
+        return 0
+    if status == "superseded":
         result("/dr-do", TOKENS["superseded"], **lineage(decision_ref, latest_front), research_status="stale", delivery_work_created=False)
         return 0
-    if latest_front.get("status") != "submitted" or latest_front.get("acceptance_state") != "accepted":
+    if status != "submitted" or latest_front.get("acceptance_state") != "accepted":
         result("/dr-qa", TOKENS["evidence_pending"], **lineage(decision_ref, latest_front), research_status="incomplete", delivery_work_created=False)
         return 0
     if latest_data.get("evidence_acceptance") != "accepted":
