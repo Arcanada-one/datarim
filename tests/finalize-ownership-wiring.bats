@@ -2,10 +2,10 @@
 
 assert_registration_contract() {
     local file="$BATS_TEST_DIRNAME/../$1"
-    rg -Fq 'finalize-safety.py' "$file"
-    rg -Fq 'add --ledger' "$file"
-    rg -q -- '--kind (KIND|worktree)' "$file"
-    rg -iq 'must' "$file"
+    grep -Fq 'finalize-safety.py' "$file"
+    grep -Fq 'add --ledger' "$file"
+    grep -Eq -- '--kind (KIND|worktree)' "$file"
+    grep -iq 'must' "$file"
 }
 
 @test "dr-do registers task-owned resources at creation time" {
@@ -30,5 +30,5 @@ assert_registration_contract() {
 
 @test "worktree skill registers created worktree and branch" {
     assert_registration_contract skills/using-git-worktrees/SKILL.md
-    rg -Fq -- '--kind branch --value "$BRANCH_NAME"' "$BATS_TEST_DIRNAME/../skills/using-git-worktrees/SKILL.md"
+    grep -Fq -- '--kind branch --value "$BRANCH_NAME"' "$BATS_TEST_DIRNAME/../skills/using-git-worktrees/SKILL.md"
 }
