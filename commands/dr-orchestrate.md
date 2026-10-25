@@ -137,7 +137,10 @@ After passing compliance and the autonomous evolution decision step, resolve
 false, retain the existing terminal point before archive. A resolver error
 refuses finalization and is reported; never treat it as `off`.
 
-Whenever this route creates a branch, worktree, temporary path, process, or
-container, append its exact identity to `datarim/finalize/{TASK-ID}.json` at
-creation time. Preserve existing entries and never infer ownership by name.
-`/dr-finalize` uses this ledger for safe cleanup.
+Whenever this route creates a task-owned branch, worktree, temporary path, process, or
+container, it MUST immediately run `python3 "${DATARIM_RUNTIME:?}/dev-tools/finalize-safety.py"
+add --ledger "$DATARIM_ROOT/datarim/finalize/$TASK_ID.json" --kind KIND --value EXACT`
+(also `--workspace "$DATARIM_ROOT"` for `path`). This applies to delegated
+creations and interactive re-entry as well as autonomous runs. Process identity is
+`PID:start-tick`. Never hand-edit the JSON or infer ownership by name. A failed
+registration leaves the resource preserved and blocks dependent finalization.

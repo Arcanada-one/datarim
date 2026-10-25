@@ -6,8 +6,18 @@ task worktree and merged-branch cleanup, task-owned temporary cleanup,
 configured tracker completion, and one final report. It records each step as
 `done`, `skipped: <reason>`, `failed: <reason>`, or `not measured`. The task's
 ownership ledger is `datarim/finalize/{TASK-ID}.json`; an item absent from it
-cannot be deleted. The read-only `dev-tools/finalize-safety.py` gate additionally
-refuses unmerged branches, dirty checkouts, tracked files, and unsafe paths.
+cannot be deleted. `dev-tools/finalize-safety.py add` creates a missing ledger,
+atomically records exact task-owned resources, and deduplicates entries. The
+`path`, `worktree`, and `branch` checks are read-only and additionally refuse
+unmerged branches, dirty checkouts, tracked files, and unsafe paths. Each
+resource-creating stage must call `add` at creation time, including interactive
+runs; agents never edit the ledger JSON directly.
+
+The supported `--kind` values are `worktree`, `branch`, `path`, `process`, and
+`container`. Worktree and temporary-path values are absolute; a temporary
+path also requires `--workspace` and must be inside it. A process identity is
+`PID:start-tick` so a recycled PID is not enough to claim ownership. A ledger
+entry only permits the later safety check; it does not itself authorize removal.
 
 `autonomy.finalize` is `off` by default, `on_request`, or `always`. Set it in
 project `datarim/config.yaml` or user-global

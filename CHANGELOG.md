@@ -19,6 +19,7 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 - `/dr-finalize` coordinates archive, delivery, ledger-bounded cleanup, configured tracker completion, and a final report. `autonomy.finalize` opts `/dr-auto` and `/dr-orchestrate` into finalization at project or user scope.
 - Consumer projects can track `datarim/local/` overrides for skills, commands, agents, templates, and dev-tools. Install/update composes them into the runtime and client adapters, reports upstream base drift, and refuses direct runtime edits before replacement.
+- Finalization ownership is recorded at resource creation by an atomic, deduplicating helper in interactive and autonomous stages. Worktree cleanup verifies exact ledger ownership and a clean registered worktree before removal.
 
 - A safety-floor denial appends one `safety_floor_deny` ledger event with a scrubbed command and the deny reason. The command stays denied when the append fails. The reason categories are listed in `plugins/dr-jev-control/docs/safety-floor-categories.md` and checked against the strings `destructive_reason` returns.
 
