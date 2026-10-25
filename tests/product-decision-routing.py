@@ -53,7 +53,7 @@ def decision_data(outcome="continue", authority=None, evidence="accepted", front
 def make_task(root, latest, *, history=(), include_brief=True, brief_revision=None,
               brief_acceptance="accepted", brief_status="ready_for_delivery", advance_revision=None,
               advance_auth="AUTH-SYN-001", advance_scope=None, parent_hash_override=None, broken_chain=False,
-              force_advance=False, brief_revisions=1):
+              force_advance=False, brief_revisions=1, advance_id=None):
     bundle = root / "datarim/insights/decisions" / TASK
     bundle.mkdir(parents=True, exist_ok=True)
     shutil.copy2(EVIDENCE_FIXTURE / "ledger.md", bundle / "ledger.md")
@@ -117,7 +117,8 @@ def make_task(root, latest, *, history=(), include_brief=True, brief_revision=No
         if (authority.get("status") != "granted" and not (force_advance and revision == advance_revision)) or revision != advance_revision:
             continue
         advance = {
-            "id": f"SYN-SCOPE-{revision:03d}", "status": "authorized", "decision_ref": decision_refs[revision],
+            "id": advance_id if advance_id is not None else f"SYN-SCOPE-{revision:03d}",
+            "status": "authorized", "decision_ref": decision_refs[revision],
             "authorization_ref": advance_auth if advance_auth is not None else authority.get("authority_ref"),
             "authorized_scope": advance_scope if advance_scope is not None else ["Synthetic route fixture only."],
             "parent_acceptance_contract_sha256": parent_hash_override or parent_hash,
@@ -278,9 +279,238 @@ def sandbox_prd_run(name, latest, *, history=(), brief_revision=None, include_br
         return result
 
 
+def mixed_v1_history_v2_successor():
+    with sandbox_root("mixed-v1-history-v2-successor") as root:
+        bundle = root / "datarim/insights/decisions" / TASK
+        bundle.mkdir(parents=True)
+        shutil.copy2(EVIDENCE_FIXTURE / "ledger.md", bundle / "ledger.md")
+        shutil.copytree(EVIDENCE_FIXTURE / "fixtures", bundle / "fixtures")
+        task_path = root / "datarim/tasks" / f"{TASK}-task-description.md"
+        task_path.parent.mkdir(parents=True)
+        acceptance = "- Synthetic route is authorized only for its exact bounded scope.\n- Parent criteria remain unchanged.\n"
+        task_path.write_text("# Task\n\n## Acceptance Criteria\n" + acceptance + "\n## Scope Advance Records\n", encoding="utf-8")
+
+        v1_front = {
+            "schema_version": "product-artifact/1", "id": "artifact:SYN-DECISION-001",
+            "artifact_type": "decision-record", "revision": 1, "status": "submitted",
+            "acceptance_state": "accepted", "source_digest": None, "supersedes": None,
+        }
+        v1_data = {
+            "question": "Which synthetic route should be selected?",
+            "options": [
+                {"id": "selected", "description": "Use the selected synthetic route.",
+                 "disposition": "selected", "rationale": "Fixture covers the declared outcome."},
+                {"id": "deferred", "description": "Defer unrelated behavior.",
+                 "disposition": "deferred", "rationale": "Outside the fixture scope."},
+            ],
+            "selected_option": "selected", "business_outcome": "continue", "evidence_refs": [],
+            "counterevidence_refs": [], "applicable_thresholds": ["Synthetic migration control only."],
+            "uncertainty": ["No live user outcome is measured."],
+            "reversal_conditions": ["Revise if the synthetic decision inputs change."],
+            "owner": "fixture-owner", "approved_scope_delta": "Synthetic route fixture only.",
+            "source_refs": [],
+            "provenance": {"recorder": "fixture-author", "recorded_at": "2026-10-14T00:00:00Z",
+                           "origin_kind": "synthetic_fixture"},
+        }
+        v1_path = bundle / "decision-r1.md"
+        v1_raw = write_artifact(v1_path, v1_front, v1_data)
+        v1_digest = sha(v1_raw)
+
+        v2_data, _, _ = decision_data("stop")
+        ledger_text = (EVIDENCE_FIXTURE / "ledger.md").read_text(encoding="utf-8")
+        ledger_data = yaml.safe_load(re.search(r"```product-artifact-data\n(.*?)\n```", ledger_text, re.S).group(1))
+        v2_data["evidence_refs"] = [ledger_data["entries"][0]["raw_ref"]]
+        v2_data["counterevidence_refs"] = [ledger_data["entries"][1]["raw_ref"]]
+        v2_front = {
+            "schema_version": "product-artifact/2", "id": v1_front["id"],
+            "artifact_type": "decision-record", "revision": 2, "status": "submitted",
+            "acceptance_state": "accepted", "source_digest": None,
+            "supersedes": {"id": v1_front["id"], "revision": 1, "digest": v1_digest},
+        }
+        v2_raw = write_artifact(bundle / "decision-r2.md", v2_front, v2_data)
+        v1_before_route = v1_path.read_bytes()
+
+        v1_check = run_checker(bundle, v1_path)
+        assert v1_check.returncode == 0, v1_check.stdout + v1_check.stderr
+        v2_check = run_checker(bundle, bundle / "decision-r2.md")
+        assert v2_check.returncode == 0, v2_check.stdout + v2_check.stderr
+        routed = route(root)
+        assert routed.returncode == 0, routed.stdout + routed.stderr
+        result = json.loads(routed.stdout)
+        expected_ref = {"id": v1_front["id"], "revision": 2, "digest": sha(v2_raw)}
+        expected_supersedes = {"id": v1_front["id"], "revision": 1, "digest": v1_digest}
+        assert result["route"] == "/dr-archive" and result["token"] == "PRODUCT_ROUTE_STOP", routed.stdout
+        assert result["research_status"] == "accepted" and result["delivery_work_created"] is False, routed.stdout
+        assert result["decision_ref"] == expected_ref and result["supersedes"] == expected_supersedes, routed.stdout
+        assert v1_path.read_bytes() == v1_before_route == v1_raw
+        assert sha(v1_path.read_bytes()) == v1_digest
+        print(
+            "TRANSCRIPT mixed-v1-history-v2-successor: "
+            f"v1-check=exit{v1_check.returncode}; v2-check=exit{v2_check.returncode}; "
+            f"route={result['token']}; latest_revision=2; "
+            "v1_bytes_unchanged=true; delivery_work_created=false"
+        )
+
+
+def malformed_active_mapping_refusal(part, replacement, expected_detail):
+    with sandbox_root(f"malformed-active-{part}-mapping") as root:
+        made = make_task(root, decision_data("stop"))
+        active = made[0] / "decision-r1.md"
+        raw = active.read_text(encoding="utf-8")
+        if part == "frontmatter":
+            pattern = re.compile(r"(?<=---\n).*?(?=\n---\n)", re.S)
+        elif part == "data":
+            pattern = re.compile(r"(?<=```product-artifact-data\n).*?(?=\n```)", re.S)
+        else:
+            raise AssertionError(f"unsupported synthetic artifact part: {part}")
+        if len(list(pattern.finditer(raw))) != 1:
+            raise AssertionError(f"{part} document fence is not unique")
+        active.write_text(pattern.sub(replacement, raw, count=1), encoding="utf-8")
+        routed = route(root)
+        assert routed.returncode == 1, f"{part}: exit={routed.returncode}; {routed.stdout}{routed.stderr}"
+        assert routed.stderr == "", f"{part}: unexpected stderr: {routed.stderr}"
+        result = json.loads(routed.stdout)
+        assert result["route"] == "/dr-status", routed.stdout
+        assert result["token"] == "PRODUCT_REFUSE_ARTIFACT_INVALID", routed.stdout
+        assert result["detail"] == expected_detail, routed.stdout
+        print(f"TRANSCRIPT malformed-active-{part}: exit={routed.returncode}; token={result['token']}; typed_refusal=true")
+
+
+def malformed_active_yaml_mapping_cases():
+    malformed_active_mapping_refusal(
+        "frontmatter", "[]", "product artifact frontmatter must be a mapping"
+    )
+    malformed_active_mapping_refusal(
+        "data", "null", "active product artifact data must be a mapping"
+    )
+
+
+def malformed_active_supersedes_json_refusal():
+    with tempfile.TemporaryDirectory(prefix="malformed-active-supersedes-") as temp:
+        root = Path(temp)
+        bundle, _, _, _, _, _ = make_task(
+            root, decision_data("continue", front_acceptance="submitted")
+        )
+        active = bundle / "decision-r1.md"
+        raw = active.read_text(encoding="utf-8")
+        pattern = re.compile(r"(?m)^supersedes: null$")
+        assert len(list(pattern.finditer(raw))) == 1, "first-revision supersedes field is not unique"
+        malformed = pattern.sub("supersedes: !!set {invalid: null}", raw, count=1)
+        active.write_text(malformed, encoding="utf-8")
+        before = active.read_bytes()
+
+        routed = route(root)
+        assert routed.returncode == 1
+        assert routed.stderr == ""
+        result = json.loads(routed.stdout)
+        assert result == {
+            "detail": "active DecisionRecord supersedes reference is invalid",
+            "route": "/dr-status",
+            "token": "PRODUCT_REFUSE_ARTIFACT_INVALID",
+        }
+        assert active.read_bytes() == before
+        print("TRANSCRIPT malformed-active-supersedes: exit=1; typed_refusal=true; fixture_unchanged=true")
+
+
+def malformed_active_product_brief_mapping_refusal(replacement):
+    granted = {"status": "granted", "authority_ref": "AUTH-SYN-001"}
+    with sandbox_root("malformed-active-product-brief-mapping") as root:
+        made = make_task(root, decision_data("continue", authority=granted))
+        brief_path = made[0] / "product-brief-r1.md"
+        raw = brief_path.read_text(encoding="utf-8")
+        pattern = re.compile(r"(?<=```product-artifact-data\n).*?(?=\n```)", re.S)
+        matches = list(pattern.finditer(raw))
+        assert len(matches) == 1, "active ProductBrief data fence is not unique"
+        assert isinstance(yaml.safe_load(matches[0].group(0)), dict), "fixture must begin with mapping data"
+        brief_path.write_text(
+            raw[:matches[0].start()] + replacement + raw[matches[0].end():], encoding="utf-8"
+        )
+
+        routed = route(root)
+        assert routed.returncode == 1, f"exit={routed.returncode}; {routed.stdout}{routed.stderr}"
+        assert routed.stderr == "", f"unexpected stderr: {routed.stderr}"
+        result = json.loads(routed.stdout)
+        assert result["route"] == "/dr-status", routed.stdout
+        assert result["token"] == "PRODUCT_REFUSE_ARTIFACT_INVALID", routed.stdout
+        assert result["detail"] == "active product artifact data must be a mapping", routed.stdout
+        print(f"TRANSCRIPT malformed-active-product-brief-{replacement}: typed_refusal=true")
+
+
+def malformed_active_product_brief_mapping_cases():
+    malformed_active_product_brief_mapping_refusal("null")
+    malformed_active_product_brief_mapping_refusal("[]")
+
+
+def active_product_brief_input_revisions_case(value):
+    granted = {"status": "granted", "authority_ref": "AUTH-SYN-001"}
+
+    def setup(root):
+        made = make_task(root, decision_data("continue", authority=granted))
+        brief_path = made[0] / "product-brief-r1.md"
+        raw = brief_path.read_text(encoding="utf-8")
+        pattern = re.compile(r"```product-artifact-data\n(.*?)\n```", re.S)
+        matches = list(pattern.finditer(raw))
+        assert len(matches) == 1, "active ProductBrief data fence is not unique"
+        data = yaml.safe_load(matches[0].group(1))
+        assert isinstance(data, dict) and isinstance(data.get("input_revisions"), list)
+        data["input_revisions"] = value
+        replacement = yaml.safe_dump(data, sort_keys=False, allow_unicode=True).rstrip()
+        brief_path.write_text(raw[:matches[0].start(1)] + replacement + raw[matches[0].end(1):], encoding="utf-8")
+        made = list(made)
+        made[4] = brief_path.read_bytes()
+        return tuple(made)
+
+    return setup
+
+
+def assert_invalid_input_revisions(result, front, decision_ref, brief, parent_hash):
+    assert result["detail"] == "ProductBrief input_revisions must be a list"
+
+
+def active_product_brief_input_revisions_cases():
+    case("continue-null-product-brief-input-revisions", active_product_brief_input_revisions_case(None),
+         "/dr-status", "PRODUCT_REFUSE_PRODUCT_BRIEF_INPUT_MISMATCH")
+    case("continue-scalar-product-brief-input-revisions", active_product_brief_input_revisions_case(7),
+         "/dr-status", "PRODUCT_REFUSE_ARTIFACT_INVALID", assert_invalid_input_revisions, allow_error=True)
+
+
+def scope_advance_id_cases():
+    granted = {"status": "granted", "authority_ref": "AUTH-SYN-001"}
+    case("scope-advance-list-id", lambda root: make_task(
+             root, decision_data("continue", authority=granted), advance_id=[]),
+         "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
+    case("scope-advance-object-id", lambda root: make_task(
+             root, decision_data("continue", authority=granted), advance_id={}),
+         "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
+
+    def duplicate_advance_ids(root):
+        made = make_task(root, decision_data("continue", authority=granted))
+        task_path = made[1]
+        records = re.findall(r"\x60{3}json\s*\n(.*?)\n\x60{3}", task_path.read_text(), re.S)
+        record = json.loads(records[-1])
+        with task_path.open("a", encoding="utf-8") as stream:
+            stream.write("\x60\x60\x60json\n" + json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n\x60\x60\x60\n")
+        return made
+    case("duplicate-scope-advance-id", duplicate_advance_ids,
+         "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
+
+    case("continue", lambda root: make_simple(root, "continue", authority=granted),
+         "/dr-prd", "PRODUCT_ROUTE_CONTINUE", assert_continue_lineage)
+    prior = decision_data("continue", authority=granted)
+    case("B-r2-continue-with-current-brief-and-historical-brief",
+         lambda root: make_task(root, decision_data("continue", authority=granted),
+                                history=[prior], brief_revisions=2),
+         "/dr-prd", "PRODUCT_ROUTE_CONTINUE", assert_continue_lineage)
+
+
 def main():
     granted = {"status": "granted", "authority_ref": "AUTH-SYN-001"}
-    case("continue", lambda root: make_simple(root, "continue", authority=granted), "/dr-prd", "PRODUCT_ROUTE_CONTINUE", assert_continue_lineage)
+    mixed_v1_history_v2_successor()
+    malformed_active_yaml_mapping_cases()
+    malformed_active_supersedes_json_refusal()
+    malformed_active_product_brief_mapping_cases()
+    active_product_brief_input_revisions_cases()
+    scope_advance_id_cases()
     case("stop", lambda root: make_simple(root, "stop"), "/dr-archive", "PRODUCT_ROUTE_STOP")
     case("more-evidence", lambda root: make_simple(root, "more-evidence"), "/dr-do", "PRODUCT_ROUTE_MORE_EVIDENCE")
     case("evidence-rejected", lambda root: make_simple(root, "continue", evidence="rejected"), "/dr-qa", "PRODUCT_ROUTE_EVIDENCE_PENDING")
@@ -297,19 +527,15 @@ def main():
     case("r2-stop-over-authorized-r1", lambda root: make_task(root, decision_data("stop"), history=[prior]), "/dr-archive", "PRODUCT_ROUTE_STOP", assert_revision_two)
     case("r2-continue-with-r1-brief", lambda root: make_task(root, decision_data("continue", authority=granted), history=[prior], brief_revision=1, advance_revision=1), "/dr-do", "PRODUCT_ROUTE_SUPERSEDED")
     case("r2-continue-with-r1-advance", lambda root: make_task(root, decision_data("continue", authority=granted), history=[prior], advance_revision=1), "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
-    case("B-r2-continue-with-current-brief-and-historical-brief", lambda root: make_task(root, decision_data("continue", authority=granted), history=[prior], brief_revisions=2), "/dr-prd", "PRODUCT_ROUTE_CONTINUE", assert_continue_lineage)
     case("C-r2-stop-with-historical-brief", lambda root: make_task(root, decision_data("stop"), history=[prior]), "/dr-archive", "PRODUCT_ROUTE_STOP")
     case("D-r2-more-evidence-with-historical-brief", lambda root: make_task(root, decision_data("more-evidence"), history=[prior]), "/dr-do", "PRODUCT_ROUTE_MORE_EVIDENCE")
+    case("latest-status-draft", lambda root: make_simple(root, "continue", authority=granted, status="draft"), "/dr-qa", "PRODUCT_ROUTE_EVIDENCE_PENDING")
     case("latest-status-superseded", lambda root: make_simple(root, "continue", authority=granted, status="superseded"), "/dr-do", "PRODUCT_ROUTE_SUPERSEDED")
 
-    def duplicate_advance_ids(root):
-        made = make_task(root, decision_data("continue", authority=granted))
-        task_path = made[1]
-        record = json.loads(re.findall(r"```json\s*\n(.*?)\n```", task_path.read_text(), re.S)[-1])
-        with task_path.open("a", encoding="utf-8") as stream:
-            stream.write("```json\n" + json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n```\n")
-        return made
-    case("duplicate-scope-advance-id", duplicate_advance_ids, "/dr-status", "PRODUCT_REFUSE_SCOPE_AUTHORIZATION_MISMATCH")
+    def assert_invalid_status(result, front, decision_ref, brief, parent_hash):
+        assert result["detail"] == "E_STATUS_INVALID", result
+    case("latest-status-unknown", lambda root: make_simple(root, "continue", authority=granted, status="mystery"),
+         "/dr-status", "PRODUCT_REFUSE_ARTIFACT_INVALID", assert_invalid_status)
 
     def checker_pair_refusal(root):
         made = make_task(root, decision_data("continue", authority=granted))

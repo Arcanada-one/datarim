@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+bats_require_minimum_version 1.5.0
+
 setup() {
   ROOT="$BATS_TEST_TMPDIR/repo"
   VALIDATOR="$BATS_TEST_DIRNAME/../dev-tools/check-qa-charter-coverage.py"
@@ -77,6 +79,46 @@ setup() {
   [[ "$output" == *"duplicate_key"* ]]
 }
 
+@test "ASCII duplicate evidence key keeps the named duplicate_key refusal" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" duplicate-key-ascii "$ROOT"
+  run --separate-stderr python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = 'CHARTER_COVERAGE FAIL reason=duplicate_key: duplicate JSON object key: duplicate-key' ]
+  [ "$stderr" = "" ]
+}
+
+@test "valid Unicode duplicate evidence key remains readable in the refusal" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" duplicate-key-unicode "$ROOT"
+  run --separate-stderr python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = 'CHARTER_COVERAGE FAIL reason=duplicate_key: duplicate JSON object key: duplicate-雪' ]
+  [ "$stderr" = "" ]
+}
+
+@test "duplicate high-surrogate evidence key produces an escaped refusal without traceback" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" duplicate-key-high-surrogate "$ROOT"
+  run --separate-stderr python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = 'CHARTER_COVERAGE FAIL reason=duplicate_key: duplicate JSON object key: \ud800' ]
+  [ "$stderr" = "" ]
+}
+
+@test "duplicate low-surrogate evidence key produces an escaped refusal without traceback" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" duplicate-key-low-surrogate "$ROOT"
+  run --separate-stderr python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = 'CHARTER_COVERAGE FAIL reason=duplicate_key: duplicate JSON object key: \udc00' ]
+  [ "$stderr" = "" ]
+}
+
 @test "stale source baseline blocks coverage" {
   python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" stale "$ROOT"
   run python3 "$VALIDATOR" --root "$ROOT" \
@@ -120,6 +162,51 @@ setup() {
     --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
   [ "$status" -eq 1 ]
   [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_outcome: probe returns-result: unsupported outcome" ]
+}
+
+@test "production CLI refuses a lone surrogate probe id as invalid evidence" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" lone-high-surrogate-probe-id "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_evidence: probe id must be valid UTF-8 text" ]
+}
+
+@test "production CLI refuses an unencodable behaviour id with constant invalid charter" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" lone-high-surrogate-behaviour-id "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_charter: behaviour id must be UTF-8 encodable" ]
+}
+
+@test "valid Unicode behaviour id keeps ordinary missing-contract refusal" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" unicode-behaviour-id-omitted-contract "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = "CHARTER_COVERAGE FAIL reason=invalid_charter: behaviour behaviour-雪: contract is required" ]
+}
+
+@test "valid Unicode undeclared probe id retains unknown_probe refusal" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" unknown-unicode-probe-id "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = "CHARTER_COVERAGE FAIL reason=unknown_probe: evidence contains undeclared probe undeclared-雪" ]
+}
+
+@test "ASCII undeclared probe id retains unknown_probe refusal" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" unknown-probe-id "$ROOT"
+  run python3 "$VALIDATOR" --root "$ROOT" \
+    --charter "$ROOT/datarim/qa/example/qa-charter.md" \
+    --evidence "$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  [ "$status" -eq 1 ]
+  [ "$output" = "CHARTER_COVERAGE FAIL reason=unknown_probe: evidence contains undeclared probe undeclared-probe" ]
 }
 
 @test "production CLI validates a multi-step hypothesis-linked chain" {

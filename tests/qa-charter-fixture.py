@@ -47,6 +47,12 @@ def main() -> None:
             ],
         }],
     }
+    if mode == "lone-high-surrogate-behaviour-id":
+        charter_data["behaviours"][0]["id"] = "behaviour-" + chr(0xD800)
+        del charter_data["behaviours"][0]["contract"]
+    elif mode == "unicode-behaviour-id-omitted-contract":
+        charter_data["behaviours"][0]["id"] = "behaviour-雪"
+        del charter_data["behaviours"][0]["contract"]
     charter_path = qa / "qa-charter.md"
     charter_path.write_text(
         "# Synthetic QA charter fixture\n\n"
@@ -99,6 +105,12 @@ def main() -> None:
             "artifact": {"path": "probe.txt", "sha256": digest(artifact.read_bytes())},
         },
     ]
+    if mode == "unknown-probe-id":
+        probes[0]["id"] = "undeclared-probe"
+    elif mode == "unknown-unicode-probe-id":
+        probes[0]["id"] = "undeclared-雪"
+    elif mode == "lone-high-surrogate-probe-id":
+        probes[0]["id"] = "undeclared-" + chr(0xD800)
     if mode == "omit":
         probes.pop()
     if mode == "duplicate-required":
@@ -151,6 +163,20 @@ def main() -> None:
     (run / "evidence.json").write_text(
         json.dumps(evidence, sort_keys=True, indent=2) + "\n", encoding="utf-8"
     )
+    duplicate_key_tokens = {
+        "duplicate-key-ascii": b'"duplicate-key"',
+        "duplicate-key-unicode": '"duplicate-雪"'.encode("utf-8"),
+        "duplicate-key-high-surrogate": b'"\\ud800"',
+        "duplicate-key-low-surrogate": b'"\\udc00"',
+    }
+    if mode in duplicate_key_tokens:
+        evidence_path = run / "evidence.json"
+        original = evidence_path.read_bytes()
+        if not original.endswith(b"}\n"):
+            raise SystemExit("fixture evidence did not end with a JSON object")
+        token = duplicate_key_tokens[mode]
+        repeated_members = b',\n  ' + token + b': null,\n  ' + token + b': null\n}\n'
+        evidence_path.write_bytes(original[:-2] + repeated_members)
     if mode == "mutable":
         (qa / "latest").symlink_to(run.name, target_is_directory=True)
 
