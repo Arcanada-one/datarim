@@ -14,6 +14,14 @@ Before the verdict run `check-live-evidence.sh --root <repo-root> --contract
 is BLOCKED, never notes; return discrepancies to work and repeat verification
 and review. STAGE_PASS lists later-stage pending cases and does not claim them
 delivered. Legacy marker inspection cannot substitute for this strict gate.
+When the task supersedes an acceptance contract, compare the full text of every
+case in both the original and replacement versions before the verdict. Record
+each added, removed, or changed case in Return-to-Source and describe material
+semantic differences; preserve both versions and redact sensitive excerpts.
+An unaccounted change or unsupported relaxation is a finding. Follow the same
+case-by-case rule in `skills/compliance/SKILL.md` § Software Checklist, step 1.
+Static wiring tests confirm that this instruction is present; they do not perform
+the case-by-case semantic review.
 
 **Role**: Reviewer Agent
 **Source**: `${DATARIM_RUNTIME:?}/agents/reviewer.md`
@@ -129,6 +137,61 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 
 ---
 
+## Layer 2a: UI and Developer-Journey Evidence
+
+**Condition:** Always decide UI and developer-experience applicability
+separately from the current task scope and changed files. UI applies to
+browser-visible components or interaction flows. Developer experience applies
+to installation, setup, configuration, API, CLI, SDK, developer documentation,
+upgrade, or contributor paths. Record `not_applicable` with a concrete reason
+for each domain that does not apply; if both are not applicable, record that
+outcome explicitly.
+
+**Checks:**
+
+1. For an applicable UI surface, load
+   `${DATARIM_RUNTIME:?}/skills/frontend-ui/SKILL.md` § Interaction States and
+   Journey Design. For an applicable developer-facing surface, load
+   `${DATARIM_RUNTIME:?}/skills/dx-review/SKILL.md` and inspect the journey,
+   eight review passes, typed evidence, and selected review mode.
+2. Record the structured evidence at
+   `datarim/qa/<task-id>/ui-dx-evidence.json`. The UI and DX applicability
+   values, state matrix, storyboard, journey trace, digest-bound artifact
+   references, and any retained-material attribution must agree with the
+   reviewed source. Each artifact reference is confined to the same task's
+   immutable `datarim/qa/<task-id>/run-<UTC>/` directory.
+3. Run the read-only validator:
+
+   ```bash
+   REPO_ROOT="$(git rev-parse --show-toplevel)"
+   TASK_ID="example-task"
+   python3 "${DATARIM_RUNTIME:?}/dev-tools/check-ui-dx-evidence.py" \
+     --root "$REPO_ROOT" \
+     --evidence "$REPO_ROOT/datarim/qa/$TASK_ID/ui-dx-evidence.json"
+   ```
+
+4. Inspect cited evidence and report the validator output. The validator checks
+   structure, state and journey completeness, typed references and artifact
+   digests, prohibited
+   input categories, attribution fields, and exact source revision. It cannot
+   establish that a reported or estimated claim is true. A rubric score is a
+   review aid, not a measured UX result. Do not report adoption statistics or
+   depend on a designer binary.
+
+**Verdict:** PASS (structure and cited evidence reviewed) | FAIL |
+NOT_APPLICABLE
+
+**Failure handling:** a missing error state, missing recovery path, incomplete
+required fields, untyped evidence, prohibited input, absent retained-material
+attribution, stale source revision, or nonzero validator result is FAIL. Preserve
+reported and estimated evidence labels; do not rewrite them as observed. A
+not-applicable result is valid only with a reason and is not a pass.
+
+This check is separate from Layer 4h. It does not replace QA charter coverage
+or the existing test-environment verification subcheck.
+
+---
+
 ## Layer 3: Plan Completeness
 
 **Condition:** Execute only if `datarim/tasks.md` contains implementation steps for the current task.
@@ -139,15 +202,54 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 - Flag any **skipped steps** with reason assessment
 - Flag any **unplanned steps** that were added during implementation
 - Check that step ordering was respected (dependencies honored)
+- Classify each planned deliverable as `DONE`, `PARTIAL`, `NOT DONE`, `CHANGED`, or `UNVERIFIABLE`, using the gstack plan-completion distinctions re-expressed below. Record one row per deliverable in the structured table below.
+- Every row must identify the deliverable and cite evidence. For every status other than `DONE`, record one discrepancy reason: `scope cut`, `context exhaustion`, `misunderstood`, `blocked`, or `forgotten`. Do not infer a reason from status alone.
+- For `CHANGED`, cite both the planned approach and actual replacement. For `UNVERIFIABLE`, name the exact missing evidence or manual check. Do not use implementation code as a substitute for the deliverable itself.
+- A deliverable is the specified output itself: code that handles or generates a deliverable does not make the deliverable `DONE`.
+
+**Status meanings:**
+
+| Status | Meaning |
+|--------|---------|
+| `DONE` | The deliverable itself is present and the applicable evidence verifies it. |
+| `PARTIAL` | Some work exists, but the deliverable is incomplete. |
+| `NOT DONE` | Verification produced evidence that the deliverable is absent or not implemented. |
+| `CHANGED` | The intended goal was achieved by a materially different implementation; describe the difference. |
+| `UNVERIFIABLE` | Available evidence cannot prove or disprove completion; name the exact manual check or missing evidence. |
+
+For `PARTIAL`, `NOT DONE`, `CHANGED`, and `UNVERIFIABLE`, select one discrepancy reason from the listed set and explain it with evidence. For `CHANGED`, cite both the planned approach and what replaced it. For `UNVERIFIABLE`, do not present the item as complete.
+
+After writing the QA report, run the read-only structural validator against its existing Layer 3 section:
+
+```bash
+TASK_ID="example-task"
+REPORT_PATH="datarim/qa/qa-report-${TASK_ID}.md"
+python3 "${DATARIM_RUNTIME:?}/dev-tools/check-plan-completion.py" \
+  --report "$REPORT_PATH"
+```
+
+Exit 0 means the recorded rows contain supported statuses and required fields;
+it does not authenticate the cited evidence or approve a `DONE` claim. Exit 1
+means the Layer 3 record is malformed and the QA verdict is **FAIL**; correct
+the report from its evidence, then validate it again. The checker never changes
+or promotes a status.
+
+Exit 2 means the report is missing, unreadable, or invalid UTF-8. Mark Layer 3
+and the overall QA result **BLOCKED**; record the exact report path and access
+or encoding error, then route correction to the report path, permissions, or
+encoding before validation can continue. A missing validator result is never an
+implicit pass.
 
 **Verdict:** PASS | PASS_WITH_NOTES | FAIL
 
 ```markdown
 ### Layer 3: Plan Completeness — {VERDICT}
 
-| Step | Status | Notes |
-|------|--------|-------|
-| 1. {desc} | Done / Skipped / Modified | {detail} |
+| Step / deliverable | Status | Discrepancy reason | Evidence | Planned approach | Actual replacement | Missing evidence / exact check |
+|--------------------|--------|--------------------|----------|------------------|-------------------|--------------------------------|
+| 1. {deliverable} | DONE | — | {evidence that verifies the deliverable itself} | — | — | — |
+
+**Discrepancy reasons:** {step → scope cut / context exhaustion / misunderstood / blocked / forgotten, with evidence; or "None"}
 
 **Skipped steps:** {list with risk assessment or "None"}
 **Unplanned additions:** {list or "None"}
@@ -427,7 +529,65 @@ predicted production impact and the operator remediation required.
 
 **Verdict:** SKIP | PASS | FAIL
 
-### 4h. Test-Environment Verification Gate (behaviour-shipping tasks — blocking before prod prep / archive)
+### 4h. QA Charter Coverage and Test-Environment Verification
+
+#### QA Charter Coverage subcheck — mandatory for every `/dr-qa` task
+
+This additive subcheck does not replace or relax test-environment verification.
+It runs for every `/dr-qa` invocation, including documentation-only and
+framework-only tasks; those existing task types still retain their
+`SKIP`/`NO-TEST-ENV` semantics in the test-environment subcheck below.
+
+1. Resolve the task charter at
+   `datarim/qa/qa-charter-{TASK-ID}.md` and select the exact current evidence
+   run at `datarim/qa/qa-charter-{TASK-ID}/run-<UTC>/evidence.json`. A missing
+   charter or current evidence bundle is **BLOCKED**; do not infer an empty
+   probe set or skip this subcheck.
+2. Run the read-only validator:
+
+   ```bash
+   python3 "${DATARIM_RUNTIME:?}/dev-tools/check-qa-charter-coverage.py" \
+     --root <repo-root> \
+     --charter <repo-root>/datarim/qa/qa-charter-{TASK-ID}.md \
+     --evidence <repo-root>/datarim/qa/qa-charter-{TASK-ID}/run-<UTC>/evidence.json
+   ```
+
+   It binds the evidence to the exact charter bytes and current `HEAD`, checks
+   every required probe and its outcome, validates retained artifact digests,
+   and refuses mutable aliases, symlinked paths, and evidence outside a
+   concrete `run-<UTC>/` directory. If a behaviour declares
+   `checkpoint_chain.required: true`, it also requires an ordered
+   `checkpoint_chains` entry: each stable checkpoint id binds the prior
+   checkpoint, exact prior probe observation and artifact digests, a concrete
+   hypothesis, and the next probe id. Each chain must contain at least two
+   probes from the same behaviour, with no duplicate, dangling, cyclic or
+   out-of-order links. The checker writes no files. Evidence producers create
+   a fresh run directory exclusively and never overwrite a prior run or
+   baseline.
+3. Independently compare each required evidence entry with the charter. A
+   missing or duplicate required probe, stale charter/source pin, invalid
+   artifact path or digest, or any required outcome other than `pass` makes
+   charter coverage **FAIL**. Preserve `fail`, `blocked`, `not run`,
+   `inconclusive`, and `n.a.` as their actual outcomes; none may be presented as
+   a successful required probe. `n.a.` is valid only for a probe declared
+   optional and must include a reason.
+4. Record the validator output and the exact charter/evidence paths under the
+   existing `### Layer 4h — Test-Environment Verification` report section as
+   `#### QA Charter Coverage`. A nonzero validator result makes Layer 4h
+   **FAIL**, the overall QA result **BLOCKED**, and routes to `/dr-do`. It may
+   not be downgraded to `PASS_WITH_NOTES`.
+
+An `attempts[]` list or chronological timestamps do not prove a checkpoint
+chain. A missing or malformed required chain makes charter coverage **FAIL**.
+Legacy charters without a required chain preserve their existing probe coverage
+behavior; the checker reports `checkpoint_linkage=NOT_MEASURED`. A
+`checkpoint_linkage=PASS` reports structural reference and digest validation,
+not the scientific quality or authenticity of a hypothesis or observation, and
+not runtime, pilot, or production acceptance.
+
+The test-environment condition and steps below remain unchanged and run as a
+separate subcheck. Layer 4h passes only when charter coverage passes and the
+test-environment subcheck has its existing acceptable disposition.
 
 **Condition:** Execute when the task ships runtime behaviour (code/config/migration —
 not docs-only or framework-only) AND the project space has a test environment, per

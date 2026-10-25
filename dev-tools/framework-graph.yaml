@@ -1,4 +1,4 @@
-schema_version: 2
+schema_version: 3
 generated: true
 inventory:
   commands:
@@ -72,6 +72,7 @@ inventory:
   - dr-init-id-collision-window
   - dr-next-snapshot-replay
   - dream
+  - dx-review
   - edge-case-hunter
   - evolution
   - executing-plans
@@ -101,6 +102,9 @@ inventory:
   - playwright-qa
   - post-deploy-env-diff
   - prod-readiness-probe
+  - product-discovery/decision-record
+  - product-discovery/hypothesis-validation
+  - product-discovery/product-framing
   - project-init
   - publishing
   - receiving-code-review
@@ -133,6 +137,16 @@ inventory:
   - writing
   - writing-plans
   fragments:
+  - plugins/product-discovery/skills/decision-record/strategist-scope-modes.md
+  - plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
+  - plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md
+  - plugins/product-discovery/skills/hypothesis-validation/assumption-map.md
+  - plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
+  - plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md
+  - plugins/product-discovery/skills/product-framing/builder-brainstorm.md
+  - plugins/product-discovery/skills/product-framing/claim-quality.md
+  - plugins/product-discovery/skills/product-framing/premise-challenge.md
+  - plugins/product-discovery/skills/product-framing/startup-diagnostic.md
   - skills/ai-quality/bash-pitfalls.md
   - skills/ai-quality/deployment-patterns.md
   - skills/ai-quality/incident-patterns.md
@@ -172,8 +186,10 @@ inventory:
   - skills/testing/bats-and-spec-lint.md
   - skills/testing/concurrency-patterns.md
   - skills/testing/live-smoke-gates.md
+  - skills/testing/multisurface-contract-map.md
   - skills/testing/silent-failure-detection.md
   - skills/testing/tdd-discipline.md
+  - skills/testing/test-value-card.md
   - skills/testing/triaging-legacy-failures.md
   - skills/utilities/crypto.md
   - skills/utilities/datarim-sync.md
@@ -232,23 +248,954 @@ inventory:
   - legacy-hardware-probe-checklist.md
   - module.yaml
   - plugin.yaml.template
+  - plugins/product-discovery/templates/decision-record.md
+  - plugins/product-discovery/templates/experiment-protocol.md
+  - plugins/product-discovery/templates/hypothesis-card.md
+  - plugins/product-discovery/templates/opportunity-brief.md
+  - plugins/product-discovery/templates/product-brief.md
+  - plugins/product-discovery/templates/source-evidence-ledger.md
   - prd-template.md
   - probe-self-hosted-runner-workflow.yml
   - project-agents-md.md
   - project-docs-stubs.md
+  - qa-charter.md
   - reflection-template.md
   - review-evolution-template.yaml
   - security-deps-upgrade-plan.md
   - security-workflow.yml
   - shell-helper-template.sh
   - task-template.md
+  - test-value-card.md
   - version-consistency-fanout-checklist.md
+  plugins:
+  - id: controller-continuation
+    manifest: plugins/controller-continuation/plugin.yaml
+    default_enabled: false
+    default_state: disabled
+    categories:
+    - commands
+    assets:
+    - path: plugins/controller-continuation/commands/dr-continue-checkpoint.md
+      category: commands
+      component_id: plugin_asset:plugins/controller-continuation/commands/dr-continue-checkpoint.md
+  - id: dr-jev-control
+    manifest: plugins/dr-jev-control/plugin.yaml
+    default_enabled: false
+    default_state: disabled
+    categories:
+    - productivity
+    - scripts
+    assets:
+    - path: plugins/dr-jev-control/scripts/catalog.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/catalog.py
+    - path: plugins/dr-jev-control/scripts/catalog_sources.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/catalog_sources.py
+    - path: plugins/dr-jev-control/scripts/cli_report.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/cli_report.py
+    - path: plugins/dr-jev-control/scripts/components.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/components.py
+    - path: plugins/dr-jev-control/scripts/decision_evidence.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/decision_evidence.py
+    - path: plugins/dr-jev-control/scripts/doctor_api.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/doctor_api.py
+    - path: plugins/dr-jev-control/scripts/hook_post_tool.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/hook_post_tool.py
+    - path: plugins/dr-jev-control/scripts/hook_pre_tool.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/hook_pre_tool.py
+    - path: plugins/dr-jev-control/scripts/hook_stop.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/hook_stop.py
+    - path: plugins/dr-jev-control/scripts/hook_user_prompt.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/hook_user_prompt.py
+    - path: plugins/dr-jev-control/scripts/install.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/install.py
+    - path: plugins/dr-jev-control/scripts/jev_client.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/jev_client.py
+    - path: plugins/dr-jev-control/scripts/ledger.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/ledger.py
+    - path: plugins/dr-jev-control/scripts/live_policy.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/live_policy.py
+    - path: plugins/dr-jev-control/scripts/live_supervisor.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/live_supervisor.py
+    - path: plugins/dr-jev-control/scripts/project_state.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/project_state.py
+    - path: plugins/dr-jev-control/scripts/prompt_cache.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/prompt_cache.py
+    - path: plugins/dr-jev-control/scripts/route.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/route.py
+    - path: plugins/dr-jev-control/scripts/runtimes.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/runtimes.py
+    - path: plugins/dr-jev-control/scripts/safety_floor.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/safety_floor.py
+  - id: dr-orchestrate
+    manifest: plugins/dr-orchestrate/plugin.yaml
+    default_enabled: false
+    default_state: disabled
+    categories:
+    - rules
+    - scripts
+    assets:
+    - path: plugins/dr-orchestrate/rules/default.yaml
+      category: rules
+      component_id: plugin_asset:plugins/dr-orchestrate/rules/default.yaml
+    - path: plugins/dr-orchestrate/scripts/action_gate.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/action_gate.sh
+    - path: plugins/dr-orchestrate/scripts/audit_sink.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/audit_sink.sh
+    - path: plugins/dr-orchestrate/scripts/bot_interaction_dispatcher.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/bot_interaction_dispatcher.sh
+    - path: plugins/dr-orchestrate/scripts/bus_adapter.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/bus_adapter.sh
+    - path: plugins/dr-orchestrate/scripts/cmd_run.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/cmd_run.sh
+    - path: plugins/dr-orchestrate/scripts/content_consilium_fanout.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/content_consilium_fanout.sh
+    - path: plugins/dr-orchestrate/scripts/content_consilium_gate.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/content_consilium_gate.sh
+    - path: plugins/dr-orchestrate/scripts/content_consilium_judge.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/content_consilium_judge.sh
+    - path: plugins/dr-orchestrate/scripts/context_builder.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/context_builder.sh
+    - path: plugins/dr-orchestrate/scripts/context_pressure_adapter.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/context_pressure_adapter.sh
+    - path: plugins/dr-orchestrate/scripts/context_window_controller.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/context_window_controller.sh
+    - path: plugins/dr-orchestrate/scripts/context_window_setup.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/context_window_setup.sh
+    - path: plugins/dr-orchestrate/scripts/dr_orchestrate_router.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/dr_orchestrate_router.sh
+    - path: plugins/dr-orchestrate/scripts/dr_orchestrate_server.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/dr_orchestrate_server.sh
+    - path: plugins/dr-orchestrate/scripts/escalation_backend.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/escalation_backend.sh
+    - path: plugins/dr-orchestrate/scripts/fleet_audit_consumer.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/fleet_audit_consumer.sh
+    - path: plugins/dr-orchestrate/scripts/fleet_audit_trim.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/fleet_audit_trim.sh
+    - path: plugins/dr-orchestrate/scripts/fleet_concurrency.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/fleet_concurrency.sh
+    - path: plugins/dr-orchestrate/scripts/fleet_dashboard_server.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/fleet_dashboard_server.sh
+    - path: plugins/dr-orchestrate/scripts/fleet_monitor_consumer.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/fleet_monitor_consumer.sh
+    - path: plugins/dr-orchestrate/scripts/fleet_obs_aggregator.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/fleet_obs_aggregator.sh
+    - path: plugins/dr-orchestrate/scripts/fleet_pm_orchestrator.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/fleet_pm_orchestrator.sh
+    - path: plugins/dr-orchestrate/scripts/fleet_status_adapter.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/fleet_status_adapter.sh
+    - path: plugins/dr-orchestrate/scripts/learned_rules.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/learned_rules.sh
+    - path: plugins/dr-orchestrate/scripts/level_resolver.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/level_resolver.sh
+    - path: plugins/dr-orchestrate/scripts/lib/context-window-state.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/lib/context-window-state.sh
+    - path: plugins/dr-orchestrate/scripts/lib/learned-rules-common.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/lib/learned-rules-common.sh
+    - path: plugins/dr-orchestrate/scripts/lib/learned-rules-store.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/lib/learned-rules-store.sh
+    - path: plugins/dr-orchestrate/scripts/lib/portable-stat.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/lib/portable-stat.sh
+    - path: plugins/dr-orchestrate/scripts/lib/project-state.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/lib/project-state.sh
+    - path: plugins/dr-orchestrate/scripts/lib/resolver_history.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/lib/resolver_history.py
+    - path: plugins/dr-orchestrate/scripts/orchestrator-input-handler.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/orchestrator-input-handler.sh
+    - path: plugins/dr-orchestrate/scripts/outbound-hmac-sign.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/outbound-hmac-sign.sh
+    - path: plugins/dr-orchestrate/scripts/outbound-redis-publish.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/outbound-redis-publish.sh
+    - path: plugins/dr-orchestrate/scripts/plugin.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/plugin.sh
+    - path: plugins/dr-orchestrate/scripts/proposal_backend.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/proposal_backend.sh
+    - path: plugins/dr-orchestrate/scripts/redis_job_store.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/redis_job_store.sh
+    - path: plugins/dr-orchestrate/scripts/resolver.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/resolver.sh
+    - path: plugins/dr-orchestrate/scripts/rules_loader.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/rules_loader.sh
+    - path: plugins/dr-orchestrate/scripts/secrets_backend.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/secrets_backend.sh
+    - path: plugins/dr-orchestrate/scripts/security.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/security.sh
+    - path: plugins/dr-orchestrate/scripts/semantic_parser.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/semantic_parser.sh
+    - path: plugins/dr-orchestrate/scripts/subagent_resolver.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/subagent_resolver.sh
+    - path: plugins/dr-orchestrate/scripts/tmux_dispatcher.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/tmux_dispatcher.sh
+    - path: plugins/dr-orchestrate/scripts/tmux_manager.sh
+      category: scripts
+      component_id: plugin_asset:plugins/dr-orchestrate/scripts/tmux_manager.sh
+  - id: product-discovery
+    manifest: plugins/product-discovery/plugin.yaml
+    default_enabled: false
+    default_state: disabled
+    categories:
+    - skills
+    - templates
+    assets:
+    - path: plugins/product-discovery/skills/decision-record/SKILL.md
+      category: skills
+      component_id: skill:product-discovery/decision-record
+    - path: plugins/product-discovery/skills/decision-record/strategist-scope-modes.md
+      category: skills
+      component_id: fragment:plugins/product-discovery/skills/decision-record/strategist-scope-modes.md
+    - path: plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
+      category: skills
+      component_id: fragment:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
+    - path: plugins/product-discovery/skills/hypothesis-validation/SKILL.md
+      category: skills
+      component_id: skill:product-discovery/hypothesis-validation
+    - path: plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md
+      category: skills
+      component_id: fragment:plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md
+    - path: plugins/product-discovery/skills/hypothesis-validation/assumption-map.md
+      category: skills
+      component_id: fragment:plugins/product-discovery/skills/hypothesis-validation/assumption-map.md
+    - path: plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
+      category: skills
+      component_id: fragment:plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
+    - path: plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md
+      category: skills
+      component_id: fragment:plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md
+    - path: plugins/product-discovery/skills/product-framing/SKILL.md
+      category: skills
+      component_id: skill:product-discovery/product-framing
+    - path: plugins/product-discovery/skills/product-framing/builder-brainstorm.md
+      category: skills
+      component_id: fragment:plugins/product-discovery/skills/product-framing/builder-brainstorm.md
+    - path: plugins/product-discovery/skills/product-framing/claim-quality.md
+      category: skills
+      component_id: fragment:plugins/product-discovery/skills/product-framing/claim-quality.md
+    - path: plugins/product-discovery/skills/product-framing/premise-challenge.md
+      category: skills
+      component_id: fragment:plugins/product-discovery/skills/product-framing/premise-challenge.md
+    - path: plugins/product-discovery/skills/product-framing/startup-diagnostic.md
+      category: skills
+      component_id: fragment:plugins/product-discovery/skills/product-framing/startup-diagnostic.md
+    - path: plugins/product-discovery/templates/decision-record.md
+      category: templates
+      component_id: template:plugins/product-discovery/templates/decision-record.md
+    - path: plugins/product-discovery/templates/experiment-protocol.md
+      category: templates
+      component_id: template:plugins/product-discovery/templates/experiment-protocol.md
+    - path: plugins/product-discovery/templates/hypothesis-card.md
+      category: templates
+      component_id: template:plugins/product-discovery/templates/hypothesis-card.md
+    - path: plugins/product-discovery/templates/opportunity-brief.md
+      category: templates
+      component_id: template:plugins/product-discovery/templates/opportunity-brief.md
+    - path: plugins/product-discovery/templates/product-brief.md
+      category: templates
+      component_id: template:plugins/product-discovery/templates/product-brief.md
+    - path: plugins/product-discovery/templates/source-evidence-ledger.md
+      category: templates
+      component_id: template:plugins/product-discovery/templates/source-evidence-ledger.md
+  - id: tdd-enforcement
+    manifest: plugins/tdd-enforcement/plugin.yaml
+    default_enabled: true
+    default_state: active
+    categories: []
+    assets: []
 edges:
-- condition: L3-4 or reductive/ambiguous scope
+- condition: L2+ research; product-discovery guidance only when the plugin is enabled and the task selector is present
+  from: command:dr-prd
+  relation: delegates_to
+  source: commands/dr-prd.md
+  to: agent:researcher
+- condition: L3-4 or reductive/ambiguous scope; product-discovery fields only when the plugin is enabled and task selector
+    is present
   from: command:dr-plan
   relation: delegates_to
   source: commands/dr-plan.md
   to: agent:strategist
+- condition:
+    plugin_enabled: controller-continuation
+  from: plugin:controller-continuation
+  relation: contains
+  source: plugins/controller-continuation/plugin.yaml
+  to: plugin_asset:plugins/controller-continuation/commands/dr-continue-checkpoint.md
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/catalog.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/catalog_sources.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/cli_report.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/components.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/decision_evidence.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/doctor_api.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/hook_post_tool.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/hook_pre_tool.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/hook_stop.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/hook_user_prompt.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/install.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/jev_client.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/ledger.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/live_policy.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/live_supervisor.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/project_state.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/prompt_cache.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/route.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/runtimes.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/safety_floor.py
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/rules/default.yaml
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/action_gate.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/audit_sink.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/bot_interaction_dispatcher.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/bus_adapter.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/cmd_run.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/content_consilium_fanout.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/content_consilium_gate.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/content_consilium_judge.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/context_builder.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/context_pressure_adapter.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/context_window_controller.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/context_window_setup.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/dr_orchestrate_router.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/dr_orchestrate_server.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/escalation_backend.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/fleet_audit_consumer.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/fleet_audit_trim.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/fleet_concurrency.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/fleet_dashboard_server.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/fleet_monitor_consumer.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/fleet_obs_aggregator.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/fleet_pm_orchestrator.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/fleet_status_adapter.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/learned_rules.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/level_resolver.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/lib/context-window-state.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/lib/learned-rules-common.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/lib/learned-rules-store.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/lib/portable-stat.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/lib/project-state.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/lib/resolver_history.py
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/orchestrator-input-handler.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/outbound-hmac-sign.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/outbound-redis-publish.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/plugin.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/proposal_backend.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/redis_job_store.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/resolver.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/rules_loader.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/secrets_backend.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/security.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/semantic_parser.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/subagent_resolver.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/tmux_dispatcher.sh
+- condition:
+    plugin_enabled: dr-orchestrate
+  from: plugin:dr-orchestrate
+  relation: contains
+  source: plugins/dr-orchestrate/plugin.yaml
+  to: plugin_asset:plugins/dr-orchestrate/scripts/tmux_manager.sh
+- condition:
+    plugin_enabled: product-discovery
+    profile_selected: product-discovery
+  from: agent:researcher
+  relation: loads
+  source: agents/researcher.md
+  to: fragment:plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md
+- condition:
+    plugin_enabled: product-discovery
+    profile_selected: product-discovery
+  from: agent:researcher
+  relation: loads
+  source: agents/researcher.md
+  to: plugin:product-discovery
+- condition:
+    plugin_enabled: product-discovery
+    profile_selected: product-discovery
+  from: agent:researcher
+  relation: loads
+  source: agents/researcher.md
+  to: skill:product-discovery/hypothesis-validation
+- condition:
+    plugin_enabled: product-discovery
+    profile_selected: product-discovery
+  from: agent:strategist
+  relation: loads
+  source: agents/strategist.md
+  to: fragment:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
+- condition:
+    plugin_enabled: product-discovery
+    profile_selected: product-discovery
+  from: agent:strategist
+  relation: loads
+  source: agents/strategist.md
+  to: plugin:product-discovery
+- condition:
+    plugin_enabled: product-discovery
+    profile_selected: product-discovery
+  from: agent:strategist
+  relation: loads
+  source: agents/strategist.md
+  to: skill:product-discovery/decision-record
+- condition:
+    plugin_enabled: product-discovery
+    profile_selected: product-discovery
+  from: agent:strategist
+  relation: loads
+  source: agents/strategist.md
+  to: skill:product-discovery/hypothesis-validation
+- condition:
+    plugin_enabled: product-discovery
+    profile_selected: product-discovery
+  from: command:dr-prd
+  relation: loads
+  source: commands/dr-prd.md
+  to: plugin:product-discovery
+- condition:
+    plugin_enabled: product-discovery
+    profile_selected: product-discovery
+  from: command:dr-prd
+  relation: loads
+  source: commands/dr-prd.md
+  to: skill:product-discovery/product-framing
+- condition:
+    plugin_enabled: product-discovery
+  from: fragment:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
+  relation: uses_template
+  source: plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
+  to: template:plugins/product-discovery/templates/product-brief.md
+- condition:
+    plugin_enabled: product-discovery
+  from: fragment:plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
+  relation: uses_template
+  source: plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
+  to: template:plugins/product-discovery/templates/experiment-protocol.md
+- condition:
+    plugin_enabled: product-discovery
+  from: fragment:plugins/product-discovery/skills/product-framing/claim-quality.md
+  relation: uses_template
+  source: plugins/product-discovery/skills/product-framing/claim-quality.md
+  to: template:plugins/product-discovery/templates/source-evidence-ledger.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: fragment:plugins/product-discovery/skills/decision-record/strategist-scope-modes.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: fragment:plugins/product-discovery/skills/decision-record/strategist.product-discovery.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: fragment:plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: fragment:plugins/product-discovery/skills/hypothesis-validation/assumption-map.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: fragment:plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: fragment:plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: fragment:plugins/product-discovery/skills/product-framing/builder-brainstorm.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: fragment:plugins/product-discovery/skills/product-framing/claim-quality.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: fragment:plugins/product-discovery/skills/product-framing/premise-challenge.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: fragment:plugins/product-discovery/skills/product-framing/startup-diagnostic.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: skill:product-discovery/decision-record
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: skill:product-discovery/hypothesis-validation
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: skill:product-discovery/product-framing
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: template:plugins/product-discovery/templates/decision-record.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: template:plugins/product-discovery/templates/experiment-protocol.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: template:plugins/product-discovery/templates/hypothesis-card.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: template:plugins/product-discovery/templates/opportunity-brief.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: template:plugins/product-discovery/templates/product-brief.md
+- condition:
+    plugin_enabled: product-discovery
+  from: plugin:product-discovery
+  relation: contains
+  source: plugins/product-discovery/plugin.yaml
+  to: template:plugins/product-discovery/templates/source-evidence-ledger.md
+- condition:
+    plugin_enabled: product-discovery
+  from: skill:product-discovery/decision-record
+  relation: uses_template
+  source: plugins/product-discovery/skills/decision-record/SKILL.md
+  to: template:plugins/product-discovery/templates/decision-record.md
+- condition:
+    plugin_enabled: product-discovery
+  from: skill:product-discovery/hypothesis-validation
+  relation: uses_template
+  source: plugins/product-discovery/skills/hypothesis-validation/SKILL.md
+  to: template:plugins/product-discovery/templates/experiment-protocol.md
+- condition:
+    plugin_enabled: product-discovery
+  from: skill:product-discovery/hypothesis-validation
+  relation: uses_template
+  source: plugins/product-discovery/skills/hypothesis-validation/SKILL.md
+  to: template:plugins/product-discovery/templates/hypothesis-card.md
+- condition:
+    plugin_enabled: product-discovery
+  from: skill:product-discovery/product-framing
+  relation: uses_template
+  source: plugins/product-discovery/skills/product-framing/SKILL.md
+  to: template:plugins/product-discovery/templates/opportunity-brief.md
 - from: agent:architect
   relation: loads
   source: AGENTS.md
@@ -704,6 +1651,10 @@ edges:
 - from: command:dr-auto
   relation: loads
   source: commands/dr-auto.md
+  to: skill:human-summary
+- from: command:dr-auto
+  relation: loads
+  source: commands/dr-auto.md
   to: skill:immutability
 - from: command:dr-auto
   relation: loads
@@ -817,6 +1768,10 @@ edges:
   relation: loads
   source: commands/dr-design.md
   to: skill:datarim-system
+- from: command:dr-design
+  relation: loads
+  source: commands/dr-design.md
+  to: skill:frontend-ui
 - from: command:dr-design
   relation: loads
   source: commands/dr-design.md
@@ -1278,10 +2233,6 @@ edges:
   source: commands/dr-prd.md
   to: agent:peer-reviewer
 - from: command:dr-prd
-  relation: delegates_to
-  source: commands/dr-prd.md
-  to: agent:researcher
-- from: command:dr-prd
   relation: loads
   source: AGENTS.md
   to: skill:human-outcome-reporting
@@ -1404,6 +2355,10 @@ edges:
 - from: command:dr-qa
   relation: loads
   source: commands/dr-qa.md
+  to: skill:compliance
+- from: command:dr-qa
+  relation: loads
+  source: commands/dr-qa.md
   to: skill:cta-format
 - from: command:dr-qa
   relation: loads
@@ -1412,7 +2367,15 @@ edges:
 - from: command:dr-qa
   relation: loads
   source: commands/dr-qa.md
+  to: skill:dx-review
+- from: command:dr-qa
+  relation: loads
+  source: commands/dr-qa.md
   to: skill:expectations-checklist
+- from: command:dr-qa
+  relation: loads
+  source: commands/dr-qa.md
+  to: skill:frontend-ui
 - from: command:dr-qa
   relation: loads
   source: commands/dr-qa.md
@@ -1477,6 +2440,10 @@ edges:
   relation: loads
   source: commands/dr-quick.md
   to: skill:cta-format
+- from: command:dr-quick
+  relation: loads
+  source: commands/dr-quick.md
+  to: skill:evolution
 - from: command:dr-quick
   relation: loads
   source: commands/dr-quick.md
@@ -1764,11 +2731,19 @@ edges:
 - from: fragment:skills/testing/tdd-discipline.md
   relation: loads
   source: skills/testing/tdd-discipline.md
+  to: fragment:skills/testing/test-value-card.md
+- from: fragment:skills/testing/tdd-discipline.md
+  relation: loads
+  source: skills/testing/tdd-discipline.md
   to: skill:immutability
 - from: fragment:skills/testing/tdd-discipline.md
   relation: loads
   source: skills/testing/tdd-discipline.md
   to: skill:testing
+- from: fragment:skills/testing/test-value-card.md
+  relation: uses_template
+  source: skills/testing/test-value-card.md
+  to: template:test-value-card.md
 - from: fragment:skills/utilities/datarim-sync.md
   relation: loads
   source: skills/utilities/datarim-sync.md
@@ -1785,26 +2760,6 @@ edges:
   relation: uses_template
   source: skills/utilities/shell-conventions.md
   to: template:shell-helper-template.sh
-- from: fragment:skills/visual-maps/framework-architecture.md
-  relation: loads
-  source: skills/visual-maps/framework-architecture.md
-  to: fragment:skills/datarim-system/command-and-archive-rules.md
-- from: fragment:skills/visual-maps/framework-architecture.md
-  relation: loads
-  source: skills/visual-maps/framework-architecture.md
-  to: fragment:skills/datarim-system/task-identity-and-context.md
-- from: fragment:skills/visual-maps/framework-architecture.md
-  relation: loads
-  source: skills/visual-maps/framework-architecture.md
-  to: fragment:skills/evolution/stack-agnostic-gate.md
-- from: fragment:skills/visual-maps/framework-architecture.md
-  relation: loads
-  source: skills/visual-maps/framework-architecture.md
-  to: fragment:skills/human-outcome-reporting/references/datarim.md
-- from: fragment:skills/visual-maps/framework-architecture.md
-  relation: loads
-  source: skills/visual-maps/framework-architecture.md
-  to: fragment:skills/utilities/shell-conventions.md
 - from: fragment:skills/visual-maps/pipeline-routing.md
   relation: loads
   source: skills/visual-maps/pipeline-routing.md
@@ -2000,6 +2955,10 @@ edges:
 - from: skill:frontend-ui
   relation: loads
   source: skills/frontend-ui/SKILL.md
+  to: skill:dx-review
+- from: skill:frontend-ui
+  relation: loads
+  source: skills/frontend-ui/SKILL.md
   to: skill:immutability
 - from: skill:frontend-ui
   relation: loads
@@ -2033,6 +2992,10 @@ edges:
   relation: loads
   source: skills/human-summary/SKILL.md
   to: fragment:skills/datarim-system/language-preferences.md
+- from: skill:human-summary
+  relation: loads
+  source: skills/human-summary/SKILL.md
+  to: fragment:skills/evolution/class-ab-gate.md
 - from: skill:human-summary
   relation: loads
   source: skills/human-summary/SKILL.md
@@ -2093,6 +3056,38 @@ edges:
   relation: loads
   source: skills/playwright-qa/SKILL.md
   to: skill:frontend-ui
+- from: skill:product-discovery/decision-record
+  relation: loads
+  source: plugins/product-discovery/skills/decision-record/SKILL.md
+  to: fragment:plugins/product-discovery/skills/decision-record/strategist-scope-modes.md
+- from: skill:product-discovery/hypothesis-validation
+  relation: loads
+  source: plugins/product-discovery/skills/hypothesis-validation/SKILL.md
+  to: fragment:plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md
+- from: skill:product-discovery/hypothesis-validation
+  relation: loads
+  source: plugins/product-discovery/skills/hypothesis-validation/SKILL.md
+  to: fragment:plugins/product-discovery/skills/hypothesis-validation/assumption-map.md
+- from: skill:product-discovery/hypothesis-validation
+  relation: loads
+  source: plugins/product-discovery/skills/hypothesis-validation/SKILL.md
+  to: fragment:plugins/product-discovery/skills/hypothesis-validation/experiment-design.md
+- from: skill:product-discovery/product-framing
+  relation: loads
+  source: plugins/product-discovery/skills/product-framing/SKILL.md
+  to: fragment:plugins/product-discovery/skills/product-framing/builder-brainstorm.md
+- from: skill:product-discovery/product-framing
+  relation: loads
+  source: plugins/product-discovery/skills/product-framing/SKILL.md
+  to: fragment:plugins/product-discovery/skills/product-framing/claim-quality.md
+- from: skill:product-discovery/product-framing
+  relation: loads
+  source: plugins/product-discovery/skills/product-framing/SKILL.md
+  to: fragment:plugins/product-discovery/skills/product-framing/premise-challenge.md
+- from: skill:product-discovery/product-framing
+  relation: loads
+  source: plugins/product-discovery/skills/product-framing/SKILL.md
+  to: fragment:plugins/product-discovery/skills/product-framing/startup-diagnostic.md
 - from: skill:project-init
   relation: loads
   source: skills/project-init/SKILL.md
@@ -2217,6 +3212,10 @@ edges:
   relation: uses_template
   source: skills/security-baseline/SKILL.md
   to: template:cloudflare-nginx-setup.sh
+- from: skill:security-baseline
+  relation: uses_template
+  source: skills/security-baseline/SKILL.md
+  to: template:compliance-report-template.md
 - from: skill:security-baseline
   relation: uses_template
   source: skills/security-baseline/SKILL.md

@@ -2,13 +2,14 @@
 
 > **GENERATED FILE. DO NOT EDIT.** Source: repository inventory + `dev-tools/command-graph.yaml` + explicit references in commands/agents. Regenerate with `python3 dev-tools/framework-graph.py --write`.
 
-Inventory: **29 commands · 19 agents · 80 skills · 43 template assets**.
+Inventory: **29 commands · 19 agents · 84 skills · 51 template assets**.
 
 ## Command → Agent graph
 
 ```mermaid
 graph LR
-    C_dr_plan["/dr-plan"] -.->|"L3-4 or reductive/ambiguous scope"| A_strategist["strategist"]
+    C_dr_prd["/dr-prd"] -.->|"L2+ research; product-discovery guidance only when the plugin is enabled and the task selector is present"| A_researcher["researcher"]
+    C_dr_plan["/dr-plan"] -.->|"L3-4 or reductive/ambiguous scope; product-discovery fields only when the plugin is enabled and task selector is present"| A_strategist["strategist"]
     C_dr_addskill["/dr-addskill"] --> A_skill_creator["skill-creator"]
     C_dr_compliance["/dr-compliance"] --> A_compliance["compliance"]
     C_dr_design["/dr-design"] --> A_architect["architect"]
@@ -24,7 +25,6 @@ graph LR
     C_dr_plan["/dr-plan"] --> A_peer_reviewer["peer-reviewer"]
     C_dr_plugin["/dr-plugin"] --> A_developer["developer"]
     C_dr_prd["/dr-prd"] --> A_peer_reviewer["peer-reviewer"]
-    C_dr_prd["/dr-prd"] --> A_researcher["researcher"]
     C_dr_publish["/dr-publish"] --> A_writer["writer"]
     C_dr_qa["/dr-qa"] --> A_reviewer["reviewer"]
     C_dr_quick["/dr-quick"] --> A_developer["developer"]
@@ -36,6 +36,13 @@ graph LR
 
 ```mermaid
 graph LR
+    A_researcher["researcher"] --> F_plugins_product_discovery_skills_hypothesis_validation_researcher_product_discovery_md["plugins/product-discovery/skills/hypothesis-validation/researcher.product-discovery.md"]
+    A_researcher["researcher"] --> PLUGIN_product_discovery["product-discovery"]
+    A_researcher["researcher"] --> S_product_discovery_hypothesis_validation["product-discovery/hypothesis-validation"]
+    A_strategist["strategist"] --> F_plugins_product_discovery_skills_decision_record_strategist_product_discovery_md["plugins/product-discovery/skills/decision-record/strategist.product-discovery.md"]
+    A_strategist["strategist"] --> PLUGIN_product_discovery["product-discovery"]
+    A_strategist["strategist"] --> S_product_discovery_decision_record["product-discovery/decision-record"]
+    A_strategist["strategist"] --> S_product_discovery_hypothesis_validation["product-discovery/hypothesis-validation"]
     A_architect["architect"] --> S_human_outcome_reporting["human-outcome-reporting"]
     A_architect["architect"] --> S_cta_format["cta-format"]
     A_architect["architect"] --> S_datarim_system["datarim-system"]
@@ -138,58 +145,77 @@ graph LR
 
 ### Skills
 
-`adversarial-review`, `ai-quality`, `artifact-context`, `autonomous-mode`, `brainstorming`, `code-contracts`, `compliance`, `consilium`, `context-window-self-clearing`, `cron-agent-patterns`, `cta-format`, `customer-delivery`, `datarim-doctor`, `datarim-system`, `diataxis-docs`, `discovery`, `dispatching-parallel-agents`, `dr-init-id-collision-window`, `dr-next-snapshot-replay`, `dream`, `edge-case-hunter`, `evolution`, `executing-plans`, `expectations-checklist`, `factcheck`, `file-sync-config`, `finishing-a-development-branch`, `fleet`, `fleet/l1-basic`, `fleet/l2-structured`, `fleet/l3-analyst`, `fleet/l4-expert`, `fleet/l5-autonomous`, `frontend-ui`, `health-controller-stub-detector`, `human-outcome-reporting`, `human-summary`, `humanize`, `image-prompting`, `immutability`, `infra-automation`, `init-task-persistence`, `network-exposure-baseline`, `nginx-version-compat`, `performance`, `plan-path-validator`, `playwright-qa`, `post-deploy-env-diff`, `prod-readiness-probe`, `project-init`, `publishing`, `receiving-code-review`, `reflecting`, `release-verify`, `requesting-code-review`, `research-workflow`, `rotation-runbook`, `seam-vs-integration-boundary`, `security`, `security-baseline`, `self-verification`, `session-handoff-replay`, `session-handoff-writer`, `stage-snapshot-writer`, `structure-review`, `structured-outputs-integration-gate`, `subagent-driven-development`, `systematic-debugging`, `tech-stack`, `test-env-verification`, `testing`, `using-git-worktrees`, `utilities`, `v-ac-axis-split`, `v-ac-feasibility`, `verification-before-completion`, `visual-maps`, `wizard`, `writing`, `writing-plans`
+`adversarial-review`, `ai-quality`, `artifact-context`, `autonomous-mode`, `brainstorming`, `code-contracts`, `compliance`, `consilium`, `context-window-self-clearing`, `cron-agent-patterns`, `cta-format`, `customer-delivery`, `datarim-doctor`, `datarim-system`, `diataxis-docs`, `discovery`, `dispatching-parallel-agents`, `dr-init-id-collision-window`, `dr-next-snapshot-replay`, `dream`, `dx-review`, `edge-case-hunter`, `evolution`, `executing-plans`, `expectations-checklist`, `factcheck`, `file-sync-config`, `finishing-a-development-branch`, `fleet`, `fleet/l1-basic`, `fleet/l2-structured`, `fleet/l3-analyst`, `fleet/l4-expert`, `fleet/l5-autonomous`, `frontend-ui`, `health-controller-stub-detector`, `human-outcome-reporting`, `human-summary`, `humanize`, `image-prompting`, `immutability`, `infra-automation`, `init-task-persistence`, `network-exposure-baseline`, `nginx-version-compat`, `performance`, `plan-path-validator`, `playwright-qa`, `post-deploy-env-diff`, `prod-readiness-probe`, `product-discovery/decision-record`, `product-discovery/hypothesis-validation`, `product-discovery/product-framing`, `project-init`, `publishing`, `receiving-code-review`, `reflecting`, `release-verify`, `requesting-code-review`, `research-workflow`, `rotation-runbook`, `seam-vs-integration-boundary`, `security`, `security-baseline`, `self-verification`, `session-handoff-replay`, `session-handoff-writer`, `stage-snapshot-writer`, `structure-review`, `structured-outputs-integration-gate`, `subagent-driven-development`, `systematic-debugging`, `tech-stack`, `test-env-verification`, `testing`, `using-git-worktrees`, `utilities`, `v-ac-axis-split`, `v-ac-feasibility`, `verification-before-completion`, `visual-maps`, `wizard`, `writing`, `writing-plans`
+
+## Optional plugin packages
+
+| Plugin | Default state | Categories | Assets | Availability |
+|--------|---------------|------------|--------|--------------|
+| `controller-continuation` | disabled | commands | 1 | conditional on enabling `controller-continuation` |
+| `dr-jev-control` | disabled | productivity, scripts | 20 | conditional on enabling `dr-jev-control` |
+| `dr-orchestrate` | disabled | rules, scripts | 46 | conditional on enabling `dr-orchestrate` |
+| `product-discovery` | disabled | skills, templates | 19 | conditional on enabling `product-discovery` and selecting the product-discovery profile |
+| `tdd-enforcement` | active | none | 0 | conditional on enabling `tdd-enforcement` |
 
 ## Template dependencies
 
 | Consumer | Template |
 |----------|----------|
-| `agent:researcher` | `insights-template.md` |
-| `command:dr-archive` | `archive-template.md` |
-| `command:dr-compliance` | `compliance-report-template.md` |
-| `command:dr-init` | `backlog-template.md` |
-| `command:dr-init` | `expectations-template.md` |
-| `command:dr-init` | `task-template.md` |
-| `command:dr-plan` | `infra-cost-reduction-checklist.md` |
-| `command:dr-plan` | `integration-checklist.md` |
-| `command:dr-plan` | `security-deps-upgrade-plan.md` |
-| `command:dr-plugin` | `enabled-plugins.md.template` |
-| `command:dr-plugin` | `plugin.yaml.template` |
-| `command:dr-prd` | `insights-template.md` |
-| `command:dr-prd` | `prd-template.md` |
-| `command:dr-quick` | `task-template.md` |
-| `fragment:skills/datarim-system/command-and-archive-rules.md` | `project-agents-md.md` |
-| `fragment:skills/datarim-system/command-and-archive-rules.md` | `project-docs-stubs.md` |
-| `fragment:skills/datarim-system/task-identity-and-context.md` | `activeContext-template.md` |
-| `fragment:skills/evolution/stack-agnostic-gate.md` | `docker-smoke-checklist.md` |
-| `fragment:skills/human-outcome-reporting/references/datarim.md` | `human-outcome-report-template.md` |
-| `fragment:skills/utilities/shell-conventions.md` | `shell-helper-template.sh` |
-| `skill:compliance` | `compliance-report-template.md` |
-| `skill:compliance` | `coverage-deferral-clause.md` |
-| `skill:cta-format` | `cta-template.md` |
-| `skill:file-sync-config` | `cli-conflict-resolver-prompt.md` |
-| `skill:human-summary` | `archive-template.md` |
-| `skill:human-summary` | `compliance-report-template.md` |
-| `skill:infra-automation` | `infra-artifact-checklist.md` |
-| `skill:infra-automation` | `infra-cost-reduction-checklist.md` |
-| `skill:init-task-persistence` | `archive-template.md` |
-| `skill:project-init` | `backlog-template.md` |
-| `skill:project-init` | `documentation-diataxis/explanation/README.md` |
-| `skill:project-init` | `documentation-diataxis/how-to/README.md` |
-| `skill:project-init` | `documentation-diataxis/reference/README.md` |
-| `skill:project-init` | `documentation-diataxis/tutorials/README.md` |
-| `skill:project-init` | `project-agents-md.md` |
-| `skill:project-init` | `project-docs-stubs.md` |
-| `skill:reflecting` | `reflection-template.md` |
-| `skill:research-workflow` | `insights-template.md` |
-| `skill:security` | `cutover-runbook-template.md` |
-| `skill:security` | `security-deps-upgrade-plan.md` |
-| `skill:security-baseline` | `cloudflare-nginx-setup.sh` |
-| `skill:security-baseline` | `security-deps-upgrade-plan.md` |
-| `skill:security-baseline` | `security-workflow.yml` |
-| `skill:testing` | `docker-smoke-checklist.md` |
-| `skill:utilities` | `shell-helper-template.sh` |
+| `plugins/product-discovery/skills/decision-record/strategist.product-discovery.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/product-brief.md` |
+| `plugins/product-discovery/skills/hypothesis-validation/experiment-design.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/experiment-protocol.md` |
+| `plugins/product-discovery/skills/product-framing/claim-quality.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/source-evidence-ledger.md` |
+| `skill:product-discovery/decision-record` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/decision-record.md` |
+| `skill:product-discovery/hypothesis-validation` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/experiment-protocol.md` |
+| `skill:product-discovery/hypothesis-validation` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/hypothesis-card.md` |
+| `skill:product-discovery/product-framing` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/opportunity-brief.md` |
+| `agent:researcher` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/insights-template.md` |
+| `command:dr-archive` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md` |
+| `command:dr-compliance` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/compliance-report-template.md` |
+| `command:dr-init` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/backlog-template.md` |
+| `command:dr-init` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/expectations-template.md` |
+| `command:dr-init` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/task-template.md` |
+| `command:dr-plan` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/infra-cost-reduction-checklist.md` |
+| `command:dr-plan` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/integration-checklist.md` |
+| `command:dr-plan` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md` |
+| `command:dr-plugin` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/enabled-plugins.md.template` |
+| `command:dr-plugin` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/plugin.yaml.template` |
+| `command:dr-prd` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/insights-template.md` |
+| `command:dr-prd` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/prd-template.md` |
+| `command:dr-quick` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/task-template.md` |
+| `fragment:skills/datarim-system/command-and-archive-rules.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-agents-md.md` |
+| `fragment:skills/datarim-system/command-and-archive-rules.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-docs-stubs.md` |
+| `fragment:skills/datarim-system/task-identity-and-context.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/activeContext-template.md` |
+| `fragment:skills/evolution/stack-agnostic-gate.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/docker-smoke-checklist.md` |
+| `fragment:skills/human-outcome-reporting/references/datarim.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/human-outcome-report-template.md` |
+| `fragment:skills/testing/test-value-card.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/test-value-card.md` |
+| `fragment:skills/utilities/shell-conventions.md` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/shell-helper-template.sh` |
+| `skill:compliance` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/compliance-report-template.md` |
+| `skill:compliance` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/coverage-deferral-clause.md` |
+| `skill:cta-format` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cta-template.md` |
+| `skill:file-sync-config` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cli-conflict-resolver-prompt.md` |
+| `skill:human-summary` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md` |
+| `skill:human-summary` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/compliance-report-template.md` |
+| `skill:infra-automation` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/infra-artifact-checklist.md` |
+| `skill:infra-automation` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/infra-cost-reduction-checklist.md` |
+| `skill:init-task-persistence` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md` |
+| `skill:project-init` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/backlog-template.md` |
+| `skill:project-init` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/documentation-diataxis/explanation/README.md` |
+| `skill:project-init` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/documentation-diataxis/how-to/README.md` |
+| `skill:project-init` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/documentation-diataxis/reference/README.md` |
+| `skill:project-init` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/documentation-diataxis/tutorials/README.md` |
+| `skill:project-init` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-agents-md.md` |
+| `skill:project-init` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-docs-stubs.md` |
+| `skill:reflecting` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/reflection-template.md` |
+| `skill:research-workflow` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/insights-template.md` |
+| `skill:security` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cutover-runbook-template.md` |
+| `skill:security` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md` |
+| `skill:security-baseline` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cloudflare-nginx-setup.sh` |
+| `skill:security-baseline` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/compliance-report-template.md` |
+| `skill:security-baseline` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md` |
+| `skill:security-baseline` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-workflow.yml` |
+| `skill:testing` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/docker-smoke-checklist.md` |
+| `skill:utilities` | `${DATARIM_RUNTIME:-$HOME/.claude}/templates/shell-helper-template.sh` |
 
 ### Template assets
 
-`SECURITY.md`, `accepted-risk.yml`, `activeContext-template.md`, `archive-template.md`, `backlog-template.md`, `build-rs-version.rs`, `classifier-script-template.sh`, `cli-conflict-resolver-prompt.md`, `cloudflare-nginx-setup.sh`, `compliance-report-template.md`, `coverage-deferral-clause.md`, `cta-template.md`, `customer-delivery-receipt-template.yaml`, `customer-requirements-template.yaml`, `cutover-runbook-template.md`, `datarim-config.yaml`, `deploy-script.md`, `docker-smoke-checklist.md`, `documentation-diataxis/explanation/README.md`, `documentation-diataxis/how-to/README.md`, `documentation-diataxis/reference/README.md`, `documentation-diataxis/tutorials/README.md`, `enabled-plugins.md.template`, `expectations-template.md`, `human-outcome-report-template.md`, `infra-artifact-checklist.md`, `infra-cost-reduction-checklist.md`, `insights-template.md`, `integration-checklist.md`, `legacy-hardware-probe-checklist.md`, `module.yaml`, `plugin.yaml.template`, `prd-template.md`, `probe-self-hosted-runner-workflow.yml`, `project-agents-md.md`, `project-docs-stubs.md`, `reflection-template.md`, `review-evolution-template.yaml`, `security-deps-upgrade-plan.md`, `security-workflow.yml`, `shell-helper-template.sh`, `task-template.md`, `version-consistency-fanout-checklist.md`
+`${DATARIM_RUNTIME:-$HOME/.claude}/templates/SECURITY.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/accepted-risk.yml`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/activeContext-template.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/backlog-template.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/build-rs-version.rs`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/classifier-script-template.sh`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cli-conflict-resolver-prompt.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cloudflare-nginx-setup.sh`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/compliance-report-template.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/coverage-deferral-clause.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cta-template.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/customer-delivery-receipt-template.yaml`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/customer-requirements-template.yaml`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cutover-runbook-template.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/datarim-config.yaml`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/deploy-script.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/docker-smoke-checklist.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/documentation-diataxis/explanation/README.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/documentation-diataxis/how-to/README.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/documentation-diataxis/reference/README.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/documentation-diataxis/tutorials/README.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/enabled-plugins.md.template`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/expectations-template.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/human-outcome-report-template.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/infra-artifact-checklist.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/infra-cost-reduction-checklist.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/insights-template.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/integration-checklist.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/legacy-hardware-probe-checklist.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/module.yaml`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/plugin.yaml.template`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/decision-record.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/experiment-protocol.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/hypothesis-card.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/opportunity-brief.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/product-brief.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/product-discovery/source-evidence-ledger.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/prd-template.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/probe-self-hosted-runner-workflow.yml`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-agents-md.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-docs-stubs.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/qa-charter.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/reflection-template.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/review-evolution-template.yaml`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-workflow.yml`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/shell-helper-template.sh`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/task-template.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/test-value-card.md`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/version-consistency-fanout-checklist.md`

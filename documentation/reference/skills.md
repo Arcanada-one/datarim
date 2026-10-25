@@ -1,10 +1,10 @@
 # Skills Reference
 
-Datarim includes 80 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files. This count includes the five tier-specific skills under `skills/fleet/`; `fleet` itself is also a skill node.
+Datarim includes 81 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files. This count includes the five tier-specific skills under `skills/fleet/`; `fleet` itself is also a skill node.
 
 Skills are split into two categories:
-- **Reference skills** — rules and patterns the caller applies inline. No `model` field in frontmatter, so they inherit the caller's model. 59 of the 79.
-- **Task skills** — perform an action when invoked. Carry an explicit `model` field per the [Model Assignment Convention](../../skills/datarim-system/SKILL.md). 20 of the 79.
+- **Reference skills** — rules and patterns the caller applies inline. No `model` field in frontmatter, so they inherit the caller's model. 60 of the 81.
+- **Task skills** — perform an action when invoked. Carry an explicit `model` field per the [Model Assignment Convention](../../skills/datarim-system/SKILL.md). 21 of the 81.
 
 Every shipped skill resolves to `inherit` — the operator's session model wins. Pinning a concrete model generation in a skill breaks under runtimes that do not offer it; express capability intent with `metadata.model_tier:` (resolved through `config/model-tiers.yaml`) instead.
 
@@ -94,7 +94,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | writing | Task | Content creation and editorial workflow | writer, editor |
 | writing-plans | Reference | Turn a spec or set of requirements for a multi-step task into a written plan, before touching code | on demand, before implementation |
 
-**Distribution:** 58 reference skills (no `model` field — inherit the caller), 20 task skills (explicit `model: inherit`).
+**Distribution:** 60 reference skills (no `model` field — inherit the caller), 21 task skills (explicit `model: inherit`).
 
 ## Loading Hierarchy
 

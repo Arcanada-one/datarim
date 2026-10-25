@@ -1,6 +1,6 @@
 ---
 name: human-summary
-description: Plain-language operator recap for /dr-qa, /dr-compliance, /dr-archive. Four compatible sub-sections; completeness before brevity, with no hard word cap.
+description: Plain-language recap for /dr-qa, /dr-compliance, /dr-archive, and /dr-auto. Four compatible sections; completeness before brevity; no hard word cap.
 current_aal: 1
 target_aal: 2
 ---
@@ -9,7 +9,7 @@ target_aal: 2
 
 Load `${DATARIM_RUNTIME:?}/skills/human-outcome-reporting/SKILL.md` first. This is the compatibility presentation for the existing four-heading Stop hook, not a second reporting authority. The shared skill governs facts, traceability, completeness, terminology and re-explanation. Emit one recap. Keep technical records and exact protocols intact, but do not paste their internal context into the human explanation. Use the four sections below for legacy callers; other commands use the shared skill's appropriate profile.
 
-A human-friendly recap that ends the output of `/dr-qa`, `/dr-compliance`, and `/dr-archive`, before the existing CTA block. Preserve technical records, command verdicts, and machine protocols in their authorized surfaces. Do not paste the agent-oriented technical block into human chat or emit a second recap. The four sections below explain the product result and acceptance evidence, not internal activity.
+A human-friendly recap that ends the output of `/dr-qa`, `/dr-compliance`, `/dr-archive`, and `/dr-auto`, before the existing CTA block. Preserve technical records, command verdicts, and machine protocols in their authorized surfaces. Do not paste the agent-oriented technical block into human chat or emit a second recap. The four sections below explain the product result and acceptance evidence, not internal activity.
 
 ## Why it exists
 
@@ -29,6 +29,7 @@ Loaded by:
 - `commands/dr-qa.md` — after the QA-report write, before the CTA block. Runs on every overall verdict (ALL_PASS, CONDITIONAL_PASS, BLOCKED). On BLOCKED the "what did not work" sub-section carries the failure detail in plain language; "what's next" paraphrases the FAIL-Routing CTA without command syntax.
 - `commands/dr-compliance.md` — after the verdict / per-step report, before the CTA block. Runs on every verdict (COMPLIANT, COMPLIANT_WITH_NOTES, NON-COMPLIANT). Same NON-COMPLIANT shape.
 - `commands/dr-archive.md` — after the activeContext update, before the CTA block. Sourced from the just-written archive document plus the reflection file.
+- `commands/dr-auto.md` — after delegated stages finish and before the CTA block. Sourced from the delegated task result, compliance report when one exists, and the reflection artifact when one exists.
 
 Other pipeline commands MAY adopt the same contract later (`/dr-do`, `/dr-plan`). The contract is identical regardless of caller.
 
@@ -167,12 +168,32 @@ If `banlist.txt` or `whitelist.txt` is absent at runtime, the caller MUST emit a
 - "What didn't work" — failed or unverified conditions and remaining risks, including delivery and human acceptance where applicable. COMPLIANT is a stage result, not proof that every product condition is satisfied. Use the empty-state placeholder only when the linked task records actually contain no material open conditions.
 - "What's next" — for PASS: "ready to archive". For NON-COMPLIANT: paraphrase the FAIL-Routing direction in plain language. **Mirror** means paraphrase, not verbatim copy.
 
+### Learning proposal visibility for `/dr-compliance`, `/dr-auto`, and `/dr-archive`
+
+When a reflection artifact is part of the completed path, carry every learning proposal into the one four-section summary. Preserve its proposal number, class, category, intended target, concise rationale, and recorded state. Distinguish explicitly:
+
+- **No proposals:** say none were recorded only after checking the current reflection artifact; if the artifact is absent, stale, or unavailable, report that status as unmeasured rather than saying none.
+- **Pending approval:** say the proposal has not been applied. For Class A, retain the approval decision requested from the user.
+- **Held:** say it remains held and identify the recorded gate or reason; Class B proposals remain held for their required product-requirements review.
+- **Applied:** use this state only when the learning/evolution record or equivalent source evidence confirms the actual application. A proposal marked pending, a generated reflection, or an announcement is not application evidence.
+- **Rejected:** retain the recorded rejection state; do not recast it as applied or silently omit it.
+- **Unresolved class:** say the proposal's Class A/B classification is unresolved. Do not infer pending approval or held; do not claim application or ask for approval. Classify it against `skills/evolution/class-ab-gate.md` before giving a class-specific next step.
+
+Place proposal states in the existing "What worked" and "What did not work or remains open" sections according to their evidence and unresolved gates. `/dr-auto` must forward the delegated compliance result and reflection proposal states to this summary; the owner must not reduce that handoff to a compliance verdict alone. If compliance was skipped by design, report the skip and do not imply that reflection ran. This is a source prompt contract; emitted chat delivery and runtime behavior remain unmeasured until observed.
+
 ### From `/dr-archive`
 
 - "What was done" — sourced from § Overview / § Outcome of the just-written archive document.
 - "What worked" — acceptance criteria marked done in the archive document.
 - "What didn't work" — the Known Outstanding State / Operator Handoff section of the archive, plus any deferred items in reflection.
 - "What's next" — the next active task headline or the operator handoff item, in plain language.
+
+### From `/dr-auto`
+
+- "What was done" — the task outcome reported by the delegated stages.
+- "What worked" — the confirmed compliance result, if compliance ran, and any proposal application backed by an actual learning/evolution record.
+- "What didn't work" — skipped or unmeasured stages, pending approvals, held proposals, rejected proposals, and any unavailable or stale reflection evidence. State "no proposals" only when the current reflection artifact confirms it.
+- "What's next" — the authorized next action, including the Class A approval question when a proposal is pending. Do not turn a pending proposal into an applied change.
 
 ## Style rules
 

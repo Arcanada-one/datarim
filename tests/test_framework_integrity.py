@@ -32,6 +32,12 @@ class IntegrityTests(unittest.TestCase):
         (self.root/'commands/dr-do.md').write_text('Read skills/testing/SKILL.md.\n')
         (self.root/'dev-tools/command-graph.yaml').write_text('commands:\n  dr-do: {}\n')
 
+    def write_plugin_manifest(self, plugin_id='product-discovery'):
+        plugin = self.root/'plugins'/plugin_id
+        plugin.mkdir(parents=True, exist_ok=True)
+        (plugin/'plugin.yaml').write_text(
+            f'id: {plugin_id}\ndefault_enabled: false\ncategories: [skills]\n')
+
     def test_qualified_missing_template_fails_until_asset_is_supplied(self):
         (self.root/'AGENTS.md').write_text('Use `${DATARIM_RUNTIME:?}/templates/security-workflow.yml`.\n')
         count, errors = targets.check(self.root)
@@ -39,6 +45,24 @@ class IntegrityTests(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         (self.root/'templates/security-workflow.yml').write_text('name: Security\n')
         self.assertEqual(targets.check(self.root), (1, []))
+
+    def test_plugin_template_namespace_requires_declared_existing_asset(self):
+        (self.root/'AGENTS.md').write_text(
+            'Read `${DATARIM_RUNTIME:?}/templates/product-discovery/protocol.md`.\n')
+        self.write_plugin_manifest()
+        (self.root/'plugins/product-discovery/plugin.yaml').write_text(
+            'id: product-discovery\ndefault_enabled: false\ncategories: [skills, templates]\n')
+        templates = self.root/'plugins/product-discovery/templates'
+        templates.mkdir(parents=True)
+        target = templates/'protocol.md'
+        target.write_text('# Protocol\n')
+        self.assertEqual(targets.check(self.root), (1, []))
+        target.unlink()
+        self.assertEqual(len(targets.check(self.root)[1]), 1)
+        target.write_text('# Protocol\n')
+        (self.root/'plugins/product-discovery/plugin.yaml').write_text(
+            'id: product-discovery\ndefault_enabled: false\ncategories: [skills]\n')
+        self.assertEqual(len(targets.check(self.root)[1]), 1)
 
     def test_example_marker_does_not_hide_subsequent_real_reference(self):
         (self.root/'AGENTS.md').write_text(
@@ -87,6 +111,47 @@ class IntegrityTests(unittest.TestCase):
         self.assertIn({'from': 'fragment:skills/testing/entry.md', 'relation': 'loads',
                        'to': 'fragment:skills/testing/detail.md',
                        'source': 'skills/testing/entry.md'}, result['edges'])
+
+    def test_plugin_skill_and_agent_profile_reference_are_in_graph(self):
+        self.write_plugin_manifest()
+        skill = self.root/'plugins/product-discovery/skills/hypothesis-validation'
+        skill.mkdir(parents=True)
+        (skill/'SKILL.md').write_text(
+            '---\nname: hypothesis-validation\ndescription: Map assumptions and analyze bounded observations.\n---\n'
+            '[Rules](analysis-rules.md)\n')
+        (skill/'analysis-rules.md').write_text('Count raw observations before interpretation.\n')
+        (self.root/'agents/developer.md').write_text(
+            'Load `${DATARIM_RUNTIME:?}/skills/product-discovery/hypothesis-validation/SKILL.md`.\n')
+        with patch.object(graph, 'ROOT', self.root):
+            result = graph.load()
+            self.assertEqual(graph.validate(result), [])
+        self.assertIn('product-discovery/hypothesis-validation', result['inventory']['skills'])
+        self.assertIn({'from':'agent:developer','relation':'loads',
+                       'to':'skill:product-discovery/hypothesis-validation',
+                       'source':'agents/developer.md',
+                       'condition':{'plugin_enabled':'product-discovery'}}, result['edges'])
+        self.assertIn({'from':'skill:product-discovery/hypothesis-validation','relation':'loads',
+                       'to':'fragment:plugins/product-discovery/skills/hypothesis-validation/analysis-rules.md',
+                       'source':'plugins/product-discovery/skills/hypothesis-validation/SKILL.md'}, result['edges'])
+
+    def test_command_source_link_resolves_to_plugin_scoped_skill(self):
+        self.write_plugin_manifest()
+        skill = self.root/'plugins/product-discovery/skills/product-framing'
+        skill.mkdir(parents=True)
+        (skill/'SKILL.md').write_text(
+            '---\nname: product-framing\ndescription: Frame customer problems and opportunities.\n---\n')
+        command = self.root/'commands/dr-do.md'
+        command.write_text(
+            '[Product framing](../plugins/product-discovery/skills/product-framing/SKILL.md)\n'
+            'Runtime entry: `${DATARIM_RUNTIME:?}/skills/product-discovery/product-framing/SKILL.md`.\n')
+        with patch.object(graph, 'ROOT', self.root):
+            result = graph.load()
+            self.assertEqual(graph.validate(result), [])
+        edge = {'from':'command:dr-do','relation':'loads',
+                'to':'skill:product-discovery/product-framing',
+                'source':'commands/dr-do.md',
+                'condition':{'plugin_enabled':'product-discovery'}}
+        self.assertEqual(result['edges'].count(edge), 1)
 
     def test_missing_and_external_symlink_siblings_remain_broken(self):
         skill = self.root/'skills/testing/SKILL.md'

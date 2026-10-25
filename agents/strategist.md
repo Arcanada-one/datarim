@@ -57,3 +57,9 @@ or route, and must not claim that its `GO` bypasses Step 4 or any later gate.
 
 **When invoked:** `/dr-plan` stage (mandatory for L3-4; also mandatory at L1-L2
 when the whole scope is redundancy-only or ambiguous).
+
+### Product discovery profile gate
+
+Only when the consuming project's `product-discovery` profile is selected and the `product-discovery` plugin is enabled, load `${DATARIM_RUNTIME:?}/local/skills/product-discovery/decision-record/strategist.product-discovery.md`. If either condition is false, do not load product-discovery method content. If the profile is active and this fragment is missing or unreadable, stop this product-specific strategy path and report its exact runtime path; never silently skip it. If the active profile includes hypothesis validation, load `${DATARIM_RUNTIME:?}/local/skills/product-discovery/hypothesis-validation/SKILL.md` and its linked method fragments. Use it to map decision-critical assumptions and state a falsifiable, bounded hypothesis before proposing a protocol. A frozen protocol is a plan, not execution authority; do not infer support, permission, or market demand from its status.
+
+When the active profile requires a product decision record, load `${DATARIM_RUNTIME:?}/local/skills/product-discovery/decision-record/SKILL.md` and its `strategist-scope-modes.md` fragment. Keep the recommendation, evidence acceptance, business outcome, proposed scope and authority to act separate. `GO` is advice only; it never authorizes execution or changes the task's scope.

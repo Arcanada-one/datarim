@@ -1,0 +1,1 @@
+SYNTHETIC COUNTEREVIDENCE: a changed scope mode could be mistaken for approval without an explicit authority field.

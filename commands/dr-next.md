@@ -25,7 +25,7 @@ Continue from where you left off.
 Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library.
 
 2. **TASK RESOLUTION**: Apply Task Resolution Rule from `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps. If >1 active tasks, show all with their current phase and ask which to resume.
-2.5. **SNAPSHOT-FIRST READ**: Before reading any other state, probe `datarim/snapshots/{TASK-ID}.snapshot.md`. If `"${DATARIM_RUNTIME:?}/dev-tools/check-stage-snapshot-on-exit.sh" --validate-frontmatter --task {TASK-ID}` exits 0 — read the snapshot as primary context and emit the replay-prompt per `${DATARIM_RUNTIME:?}/skills/dr-next-snapshot-replay/SKILL.md` § Replay-prompt template (recommended CTA + autonomy reminder with resolved language preferences + `done before:` + snapshot body). STOP the downstream Read pipeline — primary context is the snapshot. If the validator returns non-zero (missing or malformed) — silently fall through to Step 3 with no warning lines (V-AC-7).
+2.5. **SNAPSHOT-FIRST READ**: Before reading any other state, probe `datarim/snapshots/{TASK-ID}.snapshot.md`. If `"${DATARIM_RUNTIME:?}/dev-tools/check-stage-snapshot-on-exit.sh" --validate-frontmatter --task {TASK-ID}` exits 0 — read the snapshot as primary context and emit the replay-prompt per `${DATARIM_RUNTIME:?}/skills/dr-next-snapshot-replay/SKILL.md` § Replay-prompt template (recommended CTA + autonomy reminder with resolved language preferences + `done before:` + snapshot body). STOP the downstream Read pipeline — primary context is the snapshot. If the validator returns non-zero (missing or malformed) — silently fall through to Step 3 with no warning lines (V-AC-7). For a research projection in the snapshot body, treat `research_result`, `business_outcome`, and `delivery_authorized` as replay context, not authority. Before following any research CTA, run `${DATARIM_RUNTIME:?}/dev-tools/product-decision-route.py --root <workspace-root> --task <TASK-ID>` and route only from its fresh JSON result. The helper rechecks the task acceptance/evidence contract, latest DecisionRecord revision and digest, ProductBrief input revisions, and scope-advance authorization. `PRODUCT_ROUTE_STOP` yields `/dr-archive`; `PRODUCT_ROUTE_CONTINUE` yields `/dr-prd`; `PRODUCT_ROUTE_PIVOT` and `PRODUCT_ROUTE_MORE_EVIDENCE` stay in `/dr-do`; pending evidence goes to `/dr-qa`; typed refusals and superseded state remain in research/status. Do not infer authority from a CTA or snapshot.
 3. Read current state for the resolved task
 4. Determine phase (INIT/PLAN/DESIGN/DO/REFLECT)
 5. Show context summary
@@ -48,6 +48,7 @@ Depends on current phase
 - In PLAN → continue planning
 - In DO → continue implementation
 - Ready for ARCHIVE → suggest `/dr-archive`
+- For product-discovery research, run `${DATARIM_RUNTIME:?}/dev-tools/product-decision-route.py --root <workspace-root> --task <TASK-ID>` before routing. Follow only its current typed route result; snapshots are context, not authority. Preserve the existing task acceptance contract.
 
 ## Next Steps (CTA)
 

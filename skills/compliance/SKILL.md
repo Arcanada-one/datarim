@@ -56,6 +56,7 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 - Compare diff against PRD requirements and task acceptance criteria
 - Flag: unimplemented requirements, out-of-scope changes, missing edge cases
 - When a task's backlog entry states a root cause explicitly (e.g. "fixed-port collision", "missing index", "race on shutdown"), verify the stated cause against a live repro **before** accepting the implemented fix. A misidentified root cause in the backlog leads to misdirected rounds: the fix targets the wrong axis, passes a weak gate, and the real defect survives. A short manual repro at re-validate time surfaces the mismatch cheaply.
+- When an acceptance contract is superseded, inventory and compare the full text of every case in both the original and replacement versions, including cases expected to remain unchanged. In the Return-to-Source record, name every added, removed, or changed case and describe each material semantic difference (for example, changed pass criteria, scope, evidence, command, or threshold); use redacted excerpts if case text contains sensitive material. Preserve both contract versions. An unaccounted change or a relaxation without an explicit basis is a finding routed to the stage that changed the contract. This comparison does not authorize rewriting the contract, and static wiring tests do not perform the semantic review.
 
 ### 2. Code Simplification
 - Check: functions >50 lines, deeply nested logic, duplicate code
@@ -270,4 +271,54 @@ Render the compliance report via the canonical structure declared in `${DATARIM_
 
 The four top sections answer "what the operator asked for" and "what was confirmed / what remains" in the resolved artifact language. Apply the Russian banlist only for Russian prose from `skills/human-summary/banlist.txt`. The audit addendum carries the technical surface (status table, risk list, cross-links) and MAY wrap ASCII-heavy lines in `<!-- gate:literal -->` fence.
 
-Save to `datarim/reports/compliance-report-{task_id}.md` if the directory exists, otherwise present in chat. Filename suffix on re-runs: `-v2`, `-v3`, … (one new file per `/dr-compliance` invocation).
+Reserve one destination before rendering and use it for the whole `/dr-compliance` invocation. When `datarim/reports/` exists, choose the first unused `compliance-report-{task_id}.md`, then `-v2`, `-v3`, …; do not overwrite an earlier run. When the directory does not exist, do not create it: render into the mode-`0600` file inside a mode-`0700` private temporary directory returned by `dev-tools/resolve-compliance-report-path.py`, then present those exact bytes in chat after validation. Keep the temporary file available to report consumers and remove only it and its private parent directory when the command finishes.
+
+### Security finding label validation
+
+Every rendered compliance report MUST include exactly one
+`security-finding-evidence:begin` / `security-finding-evidence:end` JSON block
+from the report template. Reserve the report path once, render the report there,
+and run the read-only structural validator against that exact rendered file
+before finalizing its verdict. The persistent path includes any rerun suffix;
+the chat-only path is a private temporary file, not a forced reports directory.
+
+```bash
+repo_root="$(git rev-parse --show-toplevel)"
+task_id="${TASK_ID:?resolved task id required}"
+report_target="$(python3 -I "${DATARIM_RUNTIME:?}/dev-tools/resolve-compliance-report-path.py" \
+    --root "$repo_root" --task-id "$task_id")" || exit 2
+report_destination="${report_target%%:*}"
+report_path="${report_target#*:}"
+validate_security_finding_labels() {
+    if python3 -I "${DATARIM_RUNTIME:?}/dev-tools/check-security-finding-labels.py" \
+        --report "$report_path"; then
+        label_validation_status=0
+    else
+        label_validation_status=$?
+    fi
+}
+validate_security_finding_labels
+```
+
+For chat-only output, after handling the validator result and any correction,
+emit the report from that same path; do not regenerate a second chat copy:
+
+```bash
+if [[ "$report_destination" == "chat" && "$label_validation_status" -ne 1 ]]; then
+    cat -- "$report_path"
+fi
+```
+
+If validation exits `1`, correct the same file and call
+`validate_security_finding_labels` again before finalizing. Every call replaces
+`label_validation_status` with the latest checker result, including resetting it
+to `0` when the correction passes. If validation exits `2`, retain the verdict
+as unresolved. These rules do not change the report's existing output policy.
+
+Exit `0` means only that the block is valid and internally consistent. It does
+not authenticate cited evidence, confirm that a test ran, or replace any S1–S11
+check. Exit `1` means a label or required evidence field is inconsistent and the
+report must be corrected before it can be compliant. Exit `2` means the report
+could not be read or parsed; retain the compliance verdict as unresolved until
+the structural check succeeds. The validator rejects unknown fields, including
+self-authored `tested` flags, and never promotes `author_reported` content.

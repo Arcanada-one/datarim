@@ -1,0 +1,22 @@
+{
+  "synthetic": true,
+  "id": "artifact:EXP-SYN-HV-001",
+  "revision": 1,
+  "status": "protocol_frozen",
+  "method": "fixed synthetic fixture comparison",
+  "sample_rule": {
+    "expected_per_variant": 4,
+    "outcome": "link_found_within_10_seconds"
+  },
+  "primary_outcome": "link found within 10 seconds",
+  "threshold_decision_map": "support only at B >= 3/4, A <= 2/4, zero new critical errors",
+  "missing_data_rule": "any missing required row yields inconclusive",
+  "stop_rule": "stop after eight rows or on a critical error",
+  "grant_ref": null,
+  "side_effect_grant": "none",
+  "decision_rule": {
+    "b_min_successes": 3,
+    "a_max_successes": 2,
+    "max_new_critical_errors": 0
+  }
+}

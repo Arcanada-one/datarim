@@ -173,9 +173,15 @@ def run(client, event, payload):
         command = inp.get('command', '') if isinstance(inp, dict) else ''
         reason = destructive_reason(command) if isinstance(command, str) else None
         if reason:
-            return native_output(client, event, {'hookSpecificOutput': {
+            # The denial is fixed before any ledger IO. A failed append stays a deny.
+            denied = native_output(client, event, {'hookSpecificOutput': {
                 'hookEventName': canonical, 'permissionDecision': 'deny',
                 'permissionDecisionReason': 'Jev deterministic safety floor: ' + reason}})
+            try:
+                record_floor_denial(normalized, command, reason)
+            except Exception:
+                pass
+            return denied
     env = None
     try:
         env, cwd = environment(normalized)
@@ -193,6 +199,36 @@ def run(client, event, payload):
         output = native_output(client, event, {})
         receipt(env, client, event, output, unavailable=True)
         return output
+
+
+def record_floor_denial(normalized, command, reason):
+    """Observe a floor denial in the ledger. Never raises and never decides.
+
+    The deny result is chosen before this runs. Resolving the state directory
+    uses the same environment contract as `receipt`. When that resolution or
+    the append fails, the caller still returns the denial.
+    """
+    try:
+        env, _cwd = environment(normalized)
+        from ledger import log_floor_denial
+        config = json.loads(Path(env['DATARIM_JEV_CONFIG']).read_text())
+        telemetry = config.get('telemetry', {}) if isinstance(config, dict) else {}
+        if not telemetry.get('enabled', True):
+            return
+        extra = {}
+        raw = env.get('JEV_EVENT_CONTEXT')
+        if isinstance(raw, str) and raw:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                extra = parsed
+        extra.update(blocked=True, unavailable=False, applied='not_measured',
+                     advice_emitted=False)
+        log_floor_denial(
+            {'telemetry': {'path': str(Path(env['JEV_STATE_DIR']) / 'ledger.jsonl'),
+                           'enabled': True, 'store_prompt_text': False}},
+            command, reason, **extra)
+    except Exception:
+        return
 
 
 def receipt(env, client, event, output, *, unavailable):

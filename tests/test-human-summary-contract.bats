@@ -2,8 +2,8 @@
 #
 # Spec-regression tests for the human-summary contract.
 #
-# Verifies that the three operator-facing commands (/dr-qa, /dr-compliance,
-# /dr-archive) reference the human-summary skill and that the skill itself
+# Verifies that the operator-facing commands (/dr-qa, /dr-compliance,
+# /dr-archive, /dr-auto) reference the human-summary skill and that the skill itself
 # carries the four mandated sub-headings, the RU+EN mini-examples, and the
 # Option C banlist + whitelist + per-paragraph escape-hatch contract.
 #
@@ -15,6 +15,9 @@ WHITELIST="${BATS_TEST_DIRNAME}/../skills/human-summary/whitelist.txt"
 CMD_QA="${BATS_TEST_DIRNAME}/../commands/dr-qa.md"
 CMD_COMPLIANCE="${BATS_TEST_DIRNAME}/../commands/dr-compliance.md"
 CMD_ARCHIVE="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
+CMD_AUTO="${BATS_TEST_DIRNAME}/../commands/dr-auto.md"
+CMD_QUICK="${BATS_TEST_DIRNAME}/../commands/dr-quick.md"
+EVOLUTION="${BATS_TEST_DIRNAME}/../skills/evolution/SKILL.md"
 
 # 1
 @test "skill file exists" {
@@ -196,5 +199,118 @@ CMD_ARCHIVE="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
 @test "skill caps escape-hatch paragraphs per task" {
     # Per Option C: 3rd gated paragraph → warn; 5th → block.
     run grep -E "(2 paragraphs|two paragraphs|paragraph budget|paragraph cap)" "$SKILL"
+    [ "$status" -eq 0 ]
+}
+
+# These are static prompt-contract checks only. They do not prove a delegated
+# agent emitted the summary in a live chat; runtime delivery remains NOT_MEASURED.
+
+# 25 — fail-before on the pre-fix source: /dr-auto did not require this handoff.
+@test "dr-auto forwards delegated reflection states through the human-summary skill" {
+    run grep -F 'skills/human-summary/SKILL.md' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+    run grep -F 'current reflection artifact' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+    run grep -F 'compliance report when one exists' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+    for state in 'pending approval' 'held' 'applied' 'rejected'; do
+        run grep -F "$state" "$CMD_AUTO"
+        [ "$status" -eq 0 ]
+    done
+    run grep -F 'do not reduce this handoff to the compliance verdict' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+    run grep -F 'When compliance ran, include its recorded verdict in the summary' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+}
+
+# 26 — omission controls: absent evidence or skipped stages cannot become "none".
+@test "dr-auto preserves reflection and compliance omission states" {
+    run grep -F 'If reflection is absent, stale, or unavailable, report it as unmeasured' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+    run grep -F 'do not imply reflection ran' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+    run grep -F 'Say "no proposals" only when the current reflection artifact confirms none' "$CMD_AUTO"
+    [ "$status" -eq 0 ]
+}
+
+# 27 — propagation controls: summary rules retain status and application evidence.
+@test "human-summary distinguishes proposal states and requires application evidence" {
+    for phrase in 'No proposals:' 'Pending approval:' 'Held:' 'Applied:' 'Rejected:'; do
+        run grep -F "$phrase" "$SKILL"
+        [ "$status" -eq 0 ]
+    done
+    run grep -F 'actual learning/evolution record' "$SKILL"
+    [ "$status" -eq 0 ]
+    run grep -F 'source prompt contract' "$SKILL"
+    [ "$status" -eq 0 ]
+    run grep -F 'Unresolved class:' "$SKILL"
+    [ "$status" -eq 0 ]
+    run grep -F 'Do not infer pending approval or held' "$SKILL"
+    [ "$status" -eq 0 ]
+}
+
+# 28 — quick remains light; only a verified corrected mismatch creates a signal.
+@test "dr-quick emits a conditional learning signal only for verified mutating mistakes" {
+    run grep -F 'Conditional learning signal (mutating QCK only)' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'concrete mistake or logic mismatch' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'corrected and verified by its acceptance/evidence check' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'ordinary quick fixes and all read-only lookups' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'If no such verified mismatch occurred' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'it is a proposal record, not an applied skill' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'Say `applied` only when the source change and its recorded' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'Report that signal in the QCK result with state' "$CMD_QUICK"
+    [ "$status" -ne 0 ]
+}
+
+# 29 — Class A asks the existing approval question for an approval-ready edit.
+@test "dr-quick Class A signal stays pending and retains existing approval question" {
+    run grep -F 'Class A:** report `pending approval`' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'skills/evolution/class-ab-gate.md' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'Which proposals should I' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'apply? (all / none / comma-separated numbers)' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+}
+
+# 30 — Class B is held for its contract gate and must not receive an apply ask.
+@test "dr-quick Class B signal is held for contract update without approval ask" {
+    run grep -F 'Class B:** report `held`' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'required contract/PRD update' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'before the proposal can enter the normal approval flow' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'Do not ask whether to apply it while it is held' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+}
+
+# 31 — an ambiguous class is not silently promoted to A or B.
+@test "dr-quick unresolved proposal class remains explicitly unresolved" {
+    run grep -F 'Unresolved class:' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'classification is unresolved' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'Do not guess Class A or B' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+    run grep -F 'or ask for approval' "$CMD_QUICK"
+    [ "$status" -eq 0 ]
+}
+
+# 32 — trigger docs match compliance primary and archive freshness fallback.
+@test "evolution trigger contract names compliance primary and archive fallback" {
+    run grep -F 'Automatic: Inside `/dr-compliance` Step 8.5' "$EVOLUTION"
+    [ "$status" -eq 0 ]
+    run grep -F '`/dr-archive` Step 0.5 is the fallback' "$EVOLUTION"
+    [ "$status" -eq 0 ]
+    run grep -F 'primary trigger later moved to passing `/dr-compliance` Step 8.5' "$EVOLUTION"
     [ "$status" -eq 0 ]
 }

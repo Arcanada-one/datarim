@@ -1,0 +1,144 @@
+{
+  "exemptions": [
+    {
+      "code": "v-workflow-config-152a40343efd93ad",
+      "entity": "code_unit:.github/workflows/bats.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-152a40343efd93ad: workflow shell caller closure not measured: job customer-delivery-aggregate step 1: line 1: dynamic load/substitution; job customer-delivery-aggregate step 2: local action/checkout path scope unresolved; job customer-delivery-aggregate step 3: local action/checkout path scope unresolved; job customer-delivery-aggregate step 4: line 2: multiline/opaque shell statement; job customer-delivery-aggregate step 4: line 3: wrapper options/child command unresolved; job customer-delivery-aggregate step 4: line 5: multiline/opaque shell statement; job customer-delivery Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-5ff5fa17404fc7d3",
+      "entity": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-5ff5fa17404fc7d3: workflow shell caller closure not measured: job bats-self-tests step 1: line 1: wrapper execution scope/options unresolved; job dr-auto-reassert-wiring step 2: line 1: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 2: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 3: multiline/opaque shell statement; job linter-run step 1: line 1: multiline/opaque shell statement; job linter-run step 1: line 2: multiline/opaque shell statement; job linter-run step 1: line 3: multiline/opaque shell statement; job linter- Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-85b0e5f19e1ca680",
+      "entity": "code_unit:.github/workflows/dr-orchestrate-contract.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-85b0e5f19e1ca680: workflow shell caller closure not measured: job schemathesis step 2: line 1: wrapper execution scope/options unresolved; job schemathesis step 3: line 11: dynamic load/substitution; job schemathesis step 3: line 7: multiline/opaque shell statement; job schemathesis step 4: line 1: multiline/opaque shell statement; job schemathesis step 4: line 2: multiline/opaque shell statement; job schemathesis step 4: line 3: wrapper options/child command unresolved; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailabl Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-6c171afc799257da",
+      "entity": "code_unit:.github/workflows/framework-gates.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-6c171afc799257da: workflow shell caller closure not measured: job archive-landing step 1: line 2: wrapper execution scope/options unresolved; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-ac18f02b39b4d139",
+      "entity": "code_unit:.github/workflows/frontmatter-mirror.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-ac18f02b39b4d139: workflow shell caller closure not measured: job self-tests step 1: line 1: wrapper execution scope/options unresolved; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-09c562dacfcf9489",
+      "entity": "code_unit:.github/workflows/gate-token-registry-sync.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-09c562dacfcf9489: workflow shell caller closure not measured: job registry-sync-check step 1: line 1: multiline/opaque shell statement; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-6e4f603fa997f347",
+      "entity": "code_unit:.github/workflows/network-exposure-lint.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-6e4f603fa997f347: workflow shell caller closure not measured: job lint step 0: line 2: dynamic command/alias/eval; job lint step 2: local action/checkout path scope unresolved; job lint step 3: line 4: multiline/opaque shell statement; job lint step 3: line 6: multiline/opaque shell statement; job lint step 3: line 7: multiline/opaque shell statement; job lint step 3: line 8: dynamic command/alias/eval; job lint step 4: line 8: missing/ambiguous literal helper ./.datarim/dev-tools/network-exposure-check.sh; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-71ec1c1168844989",
+      "entity": "code_unit:.github/workflows/node-tests.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-71ec1c1168844989: workflow shell caller closure not measured: job node-test step 2: line 11: multiline/opaque shell statement; job node-test step 2: line 12: multiline/opaque shell statement; job node-test step 2: line 13: multiline/opaque shell statement; job node-test step 2: line 14: dynamic command/alias/eval; job node-test step 2: line 3: multiline/opaque shell statement; job node-test step 2: line 4: dynamic load/substitution; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-07b8843df453ad3f",
+      "entity": "code_unit:.github/workflows/personal-id-lint.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-07b8843df453ad3f: workflow shell caller closure not measured: job personal-id-lint step 1: line 7: dynamic load/substitution; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-73a331778caeec7d",
+      "entity": "code_unit:.github/workflows/public-surface-lint.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-73a331778caeec7d: workflow shell caller closure not measured: job lint step 1: local action/checkout path scope unresolved; job lint step 3: line 5: missing/ambiguous literal helper ./.datarim/dev-tools/public-surface-lint.sh; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-87db21a973eed4fe",
+      "entity": "code_unit:.github/workflows/release.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-87db21a973eed4fe: workflow shell caller closure not measured: job classify step 1: line 11: dynamic load/substitution; job classify step 1: line 14: dynamic load/substitution; job classify step 1: line 35: dynamic command/alias/eval; job classify step 1: line 36: dynamic command/alias/eval; job classify step 1: line 38: multiline/opaque shell statement; job classify step 1: line 39: multiline/opaque shell statement; job classify step 1: line 42: dynamic load/substitution; job classify step 1: line 60: dynamic load/substitution; job classify step 1: line 9: dynamic load/substi Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-ed61203228de3f00",
+      "entity": "code_unit:.github/workflows/reusable-security-audit.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-ed61203228de3f00: workflow shell caller closure not measured: job audit step 1: local action/checkout path scope unresolved; job audit step 2: line 2: missing/ambiguous literal helper ./.datarim/dev-tools/check-security-policy.sh; job audit step 3: line 3: multiline/opaque shell statement; job audit step 3: line 4: wrapper options/child command unresolved; job audit step 6: line 3: dynamic load/substitution; job audit step 6: line 7: multiline/opaque shell statement; job audit step 7: line 20: dynamic load/substitution; job audit step 8: line 43: multiline/opaque shell statem Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-64f89239b966dac9",
+      "entity": "code_unit:.github/workflows/sanity-dual-copy.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-64f89239b966dac9: workflow shell caller closure not measured: job diff step 1: line 4: wrapper options/child command unresolved; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-2e3112f4e81a9c47",
+      "entity": "code_unit:.github/workflows/scorecard.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-2e3112f4e81a9c47: workflow configuration not measured: trigger outside this bounded checker: branch_protection_rule; v-fitness: no new fitness violation; workflow actionlint NOT_MEASURED: pinned actionlint binary unavailable Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-552822c6dbc3fece",
+      "entity": "code_unit:.github/workflows/security-stale-trigger.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-552822c6dbc3fece: workflow shell caller closure not measured: job scan step 1: line 3: multiline/opaque shell statement; job scan step 1: line 5: wrapper execution scope/options unresolved; job scan step 3: line 10: dynamic load/substitution; job scan step 3: line 14: dynamic load/substitution; job scan step 3: line 20: dynamic load/substitution; job scan step 3: line 21: dynamic load/substitution; job scan step 3: line 22: dynamic load/substitution; job scan step 3: line 23: dynamic load/substitution; job scan step 3: line 24: dynamic load/substitution; job scan step 3: line Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-6102d4f2cddb56c4",
+      "entity": "code_unit:.github/workflows/security.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-6102d4f2cddb56c4: workflow shell caller closure not measured: job actionlint step 1: directory transition has unresolved execution cwd; job actionlint step 1: line 8: wrapper execution scope/options unresolved; job bandit-extracted step 3: line 2: dynamic load/substitution; job doc-refs step 1: line 3: unsupported loader/interpreter options; job doc-refs step 1: line 6: multiline/opaque shell statement; job doc-refs step 1: line 8: wrapper execution scope/options unresolved; job doc-refs step 1: line 9: wrapper execution scope/options unresolved; job gitleaks step 1: line 10: Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-workflow-config-fd7ca5e632c8dbe8",
+      "entity": "code_unit:.github/workflows/token-health-probe.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range canonical verifier returned not_measured: v-workflow-config-fd7ca5e632c8dbe8: workflow shell caller closure not measured: job probe step 1: line 5: dynamic load/substitution; job probe step 2: line 3: multiline/opaque shell statement; job probe step 2: line 4: wrapper options/child command unresolved; job probe step 3: line 4: dynamic load/substitution; job probe step 4: line 10: dynamic command/alias/eval; job probe step 4: line 7: multiline/opaque shell statement; job probe step 4: line 8: multiline/opaque shell statement; job probe step 4: line 9: multiline/opaque shell statement; v-fitness: no new fitness violation; workflow actio Exact-head PR #511 CI at 96b90ffe35dc6e14100f938b39bb1ca7797fb6f0 is green, including Bats self-tests, regression Bats, ShellCheck, and personal-id-lint (run 38555517906, 38555517974, 38555517988). This time-limited tracked exemption covers only the named workflow verifier scope; it does not claim workflow static closure was measured and does not exempt a failure."
+    },
+    {
+      "code": "v-shell-behavior-dc106ecf9cb50957",
+      "entity": "code_unit:plugins/product-discovery/tests/product-artifact.bats",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range verifier returned not_measured: v-shell-behavior-dc106ecf9cb50957: BATS_EXECUTION_MEMBERSHIP_NOT_MEASURED due to the known canonical verifier defect Muneral 14ec7543-b540-4e08-b295-72ef3d7a19f1 (TAP digest comparison expects a sha256: prefix while process observation stores bare hex). The bounded neutral-root process canary executed this test on subject commit 8ba54b9b3862aa3b786d082789030ee79acd06cc with exit 0 and its expected TAP assertions: receipts/canary/DEV-T3.5/result.json sha256 73ca969d21102ebbaaed8d5bccab94cb67b7fd107b331542890efed062123c74; the plan sha256 is b777d53f5f650a4a4600d2789804c15a6217f4f95aa075af88a3c772d9f0b9d5. The captured TAP transcript is receipts/graph/DEV-T3.5/product.tap.log sha256 3bd427d196524dd335e8b312f5c50d206cd540aeab13eb98a4f5e1c46e0147d8. This exemption records verifier non-measurement, not a test failure or non-execution. reverse_if: if verifier defect 14ec7543 is merged, re-issue the CAR without this exemption."
+    },
+    {
+      "code": "v-shell-behavior-a6dbb739f9453c0f",
+      "entity": "code_unit:tests/d5a-t3-5-research-decision-routing.bats",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "The exact-range verifier returned not_measured: v-shell-behavior-a6dbb739f9453c0f: BATS_EXECUTION_MEMBERSHIP_NOT_MEASURED due to the known canonical verifier defect Muneral 14ec7543-b540-4e08-b295-72ef3d7a19f1 (TAP digest comparison expects a sha256: prefix while process observation stores bare hex). The bounded neutral-root process canary executed this test on subject commit 8ba54b9b3862aa3b786d082789030ee79acd06cc with exit 0 and its expected TAP assertions: receipts/canary/DEV-T3.5/result.json sha256 73ca969d21102ebbaaed8d5bccab94cb67b7fd107b331542890efed062123c74; the plan sha256 is b777d53f5f650a4a4600d2789804c15a6217f4f95aa075af88a3c772d9f0b9d5. The captured TAP transcript is receipts/graph/DEV-T3.5/route.tap.log sha256 9cc4248640c4c53711be092b23d1c01dfb70bb988be445115a6e4819009b1e84. This exemption records verifier non-measurement, not a test failure or non-execution. reverse_if: if verifier defect 14ec7543 is merged, re-issue the CAR without this exemption."
+    },
+    {
+      "code": "v-config-schema",
+      "entity": "code_unit:tests/product-decision-routing.py",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "DEV-T3.5",
+      "reason": "Not applicable: this repository declares no env source (.env.example, env.schema, or compose environment), so the config_schema verifier has no repository environment contract to check. The D5A_TEST_ROOT variable is only an optional isolated test scratch root, and the Python harness execution is measured by v-canary-1 in receipts/canary/DEV-T3.5/result.json. No repo-wide env source was introduced. This exemption covers only config_schema non-applicability."
+    }
+  ]
+}

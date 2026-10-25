@@ -61,6 +61,10 @@ Call the wrapper, never the bare `write_stage_snapshot` function — see § Cont
 
 ## Outputs
 
+### Product-discovery research projection
+
+When the final response summarizes a product-discovery research handoff, include the replay projection in the snapshot body (never frontmatter): `research_result`, `business_outcome`, and `delivery_authorized`; the current acceptance-contract digest; current scope/question and in/out boundaries; predecessor scope reference; latest DecisionRecord ID, revision, digest, and `supersedes` reference; accepted ProductBrief reference and exact input revisions; explicit `authorization_ref` when present; evidence references and named open cases; parent task and parent acceptance-contract digest; and last completed existing stage. These values are a compact pointer to authoritative records, not copies that can grant authority. Keep decision, scope, acceptance, and lineage fields intact if size pressure requires shortening prose; if they cannot fit under the existing cap, state that the projection is incomplete and route to revalidation/status rather than a delivery CTA.
+
 `datarim/snapshots/{TASK-ID}.snapshot.md`:
 
 ```yaml

@@ -10,7 +10,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 4.3.7](https://img.shields.io/badge/Version-4.3.7-green.svg)](VERSION)
+[![Version: 4.6.1](https://img.shields.io/badge/Version-4.6.1-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -35,6 +35,21 @@ Autonomous execution keeps permission and irreversible-action boundaries. JEV ad
 language, with English defaults and shared settings for standalone reporting.
 [Configure languages](documentation/how-to/configure-languages.md). Fixed report
 labels disclose English fallback when a requested catalog is unavailable.
+
+**New in 4.6.0:** L3/L4 tasks are checked for a PRD (or an operator-stated waiver) before implementation starts, `linked_ac` values that are not `V-AC-N` tokens get an early advisory, and acceptance cases must stay observable after every planned step.
+
+**New in 4.6.1:** Test-environment settings used for production-impact predictions are compared through bounded read-only access, with unsafe or unavailable comparisons voiding the prediction. Superseded acceptance contracts receive a complete case-by-case semantic comparison.
+
+**New in 4.5.0:** Live evidence is bound to declared input manifests, while
+`/dr-qa` validates plan-completion records and test value cards through their
+production consumers. The changelog summarizes the related QA, review-guidance
+and release-pipeline improvements.
+
+**New in 4.4.0:** `/dr-quick` keeps read-only lookups informational and starts a
+mutating task's persisted baseline before its first write. It records a learning
+signal only for a verified correction to a concrete mistake or logic mismatch.
+`/dr-auto` preserves proposal states in its single handoff summary. See
+[quick task evidence and learning](documentation/how-to/quick-task-evidence-and-learning.md).
 
 **New in 4.2.3:** human reports keep natural spaces between words, dates, counts and units while preserving literal identifiers. Targeted delivery tests now run independently of unrelated fixture startup, and the source excludes private project provenance. The final history transition retains one signed root commit on `main`; see [update instructions](documentation/how-to/history-transition.md).
 
@@ -118,7 +133,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 19 specialized agents, 80 reusable skills, and 29 commands that guide
+It includes 19 specialized agents, 81 reusable skills, and 29 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -197,7 +212,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   cross-Claude-family fallback). Each agent has a defined role, capabilities,
   and the stages where it operates.
 
-- **80 reusable skills** — modular knowledge units that agents load on demand,
+- **81 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
@@ -450,7 +465,7 @@ involve most of the nineteen agents across different stages.
 | **reflecting** | Post-task reflection: lessons learned, evolution proposals, Class A/B gate | /dr-archive (Step 0.5) |
 
 The table above is a representative sample, not the full catalogue — the
-complete list of all 80 skills is in
+complete list of all 81 skills is in
 [`documentation/reference/skills.md`](documentation/reference/skills.md).
 
 Skills are modular. Each one is a directory containing a `SKILL.md` (plus any
@@ -965,9 +980,9 @@ and why it exists.
 ```
 datarim/
   agents/            # Agent personas (19 agents)
-  skills/            # Knowledge modules (80 skills)
+  skills/            # Knowledge modules (81 skills)
   commands/          # Slash commands (29 commands)
-  templates/         # Task and document templates (29 templates)
+  templates/         # Task and document templates (31 templates)
   documentation/              # Extended documentation and use cases
   AGENTS.md          # Framework rules (commands read it from .datarim-runtime/)
   install.sh         # Project installer (see INSTALL.md)

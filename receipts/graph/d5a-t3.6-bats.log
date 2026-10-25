@@ -1,0 +1,9 @@
+1..8
+ok 1 enabled and selected profile reads both installed fragments with receipts
+ok 2 selected profile with disabled plugin does not read a fragment
+ok 3 enabled plugin with profile off does not read a fragment
+ok 4 active profile with a missing installed fragment fails loudly
+ok 5 agent fragments stay gated and render complete graph labels
+ok 6 canonical framework graph is current
+ok 7 command graph exactly matches command files
+ok 8 every skill frontmatter block is strict YAML

@@ -48,6 +48,8 @@ jobs:
     outputs:
       bump_level: ${{ steps.read.outputs.bump_level }}
       release_sha: ${{ steps.read.outputs.release_sha }}
+      release_tag_object: ${{ steps.read.outputs.release_tag_object }}
+      workflow_sha: ${{ steps.read.outputs.workflow_sha }}
       release_tag: ${{ steps.read.outputs.release_tag }}
       root_release: ${{ steps.read.outputs.root_release }}
     steps:
@@ -63,19 +65,12 @@ jobs:
         run: |
           set -euo pipefail
           tag="$RELEASE_TAG"
-          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|alpha|beta|test)[0-9]+)?$ ]]; then
-            echo "::error::invalid release tag: $tag" >&2
-            exit 1
-          fi
-          test "$EXPECTED_REF" = refs/heads/main
-          git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}"
-          test "$(git cat-file -t "$tag")" = tag
-          git -c gpg.ssh.allowedSignersFile=.github/ssh-signing-allowed-signers verify-tag "$tag"
-          release_sha="$(git rev-parse "${tag}^{}")"
-          main_sha="$(git rev-parse HEAD)"
-          test "$release_sha" = "$main_sha"
-          msg="$(git for-each-ref "refs/tags/${tag}" --format='%(contents)')"
-          stamped="$(printf '%s\n' "$msg" | sed -n 's/^bump_level=//p' | head -1)"
+          identity="$(dev-tools/verify-release-tag.sh classify --repo . --tag "$tag" \
+            --workflow-ref "$EXPECTED_REF" --allowed-signers .github/ssh-signing-allowed-signers)"
+          release_sha="$(printf '%s\n' "$identity" | sed -n 's/^release_sha=//p')"
+          release_tag_object="$(printf '%s\n' "$identity" | sed -n 's/^release_tag_object=//p')"
+          workflow_sha="$(printf '%s\n' "$identity" | sed -n 's/^workflow_sha=//p')"
+          stamped="$(printf '%s\n' "$identity" | sed -n 's/^stamped_bump_level=//p')"
           case "$stamped" in patch|minor|major) ;; *) echo "::error::missing/invalid bump_level stamp" >&2; exit 1 ;; esac
           previous_tag=""
           classification_sha="$release_sha"
@@ -93,8 +88,8 @@ jobs:
             # prepared through the ordinary PR path. Its signed tag pins that
             # source; classify the genuine commit range, not a rewritten message.
             root_release=true
-            source_sha="$(printf '%s\n' "$msg" | sed -n 's/^history_bootstrap_source=//p')"
-            tree_sha="$(printf '%s\n' "$msg" | sed -n 's/^history_bootstrap_tree=//p')"
+            source_sha="$(printf '%s\n' "$identity" | sed -n 's/^history_bootstrap_source=//p')"
+            tree_sha="$(printf '%s\n' "$identity" | sed -n 's/^history_bootstrap_tree=//p')"
             [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
             [[ "$tree_sha" =~ ^[0-9a-f]{40}$ ]]
             git fetch --no-tags origin "$source_sha"
@@ -124,6 +119,8 @@ jobs:
           {
             echo "bump_level=${final}"
             echo "release_sha=${release_sha}"
+            echo "release_tag_object=${release_tag_object}"
+            echo "workflow_sha=${workflow_sha}"
             echo "release_tag=${tag}"
             echo "root_release=${root_release}"
           } >> "$GITHUB_OUTPUT"
@@ -202,6 +199,26 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
 
+      - name: Load verifier from the classified protected-main commit
+        env:
+          WORKFLOW_SHA: ${{ needs.classify.outputs.workflow_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "${WORKFLOW_SHA}^{commit}"
+          git show "${WORKFLOW_SHA}:dev-tools/verify-release-tag.sh" > "$RUNNER_TEMP/verify-release-tag.sh"
+          chmod 0755 "$RUNNER_TEMP/verify-release-tag.sh"
+
+      - name: Recheck classified signed tag identity
+        env:
+          RELEASE_TAG: ${{ needs.classify.outputs.release_tag }}
+          RELEASE_SHA: ${{ needs.classify.outputs.release_sha }}
+          RELEASE_TAG_OBJECT: ${{ needs.classify.outputs.release_tag_object }}
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/verify-release-tag.sh" recheck --repo . --tag "$RELEASE_TAG" \
+            --release-sha "$RELEASE_SHA" --tag-object "$RELEASE_TAG_OBJECT"
+
       - name: Install cosign (verified binary)
         run: |
           set -euo pipefail
@@ -263,6 +280,11 @@ jobs:
             human-outcome-reporting.zip
             datarim-human-reporting-integration.zip
 
+      - name: Recheck classified tag immediately before publication
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/verify-release-tag.sh" recheck --repo . --tag "$TAG" \
+            --release-sha "$RELEASE_SHA" --tag-object "${{ needs.classify.outputs.release_tag_object }}"
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:

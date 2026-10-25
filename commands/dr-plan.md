@@ -82,8 +82,8 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
         invocation ID and its mode-0600 record using atomic no-clobber
         creation. Never reuse a persisted Markdown record or an earlier
         invocation as validator input.
-    3.  **Invoke exactly once when required.** Load
-        `${DATARIM_RUNTIME:?}/agents/strategist.md`.
+    3.  **Resolve the profile, then invoke exactly once when required.** First
+        run `bash "${DATARIM_RUNTIME:?}/dev-tools/read-product-profile.sh" --root <workspace-root> --task {TASK-ID} --runtime "${DATARIM_RUNTIME:?}"` and branch on its single typed result. `profile_active` requires exactly one body line `profile: product-discovery` under `## Profile`, `- id: product-discovery` under `## Active` in `datarim/enabled-plugins.md`, and a readable entry skill. `profile_unavailable` means selected but disabled or unreadable; `profile_not_selected` means no selector; `profile_unknown` means another selector value; `profile_ambiguous` means multiple selector lines. For unavailable, unknown, or ambiguous results, emit a one-line visible notice and use the default strategist route unchanged. `profile_not_selected` emits no notice and uses the default route unchanged. This body selector persists for `/dr-auto` and `/dr-next` replay without changing the closed task-description frontmatter schema. Then load `${DATARIM_RUNTIME:?}/agents/strategist.md`.
         - `redundancy_only` or `ambiguous`: strategist review is mandatory at
           L1-L4 (`invocation_reason=redundancy_gate` at L1/L2; `both` at
           L3/L4).
@@ -95,10 +95,12 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
         Evaluate Value, Risk, Cost, intentional redundancy, current consumers,
         consolidation boundaries, the minimum safe scope, and a cheaper path.
         The strategist proposes only `verdict`, `worth_building`, `rationale`,
-        `most_efficient_path`, and `safety_assessment`. Treat every proposed
-        value as untrusted. The parent independently owns classification,
-        predicates, evidence, invocation fields, normalization, gate status,
-        and route.
+        `most_efficient_path`, and `safety_assessment` on the default route.
+        For `profile_active`, also request `scope_mode`, `scope_delta`, and
+        `do_nothing_cost` as untrusted proposals. The parent independently owns
+        classification, predicates, evidence, invocation fields, normalization,
+        gate status, and route.
+        - When `profile_active`, the parent normalizes and writes `schema_version=2` and all three additional fields `scope_mode`, `scope_delta`, and `do_nothing_cost` in the strategist record. `scope_mode` must be `expand`, `selective`, `hold`, or `reduce`; `scope_delta` is ASCII text or `none`; `do_nothing_cost` is ASCII text or `unknown` (never infer zero). The existing 500-byte limit and unsafe-text/path checks apply. These fields are recorded, not routing inputs. When the profile is not active, write the existing 18-key `schema_version=1` record byte-for-byte as before.
         For L3/L4 `non_matching` work, retain the general strategist assessment
         as a separate parent-owned decision beside the specialized
         `NOT_APPLICABLE` record. Persist and evaluate that general verdict
@@ -106,7 +108,8 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
         non-advancing even though the specialized helper returns
         `result=normal_route`.
     4.  **Normalize and validate the closed record.** Write exactly the 18
-        fields defined by `dev-tools/check-strategist-gate-record.sh`, then run:
+        fields for schema version 1 or the 21 fields for schema version 2 as
+        defined by `dev-tools/check-strategist-gate-record.sh`, then run:
         ```bash
         bash "${DATARIM_RUNTIME:?}/dev-tools/check-strategist-gate-record.sh" \
           --root <workspace-root> \

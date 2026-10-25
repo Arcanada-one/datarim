@@ -1,0 +1,4 @@
+fixture_id=SYN-EV-001
+scenario=simulated onboarding
+result=simulated participant did not locate the next-step link
+source_kind=synthetic_fixture

@@ -1,0 +1,4 @@
+fixture_id=SYN-EV-001
+scenario=roleplayed customer interview
+script=I would be upset if this tool disappeared.
+source_kind=roleplay

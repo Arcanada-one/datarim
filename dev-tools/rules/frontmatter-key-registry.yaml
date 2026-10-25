@@ -288,6 +288,42 @@ keys:
     category: M
     mirror: none
     status: live
+  - key: id
+    surface: template
+    category: M
+    mirror: none
+    status: live
+    note: "Stable product artifact identity in the artifact namespace."
+  - key: artifact_type
+    surface: template
+    category: M
+    mirror: none
+    status: live
+    note: "Product artifact kind discriminator."
+  - key: revision
+    surface: template
+    category: M
+    mirror: none
+    status: live
+    note: "Positive immutable artifact revision."
+  - key: source_digest
+    surface: template
+    category: M
+    mirror: none
+    status: live
+    note: "Digest of the canonical source reference manifest."
+  - key: supersedes
+    surface: template
+    category: M
+    mirror: none
+    status: live
+    note: "Reference to the immediately prior artifact revision."
+  - key: acceptance_state
+    surface: template
+    category: M
+    mirror: none
+    status: live
+    note: "Review disposition, separate from lifecycle status."
   - key: artifact
     surface: template
     category: M

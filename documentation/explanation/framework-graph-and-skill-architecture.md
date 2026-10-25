@@ -10,7 +10,9 @@ The framework now treats topology as data rather than prose.
 
 `dev-tools/framework-graph.py` discovers the physical inventory and extracts explicit relationships. `dev-tools/command-graph.yaml` remains the authority for command sequencing. The generated `dev-tools/framework-graph.yaml` records commands, agents, skills, typed edges, provenance, and broken references. Generated visual maps are projections of those facts.
 
-Node types currently represented are `command`, `agent`, and `skill`. Edges are typed as `requires`, `precedes`, `delegates_to`, and `loads`. This is intentionally a conservative first schema: a relationship is emitted only when it has an explicit source in the repository. Future artifact, validator, rule, plugin, and stage nodes should be added to the schema rather than encoded as decorative Mermaid-only edges.
+Node types include `command`, `agent`, `skill`, `fragment`, `template`, `plugin`, and `plugin_asset`. Plugin manifests and their declared category directories are the sole source for plugin identity and package assets; the builder does not maintain a second plugin file list. Plugin package edges are conditional on enablement, and the `product-discovery` consumer edges also require that profile to be selected. The graph records the package's manifest default state separately from a workspace's live enablement.
+
+`--check --profile-off` and `--check --profile-on` validate and report the reachable graph with the product-discovery profile disabled or enabled. Both checks compare the off-state legacy edge set with the full graph's legacy-to-legacy edges, so optional plugin edges cannot silently alter core routes or loads.
 
 ## Invariants
 
@@ -18,14 +20,18 @@ Node types currently represented are `command`, `agent`, and `skill`. Edges are 
 2. Every referenced agent and skill exists.
 3. Every skill `SKILL.md`, including nested composite skills, has parseable YAML frontmatter.
 4. Generated topology files are byte-for-byte reproducible from their sources.
-5. Hand-written explanatory maps may explain a flow but must not maintain a second complete relationship inventory.
-6. A new framework relationship needs provenance. A diagram is not provenance.
+5. Plugin files are discovered from `plugin.yaml` category declarations and disk contents; generated graph metadata must match that source exactly.
+6. Optional assets remain visible in the complete graph but are reachable only under their plugin condition. Profile-on and profile-off are projections of the same inventory.
+7. Hand-written explanatory maps may explain a flow but must not maintain a second complete relationship inventory.
+8. A new framework relationship needs provenance. A diagram is not provenance.
 
 Run:
 
 ```bash
 python3 dev-tools/framework-graph.py --write   # regenerate after an intentional topology change
 python3 dev-tools/framework-graph.py --check   # CI/read-only consistency check
+python3 dev-tools/framework-graph.py --check --profile-off
+python3 dev-tools/framework-graph.py --check --profile-on
 ```
 
 `validate.sh` runs the read-only check and fails on drift.

@@ -422,7 +422,7 @@ manifest_active_ids() {
 
 manifest_inventory_of() {
     # Args: <manifest> <id> <category>
-    # Echoes whitespace-separated basenames from file_inventory.<cat>.
+    # Echoes whitespace-separated inventory paths from file_inventory.<cat>.
     local manifest="$1" id="$2" cat="$3"
     [ -f "$manifest" ] || return 0
     awk -v id="$id" -v cat="$cat" '
@@ -512,6 +512,33 @@ manifest_validate_entry() {
             issues=$((issues + 1))
         fi
     fi
+    local cat entry
+    for cat in skills agents commands templates; do
+        while IFS= read -r entry; do
+            [ -n "$entry" ] || continue
+            case "$entry" in
+                /*|*..*|*\\*|*,*|*' '*|*$'\t'*|*$'\n'*)
+                    echo "  $id: unsafe $cat inventory path: $entry" >&2
+                    issues=$((issues + 1))
+                    continue
+                    ;;
+            esac
+            case "$entry" in
+                */*)
+                    if [ "$cat" != skills ] || [[ ! "$entry" =~ ^[a-z0-9][a-z0-9-]*/[A-Za-z0-9][A-Za-z0-9._-]*\.md$ ]]; then
+                        echo "  $id: invalid nested $cat inventory path: $entry" >&2
+                        issues=$((issues + 1))
+                    fi
+                    ;;
+                *)
+                    if [[ ! "$entry" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+                        echo "  $id: invalid $cat inventory basename: $entry" >&2
+                        issues=$((issues + 1))
+                    fi
+                    ;;
+            esac
+        done < <(manifest_inventory_of "$manifest" "$id" "$cat")
+    done
     [ "$issues" -eq 0 ]
 }
 

@@ -36,6 +36,7 @@ Kebab-case `.md` filenames naming the concept, for example `pipeline.md`,
 | [`plugin-author-guide.md`](plugin-author-guide.md) | The plugin model — design intent, manifest semantics, authoring guidance. |
 | [`spec-traceability-rollout.md`](spec-traceability-rollout.md) | Why spec traceability was introduced and how it was rolled out. |
 | [`codex-slash-command-upstream-advocacy.md`](codex-slash-command-upstream-advocacy.md) | Background on the Codex CLI slash-command gap and the upstream position taken. |
+| [`product-discovery-pack-boundaries.md`](product-discovery-pack-boundaries.md) | Decision record for the opt-in product-discovery plugin: install layout, graph discovery, profile gate, strategist record versions and limits. |
 
 ## Related reserved siblings
 

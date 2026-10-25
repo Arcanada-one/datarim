@@ -1,0 +1,10 @@
+schema_version: 1
+id: product-discovery
+title: Product Discovery
+version: 0.2.0
+author: Arcanada
+license: MIT
+description: Structured product discovery, bounded decision records, and research framing.
+categories:
+  - skills
+  - templates

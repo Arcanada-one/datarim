@@ -1,0 +1,1 @@
+Explicitly synthetic source record B: source reports 7.

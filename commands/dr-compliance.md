@@ -125,25 +125,53 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
     -   `## Next steps`: either a localized "nothing outstanding" statement or concrete `/dr-*` commands / operator actions (including `/dr-archive`).
     -   Audit addendum under `---`: `### Step-by-step verdicts` (the 7-step compliance table, wrapped in `<!-- gate:literal -->` fence to bypass the banlist on English column headings), `### Remaining risks`, `### Related`.
     -   Apply the banlist from `skills/human-summary/banlist.txt` to the prose in the top four sections; the audit addendum tables MAY use `<!-- gate:literal -->` fence when they include ASCII technical terms.
+    -   Before rendering, reserve one exact destination and keep it for this invocation. The resolver chooses the first unused `compliance-report-${TASK_ID}.md`, then `-v2`, `-v3`, and so on when `datarim/reports/` exists. If it does not exist, it creates a mode-`0700` private temporary directory and a mode-`0600` report file; it MUST NOT create `datarim/reports/` just to persist a report. Initialize the destination once:
+        ```bash
+        repo_root="$(git rev-parse --show-toplevel)"
+        task_id="${TASK_ID:?resolved task id required}"
+        report_target="$(python3 -I "${DATARIM_RUNTIME:?}/dev-tools/resolve-compliance-report-path.py" \
+            --root "$repo_root" --task-id "$task_id")" || exit 2
+        report_destination="${report_target%%:*}"
+        report_path="${report_target#*:}"
+        ```
+        Render the complete report to `$report_path`, including in chat-only mode. Do not re-render a separate chat copy. Include the template's single `security-finding-evidence` JSON block, then validate the exact rendered file:
+        ```bash
+        validate_security_finding_labels() {
+            if python3 -I "${DATARIM_RUNTIME:?}/dev-tools/check-security-finding-labels.py" \
+                --report "$report_path"; then
+                label_validation_status=0
+            else
+                label_validation_status=$?
+            fi
+        }
+        validate_security_finding_labels
+        ```
+        Exit `0` checks only block shape and label consistency; it does not authenticate evidence or execute scans/tests. Exit `1` is a compliance finding: correct unsupported labels, missing scope/mechanism/evidence, or a self-reported runtime promotion, then call `validate_security_finding_labels` again on the same corrected `$report_path`. Each invocation replaces `label_validation_status` with that invocation's exit result, including resetting it to `0` after a successful correction. Exit `2` is a read/parse failure and leaves the verdict unresolved. Do not claim the report is compliant until the latest structural check exits `0`. After handling the result (including any required exit-`1` correction), chat-only output MUST be read from that same `$report_path`; never emit a separately regenerated copy:
+        ```bash
+        if [[ "$report_destination" == "chat" && "$label_validation_status" -ne 1 ]]; then
+            cat -- "$report_path"
+        fi
+        ```
+        Keep the private temporary file available through report consumers, then remove only that file and its private parent directory when the command finishes.
 8.  **HUMAN SUMMARY**:
     - Load `${DATARIM_RUNTIME:?}/skills/human-summary/SKILL.md`.
     - Emit the localized operator-summary section with the four semantic sub-sections and markers from `skills/human-summary/SKILL.md`, before the CTA. Use the resolved reply preference.
     - Source material: § Overview of the task description, per-step results from Step 6, and the verdict from Step 7.
     - Runs on every verdict (COMPLIANT, COMPLIANT_WITH_NOTES, NON-COMPLIANT). On NON-COMPLIANT the open-conditions sub-section carries the failure detail in plain language and the next-actions section paraphrases the FAIL-Routing CTA without command syntax.
     - The summary MUST honour the banlist + whitelist + per-paragraph escape-hatch contract from the skill (`<!-- gate:literal -->` … `<!-- /gate:literal -->` for verbatim quoted blocks only; max two fenced paragraphs per summary).
-    - Output: chat. If `datarim/reports/compliance-report-{task_id}.md` exists, append the same facts rendered in the resolved artifact language at the end of that file.
+    - Output: chat. If `report_destination` is `file`, append the same facts rendered in the resolved artifact language at the end of `$report_path`.
     - Length policy: completeness before brevity; no hard word cap. Preserve all material conditions and limitations total across the four sub-sections. Follow `human-summary` for a clearly labelled short view and an authorized full report.
 
 8.5. **REFLECT ON A PASSING VERDICT** (runs only when the Step 7 verdict is COMPLIANT or COMPLIANT_WITH_NOTES; skipped on NON-COMPLIANT):
     - Reflection now happens here, at the point of a successful compliance pass, rather than being deferred to `/dr-archive`. This makes `/dr-compliance` the stage that captures lessons-learned + evolution proposals, so they are not lost when a task is hardened but the operator does not archive immediately.
-    - Load `${DATARIM_RUNTIME:?}/skills/reflecting/SKILL.md` and execute its workflow (single source of truth — do NOT inline the reflection steps here). It writes `datarim/reflection/reflection-{task_id}.md` and stamps `reflection_basis` from the just-written compliance report via `${DATARIM_RUNTIME:?}/dev-tools/reflection-freshness.sh --emit-basis datarim/reports/compliance-report-{task_id}.md`.
-    - **Stamp last.** Compute and write `reflection_basis` as the FINAL action, after the report file is fully written — including the Step 8 human-summary section that gets appended to `compliance-report-{task_id}.md`. Any later append to the report changes its hash and makes the just-written reflection look stale at `/dr-archive`. If the report is edited after the basis is stamped, re-stamp from the final report.
+    - Load `${DATARIM_RUNTIME:?}/skills/reflecting/SKILL.md` and execute its workflow (single source of truth — do NOT inline the reflection steps here). It writes `datarim/reflection/reflection-{task_id}.md` and stamps `reflection_basis` from the just-written compliance report via `${DATARIM_RUNTIME:?}/dev-tools/reflection-freshness.sh --emit-basis "$report_path"`.
+    - **Stamp last.** Compute and write `reflection_basis` as the FINAL action, after the report file is fully written — including the Step 8 human-summary section appended to `$report_path` when it is a persistent report. Any later append to the report changes its hash and makes the just-written reflection look stale at `/dr-archive`. If the report is edited after the basis is stamped, re-stamp from the final report.
     - Class A / Class B evolution gate applies exactly as in the skill (Class A → operator approval; Class B → hold for PRD update). If the operator rejects a Class A proposal, surface it but do NOT fail the compliance verdict — reflection rejection is not a compliance failure.
     - On NON-COMPLIANT this step does not run; `/dr-archive` Step 0.5 will force-generate reflection later (the file stays absent), preserving the mandatory-reflection guarantee.
 
 ## Output
-- `datarim/reports/compliance-report-{task_id}.md` (if directory exists)
-- Otherwise: report in chat
+- If `datarim/reports/` exists, the reserved persistent path in `$report_path` (first unused name, with `-v2`, `-v3`, … on reruns).
+- Otherwise: emit the exact validated bytes from the reserved private temporary `$report_path` in chat, then remove that temporary file and its private parent directory after all report consumers finish.
 
 ## Verdicts
 - **COMPLIANT** — all checks pass

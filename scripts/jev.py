@@ -161,9 +161,67 @@ def permission_flags(agent, extra):
     return [f for f in FULL_PERMISSION_FLAGS[agent] if f not in given]
 
 
+def agent_search_dirs():
+    """Directories that commonly hold agent CLIs outside a minimal PATH.
+
+    Non-interactive sessions often miss dirs that interactive shells add late
+    in bashrc (after an early return for non-interactive shells). Doctor and
+    launchers must still find the binaries without depending on that order.
+    """
+    home = Path.home()
+    dirs = [home / '.local' / 'bin', home / '.npm-global' / 'bin']
+    orca = Path('/opt/orca/agent-bin')
+    if orca.is_dir():
+        dirs.append(orca)
+    return dirs
+
+
+def prepend_agent_search_dirs_to_path():
+    """Prepend well-known agent dirs to PATH so child tools resolve too."""
+    current = [part for part in os.environ.get('PATH', '').split(os.pathsep) if part]
+    seen = set(current)
+    prefix = []
+    for directory in agent_search_dirs():
+        if not directory.is_dir():
+            continue
+        text = str(directory)
+        if text in seen:
+            continue
+        prefix.append(text)
+        seen.add(text)
+    if prefix:
+        os.environ['PATH'] = os.pathsep.join(prefix + current)
+
+
+def _is_executable(path):
+    return path.is_file() and os.access(path, os.X_OK)
+
+
 def binary(agent):
-    name = {'claude': 'claude', 'codex': 'codex', 'cursor': 'cursor-agent'}[agent]
-    return shutil.which(os.environ.get(agent.upper()+'_BIN', name)) or (shutil.which('agent') if agent == 'cursor' else None)
+    """Resolve a client CLI; honour *_BIN, PATH, then well-known install dirs."""
+    default_names = {
+        'claude': ('claude',),
+        'codex': ('codex',),
+        'cursor': ('cursor-agent', 'agent'),
+    }[agent]
+    override = os.environ.get(agent.upper() + '_BIN')
+    names = (override,) if override else default_names
+    for name in names:
+        if not name:
+            continue
+        found = shutil.which(name)
+        if found:
+            return found
+        path = Path(name)
+        if path.is_absolute() or os.path.sep in name or (os.path.altsep and os.path.altsep in name):
+            if _is_executable(path):
+                return str(path)
+            continue
+        for directory in agent_search_dirs():
+            candidate = directory / name
+            if _is_executable(candidate):
+                return str(candidate)
+    return None
 
 
 def datarim_enabled(root):
@@ -422,6 +480,39 @@ def _names_our_hook(command, entries, client, event):
             and words[2:] == [client, event])
 
 
+def _hook_commands(client, hooks, event):
+    """Command strings listed for one native event in a client hook file."""
+    commands = []
+    for entry in hooks.get(event) or []:
+        if not isinstance(entry, dict):
+            continue
+        if client == 'cursor':
+            commands.append(entry.get('command', ''))
+        else:
+            commands += [h.get('command', '') for h in entry.get('hooks') or [] if isinstance(h, dict)]
+    return commands
+
+
+def clients_with_registered_hooks(hook_files, entries):
+    """Clients that currently have a correctly named Jev hook for any registered event."""
+    found = []
+    for client in CLIENTS:
+        path = Path(hook_files[client])
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        hooks = data.get('hooks') if isinstance(data, dict) else None
+        hooks = hooks if isinstance(hooks, dict) else {}
+        if any(any(_names_our_hook(c, entries, client, event)
+                   for c in _hook_commands(client, hooks, event))
+               for event in REGISTERED_EVENTS[client]):
+            found.append(client)
+    return found
+
+
 def registration_findings(clients, hook_files, entries):
     """Findings for every selected client whose Jev hook file or entry is gone.
 
@@ -445,14 +536,7 @@ def registration_findings(clients, hook_files, entries):
         hooks = hooks if isinstance(hooks, dict) else {}
         missing = []
         for event in REGISTERED_EVENTS[client]:
-            commands = []
-            for entry in hooks.get(event) or []:
-                if not isinstance(entry, dict):
-                    continue
-                if client == 'cursor':
-                    commands.append(entry.get('command', ''))
-                else:
-                    commands += [h.get('command', '') for h in entry.get('hooks') or [] if isinstance(h, dict)]
+            commands = _hook_commands(client, hooks, event)
             if not any(_names_our_hook(c, entries, client, event) for c in commands):
                 missing.append(event)
         if missing:
@@ -561,9 +645,13 @@ def scope_hooks(host_mode, root, runtime, manifest, home=None):
     """
     home = Path(home or Path.home())
     if host_mode:
-        selected = [c for c in manifest.get('clients') or CLIENTS if c in CLIENTS]
+        recorded = [c for c in manifest.get('clients') or CLIENTS if c in CLIENTS]
         files = {c: home/rel for c, rel in HOST_HOOK_FILES.items()}
         entries = (str(home/'.local/share/jev/bin/jev-hook'), str(Path(runtime)/'scripts/jev_hook.py'))
+        # Host doctor must still see a client whose hooks are live even when
+        # host-installation.json omitted it (e.g. same-SHA Cursor add-on before
+        # the installer started rewriting the manifest clients union).
+        selected = sorted(set(recorded) | set(clients_with_registered_hooks(files, entries)))
         state = Path(manifest.get('state_dir') or home/'.local/state/jev')
         ledgers = sorted(state.glob('projects/*/sessions/*/ledger.jsonl'))
         config = Path(manifest['config']) if manifest.get('config') else None
@@ -833,6 +921,9 @@ def main():
     # The client/hook reads the scoped key file when needed; do not export a
     # Jev credential into arbitrary agent child processes.
     os.environ.pop('TYPESAFE_API_KEY', None)
+    # Child CLIs often spawn sibling tools by bare name; keep well-known dirs
+    # on PATH even when this process inherited a minimal non-interactive PATH.
+    prepend_agent_search_dirs_to_path()
     os.execv(exe, args)
 
 

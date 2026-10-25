@@ -74,6 +74,17 @@ EOF
     chmod 600 "$RECORD"
 }
 
+write_v2_record() {
+    write_record
+    replace_field schema_version 2
+    cat >>"$RECORD" <<'EOF'
+scope_mode=selective
+scope_delta=synthetic fixture only
+do_nothing_cost=unknown
+EOF
+    chmod 600 "$RECORD"
+}
+
 run_helper() {
     run "$HELPER" \
         --root "$TEST_ROOT" \
@@ -117,6 +128,59 @@ replace_field() {
     run "$HELPER" $'--token=secret\033[31m\nforged'
     [ "$status" -eq 64 ]
     [ "$output" = "check-strategist-gate-record: unknown flag" ]
+}
+
+@test "[validator] schema version 2 validates and echoes every profile field" {
+    write_v2_record
+    run_helper
+    [ "$status" -eq 0 ]
+    [[ "$output" == *$'scope_mode=selective\nscope_delta=synthetic fixture only\ndo_nothing_cost=unknown' ]]
+}
+
+@test "[validator] all four v2 scope modes validate" {
+    for mode in hold selective expand reduce; do
+        write_v2_record
+        replace_field scope_mode "$mode"
+        run_helper
+        [ "$status" -eq 0 ]
+        [[ "$output" == *"scope_mode=$mode"* ]]
+    done
+}
+
+@test "[validator] schema version 1 with profile fields is malformed" {
+    write_record
+    cat >>"$RECORD" <<'EOF'
+scope_mode=hold
+scope_delta=none
+do_nothing_cost=unknown
+EOF
+    chmod 600 "$RECORD"
+    run_helper
+    [ "$status" -eq 2 ]
+}
+
+@test "[validator] unsupported schema versions are explicitly refused" {
+    write_record
+    replace_field schema_version 77
+    run_helper
+    [ "$status" -eq 2 ]
+    [ "$output" = 'check-strategist-gate-record: unsupported schema version: 77' ]
+}
+
+@test "[validator] invalid scope_mode is malformed" {
+    write_v2_record
+    replace_field scope_mode invalid
+    run_helper
+    [ "$status" -eq 2 ]
+    [ "$output" = 'check-strategist-gate-record: invalid scope_mode' ]
+}
+
+@test "[validator] retired scope_mode selective_expand is malformed" {
+    write_v2_record
+    replace_field scope_mode selective_expand
+    run_helper
+    [ "$status" -eq 2 ]
+    [ "$output" = 'check-strategist-gate-record: invalid scope_mode' ]
 }
 
 @test "[validator] valid L3 non-matching record preserves the normal route" {
@@ -478,6 +542,15 @@ replace_field() {
     [ "$status" -eq 2 ]
 }
 
+@test "[validator] skipped mandatory L3 strategist review cannot be recorded as reviewed" {
+    write_record
+    replace_field invocation_reason none
+    replace_field strategist_invoked no
+    run_helper_at_complexity L3
+    [ "$status" -eq 2 ]
+    [ "$output" = 'check-strategist-gate-record: invalid non-matching invocation tuple' ]
+}
+
 @test "[contract] dr-plan mandates semantic classification strategist dispatch and validated logging" {
     grep -qF 'redundancy_only' "$COMMAND"
     grep -qF 'non_matching' "$COMMAND"
@@ -490,6 +563,29 @@ replace_field() {
     grep -qF 'return_to_prd' "$COMMAND"
     grep -qF 'separate parent-owned decision' "$COMMAND"
     grep -qF 'non-advancing even though the specialized helper returns' "$COMMAND"
+}
+
+@test "[contract] product profile is enabled and selected in both existing command readers" {
+    for file in commands/dr-prd.md commands/dr-plan.md; do
+        grep -qF 'read-product-profile.sh' "$REPO_ROOT/$file"
+        grep -qF 'profile_active' "$REPO_ROOT/$file"
+    done
+    grep -qF 'profile: product-discovery' "$REPO_ROOT/commands/dr-prd.md"
+    grep -qF 'profile: product-discovery' "$REPO_ROOT/commands/dr-plan.md"
+    awk 'index($0, "read-product-profile.sh") { reader=index($0, "read-product-profile.sh"); strategist=index($0, "Then load") } END { exit !(reader && strategist && reader < strategist) }' "$REPO_ROOT/commands/dr-plan.md"
+    awk '
+        /product-framing skill reference inside the profile_active branch/ {
+            if (getline > 0 && index($0, "Only for `profile_active`") && index($0, "[`plugins/product-discovery/skills/product-framing/SKILL.md`](../plugins/product-discovery/skills/product-framing/SKILL.md)") && index($0, "${DATARIM_RUNTIME:?}/skills/product-discovery/product-framing/SKILL.md")) found=1
+        }
+        END { exit !found }
+    ' "$REPO_ROOT/commands/dr-prd.md"
+    grep -qF '[`plugins/product-discovery/skills/product-framing/SKILL.md`](../plugins/product-discovery/skills/product-framing/SKILL.md)' "$REPO_ROOT/commands/dr-prd.md"
+    for outcome in profile_unavailable profile_unknown profile_ambiguous; do
+        grep -qF "$outcome" "$REPO_ROOT/commands/dr-prd.md"
+        grep -qF "$outcome" "$REPO_ROOT/commands/dr-plan.md"
+    done
+    grep -qF 'continue the default Discovery Interview unchanged' "$REPO_ROOT/commands/dr-prd.md"
+    grep -qF 'default strategist route unchanged' "$REPO_ROOT/commands/dr-plan.md"
 }
 
 @test "[contract] strategist proposes assessment only and cannot route or write" {
@@ -510,6 +606,23 @@ replace_field() {
     grep -qF 'AUTOMATIC SPEC-GRAPH VALIDATION' "$COMMAND"
     grep -qF '## Post-Step Self-Verification Hook (Automatic)' "$COMMAND"
     grep -qF 'Stage Snapshot Emission' "$COMMAND"
+}
+
+@test "[contract] scope modes remain proposals and include uncertain do-nothing cost" {
+    FRAGMENT="$REPO_ROOT/plugins/product-discovery/skills/decision-record/strategist-scope-modes.md"
+    for mode in hold selective expand reduce; do
+        grep -qF "\`$mode\`" "$FRAGMENT"
+    done
+    grep -qF 'A mode is a scope description, not an outcome, approval, permission, or route.' "$FRAGMENT"
+    grep -qF 'record `unknown` when it has not been measured' "$FRAGMENT"
+    grep -qF 'does not authorize execution' "$FRAGMENT"
+    grep -qF 'scope_mode` must be `expand`, `selective`, `hold`, or `reduce`' \
+        "$REPO_ROOT/commands/dr-plan.md"
+    ! grep -qF 'selective_expand' "$REPO_ROOT/commands/dr-plan.md"
+    grep -qF '(`expand` | `selective` | `hold` | `reduce`)' \
+        "$REPO_ROOT/documentation/explanation/product-discovery-pack-boundaries.md"
+    ! grep -qF 'selective_expand' \
+        "$REPO_ROOT/documentation/explanation/product-discovery-pack-boundaries.md"
 }
 
 @test "[docs] shipped references describe the same mandatory redundancy gate" {

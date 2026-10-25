@@ -38,3 +38,7 @@ Your goal is to investigate external context for a task and produce a structured
   - `${DATARIM_RUNTIME:?}/skills/tech-stack/SKILL.md` (when evaluating technology choices)
 
 **Output**: Filled insights document at `datarim/insights/INSIGHTS-{task-id}.md` using template from `${DATARIM_RUNTIME:?}/templates/insights-template.md`.
+
+### Product discovery profile gate
+
+Only when the consuming project's `product-discovery` profile is selected and the `product-discovery` plugin is enabled, load `${DATARIM_RUNTIME:?}/local/skills/product-discovery/hypothesis-validation/researcher.product-discovery.md`. If either condition is false, do not load product-discovery method content. If the active profile requires hypothesis validation, also load `${DATARIM_RUNTIME:?}/local/skills/product-discovery/hypothesis-validation/SKILL.md` and only its linked method fragments needed for the named assumption. If the required agent fragment is missing or unreadable while the profile is active, stop this product-specific research path and report its exact runtime path; never silently skip it. Design a proportionate observation method and preserve raw observation references, missingness, and scope limits. Do not use model-generated prose in place of counts or claim that a protocol authorizes collection or side effects.

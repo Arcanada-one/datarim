@@ -17,7 +17,7 @@ SNAPSHOT_WRITER_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SNAPSHOT_WRITER_LIB_DIR}/resolve-datarim-root.sh"
 
 readonly SNAPSHOT_TASK_ID_RE='^[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*$'
-readonly SNAPSHOT_STAGE_RE='^(init|prd|plan|design|do|qa|verify|compliance|archive|edit|publish|write|dream|doctor|optimize|auto)$'
+readonly SNAPSHOT_STAGE_RE='^(init|prd|plan|design|do|qa|verify|compliance|archive|edit|publish|write|dream|doctor|optimize|auto|quick)$'
 readonly SNAPSHOT_MAX_BYTES=8192
 readonly SNAPSHOT_TRUNCATION_MARKER='<!-- snapshot-truncated, full ответ см. session jsonl -->'
 
@@ -147,15 +147,19 @@ _snapshot_writer_cleanup() {
     local status="${1:-0}"
 
     trap - EXIT INT TERM
-    if [ -n "$_snapshot_writer_cleanup_lock_dir" ]; then
-        release_plugin_lock "$_snapshot_writer_cleanup_lock_dir"
-    fi
-    rm -f -- \
+    if ! rm -f -- \
         "$_snapshot_writer_cleanup_tmp_path" \
         "$_snapshot_writer_cleanup_body_tmp" \
         "$_snapshot_writer_cleanup_raw_chunk" \
         "$_snapshot_writer_cleanup_fm_probe" \
-        "$_snapshot_writer_cleanup_fm_final"
+        "$_snapshot_writer_cleanup_fm_final"; then
+        [ "$status" -ne 0 ] || status=1
+    fi
+    if [ -n "$_snapshot_writer_cleanup_lock_dir" ]; then
+        if ! release_plugin_lock "$_snapshot_writer_cleanup_lock_dir"; then
+            [ "$status" -ne 0 ] || status=1
+        fi
+    fi
 
     _snapshot_writer_cleanup_lock_dir=""
     _snapshot_writer_cleanup_tmp_path=""
@@ -247,11 +251,7 @@ write_stage_snapshot() {
     local snapshots_dir="$root/datarim/snapshots"
     local lock_dir="$snapshots_dir/.lock.${task_id}"
     local final_path="$snapshots_dir/${task_id}.snapshot.md"
-    local tmp_path="${final_path}.tmp.$$"
-    local body_tmp="${tmp_path}.body"
-    local raw_chunk="${body_tmp}.raw"
-    local fm_probe_path="${tmp_path}.frontmatter.probe"
-    local fm_final_path="${tmp_path}.frontmatter"
+    local tmp_path body_tmp raw_chunk fm_probe_path fm_final_path
 
     mkdir -p "$snapshots_dir"
     chmod 700 "$snapshots_dir" 2>/dev/null || true
@@ -262,6 +262,18 @@ write_stage_snapshot() {
             "$timeout" "$lock_dir" >&2
         return 3
     fi
+    # Bash keeps the parent's $$ value in subshells. Use mktemp so concurrent
+    # callers cannot share intermediate paths even when they inherited one PID.
+    if ! tmp_path="$(mktemp "${final_path}.tmp.XXXXXXXXXX")"; then
+        printf 'write_stage_snapshot: cannot allocate unique temporary path for %s\n' \
+            "$final_path" >&2
+        release_plugin_lock "$lock_dir"
+        return 1
+    fi
+    body_tmp="${tmp_path}.body"
+    raw_chunk="${body_tmp}.raw"
+    fm_probe_path="${tmp_path}.frontmatter.probe"
+    fm_final_path="${tmp_path}.frontmatter"
     _snapshot_writer_cleanup_lock_dir="$lock_dir"
     _snapshot_writer_cleanup_tmp_path="$tmp_path"
     _snapshot_writer_cleanup_body_tmp="$body_tmp"

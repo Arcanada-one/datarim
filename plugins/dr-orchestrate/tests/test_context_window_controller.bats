@@ -185,10 +185,199 @@ win() { run bash "$CONTROLLER" evaluate --used-percent "$1" --window-tokens "$2"
 
 @test "concurrent prepare has exactly one winner per runtime instance" {
   seed_task
-  prepare_tx codex full_clear >"$BATS_TEST_TMPDIR/a" 2>/dev/null & a=$!
-  prepare_tx codex full_clear >"$BATS_TEST_TMPDIR/b" 2>/dev/null & b=$!
-  winners=0; wait "$a" && winners=$((winners + 1)); wait "$b" && winners=$((winners + 1))
-  [ "$winners" -eq 1 ] && [ "$(find "$DR_ORCH_CONTEXT_STATE/transactions" -name '*.json' | wc -l)" -eq 1 ]
+  a_dir="$BATS_TEST_TMPDIR/concurrent-a"; b_dir="$BATS_TEST_TMPDIR/concurrent-b"
+  mkdir -m 700 "$a_dir" "$b_dir"
+  (
+    date -u +%Y-%m-%dT%H:%M:%SZ >"$a_dir/start_utc"
+    if DR_ORCH_TEST_DIAGNOSTICS=prepare-lock-v1 prepare_tx codex full_clear; then child_exit=0; else child_exit=$?; fi
+    printf '%s\n' "$child_exit" >"$a_dir/prepare_exit"
+    date -u +%Y-%m-%dT%H:%M:%SZ >"$a_dir/end_utc"
+    exit "$child_exit"
+  ) >"$a_dir/stdout" 2>"$a_dir/stderr" & a=$!
+  (
+    date -u +%Y-%m-%dT%H:%M:%SZ >"$b_dir/start_utc"
+    if DR_ORCH_TEST_DIAGNOSTICS=prepare-lock-v1 prepare_tx codex full_clear; then child_exit=0; else child_exit=$?; fi
+    printf '%s\n' "$child_exit" >"$b_dir/prepare_exit"
+    date -u +%Y-%m-%dT%H:%M:%SZ >"$b_dir/end_utc"
+    exit "$child_exit"
+  ) >"$b_dir/stdout" 2>"$b_dir/stderr" & b=$!
+  if wait "$a"; then a_wait_exit=0; else a_wait_exit=$?; fi
+  if wait "$b"; then b_wait_exit=0; else b_wait_exit=$?; fi
+  winners=0
+  if [ "$a_wait_exit" -eq 0 ]; then winners=$((winners + 1)); fi
+  if [ "$b_wait_exit" -eq 0 ]; then winners=$((winners + 1)); fi
+  transaction_inventory="$(find "$DR_ORCH_CONTEXT_STATE/transactions" -type f -name '*.json' -print | LC_ALL=C sort)"
+  transaction_count="$(printf '%s\n' "$transaction_inventory" | awk 'NF { count++ } END { print count + 0 }')"
+
+  printf '# concurrent-prepare diagnostic\n' >&3
+  printf '# child=a pid=%s start_utc=%s end_utc=%s prepare_exit=%s wait_exit=%s\n' \
+    "$a" "$(cat "$a_dir/start_utc")" "$(cat "$a_dir/end_utc")" "$(cat "$a_dir/prepare_exit")" "$a_wait_exit" >&3
+  printf '# child=b pid=%s start_utc=%s end_utc=%s prepare_exit=%s wait_exit=%s\n' \
+    "$b" "$(cat "$b_dir/start_utc")" "$(cat "$b_dir/end_utc")" "$(cat "$b_dir/prepare_exit")" "$b_wait_exit" >&3
+  printf '# assertion_operands winners=%s transactions=%s expected=1,1\n' "$winners" "$transaction_count" >&3
+  printf '# transaction_inventory=%s\n' "${transaction_inventory:-<empty>}" >&3
+  for child_dir in "$a_dir" "$b_dir"; do
+    printf '# synthetic_stderr=%s\n' "$(basename "$child_dir")" >&3
+    if [ -s "$child_dir/stderr" ]; then
+      while IFS= read -r stderr_line; do printf '#   %s\n' "$stderr_line" >&3; done <"$child_dir/stderr"
+    else
+      printf '#   <empty>\n' >&3
+    fi
+  done
+  [ "$winners" -eq 1 ] && [ "$transaction_count" -eq 1 ]
+}
+
+@test "disabled prepare diagnostics add no process or lock-identity probes and preserve chmod status" {
+  run bash -c '
+    source "$1"
+    unset DR_ORCH_TEST_DIAGNOSTICS
+    birth_log="$2"; kind_log="$3"; identity_log="$4"; mono_log="$5"; lock="$6"
+    ctx_process_birth() { printf x >>"$birth_log"; printf 123; }
+    ctx_lock_kind() { printf x >>"$kind_log"; printf test; }
+    ctx_path_identity() { printf x >>"$identity_log"; printf identity; }
+    ctx_test_monotonic_time() { printf x >>"$mono_log"; printf 1.000000000; }
+    chmod() { return 23; }
+    if ctx_lock_acquire "$lock"; then exit 90; else lock_rc=$?; fi
+    [ "$lock_rc" -eq 23 ] || exit 91
+    [ "$(wc -c <"$birth_log")" -eq 1 ] || exit 92
+    [ ! -e "$kind_log" ] && [ ! -e "$identity_log" ] && [ ! -e "$mono_log" ] || exit 93
+  ' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" \
+    "$BATS_TEST_TMPDIR/birth-calls" "$BATS_TEST_TMPDIR/kind-calls" \
+    "$BATS_TEST_TMPDIR/identity-calls" "$BATS_TEST_TMPDIR/monotonic-calls" \
+    "$BATS_TEST_TMPDIR/chmod-failure.lock"
+  [ "$status" -eq 0 ]
+}
+
+@test "prepare trace has per-process sequence and monotonic ordering fields" {
+  run bash -c '
+    export CTX_TEST_TRACE_SEQ=77 CTX_TEST_TRACE_PID="${BASHPID:-$$}"
+    for child in a b; do
+      bash -c '\''
+        source "$1"
+        export DR_ORCH_TEST_DIAGNOSTICS=prepare-lock-v1 DR_ORCH_TEST_ALLOW_UNBOUND=1
+        ctx_test_trace diagnostic-first "" none none none none none observed
+        ctx_test_trace diagnostic-second "" none none none none none observed
+      '\'' _ "$1"
+    done
+  ' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" 2>&1
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | grep -c 'D5_PREPARE_TRACE/1 ' )" -eq 4 ] \
+    && awk '
+      /D5_PREPARE_TRACE\/1 / {
+        seq=""; pid=""; mono=""
+        for (i=1; i<=NF; i++) {
+          if ($i ~ /^seq=/) { split($i,a,"="); seq=a[2] }
+          if ($i ~ /^caller_pid=/) { split($i,a,"="); pid=a[2] }
+          if ($i ~ /^mono_s=/) { split($i,a,"="); mono=a[2] }
+        }
+        if (seq !~ /^[0-9]+$/ || mono !~ /^[0-9]+\.[0-9]{9}$/) exit 1
+        expected=(count%2)+1
+        if (seq != expected || (count>0 && mono+0 < previous+0)) exit 1
+        if (count%2==0) {
+          if (count>0 && pid==previous_pid) exit 1
+          pair_pid=pid
+        } else if (pid!=pair_pid) exit 1
+        previous=mono; count++
+        previous_pid=pid
+      }
+      END { if (count!=4) exit 1 }
+    ' <<<"$output"
+}
+
+@test "lock trace records fixture root and lock identities at acquire and release boundaries" {
+  run bash -c '
+    source "$1"
+    export DR_ORCH_TEST_DIAGNOSTICS=prepare-lock-v1 DR_ORCH_TEST_ALLOW_UNBOUND=1
+    root="$2"; mkdir -p "$root/instances"; lock="$root/instances/.lifecycle.lock"
+    ctx_test_trace lock-acquire-start "$lock" lifecycle none none none none waiting
+    mkdir "$lock"
+    ctx_test_trace lock-mkdir-acquired "$lock" lifecycle "$$" self none none acquired
+    ctx_test_trace lock-release-start "$lock" lifecycle "$$" self none none starting
+    rmdir "$lock"
+    ctx_test_trace lock-directory-remove-result "$lock" lifecycle "$$" self none 0 removed
+  ' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" \
+    "$BATS_TEST_TMPDIR/trace-fixture" 2>&1
+  [ "$status" -eq 0 ] \
+    && [ "$(printf '%s\n' "$output" | grep -c 'root_identity=[0-9][0-9]*:[0-9][0-9]*')" -eq 4 ] \
+    && [[ "$output" == *"event=lock-acquire-start caller_pid="*"lock_identity=absent"*"event=lock-mkdir-acquired"*"lock_identity="*"event=lock-release-start"*"event=lock-directory-remove-result"*"lock_identity=absent"* ]] \
+    && [[ "$output" != *"$BATS_TEST_TMPDIR"* ]]
+}
+
+@test "prepare diagnostic state is allowlisted and newline content is not emitted" {
+  malformed_state=$'unexpected\nPRIVATE_STATE_CANARY'
+  run bash -c '
+    source "$1"
+    export DR_ORCH_TEST_DIAGNOSTICS=prepare-lock-v1 DR_ORCH_TEST_ALLOW_UNBOUND=1
+    ctx_test_trace transaction-scan-visible "" transaction-store none none none none matching-instance "" 1 "$2" 2>&1
+  ' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" "$malformed_state"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"tx_state=unknown"* ]]
+  [[ "$output" != *"PRIVATE_STATE_CANARY"* ]]
+  [ "$(printf '%s\n' "$output" | wc -l)" -eq 1 ]
+}
+
+@test "prepare diagnostics preserve mkdir, owner-write and chmod outcomes" {
+  run bash -c '
+    source "$1"
+    export DR_ORCH_TEST_DIAGNOSTICS=prepare-lock-v1 DR_ORCH_TEST_ALLOW_UNBOUND=1
+    lock="$2"; mkdir_calls=0
+    mkdir() { mkdir_calls=$((mkdir_calls + 1)); if [ "$mkdir_calls" -eq 1 ]; then return 17; else command mkdir "$@"; fi; }
+    chmod() { return 23; }
+    if ctx_lock_acquire "$lock"; then acquire_rc=0; else acquire_rc=$?; fi
+    printf "acquire_rc=%s\\n" "$acquire_rc"
+    printf() { if [ "$1" = "%s %s\\n" ]; then return 22; else builtin printf "$@"; fi; }
+    if ctx_lock_acquire "$4"; then write_rc=0; else write_rc=$?; fi
+    builtin printf "owner_write_failure_acquire_rc=%s\\n" "$write_rc"
+    exec 2>&-
+    if ctx_lock_acquire "$3"; then closed_rc=0; else closed_rc=$?; fi
+    [ "$closed_rc" -eq 23 ] || exit 94
+    builtin printf "closed_stderr_acquire_rc=%s\\n" "$closed_rc"
+  ' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" \
+    "$BATS_TEST_TMPDIR/mkdir-then-chmod-failure.lock" "$BATS_TEST_TMPDIR/closed-stderr.lock" \
+    "$BATS_TEST_TMPDIR/owner-write-failure.lock" 2>&1
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"event=lock-mkdir-result "*"probe_rc=17 outcome=failed"* ]]
+  [[ "$output" == *"event=owner-mode-result "*"probe_rc=23 outcome=failed"* ]]
+  [[ "$output" == *"event=owner-record-write-result "*"probe_rc=22 outcome=failed"* ]]
+  [[ "$output" == *"acquire_rc=23"*"owner_write_failure_acquire_rc=23"*"closed_stderr_acquire_rc=23"* ]]
+  [[ "$output" != *"outcome=contended"* ]]
+}
+
+@test "lock release preserves success while tracing raw remove outcomes" {
+  run bash -c '
+    source "$1"
+    export DR_ORCH_TEST_DIAGNOSTICS=prepare-lock-v1 DR_ORCH_TEST_ALLOW_UNBOUND=1
+    rm() { return 13; }
+    rmdir() { return 14; }
+    if ctx_lock_release "$2"; then release_rc=0; else release_rc=$?; fi
+    printf "release_rc=%s\\n" "$release_rc"
+  ' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" \
+    "$BATS_TEST_TMPDIR/release.lock" 2>&1
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"event=lock-owner-remove-result "*"probe_rc=13 outcome=failed"* ]]
+  [[ "$output" == *"event=lock-directory-remove-result "*"probe_rc=14 outcome=failed"* ]]
+  [[ "$output" == *"release_rc=0"* ]]
+}
+
+@test "lock acquisition emits a bounded failure and timeout result" {
+  run bash -c '
+    source "$1"
+    export DR_ORCH_TEST_DIAGNOSTICS=prepare-lock-v1 DR_ORCH_TEST_ALLOW_UNBOUND=1
+    mkdir() { return 17; }
+    sleep() { :; }
+    date() { printf 1.0; }
+    ctx_process_birth() { printf 123; }
+    ctx_path_identity() { return 1; }
+    ctx_secure_regular() { return 1; }
+    if ctx_lock_acquire "$2"; then acquire_rc=0; else acquire_rc=$?; fi
+    printf "acquire_rc=%s\\n" "$acquire_rc"
+  ' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" \
+    "$BATS_TEST_TMPDIR/permanent-mkdir-failure.lock" 2>&1
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"event=lock-mkdir-result "*"probe_rc=17 outcome=failed"* ]]
+  [[ "$output" == *"event=lock-acquire-timeout "*"probe_rc=17 outcome=timeout"*"extra=300"* ]]
+  [[ "$output" == *"acquire_rc=1"* ]]
+  [ "$(printf '%s\n' "$output" | grep -c 'event=lock-mkdir-result ')" -eq 300 ]
 }
 
 @test "transaction cap fails closed when all 64 records are protected" {

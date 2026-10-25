@@ -1,0 +1,130 @@
+{
+  "exemptions": [
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/bats.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-152a40343efd93ad: workflow shell caller closure not measured: job customer-delivery-aggregate step 1: line 1: dynamic load/substitution; job customer-delivery-aggregate step 2: local action/checkout path scope unresolved; job customer-delivery-aggregate step 3: local action/checkout path scope unresolved; job customer-delivery-aggregate step 4: line 2: multiline/opaque shell statement; job customer-delivery-aggregate step 4: line 3: wrapper options/child command unresolved; job customer-delivery-aggregate step 4: line 5: multiline/opaque shell statement; job customer-delivery Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/dev-tools-lint.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-5ff5fa17404fc7d3: workflow shell caller closure not measured: job bats-self-tests step 1: line 1: wrapper execution scope/options unresolved; job dr-auto-reassert-wiring step 2: line 1: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 2: multiline/opaque shell statement; job dr-auto-reassert-wiring step 2: line 3: multiline/opaque shell statement; job linter-run step 1: line 1: multiline/opaque shell statement; job linter-run step 1: line 2: multiline/opaque shell statement; job linter-run step 1: line 3: multiline/opaque shell statement; job linter- Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/dr-orchestrate-contract.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-85b0e5f19e1ca680: workflow shell caller closure not measured: job schemathesis step 2: line 1: wrapper execution scope/options unresolved; job schemathesis step 3: line 11: dynamic load/substitution; job schemathesis step 3: line 7: multiline/opaque shell statement; job schemathesis step 4: line 1: multiline/opaque shell statement; job schemathesis step 4: line 2: multiline/opaque shell statement; job schemathesis step 4: line 3: wrapper options/child command unresolved Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/framework-gates.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-6c171afc799257da: workflow shell caller closure not measured: job archive-landing step 1: line 2: wrapper execution scope/options unresolved Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/frontmatter-mirror.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-ac18f02b39b4d139: workflow shell caller closure not measured: job self-tests step 1: line 1: wrapper execution scope/options unresolved Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/gate-token-registry-sync.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-09c562dacfcf9489: workflow shell caller closure not measured: job registry-sync-check step 1: line 1: multiline/opaque shell statement Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/network-exposure-lint.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-6e4f603fa997f347: workflow shell caller closure not measured: job lint step 0: line 2: dynamic command/alias/eval; job lint step 2: local action/checkout path scope unresolved; job lint step 3: line 4: multiline/opaque shell statement; job lint step 3: line 6: multiline/opaque shell statement; job lint step 3: line 7: multiline/opaque shell statement; job lint step 3: line 8: dynamic command/alias/eval; job lint step 4: line 8: missing/ambiguous literal helper ./.datarim/dev-tools/network-exposure-check.sh Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/node-tests.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-71ec1c1168844989: workflow shell caller closure not measured: job node-test step 2: line 11: multiline/opaque shell statement; job node-test step 2: line 12: multiline/opaque shell statement; job node-test step 2: line 13: multiline/opaque shell statement; job node-test step 2: line 14: dynamic command/alias/eval; job node-test step 2: line 3: multiline/opaque shell statement; job node-test step 2: line 4: dynamic load/substitution Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/personal-id-lint.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-07b8843df453ad3f: workflow shell caller closure not measured: job personal-id-lint step 1: line 7: dynamic load/substitution Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/public-surface-lint.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-73a331778caeec7d: workflow shell caller closure not measured: job lint step 1: local action/checkout path scope unresolved; job lint step 3: line 5: missing/ambiguous literal helper ./.datarim/dev-tools/public-surface-lint.sh Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/release.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-87db21a973eed4fe: workflow shell caller closure not measured: job classify step 1: line 11: dynamic load/substitution; job classify step 1: line 14: dynamic load/substitution; job classify step 1: line 35: dynamic command/alias/eval; job classify step 1: line 36: dynamic command/alias/eval; job classify step 1: line 38: multiline/opaque shell statement; job classify step 1: line 39: multiline/opaque shell statement; job classify step 1: line 42: dynamic load/substitution; job classify step 1: line 60: dynamic load/substitution; job classify step 1: line 9: dynamic load/substi Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/reusable-security-audit.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-ed61203228de3f00: workflow shell caller closure not measured: job audit step 1: local action/checkout path scope unresolved; job audit step 2: line 2: missing/ambiguous literal helper ./.datarim/dev-tools/check-security-policy.sh; job audit step 3: line 3: multiline/opaque shell statement; job audit step 3: line 4: wrapper options/child command unresolved; job audit step 6: line 3: dynamic load/substitution; job audit step 6: line 7: multiline/opaque shell statement; job audit step 7: line 20: dynamic load/substitution; job audit step 8: line 43: multiline/opaque shell statem Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/sanity-dual-copy.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-64f89239b966dac9: workflow shell caller closure not measured: job diff step 1: line 4: wrapper options/child command unresolved Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/scorecard.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-2e3112f4e81a9c47: workflow configuration not measured: trigger outside this bounded checker: branch_protection_rule Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/security-stale-trigger.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-552822c6dbc3fece: workflow shell caller closure not measured: job scan step 1: line 3: multiline/opaque shell statement; job scan step 1: line 5: wrapper execution scope/options unresolved; job scan step 3: line 10: dynamic load/substitution; job scan step 3: line 14: dynamic load/substitution; job scan step 3: line 20: dynamic load/substitution; job scan step 3: line 21: dynamic load/substitution; job scan step 3: line 22: dynamic load/substitution; job scan step 3: line 23: dynamic load/substitution; job scan step 3: line 24: dynamic load/substitution; job scan step 3: line Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/security.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-6102d4f2cddb56c4: workflow shell caller closure not measured: job actionlint step 1: directory transition has unresolved execution cwd; job actionlint step 1: line 8: wrapper execution scope/options unresolved; job bandit-extracted step 3: line 2: dynamic load/substitution; job doc-refs step 1: line 3: unsupported loader/interpreter options; job doc-refs step 1: line 6: multiline/opaque shell statement; job doc-refs step 1: line 8: wrapper execution scope/options unresolved; job doc-refs step 1: line 9: wrapper execution scope/options unresolved; job gitleaks step 1: line 10: Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "NOT_MEASURED_WORKFLOW_CLOSURE",
+      "entity": "code_unit:.github/workflows/token-health-probe.yml",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "This workflow is unchanged between base and head and is not modified by D5A-T3.6. The canonical workflow verifier reports this path NOT_MEASURED because it cannot resolve the recorded dynamic, multiline, local-action, or unsupported-trigger closure: v-workflow-config-fd7ca5e632c8dbe8: workflow shell caller closure not measured: job probe step 1: line 5: dynamic load/substitution; job probe step 2: line 3: multiline/opaque shell statement; job probe step 2: line 4: wrapper options/child command unresolved; job probe step 3: line 4: dynamic load/substitution; job probe step 4: line 10: dynamic command/alias/eval; job probe step 4: line 7: multiline/opaque shell statement; job probe step 4: line 8: multiline/opaque shell statement; job probe step 4: line 9: multiline/opaque shell statement Remeasure with a closure-capable workflow verifier before any change to this workflow or before expiry."
+    },
+    {
+      "code": "CANARY_CONSUMER_DIGEST_FORMAT_DEFECT",
+      "entity": "code_unit:tests/dr-product-discovery-agent-fragments.bats",
+      "expires_at_utc": "2026-10-28T23:59:59Z",
+      "owner": "Arcanada",
+      "reason": "The source-bound canary exists and measured the product-fragment suite plus the framework-map suite: receipts/canary/d5a-t3.6/canary-result.json SHA256=b7a92f3c61f8145bf2d4e50ea0185a38ae280dd2be67d35ce435b315d666d65b; it records process exit 0 and complete 8/8 TAP stdout (sha256:980f237caca45a3db0c265d4b042d3a881d0b472305d8858331d8b68d5a57fa3, 487 bytes), with the complete inventory in receipts/graph/d5a-t3.6-bats.log (SHA256=980f237caca45a3db0c265d4b042d3a881d0b472305d8858331d8b68d5a57fa3). The canary source commit is d16a1ae356074ec158295765bfa6cdb3b8a27b21; its execution inventory uses a neutral /var/tmp root to avoid personal host paths. Canonical program-main verifier issue 14ec7543-b540-4e08-b295-72ef3d7a19f1 (owner DEV-NATIVE-VERIFIERS) leaves the original code-unit verdict not_measured because it compares the raw 64-hex process observation digest with a sha256:-prefixed helper digest. This exemption records that admission-consumer defect and does not substitute for the committed canary. reverse_if: issue 14ec7543 merges; then re-issue the CAR."
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 4.3.7
+> **Version:** 4.6.1
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** `AGENTS.md` is the sole project-instruction format. Install this framework only inside an explicitly enabled project. Codex, Claude Code, and Cursor use their native AGENTS loaders; no alternate instruction files or import adapters are installed. See `documentation/reference/jev-cli.md` for client requirements.
 > **Installing Datarim?** This file holds the framework's runtime rules, which the `/dr-*` commands load after installation; it is not an install guide. To install Datarim (and optionally Jev) into a project, follow `INSTALL.md` at the root of the source repository (https://github.com/Arcanada-one/datarim/blob/main/INSTALL.md), including its section for AI agents. Do not install into, or start task work in, the Datarim source checkout.
@@ -160,7 +160,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `session-handoff-replay.md` -- Consumer contract for `/dr-continue`: read session artefact in clean window, re-verify every claim via live probes (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrade provenance tags, route to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. Shares bilingual replay renderer with `/dr-next` via `skills/dr-next-snapshot-replay/SKILL.md § Shared Replay Renderer`. (loaded by: /dr-continue)
 - `context-window-self-clearing.md` — Default-off orchestrator contract for deterministic Claude Code/Codex pressure thresholds, checkpoint-before-reset transactions, fixed compact/clear instructions, and snapshot-first continuation. (loaded by: /dr-orchestrate plugin runtime)
 
-Skill files: `${DATARIM_RUNTIME:?}/skills/{name}/SKILL.md` (80 skills, 13 with supporting fragment directories — a "supporting fragment directory" is a skill folder that ships at least one sibling `.md` beside its `SKILL.md`)
+Skill files: `${DATARIM_RUNTIME:?}/skills/{name}/SKILL.md` (81 skills, 13 with supporting fragment directories — a "supporting fragment directory" is a skill folder that ships at least one sibling `.md` beside its `SKILL.md`)
 
 > **Available since v1.16.0:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant.
 

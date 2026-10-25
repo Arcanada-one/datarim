@@ -125,7 +125,7 @@ validate_task_snapshot() {
 }
 
 prepare() {
-  local task workspace runtime instance incarnation pane conversation mode snap root id file tmp stage task_desc lock lifecycle_lock map meta candidate state count snap_digest snap_identity task_desc_identity task_desc_digest generation generation_file created_at created_seq
+  local task workspace runtime instance incarnation pane conversation mode snap root id file tmp stage task_desc lock lifecycle_lock map meta candidate state count scan_matches=0 snap_digest snap_identity task_desc_identity task_desc_digest generation generation_file created_at created_seq
   task="$(arg_value --task "$@")"; workspace="$(arg_value --workspace "$@")"
   runtime="$(arg_value --runtime "$@")"; instance="$(arg_value --instance "$@")"
   incarnation="$(arg_value --incarnation "$@" 2>/dev/null || true)"
@@ -139,9 +139,12 @@ prepare() {
   ctx_secure_parent "$task_desc" && ctx_secure_owner_regular "$task_desc" || die 'invalid task description'
   snap_identity="$(ctx_identity "$snap")"; snap_digest="$(ctx_sha256 "$snap")"; task_desc_identity="$(ctx_identity "$task_desc")"; task_desc_digest="$(ctx_sha256 "$task_desc")"
   stage="$(awk '/^stage: /{print $2; exit}' "$snap")"; [ "$(ctx_identity "$snap")" = "$snap_identity" ] && [ "$(ctx_sha256 "$snap")" = "$snap_digest" ] || die 'snapshot changed during prepare'; root="$(ctx_state_root)"
+  ctx_test_trace prepare-root none none none none none none ready "$root"
   ctx_state_init; lifecycle_lock="$root/instances/.lifecycle.lock"; lock="$root/transactions/.store.lock"
   ctx_lock_acquire "$lifecycle_lock" || die 'instance lifecycle lock unavailable'
   ctx_lock_acquire "$lock" || { ctx_lock_release "$lifecycle_lock"; die 'transaction store lock unavailable'; }
+  ctx_test_trace critical-section-enter "$lifecycle_lock" lifecycle none none none none entered "$root"
+  ctx_test_trace critical-section-enter "$lock" transaction-store none none none none entered "$root"
   if [ "${DR_ORCH_TEST_ALLOW_UNBOUND:-0}" != 1 ]; then
     map="$root/active/$(printf '%s' "$pane" | tr -c 'A-Za-z0-9_.-' '_').map"; meta="$root/instances/$instance.meta.json"
     if ! ctx_secure_regular "$map" 600 || [ "$(cat "$map")" != "$instance" ] || [ -e "$root/instances/$instance.retired" ] || ! ctx_secure_regular "$meta" 600 ||
@@ -149,11 +152,13 @@ prepare() {
       ctx_lock_release "$lock"; ctx_lock_release "$lifecycle_lock"; die 'runtime instance changed before prepare'
     fi
   fi
+  ctx_test_trace transaction-scan-start "$lock" transaction-store none none none none started "$root"
   for candidate in "$root"/transactions/*.json; do
     [ -f "$candidate" ] || continue
     [ "$(jq -r '.instance' "$candidate")" = "$instance" ] || continue
-    state="$(jq -r '.state' "$candidate")"; if ! ctx_terminal_state "$state"; then ctx_lock_release "$lock"; ctx_lock_release "$lifecycle_lock"; die 'instance already has nonterminal transaction'; fi
+    state="$(jq -r '.state' "$candidate")"; scan_matches=$((scan_matches + 1)); ctx_test_trace transaction-scan-visible "$lock" transaction-store none none none none matching-instance "$root" "$scan_matches" "$state"; if ! ctx_terminal_state "$state"; then ctx_test_trace transaction-scan-refusal "$lock" transaction-store none none none none nonterminal "$root" "$scan_matches" "$state"; ctx_lock_release "$lock"; ctx_lock_release "$lifecycle_lock"; die 'instance already has nonterminal transaction'; fi
   done
+  ctx_test_trace transaction-scan-complete "$lock" transaction-store none none none none complete "$root" "$scan_matches"
   count="$(find "$root/transactions" -maxdepth 1 -name '*.json' -type f | wc -l)"
   while [ "$count" -ge 64 ]; do
     candidate="$(for file in "$root"/transactions/*.json; do [ -f "$file" ] || continue; state="$(jq -r '.state' "$file")"; if ctx_terminal_state "$state"; then printf '%020d\t%s\n' "$(jq -r '.created_seq' "$file")" "$file"; fi; done | sort -n | head -1)"; candidate="${candidate#*$'\t'}"
@@ -168,8 +173,11 @@ prepare() {
     --arg workspace "$workspace" --arg snapshot "datarim/snapshots/$task.snapshot.md" --arg digest "$snap_digest" --arg snapshot_identity "$snap_identity" --arg task_desc "datarim/tasks/$task-task-description.md" --arg task_desc_identity "$task_desc_identity" --arg task_desc_digest "$task_desc_digest" --argjson generation "$generation" --arg created_at "$created_at" --argjson created_seq "$created_seq" \
     '{id:$id,task:$task,runtime:$runtime,instance:$instance,incarnation:$incarnation,pane:$pane,conversation:$conversation,mode:$mode,stage:$stage,workspace:$workspace,snapshot:$snapshot,snapshot_digest:$digest,snapshot_identity:$snapshot_identity,task_description:$task_desc,task_description_identity:$task_desc_identity,task_description_digest:$task_desc_digest,generation:$generation,created_at:$created_at,created_seq:$created_seq,state:"prepared"}' >"$tmp"
   [ "$(wc -c <"$tmp")" -le 4096 ] || { rm -f "$tmp"; ctx_lock_release "$lock"; ctx_lock_release "$lifecycle_lock"; die 'transaction exceeds size cap'; }
-  ctx_atomic_publish "$tmp" "$file" 600 || { rm -f "$tmp"; ctx_lock_release "$lock"; ctx_lock_release "$lifecycle_lock"; die 'transaction publish failed'; }; rm -f "$tmp"
-  tmp="$(mktemp)"; printf '%s\n' "$id" >"$tmp"; ctx_atomic_publish "$tmp" "$root/instances/$instance.current" 600 || { rm -f "$tmp" "$file"; ctx_lock_release "$lock"; ctx_lock_release "$lifecycle_lock"; die 'current-pointer publish failed'; }
+  ctx_test_trace transaction-publish-start "$lock" transaction-store none none none none starting "$root" "$scan_matches" prepared
+  ctx_atomic_publish "$tmp" "$file" 600 || { ctx_test_trace transaction-publish-result "$lock" transaction-store none none none none failed "$root" "$scan_matches" prepared; rm -f "$tmp"; ctx_lock_release "$lock"; ctx_lock_release "$lifecycle_lock"; die 'transaction publish failed'; }; rm -f "$tmp"
+  ctx_test_trace transaction-publish-result "$lock" transaction-store none none none none published "$root" "$scan_matches" prepared
+  tmp="$(mktemp)"; printf '%s\n' "$id" >"$tmp"; ctx_atomic_publish "$tmp" "$root/instances/$instance.current" 600 || { ctx_test_trace current-pointer-publish-result "$lock" transaction-store none none none none failed "$root" "$scan_matches" prepared; rm -f "$tmp" "$file"; ctx_lock_release "$lock"; ctx_lock_release "$lifecycle_lock"; die 'current-pointer publish failed'; }
+  ctx_test_trace current-pointer-publish-result "$lock" transaction-store none none none none published "$root" "$scan_matches" prepared
   rm -f "$tmp"; ctx_lock_release "$lock"; ctx_lock_release "$lifecycle_lock"; audit_tx "$file" prepared success || die 'prepare audit failed'; printf '%s\n' "$id"
 }
 

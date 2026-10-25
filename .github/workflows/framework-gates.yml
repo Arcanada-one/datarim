@@ -186,3 +186,22 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_framework_*.py' -v
           python3 dev-tools/framework-graph.py --check
           python3 dev-tools/check-template-targets.py
+
+  test-value-card:
+    name: Test value card validator and controls
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install validator dependency
+        run: python3 -m pip install pyyaml==6.0.2
+      - name: Install bats-core
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bats
+      - name: Run synthetic card controls and fragment wiring
+        run: bats tests/test-test-value-card.bats tests/tdd-discipline-wiring.bats

@@ -4,6 +4,30 @@ import argparse
 from pathlib import Path
 import re
 
+import yaml
+
+
+def template_target_exists(root, name):
+    """Resolve core templates and manifest-declared plugin template namespaces."""
+    core = root/'templates'/name
+    if core.is_file() and core.resolve().is_relative_to(root.resolve()):
+        return True
+    plugin_id, separator, relative = name.partition('/')
+    if not separator or not relative or Path(relative).is_absolute():
+        return False
+    plugin_root = root/'plugins'/plugin_id
+    manifest = plugin_root/'plugin.yaml'
+    if not manifest.is_file():
+        return False
+    try:
+        metadata = yaml.safe_load(manifest.read_text()) or {}
+    except (yaml.YAMLError, OSError):
+        return False
+    if 'templates' not in metadata.get('categories', []):
+        return False
+    target = plugin_root/'templates'/relative
+    return target.is_file() and target.resolve().is_relative_to(plugin_root.resolve())
+
 
 def check(root):
     failures = []
@@ -46,8 +70,7 @@ def check(root):
                 if not Path(name).suffix or name.endswith('/'):
                     continue
                 checked += 1
-                target = root/'templates'/name
-                if not target.is_file() or not target.resolve().is_relative_to(root.resolve()):
+                if not template_target_exists(root, name):
                     failures.append(f'{file.relative_to(root)}:{number}: missing templates/{name}')
     return checked, failures
 

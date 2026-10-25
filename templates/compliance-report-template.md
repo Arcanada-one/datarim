@@ -45,6 +45,37 @@ Apply the Russian banlist only when this artifact's prose is Russian.}
 
 {What was created, changed or confirmed; relative paths and evidence links.}
 
+### Security finding evidence <!-- datarim:security-finding-evidence -->
+
+Record each security finding's current evidence label, reproduction state,
+assessment scope, scope, mechanism and evidence references. An empty list means
+that this section contains no classified finding records; it does not prove a
+clean scan or that no findings exist. Do not use author assertions as runtime
+evidence. The validator checks label consistency and required fields only; it
+does not authenticate evidence references or execute security checks.
+
+<!-- security-finding-evidence:begin -->
+```json
+{
+  "schema": "security-finding-evidence/v1",
+  "findings": [
+    {
+      "id": "F-1",
+      "evidence_label": "hypothesis",
+      "reproduction_state": "not_attempted",
+      "assessment_scope": "static",
+      "scope": "Name the bounded source or behavior under assessment.",
+      "mechanism": "Describe the suspected or supported security mechanism.",
+      "evidence_refs": [],
+      "origin": "author_reported",
+      "witness": null,
+      "custody_ref": null
+    }
+  ]
+}
+```
+<!-- security-finding-evidence:end -->
+
 ## Next steps <!-- datarim:next-steps -->
 
 {State that all authorized work is complete only when supported; otherwise
