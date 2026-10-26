@@ -128,10 +128,13 @@ def write_git_exclude(root, rules):
     path, prefix = found
     text = path.read_text() if path.exists() else ''
     begin, end = f'{EXCLUDE_BEGIN} /{prefix}', f'{EXCLUDE_END} /{prefix}'
-    if begin in text and end in text:
-        before, rest = text.split(begin, 1)
-        _, after = rest.split(end, 1)
-        text = before.rstrip('\n') + ('\n' if before.strip() else '') + after.lstrip('\n')
+    lines = text.splitlines(keepends=True)
+    starts = [i for i, line in enumerate(lines) if line.rstrip('\r\n') == begin]
+    ends = [i for i, line in enumerate(lines) if line.rstrip('\r\n') == end]
+    if starts or ends:
+        if len(starts) != 1 or len(ends) != 1 or starts[0] >= ends[0]:
+            raise ValueError('Malformed Datarim-managed Git exclude block')
+        text = ''.join(lines[:starts[0]] + lines[ends[0]+1:])
     if rules:
         def scoped(rule):
             return ('!/' + prefix + rule[2:] if rule.startswith('!/') else

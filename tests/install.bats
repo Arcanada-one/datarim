@@ -197,6 +197,25 @@ PY
     [ ! -e "$PROJECT/datarim/AGENTS.md" ]
 }
 
+@test "team-neutral legacy update preserves a preceding nested Git exclude block" {
+    git -C "$PROJECT" init -q
+    printf '# Team instructions\n' > "$PROJECT/AGENTS.md"
+    install_answered --client all --permissions ask --without-jev
+    [ "$status" -eq 0 ]
+    cp "$PROJECT/.git/info/exclude" "$BATS_TEST_TMPDIR/root-exclude"
+    printf '# datarim-project:begin /nested/\n/nested/private/\n# datarim-project:end /nested/\n' > "$PROJECT/.git/info/exclude"
+    cat "$BATS_TEST_TMPDIR/root-exclude" >> "$PROJECT/.git/info/exclude"
+    run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT" --client all --permissions ask --without-jev --team-neutral
+    if [ "$status" -ne 0 ]; then echo "nested legacy update returned $status: $output" >&3; fi
+    [ "$status" -eq 0 ]
+    run grep -Fx '# datarim-project:begin /nested/' "$PROJECT/.git/info/exclude"
+    [ "$status" -eq 0 ]
+    run grep -Fx '/nested/private/' "$PROJECT/.git/info/exclude"
+    [ "$status" -eq 0 ]
+    run grep -Fx '# datarim-project:end /nested/' "$PROJECT/.git/info/exclude"
+    [ "$status" -eq 0 ]
+}
+
 @test "team-neutral install refuses project ignore rules and tracked private state" {
     git -C "$PROJECT" init -q
     printf '/datarim/\n' > "$PROJECT/.gitignore"
