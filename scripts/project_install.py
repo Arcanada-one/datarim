@@ -153,7 +153,9 @@ def team_neutral_preflight(root):
     private = [path for path in tracked if path not in allowed[:2] and not path.startswith(allowed[2])]
     if private:
         raise ValueError('Tracked private Datarim paths prevent team-neutral mode: '+', '.join(private[:8]))
-    for relative in allowed[:2] + ('datarim/local/manifest.json',):
+    local_paths = ('datarim/local/manifest.json', 'datarim/local/team-neutral-probe.md')
+    existing_local = tuple(path.relative_to(root).as_posix() for path in (root / 'datarim/local').rglob('*') if path.is_file()) if (root / 'datarim/local').exists() else ()
+    for relative in allowed[:2] + local_paths + existing_local:
         result = subprocess.run(['git', '-C', str(root), 'check-ignore', '-v', '--no-index', '--', relative],
                                 capture_output=True, text=True)
         if result.returncode not in (0, 1):
