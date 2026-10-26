@@ -80,6 +80,19 @@ setup() { setup_project_fixture; }
     [ ! -e "$PROJECT/.datarim-runtime" ]
 }
 
+@test "team-neutral install accepts explicit project unignore rules" {
+    git -C "$PROJECT" init -q
+    printf '/datarim/*\n!/datarim/AGENTS.md\n!/datarim/config.yaml\n!/datarim/local/\n' > "$PROJECT/.gitignore"
+    git -C "$PROJECT" add .gitignore
+    git -C "$PROJECT" -c user.email=t@t -c user.name=t commit -qm init
+    install_answered --client all --permissions ask --without-jev --team-neutral --init
+    [ "$status" -eq 0 ]
+    run git -C "$PROJECT" status --porcelain --untracked-files=all
+    [[ "$output" == *'datarim/AGENTS.md'* ]]
+    [[ "$output" == *'datarim/config.yaml'* ]]
+    [[ "$output" == *'datarim/local/manifest.json'* ]]
+}
+
 @test "project initialization creates only local task state" {
     install_answered --client all --permissions ask --without-jev --init
     [ "$status" -eq 0 ]
