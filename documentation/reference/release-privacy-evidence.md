@@ -8,6 +8,8 @@ The repository owner is the protected-identifier inventory custodian and authori
 
 The workflow must not log private patterns, matches, or overlay line counts. It checks the selected overlay's complete bytes against the custodian-held revision commitment before running the personal-ID gate and prints only a short fingerprint derived from the opaque revision ID. The fingerprint is a log label, not the comparison proof. A release preflight separately verifies every host copy used for that release against the same protected commitment and records the exact revision ID in the protected receipt. Any missing or mismatched copy is `not_measured`/HOLD.
 
+After signing and before publishing, the release workflow runs `scripts/release_privacy_scan.py` against the eleven assets it actually built. The strict scanner opens archive members, checks alternate encodings and decoded JSON values, validates signing-bundle certificates, and refuses an unreadable or unsupported asset. This is a produced-byte check; it does not replace the custodian's attributable scope/completeness receipt, the pre-tag candidate comparison, or independent semantic review.
+
 Keep raw inventory values and match material inside the custodian's authorized protected system. Give a reviewer only the least information needed to verify custody, scope, artifact binding, coverage, and result. Do not put raw values, raw matches, private pattern lists, or a guessable unkeyed digest of the private list in a repository, pull request, task comment, prompt, or ordinary log. Use an opaque inventory version or an attributable custodian-issued receipt. If a keyed commitment is necessary, the custodian retains the key and controls disclosure.
 
 ## Selector precedence and policy fit

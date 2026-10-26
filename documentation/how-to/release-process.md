@@ -242,9 +242,16 @@ checked-out `main` SHA, then:
 6. Computes a CycloneDX SBOM with `syft scan dir:.`.
 7. Signs the tarball and the SBOM with `cosign sign-blob`
    (keyless OIDC).
-8. Attests SLSA L2 build provenance for the tarball.
-9. Publishes a GitHub Release with all artefacts attached. RC tags are
+8. Re-verifies the protected inventory revision and scans all eleven produced
+   assets, including archive members and signing bundles, before publication.
+9. Attests SLSA L2 build provenance for the tarball.
+10. Publishes a GitHub Release with all artefacts attached. RC tags are
    marked as prerelease.
+
+An unreadable member or malformed bundle stops the release job. The separate
+pre-tag custodian comparison and independent semantic review remain bound to
+the exact source candidate; CI's produced-byte scan does not establish the
+custodian's inventory completeness by itself.
 
 Watch the run:
 

@@ -20,7 +20,7 @@ assert 'secrets.PERSONAL_ID_OVERLAY_REVISION' in step['env']['DATARIM_PERSONAL_I
 assert 'secrets.PERSONAL_ID_OVERLAY_SHA256' in step['env']['DATARIM_PERSONAL_ID_OVERLAY_SHA256']
 script = step['run']
 for required in ('base64 --decode', 'verify-personal-id-overlay-revision.py',
-                 'personal-id-gate.sh --paths', '.cosign.bundle', '--check'):
+                 'release_privacy_scan.py', '.cosign.bundle', '--asset'):
     assert required in script
 assert 'test -n "${PERSONAL_ID_OVERLAY_B64:-}"' in script
 PY
