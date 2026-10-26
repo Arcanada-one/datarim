@@ -82,7 +82,10 @@ PY
 
 @test "the workflow verifies the private revision without logging overlay size" {
     grep -q 'verify-personal-id-overlay-revision.py' "$WF"
-    grep -q "printf '%s' \"\$PERSONAL_ID_OVERLAY\"" "$WF"
+    # Text secret transport may drop a terminal newline; decode the protected
+    # byte-exact representation before checking the custodian commitment.
+    grep -q 'secrets.PERSONAL_ID_OVERLAY_B64' "$WF"
+    grep -q 'base64 --decode' "$WF"
     run grep -nE 'grep -[[:alpha:]]*c|pattern\(s\)|wc -l.*overlay' "$WF"
     [ "$status" -eq 1 ]
     python3 - "$WF" <<'PY'

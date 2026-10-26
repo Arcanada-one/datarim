@@ -12,7 +12,7 @@ Keep raw inventory values and match material inside the custodian's authorized p
 
 ## Selector precedence and policy fit
 
-The workflow may provide a temporary `DATARIM_PERSONAL_ID_OVERLAY` file from its `PERSONAL_ID_OVERLAY` repository secret. The checker selects that explicit value only if it is nonempty and a regular file. Otherwise, it falls through to `personal-id-forbidden.regex` under `${DATARIM_LOCAL:-$HOME/.claude/local}`. If no usable overlay is selected, the checker uses its shipped/public patterns only. These four observable classes must remain distinct in a qualification record:
+The workflow may provide a temporary `DATARIM_PERSONAL_ID_OVERLAY` file from its byte-preserving `PERSONAL_ID_OVERLAY_B64` repository secret. Decode the protected value before checking its complete bytes against the custodian-held commitment; a text secret transport can otherwise change a terminal newline. The checker selects that explicit value only if it is nonempty and a regular file. Otherwise, it falls through to `personal-id-forbidden.regex` under `${DATARIM_LOCAL:-$HOME/.claude/local}`. If no usable overlay is selected, the checker uses its shipped/public patterns only. These four observable classes must remain distinct in a qualification record:
 
 1. Workflow secret supplied the temporary explicit overlay selector.
 2. Explicit overlay selector was absent, empty, or not a regular file, and the checker selected its fallback.

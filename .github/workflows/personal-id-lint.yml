@@ -37,20 +37,20 @@ jobs:
 
       # Consumer, client and host names cannot live in the shipped denylist.
       # The repository owner maintains a protected revision and the matching
-      # PERSONAL_ID_OVERLAY secret. A present overlay must match that revision;
+      # PERSONAL_ID_OVERLAY_B64 secret. A present overlay must match that revision;
       # an absent secret (for example, on a fork PR) runs shipped patterns only.
       - name: Run personal-id gate
         env:
-          PERSONAL_ID_OVERLAY: ${{ secrets.PERSONAL_ID_OVERLAY }}
+          PERSONAL_ID_OVERLAY_B64: ${{ secrets.PERSONAL_ID_OVERLAY_B64 }}
           DATARIM_PERSONAL_ID_REVISION_ID: ${{ secrets.PERSONAL_ID_OVERLAY_REVISION }}
           DATARIM_PERSONAL_ID_OVERLAY_SHA256: ${{ secrets.PERSONAL_ID_OVERLAY_SHA256 }}
         run: |
           set -euo pipefail
           chmod +x scripts/personal-id-gate.sh
-          if [ -n "${PERSONAL_ID_OVERLAY:-}" ]; then
+          if [ -n "${PERSONAL_ID_OVERLAY_B64:-}" ]; then
             overlay="$(mktemp)"
             trap 'rm -f "$overlay"' EXIT
-            printf '%s' "$PERSONAL_ID_OVERLAY" > "$overlay"
+            printf '%s' "$PERSONAL_ID_OVERLAY_B64" | base64 --decode > "$overlay"
             export DATARIM_PERSONAL_ID_OVERLAY="$overlay"
             python3 scripts/verify-personal-id-overlay-revision.py --overlay "$overlay"
           else
