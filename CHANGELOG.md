@@ -16,6 +16,10 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 - QA requires evidence for both the reported failing path and the ordinary successful path before calling a claimed fix verified. Configured human-report delivery must verify before a passing stage result is emitted.
 
+### Fixed
+
+- Task-ID reservation adds an exclusive owner-file claim after directory creation. A second caller cannot receive the same ID if concurrent directory creation reports success to both; an adversarial concurrent test reproduces the former duplicate and checks the guarded result.
+
 
 ## [4.7.0] — 2026-10-25
 

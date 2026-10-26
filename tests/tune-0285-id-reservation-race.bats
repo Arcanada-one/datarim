@@ -248,6 +248,36 @@ teardown() {
     [ "${ID1}" != "${ID2}" ]
 }
 
+@test "R01b: exclusive owner claim prevents duplicates when mkdir reports two successes" {
+    local fake_bin="${FIXTURE_DIR}/fake-bin" barrier="${FIXTURE_DIR}/barrier"
+    local real_mkdir out1="${FIXTURE_DIR}/one.out" out2="${FIXTURE_DIR}/two.out"
+    real_mkdir="$(command -v mkdir)"
+    mkdir -p "$fake_bin" "$barrier"
+    cat > "${fake_bin}/mkdir" <<'SH'
+#!/usr/bin/env bash
+if [[ "${*: -1}" == */TUNE-0001 ]]; then
+    : > "${MOCK_BARRIER_DIR}/$$"
+    for ((attempt=0; attempt<1000; attempt++)); do
+        (( $(ls -1 "${MOCK_BARRIER_DIR}" | wc -l) >= 2 )) && break
+        sleep 0.01
+    done
+    exec "${REAL_MKDIR}" -p "$@"
+fi
+exec "${REAL_MKDIR}" "$@"
+SH
+    chmod +x "${fake_bin}/mkdir"
+    PATH="${fake_bin}:$PATH" REAL_MKDIR="$real_mkdir" MOCK_BARRIER_DIR="$barrier" \
+        bash "$HELPER" TUNE "$FIXTURE_DIR" > "$out1" &
+    local p1=$!
+    PATH="${fake_bin}:$PATH" REAL_MKDIR="$real_mkdir" MOCK_BARRIER_DIR="$barrier" \
+        bash "$HELPER" TUNE "$FIXTURE_DIR" > "$out2" &
+    local p2=$!
+    wait "$p1"
+    wait "$p2"
+    [ "$(cat "$out1")" != "$(cat "$out2")" ]
+    [ -f "${FIXTURE_DIR}/${RES_DIR_REL}/TUNE-0001/owner" ]
+}
+
 @test "R01 diagnostic output is bounded, whole-record validated, and failure-only" {
     OUT1="${FIXTURE_DIR}/child-1.stdout"
     OUT2="${FIXTURE_DIR}/child-2.stdout"

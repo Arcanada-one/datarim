@@ -64,9 +64,10 @@ MAX_ID_NUM=9999
 # sessions can both select the same free ID. To close it we ATOMICALLY reserve
 # the selected ID via a `mkdir` mutex under `datarim/.id-reservations/{ID}`
 # BEFORE this helper returns, so the reservation spans the whole
-# helper → agent → first-write sequence. `mkdir` is atomic on every POSIX
-# filesystem (incl. macOS APFS): of two concurrent sessions computing the same
-# candidate, exactly one `mkdir` wins; the loser bumps.
+# helper → agent → first-write sequence. A successful `mkdir` also needs an
+# exclusive owner-file creation before the ID is emitted. This second claim
+# protects the observed case where two concurrent callers both received a
+# successful directory-creation result for the same marker.
 #
 # Reversibility (a hard requirement of the task):
 #   1. TTL self-expiry — a marker older than DATARIM_ID_RESERVATION_TTL seconds
@@ -413,6 +414,12 @@ _reservation_try() {
     local marker="${RESERVE_DIR}/${id}"
     local initial_mkdir_rc reclaim_mkdir_rc
     if mkdir "$marker" 2>/dev/null; then
+        # A second, exclusive claim guards against a filesystem or mkdir shim
+        # reporting success to two concurrent creators of the same directory.
+        # Never remove a marker on a lost claim: it may belong to the winner.
+        if ! ( set -C; printf '%s\n' "$$" > "${marker}/owner" ) 2>/dev/null; then
+            return 1
+        fi
         if _d5_trace_can_emit; then
             _d5_trace_event initial_mkdir "$id" unknown unknown "$RESERVATION_TTL" 0 created
         fi
@@ -488,6 +495,9 @@ _reservation_try() {
             rm -rf "$marker" 2>/dev/null || true
         fi
         if mkdir "$marker" 2>/dev/null; then
+            if ! ( set -C; printf '%s\n' "$$" > "${marker}/owner" ) 2>/dev/null; then
+                return 1
+            fi
             if _d5_trace_can_emit; then
                 _d5_trace_event reclaim_mkdir "$id" unknown unknown "$RESERVATION_TTL" 0 created
             fi
@@ -537,6 +547,9 @@ _reservation_try() {
         if ! _reservation_is_fresh "$id"; then
             rm -rf "$marker" 2>/dev/null || true
             if mkdir "$marker" 2>/dev/null; then
+                if ! ( set -C; printf '%s\n' "$$" > "${marker}/owner" ) 2>/dev/null; then
+                    return 1
+                fi
                 date +%s > "${marker}/epoch" 2>/dev/null || true
                 echo "$$" > "${marker}/pid" 2>/dev/null || true
                 return 0
@@ -825,10 +838,10 @@ if (( CANDIDATE > MAX_ID_NUM )); then
 fi
 
 # GC ran above. Walk candidates: skip any claimed on a real surface OR by a
-# fresh reservation, and atomically reserve the first free one. The mkdir mutex
-# inside _reservation_try is the true guarantee — a candidate that slips past
-# is_claimed but loses the concurrent mkdir causes a bump, so two simultaneous
-# sessions can never emit the same ID.
+# fresh reservation, and atomically reserve the first free one. The directory
+# and exclusive owner-file claims inside _reservation_try are the concurrency
+# guard. A candidate that slips past is_claimed but loses either claim bumps,
+# so two simultaneous sessions cannot emit the same ID.
 
 CANDIDATE_ID="$(printf '%s-%04d' "$PREFIX" "$CANDIDATE")"
 warned=0
@@ -854,7 +867,7 @@ while : ; do
     if _reservation_try "$CANDIDATE_ID"; then
         break
     fi
-    # Lost the atomic mkdir race to a parallel session — bump.
+    # Lost the reservation claim to a parallel session — bump.
     if (( warned == 0 )); then
         echo "WARNING: ID ${CANDIDATE_ID} reserved by a parallel session — auto-bumping to next free ID" >&2
         warned=1
