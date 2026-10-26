@@ -227,6 +227,35 @@ win() { run bash "$CONTROLLER" evaluate --used-percent "$1" --window-tokens "$2"
   [ "$winners" -eq 1 ] && [ "$transaction_count" -eq 1 ]
 }
 
+@test "exclusive owner claim rejects two successful mkdir reports for one lock" {
+  lock="$BATS_TEST_TMPDIR/contended.lock"
+  fake_bin="$BATS_TEST_TMPDIR/fake-bin"
+  barrier="$BATS_TEST_TMPDIR/barrier"
+  real_mkdir="$(command -v mkdir)"
+  mkdir -p "$fake_bin" "$barrier"
+  cat >"$fake_bin/mkdir" <<'SH'
+#!/usr/bin/env bash
+if [ "${*: -1}" = "$TEST_LOCK" ]; then
+  : >"$TEST_BARRIER/$$"
+  for ((attempt=0; attempt<1000; attempt++)); do
+    (( $(ls -1 "$TEST_BARRIER" | wc -l) >= 2 )) && break
+    sleep 0.01
+  done
+  exec "$REAL_MKDIR" -p "$@"
+fi
+exec "$REAL_MKDIR" "$@"
+SH
+  chmod +x "$fake_bin/mkdir"
+  PATH="$fake_bin:$PATH" TEST_LOCK="$lock" TEST_BARRIER="$barrier" REAL_MKDIR="$real_mkdir" \
+    bash -c 'source "$1"; ctx_lock_acquire "$2"' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" "$lock" & a=$!
+  PATH="$fake_bin:$PATH" TEST_LOCK="$lock" TEST_BARRIER="$barrier" REAL_MKDIR="$real_mkdir" \
+    bash -c 'source "$1"; ctx_lock_acquire "$2"' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" "$lock" & b=$!
+  if wait "$a"; then a_rc=0; else a_rc=$?; fi
+  if wait "$b"; then b_rc=0; else b_rc=$?; fi
+  [ "$(( (a_rc == 0) + (b_rc == 0) ))" -eq 1 ]
+  [ -s "$lock/owner" ]
+}
+
 @test "disabled prepare diagnostics add no process or lock-identity probes and preserve chmod status" {
   run bash -c '
     source "$1"
@@ -328,6 +357,7 @@ win() { run bash "$CONTROLLER" evaluate --used-percent "$1" --window-tokens "$2"
     printf() { if [ "$1" = "%s %s\\n" ]; then return 22; else builtin printf "$@"; fi; }
     if ctx_lock_acquire "$4"; then write_rc=0; else write_rc=$?; fi
     builtin printf "owner_write_failure_acquire_rc=%s\\n" "$write_rc"
+    unset -f printf
     exec 2>&-
     if ctx_lock_acquire "$3"; then closed_rc=0; else closed_rc=$?; fi
     [ "$closed_rc" -eq 23 ] || exit 94
@@ -339,7 +369,7 @@ win() { run bash "$CONTROLLER" evaluate --used-percent "$1" --window-tokens "$2"
   [[ "$output" == *"event=lock-mkdir-result "*"probe_rc=17 outcome=failed"* ]]
   [[ "$output" == *"event=owner-mode-result "*"probe_rc=23 outcome=failed"* ]]
   [[ "$output" == *"event=owner-record-write-result "*"probe_rc=22 outcome=failed"* ]]
-  [[ "$output" == *"acquire_rc=23"*"owner_write_failure_acquire_rc=23"*"closed_stderr_acquire_rc=23"* ]]
+  [[ "$output" == *"acquire_rc=23"*"owner_write_failure_acquire_rc=22"*"closed_stderr_acquire_rc=23"* ]]
   [[ "$output" != *"outcome=contended"* ]]
 }
 

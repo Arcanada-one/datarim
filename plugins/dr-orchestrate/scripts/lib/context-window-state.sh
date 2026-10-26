@@ -302,10 +302,16 @@ ctx_lock_acquire() {
   done
   ctx_test_trace lock-mkdir-acquired "$lock" "$kind" "$$" self none none acquired
   ctx_test_trace owner-publish-start "$lock" "$kind" "$$" none none none started
-  printf '%s %s\n' "$$" "$(ctx_process_birth "$$")" >"$owner"
-  owner_write_rc=$?
+  # The directory result alone is insufficient if two callers both observe a
+  # successful mkdir. An exclusive owner creation is the final lock claim.
+  if ( set -C; printf '%s %s\n' "$$" "$(ctx_process_birth "$$")" >"$owner" ); then
+    owner_write_rc=0
+  else
+    owner_write_rc=$?
+  fi
   if [ "$owner_write_rc" -eq 0 ]; then owner_write_outcome=written; else owner_write_outcome=failed; fi
   ctx_test_trace owner-record-write-result "$lock" "$kind" "$$" self self "$owner_write_rc" "$owner_write_outcome"
+  [ "$owner_write_rc" -eq 0 ] || return "$owner_write_rc"
   chmod 600 "$owner"
   owner_mode_rc=$?
   if [ "$owner_write_rc" -eq 0 ] && [ "$owner_mode_rc" -eq 0 ]; then owner_mode_outcome=published; else owner_mode_outcome=failed; fi
