@@ -97,3 +97,18 @@ teardown() {
         bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/name.txt" --check
     [ "$status" -eq 1 ]
 }
+
+@test "private overlay size does not change public report output" {
+    printf 'ordinary clean content\n' > "$TMP_DIR/clean.txt"
+    printf 'first-synthetic-pattern\n' > "$TMP_DIR/local.regex"
+    run env DATARIM_PERSONAL_ID_OVERLAY="$TMP_DIR/local.regex" \
+        bash "$GATE" --paths "$TMP_DIR/clean.txt" --report
+    [ "$status" -eq 0 ]
+    local first_report="$output"
+    printf 'second-synthetic-pattern\n' >> "$TMP_DIR/local.regex"
+    run env DATARIM_PERSONAL_ID_OVERLAY="$TMP_DIR/local.regex" \
+        bash "$GATE" --paths "$TMP_DIR/clean.txt" --report
+    [ "$status" -eq 0 ]
+    [ "$output" = "$first_report" ]
+    [[ "$output" != *'pattern(s)'* ]]
+}
