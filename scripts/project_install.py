@@ -726,7 +726,9 @@ def _install(args):
         # mode, --dry-run included.
         raise ChoiceRequired(refusal_text(root, issue_answers_token(root), args))
     args.with_jev, args.host_jev, args.context = remembered_choices(args, previous)
-    team_neutral = args.team_neutral if args.team_neutral is not None else bool((previous or {}).get('team_neutral'))
+    requested_team_neutral = getattr(args, 'team_neutral', None)
+    team_neutral = (requested_team_neutral if requested_team_neutral is not None
+                    else bool((previous or {}).get('team_neutral')))
     if args.host_jev:
         from jev_hook import host_runtime
         host_runtime()  # A declaration alone must not silently remove all hooks.
