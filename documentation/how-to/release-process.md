@@ -112,10 +112,12 @@ release or pushes unrelated local tags.
    or supported member coverage is unknown, stop at `NOT_MEASURED`/HOLD. Never commit
    or publish private inventory values, raw matches, or an unkeyed digest of the
    private list. Current-source privacy does not establish clean historical Git
-   objects or uploads. The current `personal-id-lint` workflow also logs the count
-   of nonempty, noncomment lines when its private overlay is present. That pre-existing
-   derived disclosure is not authorization or privacy evidence; its acceptability and
-   any remediation remain unresolved, so retain HOLD until separately dispositioned.
+   objects or uploads. The repository owner is the inventory custodian. Require the
+   owner-issued immutable revision ID and period, then verify each participating host's
+   protected overlay copy against the same protected revision commitment before the
+   release comparison. `scripts/verify-personal-id-overlay-revision.py` prints only a
+   short revision-ID fingerprint; it never prints patterns, the byte commitment, or
+   the overlay line count. A missing or mismatched copy retains HOLD.
 5. The release branch / commit has independent review evidence; any configured
    `CODEOWNERS` approval requirement is satisfied.
 6. The `VERSION` file matches the intended tag (without the leading
@@ -240,9 +242,16 @@ checked-out `main` SHA, then:
 6. Computes a CycloneDX SBOM with `syft scan dir:.`.
 7. Signs the tarball and the SBOM with `cosign sign-blob`
    (keyless OIDC).
-8. Attests SLSA L2 build provenance for the tarball.
-9. Publishes a GitHub Release with all artefacts attached. RC tags are
+8. Re-verifies the protected inventory revision and scans all eleven produced
+   assets, including archive members and signing bundles, before publication.
+9. Attests SLSA L2 build provenance for the tarball.
+10. Publishes a GitHub Release with all artefacts attached. RC tags are
    marked as prerelease.
+
+An unreadable member or malformed bundle stops the release job. The separate
+pre-tag custodian comparison and independent semantic review remain bound to
+the exact source candidate; CI's produced-byte scan does not establish the
+custodian's inventory completeness by itself.
 
 Watch the run:
 

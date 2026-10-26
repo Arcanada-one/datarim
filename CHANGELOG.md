@@ -4,6 +4,13 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.8.1] — 2026-10-26
+
+### Fixed
+
+- Team-neutral updates of legacy managed installations refuse root instruction edits before mutation. After an owner removes the old managed block or link, the updater releases ownership without rewriting the root file. The local Git exclude migration checks prospective visibility and preserves adjacent project blocks.
+- Release privacy checks now bind each protected overlay copy to the repository owner's custodian-held inventory revision before scanning. CI reports only an opaque revision fingerprint and no longer logs the private overlay's pattern count.
+
 ## [4.8.0] — 2026-10-26
 
 ### Added

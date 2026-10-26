@@ -417,5 +417,5 @@ if [ "$findings" -gt 0 ]; then
     exit 1
 fi
 
-[ "$report" -eq 1 ] && echo "PASS: clean (${#abs_paths[@]} path(s) scanned, ${#patterns[@]} pattern(s))"
+[ "$report" -eq 1 ] && echo "PASS: clean (${#abs_paths[@]} path(s) scanned)"
 exit 0
