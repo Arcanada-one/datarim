@@ -34,6 +34,65 @@ setup() { setup_project_fixture; }
     [ "$output" = 0 ]
 }
 
+@test "team-neutral install exposes only scoped configuration and local extensions" {
+    git -C "$PROJECT" init -q
+    printf '# Team instructions\n' > "$PROJECT/AGENTS.md"
+    git -C "$PROJECT" add AGENTS.md
+    git -C "$PROJECT" -c user.email=t@t -c user.name=t commit -qm init
+    install_answered --client all --permissions ask --without-jev --team-neutral --init
+    [ "$status" -eq 0 ]
+    [ "$(cat "$PROJECT/AGENTS.md")" = '# Team instructions' ]
+    [ -f "$PROJECT/datarim/AGENTS.md" ]
+    [ -f "$PROJECT/datarim/config.yaml" ]
+    [ -f "$PROJECT/datarim/local/manifest.json" ]
+    run git -C "$PROJECT" status --porcelain --untracked-files=all
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'datarim/AGENTS.md'* ]]
+    [[ "$output" == *'datarim/config.yaml'* ]]
+    [[ "$output" == *'datarim/local/manifest.json'* ]]
+    [[ "$output" != *'datarim/tasks.md'* ]]
+    [[ "$output" != *'datarim/backlog.md'* ]]
+    [[ "$output" != *'.datarim-runtime/'* ]]
+    printf '\ndelivery:\n  reports: reports/{task_id}\n' >> "$PROJECT/datarim/config.yaml"
+    install_answered --client all --permissions ask --without-jev
+    [ "$status" -eq 0 ]
+    run grep -F 'reports: reports/{task_id}' "$PROJECT/datarim/config.yaml"
+    [ "$status" -eq 0 ]
+}
+
+@test "team-neutral install refuses project ignore rules and tracked private state" {
+    git -C "$PROJECT" init -q
+    printf '/datarim/\n' > "$PROJECT/.gitignore"
+    git -C "$PROJECT" add .gitignore
+    git -C "$PROJECT" -c user.email=t@t -c user.name=t commit -qm init
+    install_answered --client all --permissions ask --without-jev --team-neutral
+    [ "$status" -eq 2 ]
+    [[ "$output" == *'Git ignore rules hide team-neutral path'* ]]
+    [ ! -e "$PROJECT/.datarim-runtime" ]
+    printf '' > "$PROJECT/.gitignore"
+    mkdir -p "$PROJECT/datarim"
+    printf 'private task\n' > "$PROJECT/datarim/tasks.md"
+    git -C "$PROJECT" add -A
+    git -C "$PROJECT" -c user.email=t@t -c user.name=t commit -qm tracked
+    install_answered --client all --permissions ask --without-jev --team-neutral
+    [ "$status" -eq 2 ]
+    [[ "$output" == *'Tracked private Datarim paths'* ]]
+    [ ! -e "$PROJECT/.datarim-runtime" ]
+}
+
+@test "team-neutral install accepts explicit project unignore rules" {
+    git -C "$PROJECT" init -q
+    printf '/datarim/*\n!/datarim/AGENTS.md\n!/datarim/config.yaml\n!/datarim/local/\n' > "$PROJECT/.gitignore"
+    git -C "$PROJECT" add .gitignore
+    git -C "$PROJECT" -c user.email=t@t -c user.name=t commit -qm init
+    install_answered --client all --permissions ask --without-jev --team-neutral --init
+    [ "$status" -eq 0 ]
+    run git -C "$PROJECT" status --porcelain --untracked-files=all
+    [[ "$output" == *'datarim/AGENTS.md'* ]]
+    [[ "$output" == *'datarim/config.yaml'* ]]
+    [[ "$output" == *'datarim/local/manifest.json'* ]]
+}
+
 @test "project initialization creates only local task state" {
     install_answered --client all --permissions ask --without-jev --init
     [ "$status" -eq 0 ]

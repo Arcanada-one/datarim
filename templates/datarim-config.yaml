@@ -7,6 +7,7 @@
 #                                 - personal user preferences
 # Project installation excludes datarim/ from git; sharing config.yaml requires
 # a reviewed, explicit tracking choice. Do not share private overrides/task data.
+# In --team-neutral mode, only AGENTS.md, config.yaml and local/ are visible to git.
 # Language and peer-review provider have separate resolution rules.
 # Reference: documentation/reference/language-preferences.md
 
@@ -18,6 +19,13 @@ language:
   # Conflicting YAML and legacy Artifact language directives are errors.
   replies: en
   artifacts: en
+
+# Optional path for human-facing QA and compliance reports. The project-relative
+# directory may contain {task_id}; for example reports/datarim/{task_id}.
+# Without this key, reports retain the private working-copy behavior with an
+# advisory that teammates cannot read the deliverable from git.
+# delivery:
+#   reports: reports/datarim/{task_id}
 
 # Peer review: project config wins over user config.
 # Reference: skills/self-verification/SKILL.md - Peer Review Provider Resolution
