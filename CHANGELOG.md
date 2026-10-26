@@ -4,6 +4,24 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.8.0] — 2026-10-26
+
+### Added
+
+- Opt-in `--team-neutral` installation scopes Datarim instructions to `datarim/` and exposes project-owned configuration and local extensions without changing a new project's root instructions. Conflicting Git ignore rules or tracked private Datarim state are refused.
+- `delivery.reports` configures a project-relative shared location for QA and compliance reports. The final working report is copied and checked byte-for-byte; an absent key keeps the previous private-report behavior with an advisory.
+- Project-native closure checklists, project-declared instruction/document validators, convention-store sweeps, and an optional fresh-context archive audit record missing checks explicitly.
+
+### Changed
+
+- QA requires evidence for both the reported failing path and the ordinary successful path before calling a claimed fix verified. Configured human-report delivery must verify before a passing stage result is emitted.
+
+### Fixed
+
+- Task-ID reservation adds an exclusive owner-file claim after directory creation. A second caller cannot receive the same ID if concurrent directory creation reports success to both; an adversarial concurrent test reproduces the former duplicate and checks the guarded result.
+- Context-window transaction locks also require exclusive owner-file creation before entering a critical section. A concurrent test forces two successful directory-creation results and verifies that only one caller acquires the lock.
+
+
 ## [4.7.0] — 2026-10-25
 
 ### Added
