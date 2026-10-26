@@ -140,7 +140,6 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
         report_path="${report_target#*:}"
         ```
         Render the complete report to `$report_path`, including in chat-only mode. Do not re-render a separate chat copy. Include the template's single `security-finding-evidence` JSON block, then validate the exact rendered file:
-        When `delivery.reports` is configured, publish this final report with `dev-tools/delivery-report.py publish --root "$repo_root" --task-id "$task_id" --source "$report_path"`, then use `check` on the same source. For a chat-only private temporary report, copy it into `datarim/reports/` first only when delivery is configured, using the first unused versioned name, so the publisher has a durable working copy. Record `verified:<path>` in the compliance result. Without the key, report the `advisory_unconfigured` outcome. A configured report that is absent or differs blocks a delivery-complete verdict.
         ```bash
         validate_security_finding_labels() {
             if python3 -I "${DATARIM_RUNTIME:?}/dev-tools/check-security-finding-labels.py" \
@@ -174,6 +173,8 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
     - **Stamp last.** Compute and write `reflection_basis` as the FINAL action, after the report file is fully written — including the Step 8 human-summary section appended to `$report_path` when it is a persistent report. Any later append to the report changes its hash and makes the just-written reflection look stale at `/dr-archive`. If the report is edited after the basis is stamped, re-stamp from the final report.
     - After stamping, run `${DATARIM_RUNTIME:?}/skills/evolution/autonomous-apply.md` as an explicit evolution decision step when effective autonomous mode is active. Both `/dr-auto` and `/dr-orchestrate` use this same compliance step. An interactive run presents proposals for a decision; Class B still requires a PRD draft. A declined or deferred proposal does not change the compliance verdict.
     - On NON-COMPLIANT this step does not run; `/dr-archive` Step 0.5 will force-generate reflection later (the file stays absent), preserving the mandatory-reflection guarantee.
+
+8.6. **PUBLISH CONFIGURED HUMAN DELIVERY**: After all report content and the reflection basis are final, inspect `datarim/config.yaml` for `delivery.reports`. If configured and the report is in the private temporary directory, create `datarim/reports/`, reserve the first unused versioned working-copy path with `dev-tools/resolve-compliance-report-path.py`, and copy the exact final report bytes there. Keep the temporary original until all consumers finish. Run `python3 "${DATARIM_RUNTIME:?}/dev-tools/delivery-report.py" publish --root "$repo_root" --task-id "$task_id" --source "$working_report"`, then the same command with `check`, where `$working_report` is the persistent report or the new working copy. Record `verified:<path>` in the compliance result. Without the key, report `advisory_unconfigured` and retain the current behavior. A configured path that fails publication or byte comparison blocks a delivery-complete claim.
 
 ## Output
 - If `datarim/reports/` exists, the reserved persistent path in `$report_path` (first unused name, with `-v2`, `-v3`, … on reruns).
