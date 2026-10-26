@@ -34,6 +34,32 @@ setup() { setup_project_fixture; }
     [ "$output" = 0 ]
 }
 
+@test "team-neutral install exposes only scoped configuration and local extensions" {
+    git -C "$PROJECT" init -q
+    printf '# Team instructions\n' > "$PROJECT/AGENTS.md"
+    git -C "$PROJECT" add AGENTS.md
+    git -C "$PROJECT" -c user.email=t@t -c user.name=t commit -qm init
+    install_answered --client all --permissions ask --without-jev --team-neutral --init
+    [ "$status" -eq 0 ]
+    [ "$(cat "$PROJECT/AGENTS.md")" = '# Team instructions' ]
+    [ -f "$PROJECT/datarim/AGENTS.md" ]
+    [ -f "$PROJECT/datarim/config.yaml" ]
+    [ -f "$PROJECT/datarim/local/manifest.json" ]
+    run git -C "$PROJECT" status --porcelain --untracked-files=all
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'datarim/AGENTS.md'* ]]
+    [[ "$output" == *'datarim/config.yaml'* ]]
+    [[ "$output" == *'datarim/local/manifest.json'* ]]
+    [[ "$output" != *'datarim/tasks.md'* ]]
+    [[ "$output" != *'datarim/backlog.md'* ]]
+    [[ "$output" != *'.datarim-runtime/'* ]]
+    printf '\ndelivery:\n  reports: reports/{task_id}\n' >> "$PROJECT/datarim/config.yaml"
+    install_answered --client all --permissions ask --without-jev
+    [ "$status" -eq 0 ]
+    run grep -F 'reports: reports/{task_id}' "$PROJECT/datarim/config.yaml"
+    [ "$status" -eq 0 ]
+}
+
 @test "project initialization creates only local task state" {
     install_answered --client all --permissions ask --without-jev --init
     [ "$status" -eq 0 ]

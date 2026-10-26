@@ -30,6 +30,15 @@ PRIVATE_IGNORES = ('/.datarim-runtime/', '/.datarim-runtime-previous/',
                    '/.datarim-uninstalled/', '/.datarim-install-*/',
                    '/.datarim-install.lock',
                    '/.datarim-recovery-*/', '/config/credentials/', '/datarim/')
+TEAM_NEUTRAL_INSTRUCTIONS = ("# Datarim-local instructions\n\n"
+    "These instructions apply only when an agent explicitly runs a Datarim command. "
+    "Other project work follows the project's own root instructions.\n\n"
+    "Datarim keeps task state private. Shared configuration is in `config.yaml`; "
+    "reviewed project extensions are in `local/`. Human reports use "
+    "`delivery.reports` when configured.\n")
+TEAM_NEUTRAL_CONFIG = ("# Shared Datarim configuration for this project.\n"
+    "# Set delivery.reports to a reviewed project path such as reports/{task_id}.\n"
+    "# Private task state under datarim/ stays ignored.\n")
 
 
 def git_ignored(source=None):
@@ -124,8 +133,11 @@ def write_git_exclude(root, rules):
         _, after = rest.split(end, 1)
         text = before.rstrip('\n') + ('\n' if before.strip() else '') + after.lstrip('\n')
     if rules:
+        def scoped(rule):
+            return ('!/' + prefix + rule[2:] if rule.startswith('!/') else
+                    '/' + prefix + rule.lstrip('/'))
         text = (text.rstrip('\n') + ('\n' if text.strip() else '') + begin + '\n'
-                + ''.join('/' + prefix + rule.lstrip('/') + '\n' for rule in rules) + end + '\n')
+                + ''.join(scoped(rule) + '\n' for rule in rules) + end + '\n')
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text)
     return path
@@ -210,11 +222,14 @@ def is_our_claude_link(root):
         return False
 
 
-def exclude_rules(names, created=()):
+def exclude_rules(names, created=(), team_neutral=False):
     """Private paths, every discovery entry point this install generated, and
     any client hook config the install itself created (a pre-existing one is the
     project's, and a tracked file cannot be hidden anyway)."""
-    rules = list(PRIVATE_IGNORES)
+    rules = [rule for rule in PRIVATE_IGNORES if rule != '/datarim/'] if team_neutral else list(PRIVATE_IGNORES)
+    if team_neutral:
+        rules.extend(('/datarim/*', '!/datarim/AGENTS.md', '!/datarim/config.yaml',
+                      '!/datarim/local/'))
     for name in sorted(names):
         parts = name.split('/')
         if len(parts) == 4 and parts[1] == 'skills':
@@ -711,6 +726,7 @@ def _install(args):
         # mode, --dry-run included.
         raise ChoiceRequired(refusal_text(root, issue_answers_token(root), args))
     args.with_jev, args.host_jev, args.context = remembered_choices(args, previous)
+    team_neutral = args.team_neutral if args.team_neutral is not None else bool((previous or {}).get('team_neutral'))
     if args.host_jev:
         from jev_hook import host_runtime
         host_runtime()  # A declaration alone must not silently remove all hooks.
@@ -790,6 +806,9 @@ def _install(args):
         if name not in snapshots:
             snapshots[name] = target.read_bytes() if target.exists() else None
         return snapshots[name]
+    if team_neutral:
+        for name in ('datarim/AGENTS.md', 'datarim/config.yaml', 'datarim/local/manifest.json'):
+            safe_path(root, name)
     # Nothing goes into files the project shares. An earlier release appended a
     # block to AGENTS.md and rules to .gitignore; on update those are removed
     # once and the files leave management -- never deleted, since both are the
@@ -911,9 +930,12 @@ def _install(args):
             and previous.get('overlay_digest') == overlay_digest.hexdigest() and previous.get('with_jev') == args.with_jev
             and previous.get('host_jev', False) == args.host_jev
             and previous.get('contexts', []) == args.context
+            and previous.get('team_neutral', False) == team_neutral
             and tuple(previous.get('clients') or CLIENTS) == clients
             and link_action is None):
-        if all((root/name).is_file() and (root/name).read_bytes() == data for name, data in files.items()):
+        if (all((root/name).is_file() and (root/name).read_bytes() == data for name, data in files.items())
+                and (not team_neutral or all((root/name).is_file() for name in
+                     ('datarim/AGENTS.md', 'datarim/config.yaml', 'datarim/local/manifest.json')))):
             print(json.dumps({'status': 'unchanged', 'project': str(root)}))
             mode = apply_permissions(root, args.host_jev, getattr(args, 'permissions', None))
             print(report_block(root, args.host_jev, args.with_jev, mode, clients), file=sys.stderr)
@@ -975,7 +997,7 @@ def _install(args):
                     'runtime_files': {str(p.relative_to(stage)): digest(p.read_bytes())
                                       for scope in SCOPES for p in (stage/scope).rglob('*') if p.is_file()},
                     'with_jev': args.with_jev, 'host_jev': args.host_jev, 'contexts': args.context,
-                    'expose_skills': expose, 'clients': list(clients),
+                    'expose_skills': expose, 'clients': list(clients), 'team_neutral': team_neutral,
                     'created_dirs': created_client_directories(root, files, previous),
                     'files': {n: digest(v) for n, v in files.items() if n not in released}}
         (stage / 'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
@@ -1042,8 +1064,22 @@ def _install(args):
             if fd is not None:
                 os.close(fd)
         rules = exclude_rules((n for n in files if n not in released),
-                              created={n for n, v in originals.items() if v is None})
+                              created={n for n, v in originals.items() if v is None},
+                              team_neutral=team_neutral)
         write_git_exclude(root, rules)
+        if team_neutral:
+            scoped = safe_path(root, 'datarim')
+            scoped.mkdir(exist_ok=True)
+            for name, content in (('datarim/AGENTS.md', TEAM_NEUTRAL_INSTRUCTIONS),
+                                  ('datarim/config.yaml', TEAM_NEUTRAL_CONFIG)):
+                target = safe_path(root, name)
+                if not target.exists():
+                    target.write_text(content)
+            local = safe_path(root, 'datarim/local')
+            local.mkdir(parents=True, exist_ok=True)
+            local_manifest = safe_path(root, 'datarim/local/manifest.json')
+            if not local_manifest.exists():
+                local_manifest.write_text('{"schema": 1, "files": {}}\n')
         if args.init:
             state = safe_path(root, 'datarim')
             state.mkdir(exist_ok=True)
@@ -1177,6 +1213,8 @@ def main():
                         help='Use already installed host Jev hooks; do not register duplicate project hooks. '
                              'Kept across updates; --no-host-jev returns to project hooks')
     parser.add_argument('--init', action='store_true')
+    parser.add_argument('--team-neutral', action=argparse.BooleanOptionalAction, default=None,
+                        help='Expose only datarim/AGENTS.md, config.yaml and local/ to teammates in git')
     parser.add_argument('--expose-skills', action='store_true',
                         help='Also expose every framework skill to native discovery (loaded into every '
                              'session); by default only the /dr-* commands are exposed')

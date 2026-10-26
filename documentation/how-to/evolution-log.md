@@ -1,5 +1,11 @@
 # Evolution Log
 
+## 2026-10-26 -- Team-neutral delivery and project-native closure
+
+- **Change.** An opt-in shared-repository install exposes only scoped Datarim guidance, shared config, and local extensions. Configured human reports are published outside private task state and checked byte-for-byte.
+- **Closure.** QA requires both reported-failure and ordinary-success verification for fixes. Compliance checks project validators and convention stores; archive records project-native obligations with explicit unknowns and offers an independent audit.
+- **Compatibility.** Unconfigured report delivery and ordinary installation keep their prior behavior. The new checks report unavailable evidence without converting it into success.
+
 ## 2026-10-14 -- Decision records and strategist scope modes
 
 - **Change.** Product Discovery adds a versioned DecisionRecord format and an opt-in strategist fragment for `hold`, `selective`, `expand`, and `reduce` scope proposals. Evidence acceptance, business outcome, recommendation, and action authority remain separate; an unmeasured do-nothing cost stays `unknown`.

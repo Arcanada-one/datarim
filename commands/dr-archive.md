@@ -564,6 +564,9 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - Exit 1 is a policy refusal. Preserve its machine-readable disposition, set `AUTO_COMMIT_READY=false`, and continue the ordinary archive without auto-commit. Do not ask the operator and do not stage anything manually. Exit 2 is an integrity/usage failure and follows the same no-commit path, but report it as a framework error.
    - When `AUTO_COMMIT_REQUESTED=false`, do not invoke `prepare`; set `AUTO_COMMIT_READY=false`. The single disabled disposition is emitted at Step 7.5 after a successful archive.
 
+0.495. **PROJECT-NATIVE CLOSURE CHECKLIST**: Read the project's root `AGENTS.md` and the local documents it links for post-merge and task-closure obligations applicable to the changed repositories. Include branch synchronization, project lint, deployment, and evidence rules when declared. For every applicable obligation, record the exact rule source, action, evidence and one status: `done`, `not_done`, or `not_measured`. Add the complete checklist to the archive document's audit addendum. A missing source or unavailable check is `not_measured`, never `done`. An unmet mandatory obligation prevents a completed archive verdict.
+    - After the draft archive exists, an optional fresh-context agent may independently inspect the candidate revision, project rules, receipts and draft claims. Give it no inherited verdict. Record its discrepancies and resolve any supported finding before completion; absence of this optional audit is `not_measured`, not evidence of agreement.
+
 0.5. **REFLECT** (MANDATORY — runs at least once per task, via a conditional freshness gate):
    - **Freshness gate (decides whether to re-run reflection):** invoke
      `${DATARIM_RUNTIME:?}/dev-tools/reflection-freshness.sh --task {TASK-ID} --root "$DATARIM_ROOT"`.
@@ -633,6 +636,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
      - `## Audit addendum` (top-level heading after `---`).
      - `### verification_outcome` — human-readable mirror of the YAML frontmatter counters (`caught_by_verify`, `missed_by_verify`, `false_positive`, `n_a`, `dogfood_window`), one bullet per counter.
      - `### Acceptance Criteria` — verdict table (AC / Status / Evidence), one row per AC.
+     - `### Project-native closure checklist` — one row per applicable project rule with `done`, `not_done`, or `not_measured`, source, and evidence. Include the optional independent-audit outcome separately.
      - `### Lessons Learned` — short ≤3-bullet digest; the full text lives in `reflection-{ID}.md`.
      - `### Operator Handoff` — residual technical debt, deferred improvements, configuration steps for the next operator. a localized "nothing outstanding" statement if empty.
      - `### Related` — Parent PRD / Plan / Reflection / Follow-ups.
