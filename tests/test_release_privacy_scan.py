@@ -1,5 +1,6 @@
 """Synthetic failure and coverage controls for the release asset privacy gate."""
 import io
+import base64
 import json
 from pathlib import Path
 import subprocess
@@ -22,12 +23,30 @@ class ReleasePrivacyScanTest(unittest.TestCase):
         self.overlay = self.path / 'private.regex'
         self.overlay.write_text('synthetic-private-marker\n')
 
-    def run_scan(self, *assets):
+    def run_scan(self, *assets, expected_identity=None):
+        identity = ['--expected-identity', expected_identity] if expected_identity else []
         return subprocess.run(
             [sys.executable, str(SCANNER), '--overlay', str(self.overlay),
-             *sum((['--asset', str(asset)] for asset in assets), [])],
+             *identity, *sum((['--asset', str(asset)] for asset in assets), [])],
             capture_output=True, text=True, check=False,
         )
+
+    def bundle_with_certificate(self, san):
+        key = self.path / 'key.pem'
+        cert = self.path / 'cert.pem'
+        der = self.path / 'cert.der'
+        subprocess.run(
+            ['openssl', 'req', '-x509', '-newkey', 'ed25519', '-nodes',
+             '-keyout', str(key), '-out', str(cert), '-days', '1',
+             '-subj', '/', '-addext', 'subjectAltName=' + san],
+            capture_output=True, check=True,
+        )
+        subprocess.run(['openssl', 'x509', '-in', str(cert), '-outform', 'DER',
+                        '-out', str(der)], capture_output=True, check=True)
+        bundle = self.path / 'source.tar.gz.cosign.bundle'
+        bundle.write_text(json.dumps({'verificationMaterial': {'certificate': {
+            'rawBytes': base64.b64encode(der.read_bytes()).decode()}}}))
+        return bundle
 
     def test_decoded_json_string_is_checked(self):
         asset = self.path / 'payload.cdx.json'
@@ -78,6 +97,16 @@ class ReleasePrivacyScanTest(unittest.TestCase):
         asset = self.path / 'source.tar.gz.sha256'
         asset.write_text('synthetic-public-content\n')
         self.assertEqual(self.run_scan(asset).returncode, 0)
+
+    def test_expected_workflow_uri_is_the_only_certificate_san(self):
+        expected = 'https://example.test/workflow'
+        bundle = self.bundle_with_certificate('URI:' + expected)
+        self.assertEqual(self.run_scan(bundle, expected_identity=expected).returncode, 0)
+
+    def test_extra_dns_certificate_san_refuses_publication(self):
+        expected = 'https://example.test/workflow'
+        bundle = self.bundle_with_certificate('URI:' + expected + ',DNS:extra.example.test')
+        self.assertEqual(self.run_scan(bundle, expected_identity=expected).returncode, 2)
 
 
 if __name__ == '__main__':

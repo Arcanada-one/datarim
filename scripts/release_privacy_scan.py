@@ -91,10 +91,18 @@ class Scanner:
             raise Unsupported('certificate identity unavailable')
         details = identity.stdout.decode('utf-8', errors='strict')
         subject = re.search(r'^subject=(.*)$', details, re.MULTILINE)
-        uris = re.findall(r'URI:([^\s,]+)', details)
-        if not subject or subject.group(1).strip() or len(uris) != 1 or 'email:' in details.lower():
+        lines = details.splitlines()
+        headers = [index for index, line in enumerate(lines)
+                   if line.strip().startswith('X509v3 Subject Alternative Name:')]
+        if len(headers) != 1:
             raise Unsupported('unexpected certificate identity')
-        if self.expected_identity is not None and uris[0] != self.expected_identity:
+        san_entries = [part.strip() for line in lines[headers[0] + 1:]
+                       for part in line.split(',') if part.strip()]
+        if not subject or subject.group(1).strip() or len(san_entries) != 1:
+            raise Unsupported('unexpected certificate identity')
+        if not san_entries[0].startswith('URI:'):
+            raise Unsupported('unexpected certificate identity')
+        if self.expected_identity is not None and san_entries[0] != 'URI:' + self.expected_identity:
             raise Unsupported('certificate identity mismatch')
 
     def json_asset(self, data, *, bundle):
