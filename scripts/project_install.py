@@ -143,6 +143,25 @@ def write_git_exclude(root, rules):
     return path
 
 
+def legacy_exclude_rule(root):
+    """Identify only the old installer-owned /datarim/ ignore rule, if intact."""
+    found = git_exclude_target(root)
+    if found is None:
+        return None
+    path, prefix = found
+    lines = path.read_text().splitlines() if path.exists() else []
+    begin, end = f'{EXCLUDE_BEGIN} /{prefix}', f'{EXCLUDE_END} /{prefix}'
+    starts = [i for i, line in enumerate(lines) if line == begin]
+    ends = [i for i, line in enumerate(lines) if line == end]
+    if not starts and not ends:
+        return None
+    if len(starts) != 1 or len(ends) != 1 or starts[0] >= ends[0]:
+        raise ValueError('Malformed Datarim-managed Git exclude block')
+    expected = '/'+prefix+'datarim/'
+    matches = [i + 1 for i in range(starts[0] + 1, ends[0]) if lines[i] == expected]
+    return (path, matches[0], expected) if len(matches) == 1 else None
+
+
 def team_neutral_preflight(root):
     """Refuse a visibility promise that existing Git rules or tracked state defeat."""
     if git_exclude_target(root) is None:
@@ -153,15 +172,28 @@ def team_neutral_preflight(root):
     private = [path for path in tracked if path not in allowed[:2] and not path.startswith(allowed[2])]
     if private:
         raise ValueError('Tracked private Datarim paths prevent team-neutral mode: '+', '.join(private[:8]))
+    legacy_rule = legacy_exclude_rule(root)
     local_paths = ('datarim/local/manifest.json', 'datarim/local/team-neutral-probe.md')
     existing_local = tuple(path.relative_to(root).as_posix() for path in (root / 'datarim/local').rglob('*') if path.is_file()) if (root / 'datarim/local').exists() else ()
     for relative in allowed[:2] + local_paths + existing_local:
-        result = subprocess.run(['git', '-C', str(root), 'check-ignore', '--no-index', '--', relative],
-                                capture_output=True, text=True)
+        result = subprocess.run(['git', '-C', str(root), 'check-ignore', '--no-index', '--verbose',
+                                 '--stdin', '-z'], input=relative.encode()+b'\0', capture_output=True)
         if result.returncode not in (0, 1):
             raise ValueError('Unable to check Git visibility for '+relative)
         if result.returncode == 0:
-            raise ValueError('Project Git ignore rules hide team-neutral path: '+relative)
+            fields = result.stdout.split(b'\0')
+            try:
+                source, line, pattern, observed = (fields[i].decode() for i in range(4))
+                source_path = (Path(root)/source).resolve()
+                visible_by_negation = pattern.startswith('!') and observed == relative
+                owned_legacy_rule = (legacy_rule is not None and source_path == legacy_rule[0]
+                                     and int(line) == legacy_rule[1]
+                                     and pattern == legacy_rule[2] and observed == relative)
+            except (IndexError, UnicodeError, ValueError):
+                visible_by_negation = False
+                owned_legacy_rule = False
+            if not (visible_by_negation or owned_legacy_rule):
+                raise ValueError('Project Git ignore rules hide team-neutral path: '+relative)
 
 
 HOOK_CONFIGS = ('.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json')
@@ -750,7 +782,25 @@ def _install(args):
     requested_team_neutral = getattr(args, 'team_neutral', None)
     team_neutral = (requested_team_neutral if requested_team_neutral is not None
                     else bool((previous or {}).get('team_neutral')))
+    root_instructions_released = set()
     if team_neutral:
+        # Earlier installers could own a root instruction file. A team-neutral
+        # update must not silently clean that file: the project owner removes
+        # its old framework block, then retries. Once clean, release ownership
+        # without publishing or deleting the file.
+        for name in (previous or {}).get('files', {}):
+            if name not in ('AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.cursorrules'):
+                continue
+            target = safe_path(root, name)
+            if name == 'AGENTS.md' and (not target.exists() or
+                    (target.is_file() and BEGIN not in target.read_text() and END not in target.read_text())):
+                root_instructions_released.add(name)
+                continue
+            raise ValueError('Team-neutral update would edit root '+name+
+                             '; remove the legacy managed instructions yourself, then retry')
+        if (previous or {}).get('claude_md_link') and is_our_claude_link(root):
+            raise ValueError('Team-neutral update would remove root CLAUDE.md; '
+                             'remove the legacy managed link yourself, then retry')
         team_neutral_preflight(root)
     if args.host_jev:
         from jev_hook import host_runtime
@@ -841,7 +891,7 @@ def _install(args):
     prior_originals = {}
     if previous and (runtime/'original-files.json').is_file():
         prior_originals = json.loads((runtime/'original-files.json').read_text())
-    released = set()
+    released = set(root_instructions_released)
     # Clients: the explicit choice, else what the previous install recorded,
     # else all three (installs before the option wrote files for all three).
     clients = tuple(sorted(getattr(args, 'client', None) or (previous or {}).get('clients') or CLIENTS))
@@ -849,6 +899,8 @@ def _install(args):
     deselected = [c for c in CLIENTS if c not in clients or not args.with_jev]
     retired_hooks = set()
     for name, release in (('AGENTS.md', release_agents_block), ('.gitignore', release_private_ignores)):
+        if name in root_instructions_released:
+            continue
         if name in (previous or {}).get('files', {}):
             current = read_initial(name)
             if current is not None:
@@ -935,7 +987,7 @@ def _install(args):
             expected = (previous or {}).get('files', {}).get(name)
             if expected != digest(target.read_bytes()):
                 raise ValueError(f'Unmanaged or locally modified file: {name}')
-    obsolete = set((previous or {}).get('files', {})) - set(files)
+    obsolete = set((previous or {}).get('files', {})) - set(files) - released
     for name in obsolete:
         target = safe_path(root, name)
         read_initial(name)
