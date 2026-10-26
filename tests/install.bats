@@ -169,6 +169,34 @@ PY
     [ "$status" -eq 1 ]
 }
 
+@test "team-neutral legacy update refuses a modified managed Git exclude block" {
+    git -C "$PROJECT" init -q
+    printf '# Team instructions\n' > "$PROJECT/AGENTS.md"
+    install_answered --client all --permissions ask --without-jev
+    [ "$status" -eq 0 ]
+    sed -i '/^# datarim-project:end/i /project-private/' "$PROJECT/.git/info/exclude"
+    cp "$PROJECT/.git/info/exclude" "$BATS_TEST_TMPDIR/exclude.before"
+    run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT" --client all --permissions ask --without-jev --team-neutral
+    [ "$status" -eq 2 ]
+    cmp "$PROJECT/.git/info/exclude" "$BATS_TEST_TMPDIR/exclude.before"
+    [ ! -e "$PROJECT/datarim/AGENTS.md" ]
+}
+
+@test "team-neutral legacy update detects a global ignore masked by its old local rule" {
+    git -C "$PROJECT" init -q
+    printf '# Team instructions\n' > "$PROJECT/AGENTS.md"
+    install_answered --client all --permissions ask --without-jev
+    [ "$status" -eq 0 ]
+    printf '/datarim/\n' > "$BATS_TEST_TMPDIR/global-ignore"
+    git -C "$PROJECT" config core.excludesFile "$BATS_TEST_TMPDIR/global-ignore"
+    cp "$PROJECT/.git/info/exclude" "$BATS_TEST_TMPDIR/exclude.before"
+    run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT" --client all --permissions ask --without-jev --team-neutral
+    [ "$status" -eq 2 ]
+    [[ "$output" == *'Git ignore rules hide team-neutral path'* ]]
+    cmp "$PROJECT/.git/info/exclude" "$BATS_TEST_TMPDIR/exclude.before"
+    [ ! -e "$PROJECT/datarim/AGENTS.md" ]
+}
+
 @test "team-neutral install refuses project ignore rules and tracked private state" {
     git -C "$PROJECT" init -q
     printf '/datarim/\n' > "$PROJECT/.gitignore"

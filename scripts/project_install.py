@@ -143,8 +143,8 @@ def write_git_exclude(root, rules):
     return path
 
 
-def legacy_exclude_rule(root):
-    """Identify only the old installer-owned /datarim/ ignore rule, if intact."""
+def legacy_exclude_rule(root, previous=None):
+    """Return an intact installer-owned block; reject modified or ambiguous blocks."""
     found = git_exclude_target(root)
     if found is None:
         return None
@@ -157,12 +157,20 @@ def legacy_exclude_rule(root):
         return None
     if len(starts) != 1 or len(ends) != 1 or starts[0] >= ends[0]:
         raise ValueError('Malformed Datarim-managed Git exclude block')
-    expected = '/'+prefix+'datarim/'
-    matches = [i + 1 for i in range(starts[0] + 1, ends[0]) if lines[i] == expected]
-    return (path, matches[0], expected) if len(matches) == 1 else None
+    def scoped(rule):
+        return ('!/' + prefix + rule[2:] if rule.startswith('!/') else
+                '/' + prefix + rule.lstrip('/'))
+    originals_path = Path(root) / '.datarim-runtime/original-files.json'
+    originals = json.loads(originals_path.read_text()) if originals_path.is_file() else {}
+    expected = [scoped(rule) for rule in exclude_rules((previous or {}).get('files', {}),
+                created={name for name, original in originals.items() if original is None},
+                team_neutral=bool((previous or {}).get('team_neutral')))]
+    if lines[starts[0] + 1:ends[0]] != expected:
+        raise ValueError('Modified Datarim-managed Git exclude block; refusing overwrite')
+    return (path, starts[0], ends[0])
 
 
-def team_neutral_preflight(root):
+def team_neutral_preflight(root, previous=None):
     """Refuse a visibility promise that existing Git rules or tracked state defeat."""
     if git_exclude_target(root) is None:
         raise ValueError('--team-neutral requires a Git repository')
@@ -172,28 +180,43 @@ def team_neutral_preflight(root):
     private = [path for path in tracked if path not in allowed[:2] and not path.startswith(allowed[2])]
     if private:
         raise ValueError('Tracked private Datarim paths prevent team-neutral mode: '+', '.join(private[:8]))
-    legacy_rule = legacy_exclude_rule(root)
+    legacy_rule = legacy_exclude_rule(root, previous)
+    found = git_exclude_target(root)
+    exclude_path, _ = found
+    existing_exclude = exclude_path.read_text() if exclude_path.exists() else ''
+    if legacy_rule:
+        lines = existing_exclude.splitlines(keepends=True)
+        existing_exclude = ''.join(lines[:legacy_rule[1]] + lines[legacy_rule[2]+1:])
+    top = subprocess.run(['git', '-C', str(root), 'rev-parse', '--show-toplevel'],
+                         capture_output=True, text=True, check=True).stdout.strip()
+    global_ignore = subprocess.run(['git', '-C', str(root), 'config', '--path', '--get', 'core.excludesFile'],
+                                   capture_output=True, text=True)
+    if global_ignore.returncode not in (0, 1):
+        raise ValueError('Unable to check Git global exclude configuration')
     local_paths = ('datarim/local/manifest.json', 'datarim/local/team-neutral-probe.md')
     existing_local = tuple(path.relative_to(root).as_posix() for path in (root / 'datarim/local').rglob('*') if path.is_file()) if (root / 'datarim/local').exists() else ()
-    for relative in allowed[:2] + local_paths + existing_local:
-        result = subprocess.run(['git', '-C', str(root), 'check-ignore', '--no-index', '--verbose',
-                                 '--stdin', '-z'], input=relative.encode()+b'\0', capture_output=True)
-        if result.returncode not in (0, 1):
-            raise ValueError('Unable to check Git visibility for '+relative)
-        if result.returncode == 0:
-            fields = result.stdout.split(b'\0')
-            try:
-                source, line, pattern, observed = (fields[i].decode() for i in range(4))
-                source_path = (Path(root)/source).resolve()
-                visible_by_negation = pattern.startswith('!') and observed == relative
-                owned_legacy_rule = (legacy_rule is not None and source_path == legacy_rule[0]
-                                     and int(line) == legacy_rule[1]
-                                     and pattern == legacy_rule[2] and observed == relative)
-            except (IndexError, UnicodeError, ValueError):
-                visible_by_negation = False
-                owned_legacy_rule = False
-            if not (visible_by_negation or owned_legacy_rule):
-                raise ValueError('Project Git ignore rules hide team-neutral path: '+relative)
+    with tempfile.TemporaryDirectory(prefix='datarim-git-preflight-') as probe:
+        probe_git = Path(probe) / '.git'
+        subprocess.run(['git', 'init', '--quiet', probe], check=True, capture_output=True)
+        (probe_git / 'info/exclude').write_text(existing_exclude)
+        if global_ignore.returncode == 0:
+            subprocess.run(['git', '--git-dir', str(probe_git), 'config', 'core.excludesFile',
+                            global_ignore.stdout.strip()], check=True, capture_output=True)
+        for relative in allowed[:2] + local_paths + existing_local:
+            result = subprocess.run(['git', '-C', str(root), '--git-dir', str(probe_git),
+                                     '--work-tree', top, 'check-ignore', '--no-index', '--verbose',
+                                     '--stdin', '-z'], input=relative.encode()+b'\0', capture_output=True)
+            if result.returncode not in (0, 1):
+                raise ValueError('Unable to check Git visibility for '+relative)
+            if result.returncode == 0:
+                fields = result.stdout.split(b'\0')
+                try:
+                    pattern, observed = fields[2].decode(), fields[3].decode()
+                    visible_by_negation = pattern.startswith('!') and observed == relative
+                except (IndexError, UnicodeError):
+                    visible_by_negation = False
+                if not visible_by_negation:
+                    raise ValueError('Project Git ignore rules hide team-neutral path: '+relative)
 
 
 HOOK_CONFIGS = ('.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json')
@@ -801,7 +824,7 @@ def _install(args):
         if (previous or {}).get('claude_md_link') and is_our_claude_link(root):
             raise ValueError('Team-neutral update would remove root CLAUDE.md; '
                              'remove the legacy managed link yourself, then retry')
-        team_neutral_preflight(root)
+        team_neutral_preflight(root, previous)
     if args.host_jev:
         from jev_hook import host_runtime
         host_runtime()  # A declaration alone must not silently remove all hooks.
