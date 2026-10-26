@@ -4,6 +4,19 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.8.0] — 2026-10-26
+
+### Added
+
+- Opt-in `--team-neutral` installation scopes Datarim instructions to `datarim/` and exposes project-owned configuration and local extensions without changing a new project's root instructions. Conflicting Git ignore rules or tracked private Datarim state are refused.
+- `delivery.reports` configures a project-relative shared location for QA and compliance reports. The final working report is copied and checked byte-for-byte; an absent key keeps the previous private-report behavior with an advisory.
+- Project-native closure checklists, project-declared instruction/document validators, convention-store sweeps, and an optional fresh-context archive audit record missing checks explicitly.
+
+### Changed
+
+- QA requires evidence for both the reported failing path and the ordinary successful path before calling a claimed fix verified. Configured human-report delivery must verify before a passing stage result is emitted.
+
+
 ## [4.7.0] — 2026-10-25
 
 ### Added
