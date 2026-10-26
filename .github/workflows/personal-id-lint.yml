@@ -35,22 +35,24 @@ jobs:
         with:
           persist-credentials: false
 
-      # Consumer, client and host names cannot live in the shipped denylist
-      # (listing them publishes them). The maintainer keeps them in the
-      # PERSONAL_ID_OVERLAY repository secret, one extended regex per line; the
-      # gate merges it additively. Absent secret (a fork PR, a fresh clone) =
-      # shipped patterns only, stated in the log rather than passed silently.
+      # Consumer, client and host names cannot live in the shipped denylist.
+      # The repository owner maintains a protected revision and the matching
+      # PERSONAL_ID_OVERLAY secret. A present overlay must match that revision;
+      # an absent secret (for example, on a fork PR) runs shipped patterns only.
       - name: Run personal-id gate
         env:
           PERSONAL_ID_OVERLAY: ${{ secrets.PERSONAL_ID_OVERLAY }}
+          DATARIM_PERSONAL_ID_REVISION_ID: ${{ secrets.PERSONAL_ID_OVERLAY_REVISION }}
+          DATARIM_PERSONAL_ID_OVERLAY_SHA256: ${{ secrets.PERSONAL_ID_OVERLAY_SHA256 }}
         run: |
           set -euo pipefail
           chmod +x scripts/personal-id-gate.sh
           if [ -n "${PERSONAL_ID_OVERLAY:-}" ]; then
             overlay="$(mktemp)"
-            printf '%s\n' "$PERSONAL_ID_OVERLAY" > "$overlay"
+            trap 'rm -f "$overlay"' EXIT
+            printf '%s' "$PERSONAL_ID_OVERLAY" > "$overlay"
             export DATARIM_PERSONAL_ID_OVERLAY="$overlay"
-            echo "private overlay: present ($(grep -cvE '^[[:space:]]*(#|$)' "$overlay") pattern(s))"
+            python3 scripts/verify-personal-id-overlay-revision.py --overlay "$overlay"
           else
             echo "::notice::private overlay: absent - shipped patterns only"
           fi

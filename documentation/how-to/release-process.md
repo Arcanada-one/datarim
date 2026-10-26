@@ -112,10 +112,12 @@ release or pushes unrelated local tags.
    or supported member coverage is unknown, stop at `NOT_MEASURED`/HOLD. Never commit
    or publish private inventory values, raw matches, or an unkeyed digest of the
    private list. Current-source privacy does not establish clean historical Git
-   objects or uploads. The current `personal-id-lint` workflow also logs the count
-   of nonempty, noncomment lines when its private overlay is present. That pre-existing
-   derived disclosure is not authorization or privacy evidence; its acceptability and
-   any remediation remain unresolved, so retain HOLD until separately dispositioned.
+   objects or uploads. The repository owner is the inventory custodian. Require the
+   owner-issued immutable revision ID and period, then verify each participating host's
+   protected overlay copy against the same protected revision commitment before the
+   release comparison. `scripts/verify-personal-id-overlay-revision.py` prints only a
+   short revision-ID fingerprint; it never prints patterns, the byte commitment, or
+   the overlay line count. A missing or mismatched copy retains HOLD.
 5. The release branch / commit has independent review evidence; any configured
    `CODEOWNERS` approval requirement is satisfied.
 6. The `VERSION` file matches the intended tag (without the leading

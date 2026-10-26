@@ -79,3 +79,16 @@ PY
     bad="$(grep -E '^\s*(-\s*)?uses:' "$WF" | grep -vE '@[0-9a-f]{40}' || true)"
     [ -z "$bad" ]
 }
+
+@test "the workflow verifies the private revision without logging overlay size" {
+    grep -q 'verify-personal-id-overlay-revision.py' "$WF"
+    grep -q "printf '%s' \"\$PERSONAL_ID_OVERLAY\"" "$WF"
+    run grep -nE 'grep -[[:alpha:]]*c|pattern\(s\)|wc -l.*overlay' "$WF"
+    [ "$status" -eq 1 ]
+    python3 - "$WF" <<'PY'
+from pathlib import Path
+import sys
+text = Path(sys.argv[1]).read_text()
+assert text.index('verify-personal-id-overlay-revision.py') < text.index('bash scripts/personal-id-gate.sh --report')
+PY
+}

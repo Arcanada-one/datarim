@@ -10,7 +10,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 4.8.0](https://img.shields.io/badge/Version-4.8.0-green.svg)](VERSION)
+[![Version: 4.8.1](https://img.shields.io/badge/Version-4.8.1-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -39,6 +39,8 @@ labels disclose English fallback when a requested catalog is unavailable.
 **New in 4.6.0:** L3/L4 tasks are checked for a PRD (or an operator-stated waiver) before implementation starts, `linked_ac` values that are not `V-AC-N` tokens get an early advisory, and acceptance cases must stay observable after every planned step.
 
 **New in 4.6.1:** Test-environment settings used for production-impact predictions are compared through bounded read-only access, with unsafe or unavailable comparisons voiding the prediction. Superseded acceptance contracts receive a complete case-by-case semantic comparison.
+
+**Fixed in 4.8.1:** A team-neutral update preserves project root instructions from legacy managed installs. Release privacy checks now require a verified protected inventory revision and no longer log the private overlay's line count.
 
 **New in 4.8.0:** Shared repositories can choose `--team-neutral` to scope Datarim instructions and expose project-owned configuration and local extensions. A configured `delivery.reports` path publishes checked QA and compliance reports where teammates can review them. Archive and compliance stages now inspect project obligations, validators, and convention stores; QA requires both the reported failure and ordinary success paths for a fix. See [team-neutral delivery and closure](documentation/how-to/team-neutral-delivery.md).
 
