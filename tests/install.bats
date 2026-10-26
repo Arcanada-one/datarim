@@ -60,6 +60,162 @@ setup() { setup_project_fixture; }
     [ "$status" -eq 0 ]
 }
 
+@test "team-neutral legacy update refuses before editing a managed root AGENTS.md" {
+    git -C "$PROJECT" init -q
+    printf '/datarim/*\n!/datarim/AGENTS.md\n!/datarim/config.yaml\n!/datarim/local/\n' > "$PROJECT/.gitignore"
+    printf '# Team instructions\n' > "$PROJECT/AGENTS.md"
+    install_answered --client all --permissions ask --without-jev
+    [ "$status" -eq 0 ]
+    cp "$PROJECT/.git/info/exclude" "$BATS_TEST_TMPDIR/exclude.before"
+    : > "$PROJECT/.git/info/exclude"
+    run python3 - "$PROJECT" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+original = (root / 'AGENTS.md').read_text()
+managed = original + '\n<!-- datarim-project:begin -->\nLegacy managed instructions\n<!-- datarim-project:end -->\n'
+(root / 'AGENTS.md').write_text(managed)
+runtime = root / '.datarim-runtime'
+manifest = runtime / 'installation.json'
+data = json.loads(manifest.read_text())
+data['files']['AGENTS.md'] = hashlib.sha256(managed.encode()).hexdigest()
+manifest.write_text(json.dumps(data) + '\n')
+originals = runtime / 'original-files.json'
+data = json.loads(originals.read_text())
+data['AGENTS.md'] = original
+originals.write_text(json.dumps(data) + '\n')
+PY
+    [ "$status" -eq 0 ]
+    cp "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.before"
+    cp "$PROJECT/.datarim-runtime/installation.json" "$BATS_TEST_TMPDIR/installation.before"
+    local agents_before_meta
+    agents_before_meta="$(python3 -c 'import os,sys; s=os.stat(sys.argv[1]); print(s.st_ino, s.st_mtime_ns)' "$PROJECT/AGENTS.md")"
+    run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT" --client all --permissions ask --without-jev --team-neutral
+    if [ "$status" -ne 2 ]; then
+        if cmp -s "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.before"; then
+            echo "legacy update returned $status; root AGENTS.md unchanged" >&3
+        else
+            echo "legacy update returned $status; root AGENTS.md changed" >&3
+        fi
+    fi
+    [ "$status" -eq 2 ]
+    [[ "$output" == *'root AGENTS.md'* ]]
+    cmp "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.before"
+    [ "$agents_before_meta" = "$(python3 -c 'import os,sys; s=os.stat(sys.argv[1]); print(s.st_ino, s.st_mtime_ns)' "$PROJECT/AGENTS.md")" ]
+    cmp "$PROJECT/.datarim-runtime/installation.json" "$BATS_TEST_TMPDIR/installation.before"
+    [ ! -e "$PROJECT/datarim/AGENTS.md" ]
+    run sh "$PRODUCT_ROOT/install.sh" --project "$PROJECT" --client all --permissions ask --without-jev --team-neutral
+    [ "$status" -eq 2 ]
+    cmp "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.before"
+    cp "$BATS_TEST_TMPDIR/exclude.before" "$PROJECT/.git/info/exclude"
+    printf '# Team instructions\n' > "$PROJECT/AGENTS.md"
+    cp "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.cleaned"
+    agents_before_meta="$(python3 -c 'import os,sys; s=os.stat(sys.argv[1]); print(s.st_ino, s.st_mtime_ns)' "$PROJECT/AGENTS.md")"
+    run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT" --client all --permissions ask --without-jev --team-neutral
+    [ "$status" -eq 0 ]
+    cmp "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.cleaned"
+    [ "$agents_before_meta" = "$(python3 -c 'import os,sys; s=os.stat(sys.argv[1]); print(s.st_ino, s.st_mtime_ns)' "$PROJECT/AGENTS.md")" ]
+    run python3 - "$PROJECT" <<'PY'
+import json, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+manifest = json.loads((root / '.datarim-runtime/installation.json').read_text())
+originals = json.loads((root / '.datarim-runtime/original-files.json').read_text())
+assert manifest['team_neutral'] is True
+assert 'AGENTS.md' not in manifest['files']
+assert 'AGENTS.md' not in originals
+PY
+    [ "$status" -eq 0 ]
+    run git -C "$PROJECT" check-ignore --no-index -- datarim/AGENTS.md
+    [ "$status" -eq 1 ]
+}
+
+@test "team-neutral update preserves a legacy owned root CLAUDE.md link" {
+    git -C "$PROJECT" init -q
+    install_answered --client all --permissions ask --without-jev
+    [ "$status" -eq 0 ]
+    : > "$PROJECT/.git/info/exclude"
+    ln -s AGENTS.md "$PROJECT/CLAUDE.md"
+    run python3 - "$PROJECT" <<'PY'
+import json, sys
+from pathlib import Path
+manifest = Path(sys.argv[1]) / '.datarim-runtime/installation.json'
+data = json.loads(manifest.read_text())
+data['claude_md_link'] = True
+manifest.write_text(json.dumps(data) + '\n')
+PY
+    [ "$status" -eq 0 ]
+    install_answered --client all --permissions ask --without-jev --team-neutral
+    [ "$status" -eq 2 ]
+    [[ "$output" == *'root CLAUDE.md'* ]]
+    [ -L "$PROJECT/CLAUDE.md" ]
+    [ ! -e "$PROJECT/datarim/AGENTS.md" ]
+}
+
+@test "team-neutral update replaces its own legacy Git exclude block without root instruction edits" {
+    git -C "$PROJECT" init -q
+    printf '# Team instructions\n' > "$PROJECT/AGENTS.md"
+    install_answered --client all --permissions ask --without-jev
+    [ "$status" -eq 0 ]
+    cp "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.before"
+    run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT" --client all --permissions ask --without-jev --team-neutral
+    if [ "$status" -ne 0 ]; then
+        echo "legacy update returned $status: $output" >&3
+    fi
+    [ "$status" -eq 0 ]
+    cmp "$PROJECT/AGENTS.md" "$BATS_TEST_TMPDIR/agents.before"
+    [ -f "$PROJECT/datarim/AGENTS.md" ]
+    run git -C "$PROJECT" check-ignore --no-index -- datarim/AGENTS.md
+    [ "$status" -eq 1 ]
+}
+
+@test "team-neutral legacy update refuses a modified managed Git exclude block" {
+    git -C "$PROJECT" init -q
+    printf '# Team instructions\n' > "$PROJECT/AGENTS.md"
+    install_answered --client all --permissions ask --without-jev
+    [ "$status" -eq 0 ]
+    sed -i '/^# datarim-project:end/i /project-private/' "$PROJECT/.git/info/exclude"
+    cp "$PROJECT/.git/info/exclude" "$BATS_TEST_TMPDIR/exclude.before"
+    run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT" --client all --permissions ask --without-jev --team-neutral
+    [ "$status" -eq 2 ]
+    cmp "$PROJECT/.git/info/exclude" "$BATS_TEST_TMPDIR/exclude.before"
+    [ ! -e "$PROJECT/datarim/AGENTS.md" ]
+}
+
+@test "team-neutral legacy update detects a global ignore masked by its old local rule" {
+    git -C "$PROJECT" init -q
+    printf '# Team instructions\n' > "$PROJECT/AGENTS.md"
+    install_answered --client all --permissions ask --without-jev
+    [ "$status" -eq 0 ]
+    printf '/datarim/\n' > "$BATS_TEST_TMPDIR/global-ignore"
+    git -C "$PROJECT" config core.excludesFile "$BATS_TEST_TMPDIR/global-ignore"
+    cp "$PROJECT/.git/info/exclude" "$BATS_TEST_TMPDIR/exclude.before"
+    run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT" --client all --permissions ask --without-jev --team-neutral
+    [ "$status" -eq 2 ]
+    [[ "$output" == *'Git ignore rules hide team-neutral path'* ]]
+    cmp "$PROJECT/.git/info/exclude" "$BATS_TEST_TMPDIR/exclude.before"
+    [ ! -e "$PROJECT/datarim/AGENTS.md" ]
+}
+
+@test "team-neutral legacy update preserves a preceding nested Git exclude block" {
+    git -C "$PROJECT" init -q
+    printf '# Team instructions\n' > "$PROJECT/AGENTS.md"
+    install_answered --client all --permissions ask --without-jev
+    [ "$status" -eq 0 ]
+    cp "$PROJECT/.git/info/exclude" "$BATS_TEST_TMPDIR/root-exclude"
+    printf '# datarim-project:begin /nested/\n/nested/private/\n# datarim-project:end /nested/\n' > "$PROJECT/.git/info/exclude"
+    cat "$BATS_TEST_TMPDIR/root-exclude" >> "$PROJECT/.git/info/exclude"
+    run sh "$PRODUCT_ROOT/update.sh" --project "$PROJECT" --client all --permissions ask --without-jev --team-neutral
+    if [ "$status" -ne 0 ]; then echo "nested legacy update returned $status: $output" >&3; fi
+    [ "$status" -eq 0 ]
+    run grep -Fx '# datarim-project:begin /nested/' "$PROJECT/.git/info/exclude"
+    [ "$status" -eq 0 ]
+    run grep -Fx '/nested/private/' "$PROJECT/.git/info/exclude"
+    [ "$status" -eq 0 ]
+    run grep -Fx '# datarim-project:end /nested/' "$PROJECT/.git/info/exclude"
+    [ "$status" -eq 0 ]
+}
+
 @test "team-neutral install refuses project ignore rules and tracked private state" {
     git -C "$PROJECT" init -q
     printf '/datarim/\n' > "$PROJECT/.gitignore"
