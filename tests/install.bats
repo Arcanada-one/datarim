@@ -60,6 +60,26 @@ setup() { setup_project_fixture; }
     [ "$status" -eq 0 ]
 }
 
+@test "team-neutral install refuses project ignore rules and tracked private state" {
+    git -C "$PROJECT" init -q
+    printf '/datarim/\n' > "$PROJECT/.gitignore"
+    git -C "$PROJECT" add .gitignore
+    git -C "$PROJECT" -c user.email=t@t -c user.name=t commit -qm init
+    install_answered --client all --permissions ask --without-jev --team-neutral
+    [ "$status" -eq 2 ]
+    [[ "$output" == *'Git ignore rules hide team-neutral path'* ]]
+    [ ! -e "$PROJECT/.datarim-runtime" ]
+    printf '' > "$PROJECT/.gitignore"
+    mkdir -p "$PROJECT/datarim"
+    printf 'private task\n' > "$PROJECT/datarim/tasks.md"
+    git -C "$PROJECT" add -A
+    git -C "$PROJECT" -c user.email=t@t -c user.name=t commit -qm tracked
+    install_answered --client all --permissions ask --without-jev --team-neutral
+    [ "$status" -eq 2 ]
+    [[ "$output" == *'Tracked private Datarim paths'* ]]
+    [ ! -e "$PROJECT/.datarim-runtime" ]
+}
+
 @test "project initialization creates only local task state" {
     install_answered --client all --permissions ask --without-jev --init
     [ "$status" -eq 0 ]

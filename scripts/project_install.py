@@ -143,6 +143,25 @@ def write_git_exclude(root, rules):
     return path
 
 
+def team_neutral_preflight(root):
+    """Refuse a visibility promise that existing Git rules or tracked state defeat."""
+    if git_exclude_target(root) is None:
+        raise ValueError('--team-neutral requires a Git repository')
+    tracked = subprocess.run(['git', '-C', str(root), 'ls-files', '--cached', '--', 'datarim'],
+                             capture_output=True, text=True, check=True).stdout.splitlines()
+    allowed = ('datarim/AGENTS.md', 'datarim/config.yaml', 'datarim/local/')
+    private = [path for path in tracked if path not in allowed[:2] and not path.startswith(allowed[2])]
+    if private:
+        raise ValueError('Tracked private Datarim paths prevent team-neutral mode: '+', '.join(private[:8]))
+    for relative in allowed[:2] + ('datarim/local/manifest.json',):
+        result = subprocess.run(['git', '-C', str(root), 'check-ignore', '-v', '--no-index', '--', relative],
+                                capture_output=True, text=True)
+        if result.returncode not in (0, 1):
+            raise ValueError('Unable to check Git visibility for '+relative)
+        if result.returncode == 0 and 'info/exclude:' not in result.stdout.split('\t', 1)[0]:
+            raise ValueError('Project Git ignore rules hide team-neutral path: '+relative)
+
+
 HOOK_CONFIGS = ('.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json')
 CLIENTS = ('claude', 'codex', 'cursor')
 CLIENT_HOOK_CONFIG = dict(zip(CLIENTS, HOOK_CONFIGS))
@@ -729,6 +748,8 @@ def _install(args):
     requested_team_neutral = getattr(args, 'team_neutral', None)
     team_neutral = (requested_team_neutral if requested_team_neutral is not None
                     else bool((previous or {}).get('team_neutral')))
+    if team_neutral:
+        team_neutral_preflight(root)
     if args.host_jev:
         from jev_hook import host_runtime
         host_runtime()  # A declaration alone must not silently remove all hooks.

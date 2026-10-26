@@ -7,6 +7,7 @@ import hashlib
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 import tempfile
 
@@ -58,6 +59,20 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def require_git_visible(root: Path, target: Path) -> None:
+    relative = target.relative_to(root).as_posix()
+    inside = subprocess.run(["git", "-C", str(root), "rev-parse", "--is-inside-work-tree"],
+                            capture_output=True, text=True)
+    if inside.returncode != 0 or inside.stdout.strip() != "true":
+        raise ValueError("configured delivery requires a Git worktree")
+    ignored = subprocess.run(["git", "-C", str(root), "check-ignore", "--no-index", "--", relative],
+                             capture_output=True, text=True)
+    if ignored.returncode == 0:
+        raise ValueError("configured report target is Git-ignored: " + relative)
+    if ignored.returncode != 1:
+        raise ValueError("unable to check Git visibility for " + relative)
+
+
 def run(root: Path, task_id: str, source: Path, action: str) -> tuple[str, Path | None]:
     directory = report_directory(root, task_id)
     if directory is None:
@@ -67,6 +82,7 @@ def run(root: Path, task_id: str, source: Path, action: str) -> tuple[str, Path 
     if not source.resolve().is_relative_to(root / "datarim"):
         raise ValueError("source must be a Datarim working report")
     target = directory / source.name
+    require_git_visible(root, target)
     if target.is_symlink():
         raise ValueError("report target must not be a symlink")
     if action == "publish":

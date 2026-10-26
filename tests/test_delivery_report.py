@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 
 
@@ -18,6 +19,7 @@ class DeliveryReportTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
         self.datarim = self.root / "datarim"
         (self.datarim / "qa").mkdir(parents=True)
         self.source = self.datarim / "qa/report.md"
@@ -52,6 +54,12 @@ class DeliveryReportTests(unittest.TestCase):
     def test_empty_configured_path_is_error(self) -> None:
         (self.datarim / "config.yaml").write_text("delivery:\n  reports:\n")
         with self.assertRaisesRegex(ValueError, "supports only"):
+            module.run(self.root, "EXA-0001", self.source, "publish")
+
+    def test_ignored_report_target_refused(self) -> None:
+        (self.datarim / "config.yaml").write_text("delivery:\n  reports: reports/{task_id}\n")
+        (self.root / ".gitignore").write_text("reports/\n")
+        with self.assertRaisesRegex(ValueError, "Git-ignored"):
             module.run(self.root, "EXA-0001", self.source, "publish")
 
 

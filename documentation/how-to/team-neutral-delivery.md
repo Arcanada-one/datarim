@@ -10,7 +10,7 @@ Answer the installer's normal Jev, client, and permission questions, then includ
 ./install.sh --project /path/to/project --team-neutral --init <answered-flags>
 ```
 
-The option is remembered on update. It exposes only `datarim/AGENTS.md`, `datarim/config.yaml`, and `datarim/local/` to Git. Review and commit those project-owned files if teammates should receive them. Task files, QA working data, credentials, runtime files, and native command adapters stay excluded. Existing root `AGENTS.md`, README, and `.gitignore` are not edited.
+The option is remembered on update. It exposes only `datarim/AGENTS.md`, `datarim/config.yaml`, and `datarim/local/` to Git. Review and commit those project-owned files if teammates should receive them. Task files, QA working data, credentials, runtime files, and native command adapters stay excluded. A new team-neutral install leaves the root `AGENTS.md`, README, and `.gitignore` untouched. Updating a legacy managed install can remove its own obsolete managed blocks from root files; inspect that migration diff before committing. The installer refuses existing project ignore rules or tracked private Datarim files that would defeat this visibility contract.
 
 ## Publish reports
 
