@@ -21,6 +21,8 @@ set -euo pipefail
 : "${DR_ORCH_SUBAGENT_CHAIN:=claude codex cursor}"
 : "${DR_ORCH_RESOLVER_TIMEOUT_S:=15}"
 : "${DR_FLEET_VERSION_TIMEOUT_S:=2}"
+# Shared Auto-only Cursor policy (sibling Jev control plugin).
+: "${DR_CURSOR_MODEL_POLICY:=$DR_ORCH_DIR/../dr-jev-control/scripts/cursor_model_policy.py}"
 # shellcheck source=lib/project-state.sh
 . "$DR_ORCH_DIR/scripts/lib/project-state.sh"
 # STATE_DIR is used for exactly one thing: a sentinel file that stops the
@@ -62,6 +64,18 @@ _with_timeout() {
   return 124
 }
 
+# _cursor_model_argv — print `--model` / `<resolved>` as two lines, fail closed
+# on a named non-Auto model unless DATARIM_CURSOR_ALLOW_NON_AUTO=1. Defaults to
+# auto when nothing is configured. Optional arg is an explicit requested model.
+_cursor_model_argv() {
+  local requested="${1:-${DATARIM_CURSOR_MODEL:-}}"
+  if [[ ! -f "$DR_CURSOR_MODEL_POLICY" ]]; then
+    echo "ERROR: Cursor model policy missing: $DR_CURSOR_MODEL_POLICY" >&2
+    return 2
+  fi
+  python3 "$DR_CURSOR_MODEL_POLICY" model-argv "$requested"
+}
+
 # _backend_cmd <name> — print the command vector for the named backend, one
 # arg per line. Returns 0 if recognised, 2 otherwise. The prompt is read from
 # stdin and passed as the last argument by _invoke_backend.
@@ -69,7 +83,17 @@ _resolve_backend() {
   case "$1" in
     claude)            echo claude; echo --print; echo --output-format=json ;;
     codex)             echo codex; echo exec; echo --output-last-message; echo - ;;
-    cursor)            echo cursor-agent; echo --print; echo --output-format=json ;;
+    # stream-json (not json): init.model is only present on stream-json.
+    # --model auto is mandatory (fail-closed Auto-only policy). Resolve the
+    # model BEFORE echoing any argv so a refusal leaves an empty vector.
+    cursor)
+      local model_out
+      model_out="$(_cursor_model_argv)" || return 2
+      echo cursor-agent
+      echo --print
+      echo --output-format=stream-json
+      printf '%s\n' "$model_out"
+      ;;
     mock-*)            echo "dr-orch-mock-${1#mock-}" ;;
     *)                 return 2 ;;
   esac
@@ -93,7 +117,12 @@ _resolve_fleet_backend() {
   case "$1" in
     claude)   echo claude ;;
     codex)    echo codex ;;
-    cursor)   echo cursor-agent ;;
+    cursor)
+      local model_out
+      model_out="$(_cursor_model_argv)" || return 2
+      echo cursor-agent
+      printf '%s\n' "$model_out"
+      ;;
     gemini)   echo gemini ;;
     aras)     return 2 ;;        # deferred slot — treated as unavailable
     *)        return 2 ;;
@@ -101,7 +130,8 @@ _resolve_fleet_backend() {
 }
 
 _fleet_backend_present() {
-  local first; first="$(_resolve_fleet_backend "$1")" || return 1
+  local first
+  first="$(_resolve_fleet_backend "$1" | head -1)" || return 1
   command -v "$first" >/dev/null 2>&1
 }
 
@@ -134,7 +164,7 @@ select_fleet_backend() {
     else
       _fleet_backend_present "$backend" || continue
     fi
-    first="$(_resolve_fleet_backend "$backend")" || first=""
+    first="$(_resolve_fleet_backend "$backend" | head -1)" || first=""
     _fleet_cli_version_hint "$backend" "$first" || true
     printf '%s\n' "$backend"
     return 0
@@ -202,12 +232,24 @@ _warn_missing_once() {
 
 # Strip the [coworker: ...] preamble line and any trailing "Shell cwd was reset"
 # noise; leave the JSON-bearing body for the lenient extractor.
+# Cursor uses stream-json: take the terminal result line's .result text, and
+# emit requested/actual model observation on stderr via the shared policy.
 _normalize() {
   local backend="$1"; local raw="$2"
   case "$backend" in
-    claude|cursor)
+    claude)
       local r
       r="$(printf '%s' "$raw" | jq -r '.result // empty' 2>/dev/null)"
+      if [[ -n "$r" ]]; then printf '%s' "$r"; else printf '%s' "$raw"; fi
+      ;;
+    cursor)
+      local requested r errf
+      requested="$(python3 "$DR_CURSOR_MODEL_POLICY" resolve "${DATARIM_CURSOR_MODEL:-}" 2>/dev/null || printf 'auto')"
+      errf="$(mktemp)"
+      r="$(printf '%s' "$raw" | python3 "$DR_CURSOR_MODEL_POLICY" observe --requested "$requested" --emit-result 2>"$errf" || true)"
+      # Forward structured log + alerts so an outer process can relay them.
+      cat "$errf" >&2 || true
+      rm -f "$errf"
       if [[ -n "$r" ]]; then printf '%s' "$r"; else printf '%s' "$raw"; fi
       ;;
     *) printf '%s' "$raw" ;;

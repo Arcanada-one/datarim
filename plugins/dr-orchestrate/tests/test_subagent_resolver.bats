@@ -118,3 +118,43 @@ EOF
     run bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" resolve "second"
     [ "$status" -eq 0 ]
 }
+
+# --- Cursor Auto-only fail-closed guard (stream-json + --model auto) ----------
+
+@test "cursor headless argv defaults to --model auto and stream-json" {
+    run bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" _resolve_backend cursor
+    [ "$status" -eq 0 ]
+    echo "$output" | head -1 | grep -qx 'cursor-agent'
+    echo "$output" | grep -qx -- '--print'
+    echo "$output" | grep -qx -- '--output-format=stream-json'
+    echo "$output" | grep -qx -- '--model'
+    echo "$output" | grep -qx -- 'auto'
+}
+
+@test "cursor headless argv refuses a named DATARIM_CURSOR_MODEL" {
+    run env DATARIM_CURSOR_MODEL=grok-4.7-high-fast \
+        bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" _resolve_backend cursor
+    [ "$status" -ne 0 ]
+    ! echo "$output" | grep -q 'cursor-agent'
+}
+
+@test "cursor escape hatch permits a named model when explicitly enabled" {
+    run env DATARIM_CURSOR_ALLOW_NON_AUTO=1 DATARIM_CURSOR_MODEL=grok-4.7-high-fast \
+        bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" _resolve_backend cursor
+    [ "$status" -eq 0 ]
+    echo "$output" | grep -qx -- 'grok-4.7-high-fast'
+}
+
+@test "cursor normalize observes missing init and forwards alert on stderr" {
+    FIX="$DR_ORCH_DIR/../dr-jev-control/tests/fixtures/cursor-stream/missing-init.jsonl"
+    errf="$(mktemp)"
+    bash -c '
+      set -euo pipefail
+      # shellcheck disable=SC1090
+      source "$1"
+      _normalize cursor "$(cat "$2")" >/dev/null
+    ' bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" "$FIX" 2>"$errf"
+    grep -q 'CURSOR_MODEL_ALERT:' "$errf"
+    grep -q 'CURSOR_MODEL_RUN:' "$errf"
+    rm -f "$errf"
+}
