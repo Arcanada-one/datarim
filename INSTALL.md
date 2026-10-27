@@ -230,7 +230,6 @@ install.
 | `--claude-import`, `--no-claude-import` | Deprecated and ignored: they print a notice and change nothing, so existing command lines keep working. Claude Code reads `AGENTS.md` natively and the installer never creates `CLAUDE.md`. An update or uninstall still removes a `CLAUDE.md` symlink that an older release recorded as its own; any other `CLAUDE.md` is never touched. |
 | `--init` | Creates `datarim/tasks.md` and `datarim/backlog.md` if missing. Existing files are kept. |
 | `--expose-skills` | Also writes every framework skill into `.agents/skills/`, `.claude/skills/`, `.cursor/skills/`. Their descriptions load into every session. Kept across updates once set. |
-| `--team-neutral` | Shared-repository mode: expose only `datarim/AGENTS.md`, `datarim/config.yaml`, and `datarim/local/` to Git; keep root instructions untouched. Kept across updates. See [team-neutral delivery](documentation/how-to/team-neutral-delivery.md). |
 | `--context <relative/path>` | Lets an existing nested git repository use this installation. Repeat per repository. Without it, a nested repository is refused. Kept across updates; given again, it replaces the list; `--no-context` clears it. |
 | `--without-jev`, `--no-host-jev` | `--without-jev` is the "no Jev" answer a fresh install requires (it or `--with-jev`). On update they turn off a recorded `--with-jev` or `--host-jev`; `--without-jev` then withdraws the project's Jev hooks and `jev-config.json`; the key file stays. |
 | `--dry-run` | Prints the plan as JSON; writes nothing. On a fresh install it needs the Jev answer and `--client` too. |
@@ -307,7 +306,7 @@ says. Persistent choices have their own switches: `jev permissions`, `jev on` /
 | Permission mode | `jev permissions full\|ask`: file `FULL_PERMISSIONS` in the same state directory; env `JEV_PERMISSIONS=full\|ask` overrides it for one launch | `scripts/jev.py` `full_permissions()` | no | `ask` |
 | Disable Jev advice for a shell | env `JEV_DISABLE=1` or `DATARIM_JEV_DISABLE=1` (the safety floor still runs) | `project_state.py` `disabled_reason()` | no | unset |
 | Codex model per Jev tier | env `DATARIM_CODEX_MODEL_HAIKU`, `_SONNET`, `_OPUS` | `scripts/jev.py`, `plugins/dr-jev-control/scripts/runtimes.py` | no | Codex account default, tier mapped to effort |
-| Cursor model per Jev tier | env `DATARIM_CURSOR_MODEL_HAIKU`, `_SONNET`, `_OPUS` | same | no | Cursor default model |
+| Cursor model | Do not set `DATARIM_CURSOR_MODEL_HAIKU`, `_SONNET`, `_OPUS` | n/a | no | Cursor selects the model itself (Auto) |
 | Client executable | env `CLAUDE_BIN`, `CODEX_BIN`, `CURSOR_BIN` | `scripts/jev.py` `binary()` | no | `claude`, `codex`, `cursor-agent` (or `agent`) on `PATH` |
 | Codex auto re-trust | env `JEV_NO_AUTO_TRUST=1` stops `jevcodex` (host Jev) from re-granting Codex trust to Jev's own hooks | `scripts/jev.py` | no | unset |
 | Execution-host map | env `DATARIM_EXEC_HOSTS_MAP`, a YAML map of which machine may run tasks for a workspace | `/dr-init`, `/dr-quick`, `/dr-next` via `dev-tools/lib/execution-host.sh` | no | `$HOME/.claude/local/config/execution-hosts.yml`; absent map means the check is skipped |

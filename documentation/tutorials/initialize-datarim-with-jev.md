@@ -74,9 +74,9 @@ shows `codex` as `live`, from `hook_delivery` records in
 detail, including the flag for automation that cannot answer a prompt.
 
 Use `--agent=claude` or `--agent=cursor` to select either other client. The alias
-and dispatcher share one implementation. Select supported account models before
-expecting model changes; [model mapping](../how-to/configure-and-use-jev.md)
-explains Codex effort and Cursor model IDs.
+and dispatcher share one implementation. Select supported Codex account models
+before expecting model changes; [model mapping](../how-to/configure-and-use-jev.md)
+explains Codex effort. Do not set `DATARIM_CURSOR_MODEL_*`; Cursor selects the model itself (Auto).
 
 For a bounded, supervised task:
 
