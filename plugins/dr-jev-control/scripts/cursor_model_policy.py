@@ -6,9 +6,10 @@ An unset model used to fall through to the client default (observed as a named
 expensive model such as ``grok-4.7-high-fast``).
 
 Policy:
-- Missing / empty requested model → default to ``auto`` (still passed explicitly).
+- Missing / empty requested model → **not refused**; inject explicit
+  ``--model auto`` (never launch with the model flag unset).
 - ``auto`` (any case) → allowed.
-- Any other model → refused with a clear error unless
+- An **explicitly named** non-Auto model → refused with a clear error unless
   ``DATARIM_CURSOR_ALLOW_NON_AUTO=1`` (explicit escape hatch, off by default).
 
 Observation (``cursor-agent -p --output-format stream-json``):
@@ -93,8 +94,8 @@ def resolve_launch_model(requested: Optional[str] = None) -> str:
     if allow_non_auto():
         return text
     raise CursorModelRefused(
-        f"Cursor model '{text}' refused: only Auto is allowed "
-        f"(pass --model auto, or unset the model to default to auto). "
+        f"Cursor model '{text}' refused: only Auto is allowed. "
+        f"Omit the model (launcher injects --model auto) or pass --model auto. "
         f"Escape hatch: set {ALLOW_NON_AUTO_ENV}=1 to permit a named model."
     )
 

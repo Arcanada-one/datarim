@@ -26,10 +26,13 @@ class TestResolveLaunchModel(unittest.TestCase):
     def tearDown(self):
         os.environ.pop(policy.ALLOW_NON_AUTO_ENV, None)
 
-    def test_missing_model_defaults_to_auto(self):
-        self.assertEqual(policy.resolve_launch_model(None), "auto")
-        self.assertEqual(policy.resolve_launch_model(""), "auto")
-        self.assertEqual(policy.resolve_launch_model("   "), "auto")
+    def test_missing_model_is_not_refused_but_injects_auto(self):
+        """Unset/empty must not fail closed; it must become explicit --model auto."""
+        for value in (None, "", "   "):
+            with self.subTest(value=value):
+                self.assertEqual(policy.resolve_launch_model(value), "auto")
+                # Must not raise CursorModelRefused for an unconfigured model.
+                self.assertEqual(policy.model_argv(value), ["--model", "auto"])
 
     def test_auto_accepted_case_insensitive(self):
         self.assertEqual(policy.resolve_launch_model("auto"), "auto")
@@ -41,6 +44,7 @@ class TestResolveLaunchModel(unittest.TestCase):
             policy.resolve_launch_model("grok-4.7-high-fast")
         self.assertIn("only Auto is allowed", str(ctx.exception))
         self.assertIn(policy.ALLOW_NON_AUTO_ENV, str(ctx.exception))
+        self.assertNotIn("missing", str(ctx.exception).lower())
 
     def test_escape_hatch_allows_named_model(self):
         os.environ[policy.ALLOW_NON_AUTO_ENV] = "1"
@@ -49,8 +53,10 @@ class TestResolveLaunchModel(unittest.TestCase):
             "grok-4.7-high-fast",
         )
 
-    def test_model_argv_always_includes_flag(self):
+    def test_model_argv_never_omits_flag(self):
+        """An unset model must still produce an explicit --model auto pair."""
         self.assertEqual(policy.model_argv(None), ["--model", "auto"])
+        self.assertEqual(policy.model_argv(""), ["--model", "auto"])
         self.assertEqual(policy.model_argv("auto"), ["--model", "auto"])
 
 
@@ -119,12 +125,15 @@ class TestCursorRuntimeGuard(unittest.TestCase):
             if key.startswith("DATARIM_CURSOR_MODEL") or key == policy.ALLOW_NON_AUTO_ENV:
                 del os.environ[key]
 
-    def test_argv_defaults_to_auto_when_unconfigured(self):
+    def test_argv_injects_explicit_auto_when_unconfigured(self):
         rt = runtimes.CursorRuntime("sonnet")
         argv = rt._argv("TASK", resume=False)
+        # Must reach Cursor with an explicit flag; never omit --model.
         self.assertIn("--model", argv)
         self.assertEqual(argv[argv.index("--model") + 1], "auto")
         self.assertIn("stream-json", argv)
+        # Guard did not refuse the unconfigured case.
+        self.assertNotIn("refused", " ".join(argv).lower())
 
     def test_argv_refuses_named_env_mapping(self):
         os.environ["DATARIM_CURSOR_MODEL_SONNET"] = "grok-4.7-high-fast"
