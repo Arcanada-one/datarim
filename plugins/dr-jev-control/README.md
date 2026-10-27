@@ -28,7 +28,7 @@ loading and session continuity need separate live checks.
 |---|---|---|
 | Claude Code | Model tier and thinking budget | Control requests in the active stream |
 | Codex | Reasoning effort; optional explicitly configured model | Resume the exact thread on the next turn |
-| Cursor | Cursor selects the model itself (Auto); do not set `DATARIM_CURSOR_MODEL_*`. No common effort flag | Resume the exact session on the next turn |
+| Cursor | env `DATARIM_CURSOR_MODEL_*` (leave unset; policy 22.10 = Auto) → default `--model auto`. No common effort flag | Resume the exact session on the next turn |
 
 The supervisor refuses missing or changed continuation IDs. A failed client turn
 is not a completed turn.

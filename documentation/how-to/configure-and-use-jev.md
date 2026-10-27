@@ -31,8 +31,9 @@ set `DATARIM_CODEX_MODEL_HAIKU`, `DATARIM_CODEX_MODEL_SONNET`, and
 `DATARIM_CODEX_MODEL_OPUS` in the current project shell, using IDs your account
 actually supports.
 
-Do not set `DATARIM_CURSOR_MODEL_HAIKU`, `DATARIM_CURSOR_MODEL_SONNET`, or
-`DATARIM_CURSOR_MODEL_OPUS`. Cursor selects the model itself (Auto).
+Leave `DATARIM_CURSOR_MODEL_*` unset (policy 22.10 = Auto). Jev still reads
+those env vars as an override; otherwise it passes `--model auto`
+(`scripts/jev.py`, `plugins/dr-jev-control/scripts/runtimes.py`).
 
 Activate only in the current shell:
 

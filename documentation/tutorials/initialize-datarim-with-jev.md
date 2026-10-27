@@ -76,7 +76,7 @@ detail, including the flag for automation that cannot answer a prompt.
 Use `--agent=claude` or `--agent=cursor` to select either other client. The alias
 and dispatcher share one implementation. Select supported Codex account models
 before expecting model changes; [model mapping](../how-to/configure-and-use-jev.md)
-explains Codex effort. Do not set `DATARIM_CURSOR_MODEL_*`; Cursor selects the model itself (Auto).
+explains Codex effort. Leave `DATARIM_CURSOR_MODEL_*` unset (policy 22.10 = Auto); Jev still reads them as an override and otherwise passes `--model auto`.
 
 For a bounded, supervised task:
 
