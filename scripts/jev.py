@@ -198,11 +198,7 @@ def _is_executable(path):
 
 
 def resolve_cursor_model(explicit_model, tier):
-    """Cursor --model: explicit wins, else DATARIM_CURSOR_MODEL_<TIER>, else auto.
-
-    Collective / Pavel 22.10: an unset model must still pass `--model auto`
-    (the client default without the flag is not Auto).
-    """
+    """Cursor --model: explicit wins, else DATARIM_CURSOR_MODEL_<TIER>, else auto."""
     if explicit_model:
         return explicit_model
     if tier:
