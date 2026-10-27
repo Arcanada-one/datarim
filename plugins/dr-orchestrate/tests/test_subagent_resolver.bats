@@ -141,6 +141,13 @@ EOF
     ! echo "$output" | grep -q 'cursor-agent'
 }
 
+@test "cursor headless argv refuses literal default DATARIM_CURSOR_MODEL" {
+    run env DATARIM_CURSOR_MODEL=default \
+        bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" _resolve_backend cursor
+    [ "$status" -ne 0 ]
+    ! echo "$output" | grep -q 'cursor-agent'
+}
+
 @test "cursor escape hatch permits a named model when explicitly enabled" {
     run env DATARIM_CURSOR_ALLOW_NON_AUTO=1 DATARIM_CURSOR_MODEL=grok-4.7-high-fast \
         bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" _resolve_backend cursor

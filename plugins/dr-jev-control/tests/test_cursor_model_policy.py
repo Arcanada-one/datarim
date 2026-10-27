@@ -46,6 +46,15 @@ class TestResolveLaunchModel(unittest.TestCase):
         self.assertIn(policy.ALLOW_NON_AUTO_ENV, str(ctx.exception))
         self.assertNotIn("missing", str(ctx.exception).lower())
 
+    def test_literal_default_is_refused(self):
+        """The string 'default' is a named non-Auto model, not an unset model."""
+        for value in ("default", "Default"):
+            with self.subTest(value=value):
+                with self.assertRaises(policy.CursorModelRefused) as ctx:
+                    policy.resolve_launch_model(value)
+                self.assertIn("only Auto is allowed", str(ctx.exception))
+                self.assertIn(value, str(ctx.exception))
+
     def test_escape_hatch_allows_named_model(self):
         os.environ[policy.ALLOW_NON_AUTO_ENV] = "1"
         self.assertEqual(
@@ -141,6 +150,14 @@ class TestCursorRuntimeGuard(unittest.TestCase):
         with self.assertRaises(runtimes.RuntimeError_) as ctx:
             rt._argv("TASK", resume=False)
         self.assertIn("only Auto is allowed", str(ctx.exception))
+
+    def test_argv_refuses_literal_default_env_mapping(self):
+        os.environ["DATARIM_CURSOR_MODEL_SONNET"] = "default"
+        rt = runtimes.CursorRuntime("sonnet")
+        with self.assertRaises(runtimes.RuntimeError_) as ctx:
+            rt._argv("TASK", resume=False)
+        self.assertIn("only Auto is allowed", str(ctx.exception))
+        self.assertIn("default", str(ctx.exception))
 
     def test_argv_escape_hatch_permits_named_model(self):
         os.environ[policy.ALLOW_NON_AUTO_ENV] = "1"
