@@ -197,6 +197,21 @@ def _is_executable(path):
     return path.is_file() and os.access(path, os.X_OK)
 
 
+def resolve_cursor_model(explicit_model, tier):
+    """Cursor --model: explicit wins, else DATARIM_CURSOR_MODEL_<TIER>, else auto.
+
+    Collective / Pavel 22.10: an unset model must still pass `--model auto`
+    (the client default without the flag is not Auto).
+    """
+    if explicit_model:
+        return explicit_model
+    if tier:
+        mapped = os.environ.get('DATARIM_CURSOR_MODEL_' + tier.upper())
+        if mapped:
+            return mapped
+    return 'auto'
+
+
 def binary(agent):
     """Resolve a client CLI; honour *_BIN, PATH, then well-known install dirs."""
     default_names = {
@@ -902,10 +917,8 @@ def main():
             model = model or tier
             if effort:
                 args += ['--effort', effort]
-        elif tier:
-            model = model or os.environ.get('DATARIM_CURSOR_MODEL_'+tier.upper())
-            if not model:
-                print('Cursor tier mapping is not configured; keeping its default model', file=sys.stderr)
+        elif a.agent == 'cursor':
+            model = resolve_cursor_model(model, tier)
         if a.agent == 'cursor' and effort:
             print('jev: Cursor has no common effort flag; choose --model instead', file=sys.stderr)
             return 2

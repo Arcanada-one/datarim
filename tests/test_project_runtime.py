@@ -1241,6 +1241,21 @@ class JevTransportTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual(reason['reason'], 'cursor_model_mapping_missing')
 
+    def test_cursor_argv_defaults_to_model_auto_when_unmapped(self):
+        from runtimes import CursorRuntime
+        runtime = CursorRuntime('sonnet')
+        with patch.dict(os.environ, {}, clear=True):
+            argv = runtime._argv('TASK', resume=False)
+        self.assertIn('--model', argv)
+        self.assertEqual(argv[argv.index('--model') + 1], 'auto')
+
+    def test_cursor_argv_respects_explicit_tier_mapping(self):
+        from runtimes import CursorRuntime
+        runtime = CursorRuntime('sonnet')
+        with patch.dict(os.environ, {'DATARIM_CURSOR_MODEL_SONNET': 'gpt-test-pin'}, clear=True):
+            argv = runtime._argv('TASK', resume=False)
+        self.assertEqual(argv[argv.index('--model') + 1], 'gpt-test-pin')
+
 
 if __name__ == '__main__':
     unittest.main()

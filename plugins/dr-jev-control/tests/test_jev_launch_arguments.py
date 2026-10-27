@@ -235,5 +235,19 @@ class DoctorVersionProbeFailures(unittest.TestCase):
         self.assertEqual(len(calls), 3)
         self.assertEqual(report['api'], 'not_measured')
 
+class CursorModelDefault(unittest.TestCase):
+    """Unset Cursor mapping must still pass --model auto; explicit env wins."""
+
+    def test_unmapped_tier_defaults_to_auto(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(jev.resolve_cursor_model(None, 'sonnet'), 'auto')
+            self.assertEqual(jev.resolve_cursor_model(None, None), 'auto')
+
+    def test_explicit_tier_mapping_wins(self):
+        with mock.patch.dict(os.environ, {'DATARIM_CURSOR_MODEL_SONNET': 'gpt-test-pin'}, clear=True):
+            self.assertEqual(jev.resolve_cursor_model(None, 'sonnet'), 'gpt-test-pin')
+            self.assertEqual(jev.resolve_cursor_model('cli-override', 'sonnet'), 'cli-override')
+
+
 if __name__ == '__main__':
     unittest.main()

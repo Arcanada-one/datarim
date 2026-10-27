@@ -69,7 +69,7 @@ _resolve_backend() {
   case "$1" in
     claude)            echo claude; echo --print; echo --output-format=json ;;
     codex)             echo codex; echo exec; echo --output-last-message; echo - ;;
-    cursor)            echo cursor-agent; echo --print; echo --output-format=json ;;
+    cursor)            echo cursor-agent; echo --print; echo --output-format=json; echo --model; echo auto ;;
     mock-*)            echo "dr-orch-mock-${1#mock-}" ;;
     *)                 return 2 ;;
   esac
@@ -93,7 +93,7 @@ _resolve_fleet_backend() {
   case "$1" in
     claude)   echo claude ;;
     codex)    echo codex ;;
-    cursor)   echo cursor-agent ;;
+    cursor)   echo cursor-agent; echo --model; echo auto ;;
     gemini)   echo gemini ;;
     aras)     return 2 ;;        # deferred slot — treated as unavailable
     *)        return 2 ;;
@@ -305,7 +305,7 @@ resolve() {
     case "$backend" in
       claude)            model="client-default" ;;
       codex)             model="client-default" ;;
-      cursor)            model="client-default" ;;
+      cursor)            model="auto" ;;
       mock-*)            model="$backend" ;;
     esac
     printf '%s' "$json" | jq -c \

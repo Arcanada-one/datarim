@@ -118,3 +118,18 @@ EOF
     run bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" resolve "second"
     [ "$status" -eq 0 ]
 }
+
+@test "cursor inference argv always passes --model auto" {
+    run bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" _resolve_backend cursor
+    [ "$status" -eq 0 ]
+    echo "$output" | grep -qx -- '--model'
+    echo "$output" | grep -qx -- 'auto'
+}
+
+@test "cursor fleet argv always passes --model auto" {
+    run bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" _resolve_fleet_backend cursor
+    [ "$status" -eq 0 ]
+    [ "$(echo "$output" | head -1)" = "cursor-agent" ]
+    echo "$output" | grep -qx -- '--model'
+    echo "$output" | grep -qx -- 'auto'
+}

@@ -599,8 +599,9 @@ class CursorRuntime(CodexRuntime):
                 raise RuntimeError_('Cursor did not report a session ID')
             args += ['--resume', self.thread_id]
         model, _ = self._tier_settings(self.tier)
-        if model:
-            args += ['--model', model]
+        # Collective / Pavel 22.10: unset mapping must still pass --model auto
+        # (client default without the flag is not Auto). Explicit DATARIM_CURSOR_MODEL_* wins.
+        args += ['--model', model or 'auto']
         return args + self.extra_args + [text]
 
     def _translate(self, data, gen=None):
