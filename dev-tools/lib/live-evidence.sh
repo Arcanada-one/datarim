@@ -5,31 +5,199 @@
 # Exit 0 STAGE_PASS/preflight receipt; 1 BLOCKED; 2 invocation/runtime error.
 set -euo pipefail
 
-block() { echo "BLOCKED: $*" >&2; exit 1; }
-usage() { echo "evidence gate: --contract FILE --evidence FILE --root DIR --stage preflight|snapshot|do|write|edit|publish|qa|compliance|archive|quick" >&2; exit 2; }
-contract='' evidence='' root='' stage=''
-while (($#)); do
-    (($# >= 2)) || usage
-    case "$1" in
-        --contract) [[ -z "$contract" ]] || usage; contract=$2 ;;
-        --evidence) [[ -z "$evidence" ]] || usage; evidence=$2 ;;
-        --root) [[ -z "$root" ]] || usage; root=$2 ;;
-        --stage) [[ -z "$stage" ]] || usage; stage=$2 ;;
-        *) usage ;;
-    esac
-    shift 2
+summary_mode=0
+summary_flag_count=0
+for argument in "$@"; do
+    if [[ "$argument" == --summary-json ]]; then
+        summary_mode=1
+        summary_flag_count=$((summary_flag_count + 1))
+    fi
 done
-[[ -n "$contract" && -n "$evidence" && -d "$root" ]] || usage
-case "$stage" in preflight|snapshot|do|write|edit|publish|qa|compliance|archive|quick) ;; *) usage ;; esac
-command -v python3 >/dev/null || usage
-command -v jq >/dev/null || usage
-command -v git >/dev/null || usage
+
+# Summary streams contain only the fixed JSON object. Any diagnostic produced
+# by a nested command is private implementation detail and must not escape.
+if [[ "$summary_mode" == 1 ]]; then
+    exec 2>/dev/null
+fi
+
+summary_task_binding=NOT_MEASURED
+summary_input_binding=NOT_MEASURED
+summary_revision_available=0
+summary_revision_value=''
+summary_criteria_available=0 summary_criteria_value=''
+summary_cases_available=0 summary_cases_value=''
+summary_due_available=0 summary_due_value=''
+summary_pending_available=0 summary_pending_value=''
+summary_validated_available=0 summary_validated_value=''
+
+summary_count_json() {
+    local available=$1 value=$2
+    if [[ "$available" == 1 && "$value" =~ ^[0-9]+$ ]]; then
+        printf '{"availability":"AVAILABLE","value":%s}' "$value"
+    else
+        printf '{"availability":"NOT_MEASURED","value":null}'
+    fi
+}
+
+summary_emit() {
+    local verdict=$1 reason=$2 exit_code=$3 stage_json=null revision_json
+    case "$stage" in
+        preflight|snapshot|do|write|edit|publish|qa|compliance|archive|quick)
+            stage_json="\"$stage\""
+            ;;
+    esac
+    if [[ "$summary_revision_available" == 1 && "$summary_revision_value" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; then
+        revision_json="{\"availability\":\"AVAILABLE\",\"value\":\"$summary_revision_value\"}"
+    else
+        revision_json='{"availability":"NOT_MEASURED","value":null}'
+    fi
+    printf '{"schema":"datarim.live-evidence-summary/v1","verdict":"%s","reason_code":"%s","exit_code":%s,"stage":%s,"identity":{"task_binding":"%s","source_revision":%s,"input_binding":"%s"},"counts":{"criteria_defined":%s,"cases_defined":%s,"cases_due":%s,"cases_validated":%s,"cases_pending":%s}}\n' \
+        "$verdict" "$reason" "$exit_code" "$stage_json" \
+        "$summary_task_binding" "$revision_json" "$summary_input_binding" \
+        "$(summary_count_json "$summary_criteria_available" "$summary_criteria_value")" \
+        "$(summary_count_json "$summary_cases_available" "$summary_cases_value")" \
+        "$(summary_count_json "$summary_due_available" "$summary_due_value")" \
+        "$(summary_count_json "$summary_validated_available" "$summary_validated_value")" \
+        "$(summary_count_json "$summary_pending_available" "$summary_pending_value")"
+}
+
+summary_block_reason() {
+    case "$1" in
+        'missing regular contract') printf contract_missing ;;
+        'ambiguous or invalid contract JSON') printf contract_json_invalid ;;
+        'contract must contain exactly one JSON document') printf contract_document_invalid ;;
+        'invalid acceptance contract') printf contract_schema_invalid ;;
+        'invalid relative path'|'control character in path'|'traversal in path'|'symlink in evidence scope'|'invalid task binding path'|'scope path is not a regular file'|'invalid evidence artifact path') printf unsafe_path ;;
+        'canonical task description missing') printf task_description_missing ;;
+        'invalid canonical task metadata') printf task_metadata_invalid ;;
+        'task identity, complexity, or type mismatch') printf task_identity_mismatch ;;
+        'invalid scope') printf scope_invalid ;;
+        'invalid input manifest'|'input path is not a regular file'|'invalid input kind') printf input_manifest_invalid ;;
+        'contract changed during verification') printf contract_changed ;;
+        'missing regular evidence bundle') printf evidence_missing ;;
+        'ambiguous or invalid evidence JSON') printf evidence_json_invalid ;;
+        'evidence must contain exactly one JSON document') printf evidence_document_invalid ;;
+        'evidence coverage, freshness, or stage order failed') printf evidence_validation_failed ;;
+        'evidence artifact missing') printf evidence_artifact_missing ;;
+        'evidence artifact hash mismatch') printf evidence_artifact_hash_mismatch ;;
+        'evidence changed during verification') printf evidence_changed ;;
+        'task metadata changed during verification') printf task_description_changed ;;
+        'scope changed during verification') printf scope_changed ;;
+        'inputs changed during verification') printf inputs_changed ;;
+        'revision changed during verification') printf source_revision_changed ;;
+        *) printf evidence_validation_failed ;;
+    esac
+}
+
+block() {
+    if [[ "$summary_mode" == 1 ]]; then
+        # A nested command substitution must fail silently; its explicit outer
+        # boundary owns the single public summary object.
+        if (( BASH_SUBSHELL > 0 )); then exit 1; fi
+        if [[ "$1" == 'revision changed during verification' ]]; then
+            summary_revision_available=0
+            summary_revision_value=''
+        fi
+        summary_emit BLOCKED "$(summary_block_reason "$1")" 1
+        exit 1
+    fi
+    echo "BLOCKED: $*" >&2
+    exit 1
+}
+
+usage() {
+    local reason=${1:-invalid_arguments}
+    if [[ "$summary_mode" == 1 ]]; then
+        case "$reason" in
+            invalid_arguments|invalid_stage|dependency_unavailable|hash_utility_unavailable|repository_root_invalid|legacy_mode_unsupported) ;;
+            *) reason=invalid_arguments ;;
+        esac
+        summary_emit USAGE_ERROR "$reason" 2
+        exit 2
+    fi
+    echo "evidence gate: --contract FILE --evidence FILE --root DIR --stage preflight|snapshot|do|write|edit|publish|qa|compliance|archive|quick" >&2
+    exit 2
+}
+
+contract='' evidence='' root='' stage=''
+if [[ "$summary_mode" == 1 ]]; then
+    [[ "$summary_flag_count" == 1 ]] || usage invalid_arguments
+    summary_seen=0
+    contract_seen=0 evidence_seen=0 root_seen=0 stage_seen=0
+    for argument in "$@"; do
+        case "$argument" in
+            --expectations|--qa-report|--report) usage legacy_mode_unsupported ;;
+        esac
+    done
+    while (($#)); do
+        case "$1" in
+            --summary-json)
+                [[ "$summary_seen" == 0 ]] || usage invalid_arguments
+                summary_seen=1
+                shift
+                ;;
+            --contract|--evidence|--root|--stage)
+                (($# >= 2)) || usage invalid_arguments
+                [[ "$2" != --* ]] || usage invalid_arguments
+                case "$1" in
+                    --contract)
+                        [[ "$contract_seen" == 0 && -n "$2" ]] || usage invalid_arguments
+                        contract_seen=1
+                        contract=$2
+                        ;;
+                    --evidence)
+                        [[ "$evidence_seen" == 0 && -n "$2" ]] || usage invalid_arguments
+                        evidence_seen=1
+                        evidence=$2
+                        ;;
+                    --root)
+                        [[ "$root_seen" == 0 && -n "$2" ]] || usage invalid_arguments
+                        root_seen=1
+                        root=$2
+                        ;;
+                    --stage)
+                        [[ "$stage_seen" == 0 && -n "$2" ]] || usage invalid_arguments
+                        stage_seen=1
+                        stage=$2
+                        ;;
+                esac
+                shift 2
+                ;;
+            *) usage invalid_arguments ;;
+        esac
+    done
+    [[ "$summary_seen" == 1 ]] || usage invalid_arguments
+    [[ -n "$contract" && -n "$evidence" && -n "$root" ]] || usage invalid_arguments
+    [[ -d "$root" ]] || usage repository_root_invalid
+    case "$stage" in
+        preflight|snapshot|do|write|edit|publish|qa|compliance|archive|quick) ;;
+        *) usage invalid_stage ;;
+    esac
+else
+    while (($#)); do
+        (($# >= 2)) || usage
+        case "$1" in
+            --contract) [[ -z "$contract" ]] || usage; contract=$2 ;;
+            --evidence) [[ -z "$evidence" ]] || usage; evidence=$2 ;;
+            --root) [[ -z "$root" ]] || usage; root=$2 ;;
+            --stage) [[ -z "$stage" ]] || usage; stage=$2 ;;
+            *) usage ;;
+        esac
+        shift 2
+    done
+    [[ -n "$contract" && -n "$evidence" && -d "$root" ]] || usage
+    case "$stage" in preflight|snapshot|do|write|edit|publish|qa|compliance|archive|quick) ;; *) usage ;; esac
+fi
+
+command -v python3 >/dev/null || usage dependency_unavailable
+command -v jq >/dev/null || usage dependency_unavailable
+command -v git >/dev/null || usage dependency_unavailable
 if command -v sha256sum >/dev/null; then
     hash() { sha256sum | cut -d ' ' -f 1; }
 elif command -v shasum >/dev/null; then
     hash() { shasum -a 256 | cut -d ' ' -f 1; }
 else
-    usage
+    usage hash_utility_unavailable
 fi
 # JSON object keys are identities in the acceptance contract. jq normally keeps
 # the last duplicate, which could erase an earlier case or failed status.
@@ -58,15 +226,23 @@ PYJSON
 }
 
 root=$(cd "$root" && pwd -P)
-revision=$(git -C "$root" rev-parse --verify HEAD) || usage
-[[ $(git -C "$root" rev-parse --show-toplevel) == "$root" ]] || usage
+revision=$(git -C "$root" rev-parse --verify HEAD) || usage repository_root_invalid
+[[ $(git -C "$root" rev-parse --show-toplevel) == "$root" ]] || usage repository_root_invalid
+if [[ "$revision" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; then
+    summary_revision_value=$revision
+    summary_revision_available=1
+else
+    usage repository_root_invalid
+fi
 [[ -f "$contract" && ! -L "$contract" ]] || block 'missing regular contract'
 contract_hash=$(hash < "$contract")
 unique_json_keys "$contract" || block 'ambiguous or invalid contract JSON'
 jq -se 'length == 1 and (.[0] | type == "object")' "$contract" >/dev/null 2>&1 \
     || block 'contract must contain exactly one JSON document'
 now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-jq -e --arg now "$now" '
+contract_counts=$(jq -er --arg now "$now" '
+    . as $contract |
+    (
     def text: type == "string" and test("\\S");
     def stamp: type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$") and (try (. as $original | fromdateiso8601 | todateiso8601 == $original) catch false);
     def ordered($allowed): . as $route | [$allowed[] | . as $s | select($route | index($s))] == $route;
@@ -116,7 +292,18 @@ jq -e --arg now "$now" '
             (.key | text) and (.value | type == "object") and (.value.expected | text)
             and (.value.expected_exit_code | type == "number" and floor == . and . >= 0 and . <= 255)
             and (.value.required_stage | type == "string" and (. as $s | $route | any(. == $s)))))
-' "$contract" >/dev/null 2>&1 || block 'invalid acceptance contract'
+    ) as $valid |
+    if $valid then
+        [($contract.criteria | length), ([$contract.criteria[] | (.cases | length)] | add)] | @tsv
+    else empty end
+' "$contract" 2>/dev/null) || block 'invalid acceptance contract'
+# Counts become reportable only after the full schema validator succeeds and
+# the source definition has been accepted. They are never inferred on refusals
+# that precede that validation boundary.
+IFS=$'\t' read -r summary_criteria_value summary_cases_value <<< "$contract_counts"
+[[ "$summary_criteria_value" =~ ^[0-9]+$ && "$summary_cases_value" =~ ^[0-9]+$ ]] || block 'invalid acceptance contract'
+summary_criteria_available=1
+summary_cases_available=1
 
 # Reject traversal, control characters, and symlinks at every component, even
 # for a planned file that does not exist yet. No caller-controlled eval/globs.
@@ -163,6 +350,7 @@ jq -e --argjson metadata "$metadata" '
     .task_id == $metadata.id and .workflow.complexity == $metadata.complexity
     and .workflow.task_type == $metadata.type
 ' "$contract" >/dev/null || block 'task identity, complexity, or type mismatch'
+summary_task_binding=VERIFIED
 scope_digest() {
     local scope_manifest='' relative path digest executable
     while IFS= read -r relative; do
@@ -227,11 +415,21 @@ inputs_hash=''
 compatibility_note=''
 if [[ "$inputs_present" == true ]]; then
     inputs_hash=$(inputs_digest) || block 'invalid input manifest'
+    summary_input_binding=BOUND
 else
     compatibility_note='Legacy contract omits inputs[]; freshness remains bound to HEAD, contract, and scope only.'
+    summary_input_binding=LEGACY_OMITTED
 fi
 if [[ "$stage" == preflight || "$stage" == snapshot ]]; then
     [[ $(hash < "$contract") == "$contract_hash" ]] || block 'contract changed during verification'
+    if [[ "$summary_mode" == 1 ]]; then
+        if [[ "$stage" == preflight ]]; then
+            summary_emit PREFLIGHT_RECEIPT preflight_receipt_created 0
+        else
+            summary_emit SNAPSHOT_RECEIPT snapshot_receipt_created 0
+        fi
+        exit 0
+    fi
     jq -n --arg stage "$stage" --arg task_id "$task" --arg timestamp "$now" --arg revision "$revision" \
         --arg contract_sha256 "$contract_hash" --arg scope_sha256 "$scope_hash" \
         --arg inputs_sha256 "$inputs_hash" --arg compatibility_note "$compatibility_note" \
@@ -328,10 +526,22 @@ selection=$(jq -ce --slurpfile contract "$contract" --arg task "$task" --arg now
         {criterion_id,case_id,required_stage:.spec.required_stage}]}
 ' "$evidence" 2>/dev/null) || block 'evidence coverage, freshness, or stage order failed'
 
+if [[ "$summary_mode" == 1 ]]; then
+    summary_pending_value=$(jq -r '.pending | length' <<< "$selection") || block 'evidence coverage, freshness, or stage order failed'
+    [[ "$summary_pending_value" =~ ^[0-9]+$ ]] || block 'evidence coverage, freshness, or stage order failed'
+    summary_pending_available=1
+    summary_due_value=$((summary_cases_value - summary_pending_value))
+    summary_due_available=1
+fi
+
 while IFS= read -r record; do
     relative=$(jq -r '.relative_path' <<< "$record")
     expected=$(jq -r '.sha256' <<< "$record")
-    path=$(safe_path "$relative")
+    if [[ "$summary_mode" == 1 ]]; then
+        path=$(safe_path "$relative") || block 'invalid evidence artifact path'
+    else
+        path=$(safe_path "$relative")
+    fi
     [[ -f "$path" ]] || block 'evidence artifact missing'
     [[ $(hash < "$path") == "$expected" ]] || block 'evidence artifact hash mismatch'
 done < <(jq -c '.selected[].cases[].artifact' <<< "$selection")
@@ -345,5 +555,11 @@ if [[ "$inputs_present" == true ]]; then
     [[ $(inputs_digest) == "$inputs_hash" ]] || block 'inputs changed during verification'
 fi
 [[ $(git -C "$root" rev-parse HEAD) == "$revision" ]] || block 'revision changed during verification'
+if [[ "$summary_mode" == 1 ]]; then
+    summary_validated_value=$summary_due_value
+    summary_validated_available=$summary_due_available
+    summary_emit STAGE_PASS evidence_stage_validated 0
+    exit 0
+fi
 jq -n --arg stage "$stage" --arg task_id "$task" --argjson pending "$(jq '.pending' <<< "$selection")" \
     '{verdict:"STAGE_PASS",task_id:$task_id,stage:$stage,pending:$pending}'
