@@ -78,13 +78,61 @@ PY
 
 This parser example reports the two results; it does not define a new CI gate or combine their exit policies. Apply the consuming job's existing policy to the separately recorded process statuses.
 
+## Optionally consume UI/DX evidence
+
+If the job already has task-scoped UI/DX evidence in the checked-out project, add this separate invocation. Point `UI_DX_EVIDENCE` at that existing `ui-dx-evidence.json`; omit this step when the job has no such evidence. The runtime-qualified script path locates the checker, while `--root` and `--evidence` point to the project checkout and its evidence file. The output goes to a new file under the guarded temporary directory above.
+
+```bash
+UI_DX_EVIDENCE="$PROJECT_ROOT/datarim/qa/example/ui-dx-evidence.json"
+
+if [ ! -f "$UI_DX_EVIDENCE" ]; then
+  printf 'ERROR: UI/DX evidence file does not exist\n' >&2
+  exit 1
+fi
+
+if python3 "$DATARIM_RUNTIME/dev-tools/check-ui-dx-evidence.py" \
+  --root "$PROJECT_ROOT" \
+  --evidence "$UI_DX_EVIDENCE" \
+  --summary-json > "$SUMMARY_DIR/ui-dx.json"; then
+  ui_dx_exit=0
+else
+  ui_dx_exit=$?
+fi
+```
+
+Read the UI/DX file as its own schema and retain its process status separately from `qa_exit` and `card_exit`:
+
+```bash
+python3 - "$SUMMARY_DIR/ui-dx.json" "$ui_dx_exit" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
+if not text.strip():
+    raise SystemExit("no UI/DX summary object; check the process exit and stderr for CLI usage errors")
+
+summary = json.loads(text)
+process_exit = int(sys.argv[2])
+assert summary["schema"] == "UIDXEvidenceValidationSummary/v1"
+assert summary["exit_code"] == process_exit
+assert summary["result"] in {"PASS", "NOT_APPLICABLE", "FAIL"}
+
+print("UI/DX:", summary["result"], process_exit, summary["diagnostic_codes"])
+PY
+```
+
+This parser checks the UI/DX summary against that command's process status. It does not combine UI/DX, QA, or Test Value Card results into a new policy.
+
 ## Interpret availability and refusals
 
 - QA charter coverage uses exit `0` for `PASS`, `1` for a validator refusal, and `2` for command-line usage errors. A usage error occurs before validation and does not emit the summary object.
 - Each QA count has an `available` flag and a `value`. `available: true` with `value: 0` is a measured zero. `available: false` with `value: null` means the count was not measured; do not coerce it to zero. `checkpoint_linkage: NOT_MEASURED` is not a pass.
 - Test Value Card uses exit `0` for a valid card, `1` for an invalid card, and `2` when the card is unreadable. In summary mode an unreadable card produces `status: unreadable`, `CARD_UNREADABLE`, and `validation_error_count: null` with `validation_error_count_status: NOT_MEASURED`. A measured `validation_error_count: 0` is different.
 - Test Value Card command-line usage errors also return `2`, but happen before validation and emit no summary object. Check for one valid object and its `schema`/`status` instead of interpreting exit `2` alone as an unreadable card.
-- Both summaries contain fixed diagnostic identifiers rather than paths, card contents, exception text, or other user-supplied details. Keep automation decisions tied to the documented schemas and process statuses.
+- UI/DX uses exit `0` for `PASS` or `NOT_APPLICABLE`, `1` for a validation refusal (`FAIL` with a fixed diagnostic code), and `2` for command-line usage errors before validation. A usage error emits no summary object; an empty output file is not a validation result.
+- UI/DX summary fields use an `availability` and `value` pair. `availability: "MEASURED"` with `value: 0` is a measured zero; `availability: "NOT_MEASURED"` with `value: null` means validation did not establish that value. A refusal can retain values established before the refusal, while later fields remain not measured.
+- The summaries contain fixed diagnostic identifiers rather than paths, card contents, exception text, or other user-supplied details. Keep automation decisions tied to the documented schemas and process statuses.
 
-These summaries describe only the existing validators' results. QA coverage does not prove that a test was executed or that a task was accepted. Test Value Card validation checks the card's structure; it does not establish test value, truth, demand, safety, runtime admission, or authority to change a test plan. See the [QA Charter Coverage Summary reference](../reference/qa-charter-coverage-summary.md) and [Test Value Card Validation Summary reference](../reference/test-value-card-summary.md) for their full fields and diagnostic codes.
+These summaries describe only the existing validators' results. QA coverage does not prove that a test was executed or that a task was accepted. Test Value Card validation checks the card's structure; it does not establish test value, truth, demand, safety, runtime admission, or authority to change a test plan. UI/DX validation reports structural evidence only; it does not establish evidence authenticity, UX quality, adoption, runtime behavior, task acceptance, or permission to change tests or gates. See the [QA Charter Coverage Summary reference](../reference/qa-charter-coverage-summary.md), [Test Value Card Validation Summary reference](../reference/test-value-card-summary.md), and [UI/DX Evidence Validation Summary reference](../reference/ui-dx-evidence-summary.md) for their full fields and diagnostic codes.
 

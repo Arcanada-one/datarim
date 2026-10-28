@@ -38,6 +38,7 @@ Kebab-case `.md` filenames named after the subject, for example `agents.md`,
 | [`validator-contract.md`](validator-contract.md) | The contract every `dev-tools/check-*.sh` validator must satisfy. |
 | [`qa-charter-coverage-summary.md`](qa-charter-coverage-summary.md) | The versioned JSON summary emitted by the QA charter coverage validator. |
 | [`ui-dx-evidence-summary.md`](ui-dx-evidence-summary.md) | The versioned JSON summary emitted by the UI/DX evidence validator. |
+| [`product-artifact-validation-summary.md`](product-artifact-validation-summary.md) | The opt-in JSON summary emitted by the ProductArtifact checker. |
 
 ---
 
