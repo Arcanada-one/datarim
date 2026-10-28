@@ -24,10 +24,18 @@ _fake_bin() { printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_BIN/$1"; chmod +x "
     ! echo "$output" | grep -q -- "--print"
 }
 
-@test "cursor backend is mapped for fleet" {
+@test "cursor backend is mapped for fleet with --model auto" {
     run bash "$RESOLVER" _resolve_fleet_backend cursor
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | head -1)" = "cursor-agent" ]
+    echo "$output" | grep -qx -- '--model'
+    echo "$output" | grep -qx -- 'auto'
+}
+
+@test "cursor fleet argv refuses a named DATARIM_CURSOR_MODEL" {
+    run env DATARIM_CURSOR_MODEL=grok-4.7-high-fast \
+        bash "$RESOLVER" _resolve_fleet_backend cursor
+    [ "$status" -ne 0 ]
 }
 
 @test "gemini backend is mapped for fleet" {

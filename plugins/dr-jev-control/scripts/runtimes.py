@@ -578,29 +578,50 @@ class CodexRuntime(BaseRuntime):
 # ---------------------------------------------------------------------------
 
 class CursorRuntime(CodexRuntime):
-    """Cursor print/stream-json turns, resuming the exact reported session."""
+    """Cursor print/stream-json turns, resuming the exact reported session.
+
+    Auto-only (2026-10-22): every launch passes ``--model auto`` unless the
+    explicit ``DATARIM_CURSOR_ALLOW_NON_AUTO=1`` escape hatch permits a named
+    model from ``DATARIM_CURSOR_MODEL_<TIER>``. Stream-json init/result events
+    are observed for requested-vs-actual model logging.
+    """
     name = 'cursor'
-    reports_usage = False
+    reports_usage = True
 
     def __init__(self, tier, **kwargs):
         kwargs.setdefault('bin_path', resolve_client_binary('cursor') or 'agent')
         super().__init__(tier, **kwargs)
         self._result_seen = False
         self._result_ok = False
+        self._requested_model = 'auto'
+        self._stream_lines = []
 
     def _tier_settings(self, tier):
-        return os.environ.get('DATARIM_CURSOR_MODEL_'+tier.upper()), None
+        # Import locally so a missing sibling module fails at launch, not import.
+        from cursor_model_policy import CursorModelRefused, resolve_launch_model
+        configured = os.environ.get('DATARIM_CURSOR_MODEL_' + tier.upper())
+        try:
+            model = resolve_launch_model(configured)
+        except CursorModelRefused as exc:
+            raise RuntimeError_(str(exc)) from exc
+        return model, None
 
     def _argv(self, text, *, resume):
+        from cursor_model_policy import CursorModelRefused, model_argv
         self._result_seen = self._result_ok = False
+        self._stream_lines = []
         args = [self.bin, '--print', '--output-format', 'stream-json']
         if resume:
             if not self.thread_id:
                 raise RuntimeError_('Cursor did not report a session ID')
             args += ['--resume', self.thread_id]
-        model, _ = self._tier_settings(self.tier)
-        if model:
-            args += ['--model', model]
+        configured = os.environ.get('DATARIM_CURSOR_MODEL_' + self.tier.upper())
+        try:
+            model_flags = model_argv(configured)
+        except CursorModelRefused as exc:
+            raise RuntimeError_(str(exc)) from exc
+        self._requested_model = model_flags[1]
+        args += model_flags
         return args + self.extra_args + [text]
 
     def _translate(self, data, gen=None):
@@ -629,13 +650,25 @@ class CursorRuntime(CodexRuntime):
         elif kind == 'result':
             self._result_seen = True
             self._result_ok = data.get('is_error') is False and data.get('subtype') == 'success'
+            usage = data.get('usage') if isinstance(data.get('usage'), dict) else {}
+            total = 0
+            for key in ('input_tokens', 'output_tokens', 'cache_read_tokens',
+                        'cache_write_tokens', 'cached_input_tokens'):
+                try:
+                    total += int(usage.get(key) or 0)
+                except (TypeError, ValueError):
+                    pass
+            if total:
+                events.append({'kind': 'usage', 'tokens': total})
             if not self._result_ok:
                 events.append({'kind': 'error', 'message': 'Cursor result reported failure'})
         return events
 
     def _read_stdout(self, proc, q, gen):
         # Do not count a successful exit without the documented terminal result.
+        from cursor_model_policy import observe_and_emit
         for line in proc.stdout:
+            self._stream_lines.append(line)
             try:
                 data = json.loads(line)
             except (ValueError, TypeError):
@@ -644,6 +677,12 @@ class CursorRuntime(CodexRuntime):
                 q.put(event)
         proc.wait()
         self._last_rc = proc.returncode
+        try:
+            observe_and_emit(self._stream_lines, requested_model=self._requested_model)
+        except Exception as exc:  # noqa: BLE001 — observation must not sink the turn
+            with self._lock:
+                self._stderr.append(f'[dr-jev] cursor model observe failed: {type(exc).__name__}')
+                del self._stderr[:-50]
         if proc.returncode or not self._result_seen or not self._result_ok:
             q.put({'kind': 'error', 'message': 'Cursor exited without a successful terminal result'})
             q.put({'kind': 'eof'})
@@ -651,9 +690,17 @@ class CursorRuntime(CodexRuntime):
             q.put({'kind': 'turn_end', 'cost_usd': None})
 
     def apply_tier(self, tier):
-        if tier not in self.tiers or not self._tier_settings(tier)[0]:
-            return False, {'reason': 'cursor_model_mapping_missing'}
-        return super().apply_tier(tier)
+        # Cursor launches are Auto-only; tier labels remain for Jev routing
+        # vocabulary, but the client always receives --model auto (or an
+        # explicit escape-hatch named model that already passed the guard).
+        if tier not in self.tiers:
+            return False, {'reason': 'unknown_tier'}
+        try:
+            model, _ = self._tier_settings(tier)
+        except RuntimeError_ as exc:
+            return False, {'reason': 'cursor_model_refused', 'message': str(exc)}
+        self.tier = tier
+        return True, {'subtype': 'deferred_to_next_turn', 'model': model}
 
     def apply_effort(self, effort):
         return False, {'reason': 'cursor_effort_not_supported'}

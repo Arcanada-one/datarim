@@ -1,0 +1,3 @@
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"say hi"}]},"session_id":"sess-missing-001"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"hi"}]},"session_id":"sess-missing-001"}
+{"type":"result","subtype":"success","duration_ms":50,"duration_api_ms":40,"is_error":false,"result":"hi","session_id":"sess-missing-001","usage":{"input_tokens":4,"output_tokens":1}}

@@ -1233,13 +1233,24 @@ class JevTransportTests(unittest.TestCase):
         self.assertEqual(events[0]['kind'], 'error')
         self.assertEqual(runtime.thread_id, 'original')
 
-    def test_cursor_does_not_claim_unmapped_tier_applied(self):
+    def test_cursor_apply_tier_defaults_to_auto(self):
         from runtimes import CursorRuntime
         runtime = CursorRuntime('sonnet')
-        with patch.dict(os.environ, {}, clear=True):
-            ok, reason = runtime.apply_tier('opus')
+        env = {k: v for k, v in os.environ.items() if not k.startswith('DATARIM_CURSOR_')}
+        with patch.dict(os.environ, env, clear=True):
+            ok, detail = runtime.apply_tier('opus')
+        self.assertTrue(ok)
+        self.assertEqual(detail['model'], 'auto')
+
+    def test_cursor_apply_tier_refuses_named_mapping(self):
+        from runtimes import CursorRuntime
+        runtime = CursorRuntime('sonnet')
+        env = {k: v for k, v in os.environ.items() if not k.startswith('DATARIM_CURSOR_')}
+        env['DATARIM_CURSOR_MODEL_OPUS'] = 'grok-4.7-high-fast'
+        with patch.dict(os.environ, env, clear=True):
+            ok, detail = runtime.apply_tier('opus')
         self.assertFalse(ok)
-        self.assertEqual(reason['reason'], 'cursor_model_mapping_missing')
+        self.assertEqual(detail['reason'], 'cursor_model_refused')
 
 
 if __name__ == '__main__':
