@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DatarimProductArtifactValidationSummary/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "selection_mode",
+    "result",
+    "exit_code",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema": {
+      "const": "DatarimProductArtifactValidationSummary/v1"
+    },
+    "selection_mode": {
+      "enum": [
+        "artifact",
+        "files",
+        "bundle"
+      ]
+    },
+    "result": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_MEASURED"
+      ]
+    },
+    "exit_code": {
+      "enum": [
+        0,
+        1,
+        2
+      ]
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "value"
+      ],
+      "properties": {
+        "availability": {
+          "enum": [
+            "MEASURED",
+            "NOT_MEASURED"
+          ]
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "count",
+                "counts_by_code"
+              ],
+              "properties": {
+                "count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "counts_by_code": {
+                  "type": "object",
+                  "propertyNames": {
+                    "enum": [
+                      "E_ACCEPTANCE_INVALID",
+                      "E_ACTORS_INVALID",
+                      "E_AUTHORITY_INVALID",
+                      "E_AUTHORITY_REF_INVALID",
+                      "E_AUTHORITY_REF_REQUIRED",
+                      "E_BUDGET_INVALID",
+                      "E_CLAIM_DERIVATION",
+                      "E_CLAIM_INVALID",
+                      "E_CLAIM_RATIONALE",
+                      "E_CLAIM_UNKNOWN_REASON",
+                      "E_CONFLICT_COUNTEREVIDENCE_REQUIRED",
+                      "E_CONFLICT_GROUP_INVALID",
+                      "E_CONFLICT_LINK",
+                      "E_COUNTEREVIDENCE_DUPLICATE",
+                      "E_COUNTEREVIDENCE_REQUIRED",
+                      "E_DATA_FENCE",
+                      "E_DRAFT_OBSERVED_CLAIM",
+                      "E_DUPLICATE_GROUP_INVALID",
+                      "E_DUPLICATE_GROUP_REQUIRED",
+                      "E_EVIDENCE_ACCEPTANCE_INVALID",
+                      "E_FIELD_REQUIRED",
+                      "E_FIELD_TYPE",
+                      "E_FILE_READ",
+                      "E_FRONTMATTER",
+                      "E_ID_DUPLICATE",
+                      "E_ID_INVALID",
+                      "E_INPUT_NOT_READY",
+                      "E_INPUT_SUPERSEDED",
+                      "E_KC_SELF_LABEL",
+                      "E_KEY_UNKNOWN",
+                      "E_LEDGER_EMPTY_SEARCH",
+                      "E_LOCATOR_INVALID",
+                      "E_NO_MATCH_INCOMPLETE",
+                      "E_OBSERVED_PROVENANCE_MISMATCH",
+                      "E_OBSERVED_RAW_REQUIRED",
+                      "E_OPTION_DISPOSITION_REQUIRED",
+                      "E_OPTION_INVALID",
+                      "E_OPTION_REQUIRED",
+                      "E_OPTION_SELECTION",
+                      "E_OUTCOME_INVALID",
+                      "E_PATH_SYMLINK",
+                      "E_PROVENANCE_INVALID",
+                      "E_PUBLISHED_AT_BASIS_INVALID",
+                      "E_RANDOMIZATION_INVALID",
+                      "E_RECOMMENDATION_INVALID",
+                      "E_REF_DIGEST_MISMATCH",
+                      "E_REF_INVALID",
+                      "E_REF_MISSING",
+                      "E_REVISION_INVALID",
+                      "E_ROLEPLAY_AS_OBSERVED",
+                      "E_SCHEMA_VERSION",
+                      "E_SCOPE_DELTA_INVALID",
+                      "E_SOURCE_DIGEST_INVALID",
+                      "E_SOURCE_DIGEST_MISMATCH",
+                      "E_SOURCE_ENTRY_INVALID",
+                      "E_SOURCE_FAMILY_INVALID",
+                      "E_SOURCE_GROUP_INVALID",
+                      "E_SOURCE_UNAVAILABLE_INVALID",
+                      "E_STATUS_INVALID",
+                      "E_SUPERSEDES_INVALID",
+                      "E_TEXT_FORMAT",
+                      "E_TIMESTAMP_INVALID",
+                      "E_TYPE_INVALID",
+                      "E_USER_REPORTED_AS_OBSERVED",
+                      "E_YAML_INVALID"
+                    ]
+                  },
+                  "additionalProperties": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "result": {
+          "const": "PASS"
+        },
+        "exit_code": {
+          "enum": [
+            0
+          ]
+        },
+        "diagnostics": {
+          "properties": {
+            "availability": {
+              "const": "MEASURED"
+            },
+            "value": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "count",
+                "counts_by_code"
+              ],
+              "properties": {
+                "count": {
+                  "const": 0
+                },
+                "counts_by_code": {
+                  "type": "object",
+                  "maxProperties": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "result": {
+          "const": "FAIL"
+        },
+        "exit_code": {
+          "enum": [
+            1
+          ]
+        },
+        "diagnostics": {
+          "properties": {
+            "availability": {
+              "const": "MEASURED"
+            },
+            "value": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "count",
+                "counts_by_code"
+              ],
+              "properties": {
+                "count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "counts_by_code": {
+                  "type": "object",
+                  "minProperties": 1,
+                  "propertyNames": {
+                    "enum": [
+                      "E_ACCEPTANCE_INVALID",
+                      "E_ACTORS_INVALID",
+                      "E_AUTHORITY_INVALID",
+                      "E_AUTHORITY_REF_INVALID",
+                      "E_AUTHORITY_REF_REQUIRED",
+                      "E_BUDGET_INVALID",
+                      "E_CLAIM_DERIVATION",
+                      "E_CLAIM_INVALID",
+                      "E_CLAIM_RATIONALE",
+                      "E_CLAIM_UNKNOWN_REASON",
+                      "E_CONFLICT_COUNTEREVIDENCE_REQUIRED",
+                      "E_CONFLICT_GROUP_INVALID",
+                      "E_CONFLICT_LINK",
+                      "E_COUNTEREVIDENCE_DUPLICATE",
+                      "E_COUNTEREVIDENCE_REQUIRED",
+                      "E_DATA_FENCE",
+                      "E_DRAFT_OBSERVED_CLAIM",
+                      "E_DUPLICATE_GROUP_INVALID",
+                      "E_DUPLICATE_GROUP_REQUIRED",
+                      "E_EVIDENCE_ACCEPTANCE_INVALID",
+                      "E_FIELD_REQUIRED",
+                      "E_FIELD_TYPE",
+                      "E_FILE_READ",
+                      "E_FRONTMATTER",
+                      "E_ID_DUPLICATE",
+                      "E_ID_INVALID",
+                      "E_INPUT_NOT_READY",
+                      "E_INPUT_SUPERSEDED",
+                      "E_KC_SELF_LABEL",
+                      "E_KEY_UNKNOWN",
+                      "E_LEDGER_EMPTY_SEARCH",
+                      "E_LOCATOR_INVALID",
+                      "E_NO_MATCH_INCOMPLETE",
+                      "E_OBSERVED_PROVENANCE_MISMATCH",
+                      "E_OBSERVED_RAW_REQUIRED",
+                      "E_OPTION_DISPOSITION_REQUIRED",
+                      "E_OPTION_INVALID",
+                      "E_OPTION_REQUIRED",
+                      "E_OPTION_SELECTION",
+                      "E_OUTCOME_INVALID",
+                      "E_PATH_SYMLINK",
+                      "E_PROVENANCE_INVALID",
+                      "E_PUBLISHED_AT_BASIS_INVALID",
+                      "E_RANDOMIZATION_INVALID",
+                      "E_RECOMMENDATION_INVALID",
+                      "E_REF_DIGEST_MISMATCH",
+                      "E_REF_INVALID",
+                      "E_REF_MISSING",
+                      "E_REVISION_INVALID",
+                      "E_ROLEPLAY_AS_OBSERVED",
+                      "E_SCHEMA_VERSION",
+                      "E_SCOPE_DELTA_INVALID",
+                      "E_SOURCE_DIGEST_INVALID",
+                      "E_SOURCE_DIGEST_MISMATCH",
+                      "E_SOURCE_ENTRY_INVALID",
+                      "E_SOURCE_FAMILY_INVALID",
+                      "E_SOURCE_GROUP_INVALID",
+                      "E_SOURCE_UNAVAILABLE_INVALID",
+                      "E_STATUS_INVALID",
+                      "E_SUPERSEDES_INVALID",
+                      "E_TEXT_FORMAT",
+                      "E_TIMESTAMP_INVALID",
+                      "E_TYPE_INVALID",
+                      "E_USER_REPORTED_AS_OBSERVED",
+                      "E_YAML_INVALID"
+                    ]
+                  },
+                  "additionalProperties": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "result": {
+          "const": "FAIL"
+        },
+        "exit_code": {
+          "enum": [
+            1
+          ]
+        },
+        "diagnostics": {
+          "properties": {
+            "availability": {
+              "const": "NOT_MEASURED"
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "selection_mode": {
+          "const": "bundle"
+        },
+        "exit_code": {
+          "const": 1
+        },
+        "result": {
+          "const": "NOT_MEASURED"
+        },
+        "diagnostics": {
+          "properties": {
+            "availability": {
+              "const": "NOT_MEASURED"
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "exit_code": {
+          "const": 2
+        },
+        "result": {
+          "const": "NOT_MEASURED"
+        },
+        "diagnostics": {
+          "properties": {
+            "availability": {
+              "const": "NOT_MEASURED"
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

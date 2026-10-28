@@ -18,6 +18,10 @@ The summary uses `DatarimProductArtifactValidationSummary/v1` with exactly these
 
 If a parsed root/input guard or empty-bundle check exits before validation, the summary reports `result: NOT_MEASURED`, `availability: NOT_MEASURED`, and `value: null`, while preserving the existing exit code. An unexpected diagnostic code also produces `FAIL` with `NOT_MEASURED` diagnostics; unknown codes and paths are withheld.
 
+## Machine-readable schema
+
+Consumers may validate this output shape with the local [Draft 2020-12 JSON Schema](schemas/product-artifact-summary.v1.schema.json). It captures the emitted field types, fixed diagnostic-code domain, and result/exit/diagnostic-availability branches. It cannot verify that `count` equals the sum of `counts_by_code`, recover redacted path/code pair uniqueness, or require lexical map-key ordering; it also makes no claim about artifact truth, acceptance, or runtime behavior.
+
 ## Diagnostic codes
 
 Only these source-defined codes can appear in `counts_by_code`:
