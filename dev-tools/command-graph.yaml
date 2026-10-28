@@ -205,6 +205,13 @@ commands:
     optional_at: []
     entry: true
 
+  dr-test-audit:
+    stage: utility
+    requires: []
+    precedes: []
+    optional_at: []
+    entry: true
+
   dr-orchestrate:
     stage: plugin
     requires: []

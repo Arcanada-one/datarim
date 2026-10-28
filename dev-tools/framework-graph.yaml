@@ -27,6 +27,7 @@ inventory:
   - dr-quick
   - dr-save
   - dr-status
+  - dr-test-audit
   - dr-verify
   - dr-wizard
   - dr-write
@@ -268,6 +269,7 @@ inventory:
   - security-workflow.yml
   - shell-helper-template.sh
   - task-template.md
+  - test-audit-selection.json
   - test-value-card.md
   - version-consistency-fanout-checklist.md
   plugins:
@@ -2512,6 +2514,10 @@ edges:
   relation: loads
   source: commands/dr-status.md
   to: skill:dr-next-snapshot-replay
+- from: command:dr-test-audit
+  relation: loads
+  source: AGENTS.md
+  to: skill:human-outcome-reporting
 - from: command:dr-verify
   relation: delegates_to
   source: commands/dr-verify.md
