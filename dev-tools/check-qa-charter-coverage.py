@@ -8,6 +8,7 @@ import json
 import re
 import subprocess
 import sys
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -15,11 +16,49 @@ from typing import Any
 
 CHARTER_SCHEMA = "DatarimQaCharter/v1"
 EVIDENCE_SCHEMA = "DatarimQaCharterEvidence/v1"
+SUMMARY_SCHEMA = "DatarimQaCharterCoverageSummary/v1"
 OUTCOMES = {"pass", "fail", "blocked", "not run", "inconclusive", "n.a."}
 SURFACES = {"browser", "api", "cli", "worker", "webhook"}
 RUN_NAME = re.compile(r"^run-(\d{8}T\d{6}Z)$")
 REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
+
+
+@dataclass
+class SummaryState:
+    declared_probes: int | None = None
+    required_probes: int | None = None
+    recorded_probes: int | None = None
+    missing_required_probes: int | None = None
+    optional_unrecorded_probes: int | None = None
+    checkpoint_transitions: int | None = None
+    checkpoint_linkage: str = "NOT_MEASURED"
+
+
+def count_value(value: int | None) -> dict[str, Any]:
+    return {"available": value is not None, "value": value}
+
+
+def write_summary_json(
+    verdict: str, exit_code: int, diagnostic_codes: list[str], state: SummaryState,
+) -> None:
+    summary = {
+        "schema": SUMMARY_SCHEMA,
+        "verdict": verdict,
+        "exit_code": exit_code,
+        "exit_code_meaning": "pass" if exit_code == 0 else "refusal",
+        "diagnostic_codes": diagnostic_codes,
+        "counts": {
+            "declared_probes": count_value(state.declared_probes),
+            "required_probes": count_value(state.required_probes),
+            "recorded_probes": count_value(state.recorded_probes),
+            "missing_required_probes": count_value(state.missing_required_probes),
+            "optional_unrecorded_probes": count_value(state.optional_unrecorded_probes),
+            "checkpoint_transitions": count_value(state.checkpoint_transitions),
+        },
+        "checkpoint_linkage": state.checkpoint_linkage,
+    }
+    sys.stdout.write(json.dumps(summary, ensure_ascii=True, sort_keys=True, separators=(",", ":")) + "\n")
 
 
 class CoverageError(Exception):
@@ -337,8 +376,15 @@ def verify_artifact(run_dir: Path, artifact: Any, root: Path, probe_id: str) -> 
         fail("artifact_digest_mismatch", f"probe {probe_id}: artifact bytes do not match sha256")
 
 
-def validate(root: Path, charter_path: Path, evidence_path: Path) -> tuple[int, int, int, str, int | None]:
+def validate(
+    root: Path, charter_path: Path, evidence_path: Path,
+    summary: SummaryState | None = None,
+) -> tuple[int, int, int, str, int | None]:
     charter, probes = parse_charter(charter_path)
+    required = [probe_id for probe_id, probe in probes.items() if probe["required"]]
+    if summary is not None:
+        summary.declared_probes = len(probes)
+        summary.required_probes = len(required)
     evidence = load_json(evidence_path, "invalid_evidence")
     if not isinstance(evidence, dict) or evidence.get("schema") != EVIDENCE_SCHEMA:
         fail("invalid_evidence", f"schema must be {EVIDENCE_SCHEMA}")
@@ -383,14 +429,24 @@ def validate(root: Path, charter_path: Path, evidence_path: Path) -> tuple[int, 
             fail("required_probe_not_pass", f"required probe {probe_id} cannot be n.a.")
         seen[probe_id] = entry
 
-    required = [probe_id for probe_id, probe in probes.items() if probe["required"]]
     missing = [probe_id for probe_id in required if probe_id not in seen]
+    if summary is not None:
+        summary.recorded_probes = len(seen)
+        summary.missing_required_probes = len(missing)
+        summary.optional_unrecorded_probes = len(probes) - len(required) - sum(
+            1 for probe_id in seen if not probes[probe_id]["required"]
+        )
     if missing:
         fail("missing_required_probe", "required probe evidence missing: " + ",".join(missing))
     nonpass = [probe_id for probe_id in required if seen[probe_id]["outcome"] != "pass"]
     if nonpass:
         fail("required_probe_not_pass", "required probe outcome is not pass: " + ",".join(nonpass))
+    if summary is not None:
+        summary.checkpoint_linkage = "FAIL"
     linked = validate_checkpoint_chains(charter, probes, evidence, seen, run_dir)
+    if summary is not None:
+        summary.checkpoint_linkage = "NOT_MEASURED" if linked is None else "PASS"
+        summary.checkpoint_transitions = linked
     return len(required), len(seen), len(probes) - len(seen), revision, linked
 
 
@@ -399,7 +455,9 @@ def main() -> int:
     parser.add_argument("--root", required=True, help="task repository root")
     parser.add_argument("--charter", required=True, help="Markdown charter with one qa-charter-json block")
     parser.add_argument("--evidence", required=True, help="immutable run-<UTC>/evidence.json")
+    parser.add_argument("--summary-json", action="store_true", help="emit the versioned machine-readable summary")
     args = parser.parse_args()
+    summary = SummaryState()
     try:
         root_argument = Path(args.root)
         if root_argument.is_symlink():
@@ -413,13 +471,24 @@ def main() -> int:
             fail("invalid_root", "--root must be the non-symlink git repository root")
         charter = input_file(args.charter, root, "charter")
         evidence = input_file(args.evidence, root, "evidence")
-        required, recorded, optional_missing, revision, linked = validate(root, charter, evidence)
+        required, recorded, optional_missing, revision, linked = validate(
+            root, charter, evidence, summary if args.summary_json else None,
+        )
     except CoverageError as exc:
-        print_cli_error(f"CHARTER_COVERAGE FAIL reason={exc.code}: {exc}")
+        if args.summary_json:
+            write_summary_json("FAIL", 1, [exc.code], summary)
+        else:
+            print_cli_error(f"CHARTER_COVERAGE FAIL reason={exc.code}: {exc}")
         return 1
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        print_cli_error(f"CHARTER_COVERAGE FAIL reason=source_or_path_error: {exc}")
+        if args.summary_json:
+            write_summary_json("FAIL", 1, ["source_or_path_error"], summary)
+        else:
+            print_cli_error(f"CHARTER_COVERAGE FAIL reason=source_or_path_error: {exc}")
         return 1
+    if args.summary_json:
+        write_summary_json("PASS", 0, [], summary)
+        return 0
     print(
         f"CHARTER_COVERAGE PASS required={required} recorded={recorded} "
         f"optional_unrecorded={optional_missing} source_revision={revision} "

@@ -36,6 +36,7 @@ Kebab-case `.md` filenames named after the subject, for example `agents.md`,
 | [`complexity.md`](complexity.md) | The L1-L4 complexity levels and the pipeline each one routes through. |
 | [`standards-mapping.md`](standards-mapping.md) | Security-baseline clusters mapped to ASVS, SOC 2, ISO 27001, and CIS. |
 | [`validator-contract.md`](validator-contract.md) | The contract every `dev-tools/check-*.sh` validator must satisfy. |
+| [`qa-charter-coverage-summary.md`](qa-charter-coverage-summary.md) | The versioned JSON summary emitted by the QA charter coverage validator. |
 
 ---
 
