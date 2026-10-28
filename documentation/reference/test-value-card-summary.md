@@ -26,6 +26,8 @@ The object has exactly these fields:
 | `validation_error_count` | Number of validator errors after a complete read, including measured zero; `null` when the card could not be read. |
 | `validation_error_count_status` | `MEASURED` when the count is known; otherwise `NOT_MEASURED`. |
 
+The object shape and status relationships are also available as the [Test Value Card Validation Summary JSON Schema](schemas/test-value-card-summary.v1.schema.json), using JSON Schema Draft 2020-12. The schema checks field structure, fixed diagnostic values, and status, result, exit-code, and availability-count relationships. The emitter sorts diagnostic codes; the schema checks their allowed values and uniqueness but does not enforce their order. This contract describes output shape, not whether a card is truthful, valuable, safe to change, or accepted.
+
 Diagnostic codes describe structural validation only:
 
 | Code | Meaning |

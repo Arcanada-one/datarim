@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Test Value Card Validation Summary",
+  "description": "Structural contract for the opt-in TestValueCardValidationSummary/v1 JSON output. The validator remains the source of validation behavior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "diagnostic_codes",
+    "exit_code",
+    "result",
+    "schema",
+    "status",
+    "validation_error_count",
+    "validation_error_count_status"
+  ],
+  "properties": {
+    "diagnostic_codes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "CARD_UNREADABLE",
+          "FRONTMATTER_REQUIRED",
+          "FRONTMATTER_MALFORMED",
+          "YAML_INVALID",
+          "FRONTMATTER_NOT_MAPPING",
+          "FIELD_TYPE_INVALID",
+          "FIELD_TOO_LONG",
+          "FIELD_PLACEHOLDER",
+          "CAUSAL_EVIDENCE_INVALID",
+          "COVERAGE_GAP_UNSPECIFIED",
+          "SEAM_INVALID",
+          "VALIDATION_FAILED_GENERIC"
+        ]
+      },
+      "uniqueItems": true,
+      "description": "Fixed, content-free validator diagnostics. The emitter sorts these values; this schema enforces membership and uniqueness, not lexical order."
+    },
+    "exit_code": {
+      "type": "integer",
+      "enum": [0, 1, 2]
+    },
+    "result": {
+      "type": "boolean"
+    },
+    "schema": {
+      "const": "TestValueCardValidationSummary/v1"
+    },
+    "status": {
+      "enum": ["valid", "invalid", "unreadable"]
+    },
+    "validation_error_count": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0 },
+        { "type": "null" }
+      ],
+      "description": "Number of validation errors when measured; null only when the card could not be read. This is not the number of unique diagnostic codes."
+    },
+    "validation_error_count_status": {
+      "enum": ["MEASURED", "NOT_MEASURED"]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "valid" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "diagnostic_codes": { "maxItems": 0 },
+          "exit_code": { "const": 0 },
+          "result": { "const": true },
+          "validation_error_count": { "const": 0 },
+          "validation_error_count_status": { "const": "MEASURED" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "invalid" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "diagnostic_codes": {
+            "minItems": 1,
+            "not": { "contains": { "const": "CARD_UNREADABLE" } }
+          },
+          "exit_code": { "const": 1 },
+          "result": { "const": false },
+          "validation_error_count": { "type": "integer", "minimum": 1 },
+          "validation_error_count_status": { "const": "MEASURED" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "unreadable" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "diagnostic_codes": { "const": ["CARD_UNREADABLE"] },
+          "exit_code": { "const": 2 },
+          "result": { "const": false },
+          "validation_error_count": { "type": "null" },
+          "validation_error_count_status": { "const": "NOT_MEASURED" }
+        }
+      }
+    }
+  ]
+}
