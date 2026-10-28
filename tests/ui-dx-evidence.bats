@@ -304,14 +304,48 @@ PY
   assert_summary_contract FAIL 1 unsafe_evidence_path NOT_MEASURED - NOT_MEASURED - NOT_MEASURED - NOT_MEASURED -
 }
 
-@test "summary JSON returns a fixed refusal when the root path cannot be resolved" {
-  local loop="$BATS_TEST_TMPDIR/root-loop"
-  ln -s "$loop" "$loop"
-  run --separate-stderr python3 "$VALIDATOR" --root "$loop" \
-    --evidence "$ROOT/datarim/qa/synthetic/ui-dx-evidence.json" --summary-json
-  [ "$status" -eq 1 ]
+@test "summary JSON maps a root-resolution exception to a fixed refusal" {
+  local unresolved_root="$BATS_TEST_TMPDIR/root-resolution-error"
+  local evidence="$ROOT/datarim/qa/synthetic/ui-dx-evidence.json"
+  run --separate-stderr python3 - "$VALIDATOR" "$unresolved_root" "$evidence" <<'PY'
+import contextlib
+import importlib.util
+import io
+import pathlib
+import sys
+from unittest.mock import patch
+
+validator_path = pathlib.Path(sys.argv[1])
+unresolved_root = pathlib.Path(sys.argv[2])
+evidence_path = pathlib.Path(sys.argv[3])
+spec = importlib.util.spec_from_file_location("ui_dx_validator_under_test", validator_path)
+validator = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(validator)
+original_resolve = pathlib.Path.resolve
+resolution_calls = []
+
+def resolve_with_controlled_error(path, strict=False):
+    if path == unresolved_root:
+        resolution_calls.append(path)
+        raise RuntimeError("controlled root-resolution failure")
+    return original_resolve(path, strict=strict)
+
+sys.argv = [
+    str(validator_path), "--root", str(unresolved_root),
+    "--evidence", str(evidence_path), "--summary-json",
+]
+captured_stdout = io.StringIO()
+with patch.object(pathlib.Path, "resolve", resolve_with_controlled_error):
+    with contextlib.redirect_stdout(captured_stdout):
+        product_exit = validator.main()
+
+assert resolution_calls == [unresolved_root], "the controlled root-resolution failure was not reached exactly once"
+assert product_exit == 1, "the production CLI main returned the wrong refusal exit"
+sys.stdout.write(captured_stdout.getvalue())
+PY
+  [ "$status" -eq 0 ]
   [ "$stderr" = "" ]
-  [[ "$output" != *"$loop"* ]]
+  [[ "$output" != *"$unresolved_root"* ]]
   assert_summary_contract FAIL 1 input_unavailable NOT_MEASURED - NOT_MEASURED - NOT_MEASURED - NOT_MEASURED -
 }
 
