@@ -14,7 +14,7 @@ Use this opt-in command when a maintainer supplies a specific test selection and
 3. Run the builder once with the supplied root and selection:
 
    ```bash
-   python3 dev-tools/build-test-audit-report.py --root PROJECT --selection SELECTION.json
+   python3 "${DATARIM_RUNTIME:?}/dev-tools/build-test-audit-report.py" --root PROJECT --selection SELECTION.json
    ```
 
 4. Preserve its numeric exit status and stdout/stderr. On exit 0, stdout is the versioned JSON report. On nonzero exit, retain the fixed diagnostic code; do not describe an empty or failed report as a result.
