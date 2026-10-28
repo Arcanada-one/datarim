@@ -31,6 +31,7 @@ Kebab-case `.md` filenames named after the task, for example
 | [`backlog-workflow.md`](backlog-workflow.md) | Manage tasks, priorities, and the backlog. |
 | [`codex-cli-coworker-hooks.md`](codex-cli-coworker-hooks.md) | Wire the coworker delegation hooks into Codex CLI. |
 | [`cross-kb-evolution-digest.md`](cross-kb-evolution-digest.md) | Produce a cross-knowledge-base evolution digest. |
+| [`consume-validation-json-in-ci.md`](consume-validation-json-in-ci.md) | Consume validator JSON summaries in CI while preserving each validator's exit status. |
 | [`datarim-harness.md`](datarim-harness.md) | Run the framework's own test harness. |
 | [`dr-output-hook.md`](dr-output-hook.md) | Install and configure the `/dr-*` output hook. |
 | [`evolution-log.md`](evolution-log.md) | The append-only ledger of accepted framework evolutions. |
