@@ -15,6 +15,45 @@ setup() {
   python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" seed "$ROOT"
 }
 
+assert_summary_metadata() {
+  local expected_verdict="$1" expected_exit="$2" expected_code="$3"
+  python3 - "$output" "$expected_verdict" "$expected_exit" "$expected_code" <<'PY'
+import json
+import sys
+
+summary = json.loads(sys.argv[1])
+verdict, exit_code, diagnostic = sys.argv[2:]
+assert set(summary) == {
+    "schema", "verdict", "exit_code", "exit_code_meaning",
+    "diagnostic_codes", "counts", "checkpoint_linkage",
+}
+assert summary["schema"] == "DatarimQaCharterCoverageSummary/v1"
+assert summary["verdict"] == verdict
+assert summary["exit_code"] == int(exit_code)
+assert summary["exit_code_meaning"] == ("pass" if exit_code == "0" else "refusal")
+assert summary["diagnostic_codes"] == ([] if diagnostic == "none" else [diagnostic])
+assert set(summary["counts"]) == {
+    "declared_probes", "required_probes", "recorded_probes",
+    "missing_required_probes", "optional_unrecorded_probes",
+    "checkpoint_transitions",
+}
+for count in summary["counts"].values():
+    assert set(count) == {"available", "value"}
+    assert count["available"] is (count["value"] is not None)
+PY
+}
+
+assert_summary_counts() {
+  python3 - "$output" "$1" <<'PY'
+import json
+import sys
+
+summary = json.loads(sys.argv[1])
+expected = json.loads(sys.argv[2])
+assert summary["counts"] == expected
+PY
+}
+
 @test "complete required charter probes with current immutable-run evidence pass" {
   run python3 "$VALIDATOR" --root "$ROOT" \
     --charter "$ROOT/datarim/qa/example/qa-charter.md" \
@@ -334,4 +373,157 @@ setup() {
     run grep -F "$phrase" "$template"
     [ "$status" -eq 0 ]
   done
+}
+
+@test "summary JSON is allowlisted, versioned, byte-preserving, and keeps default output" {
+  local before after default_status default_output revision
+  local charter="$ROOT/datarim/qa/example/qa-charter.md"
+  local evidence="$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  before=$(sha256sum "$charter" "$evidence")
+
+  run python3 "$VALIDATOR" --root "$ROOT" --charter "$charter" --evidence "$evidence"
+  default_status="$status"
+  default_output="$output"
+  revision=$(git -C "$ROOT" rev-parse HEAD)
+  [ "$default_status" -eq 0 ]
+  [ "$default_output" = "CHARTER_COVERAGE PASS required=2 recorded=2 optional_unrecorded=0 source_revision=$revision checkpoint_linkage=NOT_MEASURED" ]
+
+  run --separate-stderr python3 "$VALIDATOR" --summary-json \
+    --root "$ROOT" --charter "$charter" --evidence "$evidence"
+  [ "$status" -eq "$default_status" ]
+  [ "$stderr" = "" ]
+  [[ "$output" != *$'\n'* ]]
+  assert_summary_metadata PASS 0 none
+  assert_summary_counts '{"declared_probes":{"available":true,"value":2},"required_probes":{"available":true,"value":2},"recorded_probes":{"available":true,"value":2},"missing_required_probes":{"available":true,"value":0},"optional_unrecorded_probes":{"available":true,"value":0},"checkpoint_transitions":{"available":false,"value":null}}'
+
+  after=$(sha256sum "$charter" "$evidence")
+  [ "$before" = "$after" ]
+}
+
+@test "summary JSON reports a refused charter with available and unavailable counts" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" omit "$ROOT"
+  local before after default_status default_output
+  local charter="$ROOT/datarim/qa/example/qa-charter.md"
+  local evidence="$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  before=$(sha256sum "$charter" "$evidence")
+
+  run python3 "$VALIDATOR" --root "$ROOT" --charter "$charter" --evidence "$evidence"
+  default_status="$status"
+  default_output="$output"
+  [ "$default_status" -eq 1 ]
+  [ "$default_output" = "CHARTER_COVERAGE FAIL reason=missing_required_probe: required probe evidence missing: preserves-state" ]
+
+  run --separate-stderr python3 "$VALIDATOR" --summary-json \
+    --root "$ROOT" --charter "$charter" --evidence "$evidence"
+  [ "$status" -eq "$default_status" ]
+  [ "$stderr" = "" ]
+  assert_summary_metadata FAIL 1 missing_required_probe
+  assert_summary_counts '{"declared_probes":{"available":true,"value":2},"required_probes":{"available":true,"value":2},"recorded_probes":{"available":true,"value":1},"missing_required_probes":{"available":true,"value":1},"optional_unrecorded_probes":{"available":true,"value":0},"checkpoint_transitions":{"available":false,"value":null}}'
+
+  after=$(sha256sum "$charter" "$evidence")
+  [ "$before" = "$after" ]
+}
+
+@test "summary JSON fails unreadable evidence without inventing counts or changing bytes" {
+  local before after summary_status summary_output summary_stderr
+  local charter="$ROOT/datarim/qa/example/qa-charter.md"
+  local evidence="$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  before=$(sha256sum "$charter" "$evidence")
+  chmod 000 "$evidence"
+  run --separate-stderr python3 "$VALIDATOR" --summary-json \
+    --root "$ROOT" --charter "$charter" --evidence "$evidence"
+  summary_status="$status"
+  summary_output="$output"
+  summary_stderr="$stderr"
+  chmod 600 "$evidence"
+  [ "$summary_status" -eq 1 ]
+  [ "$summary_stderr" = "" ]
+  output="$summary_output"
+  assert_summary_metadata FAIL 1 invalid_evidence
+  assert_summary_counts '{"declared_probes":{"available":true,"value":2},"required_probes":{"available":true,"value":2},"recorded_probes":{"available":false,"value":null},"missing_required_probes":{"available":false,"value":null},"optional_unrecorded_probes":{"available":false,"value":null},"checkpoint_transitions":{"available":false,"value":null}}'
+  after=$(sha256sum "$charter" "$evidence")
+  [ "$before" = "$after" ]
+}
+
+@test "summary JSON refuses malformed evidence and marks later counts unavailable" {
+  local before after
+  local charter="$ROOT/datarim/qa/example/qa-charter.md"
+  local evidence="$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  printf '{\n' > "$evidence"
+  before=$(sha256sum "$charter" "$evidence")
+
+  run --separate-stderr python3 "$VALIDATOR" --summary-json \
+    --root "$ROOT" --charter "$charter" --evidence "$evidence"
+  [ "$status" -eq 1 ]
+  [ "$stderr" = "" ]
+  assert_summary_metadata FAIL 1 invalid_evidence
+  assert_summary_counts '{"declared_probes":{"available":true,"value":2},"required_probes":{"available":true,"value":2},"recorded_probes":{"available":false,"value":null},"missing_required_probes":{"available":false,"value":null},"optional_unrecorded_probes":{"available":false,"value":null},"checkpoint_transitions":{"available":false,"value":null}}'
+
+  after=$(sha256sum "$charter" "$evidence")
+  [ "$before" = "$after" ]
+}
+
+@test "summary JSON does not expose valid Unicode or adversarial report strings" {
+  python3 - "$ROOT" <<'PY'
+import hashlib
+import json
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+qa = root / "datarim/qa/example"
+charter_path = qa / "qa-charter.md"
+evidence_path = qa / "run-20261018T120000Z/evidence.json"
+marker = 'snow-雪 \'"},"verdict":"PASS","external_path":"/outside/private.txt'
+text = charter_path.read_text(encoding="utf-8")
+match = re.search(r"(?ms)(^```qa-charter-json\s*\n)(.*?)(^```\s*$)", text)
+assert match
+charter = json.loads(match.group(2))
+charter["owner"] = marker
+charter["behaviours"][0]["contract"] = marker
+charter_path.write_text(
+    text[:match.start(2)] + json.dumps(charter, sort_keys=True, indent=2, ensure_ascii=False) + "\n"
+    + text[match.end(2):], encoding="utf-8"
+)
+evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+evidence["charter_sha256"] = hashlib.sha256(charter_path.read_bytes()).hexdigest()
+evidence["probes"][0]["observed"] = marker
+evidence["probes"][0]["command"] = marker
+evidence_path.write_text(json.dumps(evidence, sort_keys=True, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+  local before after marker
+  local charter="$ROOT/datarim/qa/example/qa-charter.md"
+  local evidence="$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  marker='snow-雪 '\''"},"verdict":"PASS","external_path":"/outside/private.txt'
+  before=$(sha256sum "$charter" "$evidence")
+
+  run --separate-stderr python3 "$VALIDATOR" --summary-json \
+    --root "$ROOT" --charter "$charter" --evidence "$evidence"
+  [ "$status" -eq 0 ]
+  [ "$stderr" = "" ]
+  [[ "$output" != *"snow-雪"* ]]
+  [[ "$output" != *"/outside/private.txt"* ]]
+  assert_summary_metadata PASS 0 none
+  after=$(sha256sum "$charter" "$evidence")
+  [ "$before" = "$after" ]
+}
+
+@test "summary JSON hides user-controlled text from existing refusal diagnostics" {
+  python3 "$BATS_TEST_DIRNAME/qa-charter-fixture.py" unknown-unicode-probe-id "$ROOT"
+  local before after
+  local charter="$ROOT/datarim/qa/example/qa-charter.md"
+  local evidence="$ROOT/datarim/qa/example/run-20261018T120000Z/evidence.json"
+  before=$(sha256sum "$charter" "$evidence")
+
+  run --separate-stderr python3 "$VALIDATOR" --summary-json \
+    --root "$ROOT" --charter "$charter" --evidence "$evidence"
+  [ "$status" -eq 1 ]
+  [ "$stderr" = "" ]
+  [[ "$output" != *"undeclared-雪"* ]]
+  [[ "$output" != *"datarim/qa"* ]]
+  assert_summary_metadata FAIL 1 unknown_probe
+
+  after=$(sha256sum "$charter" "$evidence")
+  [ "$before" = "$after" ]
 }
