@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import re
 import sys
@@ -40,6 +41,52 @@ SEAM_JUSTIFICATION = re.compile(
     r"needed because:?\s*[^;\n]+$",
     re.IGNORECASE,
 )
+
+
+def diagnostic_code(error: str) -> str:
+    """Map validator details to fixed, content-free machine diagnostics."""
+    if error == "card must begin with YAML frontmatter":
+        return "FRONTMATTER_REQUIRED"
+    if error == "card has malformed YAML frontmatter":
+        return "FRONTMATTER_MALFORMED"
+    if error.startswith("invalid YAML frontmatter:"):
+        return "YAML_INVALID"
+    if error == "frontmatter must be a mapping":
+        return "FRONTMATTER_NOT_MAPPING"
+    if error.endswith(" must be a string"):
+        return "FIELD_TYPE_INVALID"
+    if error.endswith(" must be at most 160 UTF-8 bytes"):
+        return "FIELD_TOO_LONG"
+    if error.endswith(" must contain a concrete value"):
+        return "FIELD_PLACEHOLDER"
+    if error.startswith("fails_when must name a causal trigger"):
+        return "CAUSAL_EVIDENCE_INVALID"
+    if error.startswith("why_new must identify a gap"):
+        return "COVERAGE_GAP_UNSPECIFIED"
+    if error.startswith("named seam must identify a production caller"):
+        return "SEAM_INVALID"
+    return "VALIDATION_FAILED_GENERIC"
+
+
+def emit_summary(
+    status: str,
+    exit_code: int,
+    errors: list[str] | None,
+    diagnostics: list[str] | None = None,
+) -> None:
+    """Write the allowlisted versioned summary; never serialize input details."""
+    summary = {
+        "diagnostic_codes": sorted(set(diagnostics)) if diagnostics is not None else (
+            sorted({diagnostic_code(error) for error in errors}) if errors else []
+        ),
+        "exit_code": exit_code,
+        "result": status == "valid",
+        "schema": "TestValueCardValidationSummary/v1",
+        "status": status,
+        "validation_error_count": len(errors) if errors is not None else None,
+        "validation_error_count_status": "MEASURED" if errors is not None else "NOT_MEASURED",
+    }
+    print(json.dumps(summary, ensure_ascii=True, separators=(",", ":"), sort_keys=True))
 
 
 def validate_text(text: str) -> list[str]:
@@ -95,13 +142,32 @@ def validate_text(text: str) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--card", required=True, type=Path, help="Markdown card to validate")
+    parser.add_argument(
+        "--summary-json",
+        action="store_true",
+        help="emit a versioned, content-free JSON validation summary",
+    )
     args = parser.parse_args()
     try:
         text = args.card.read_text(encoding="utf-8")
+    except UnicodeError:
+        if args.summary_json:
+            emit_summary("unreadable", 2, None, ["CARD_UNREADABLE"])
+            return 2
+        raise
     except OSError as error:
+        if args.summary_json:
+            emit_summary("unreadable", 2, None, ["CARD_UNREADABLE"])
+            return 2
         print(f"cannot read card: {error.strerror or error.__class__.__name__}", file=sys.stderr)
         return 2
     errors = validate_text(text)
+    if args.summary_json:
+        if errors:
+            emit_summary("invalid", 1, errors)
+            return 1
+        emit_summary("valid", 0, errors)
+        return 0
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
