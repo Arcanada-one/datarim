@@ -229,6 +229,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-design` | Design | Architecture exploration with consilium |
 | `/dr-do` | Execution | Implement the plan: TDD for code, structured iteration for other work |
 | `/dr-qa` | Quality | Multi-layer verification (PRD, design, plan, output quality) |
+| `/dr-test-audit` | Audit | Build a read-only structural report from an explicit bounded test selection and retained evidence; it does not run or modify tests |
 | `/dr-verify` | Verification | Standalone self-verification (on-demand). Tri-layer: Layer 1 deterministic floor + Layer 2 cross-model peer-review (DeepSeek default) + Layer 3 native runtime dispatch. Findings-only mode. |
 | `/dr-compliance` | Hardening | 7-step post-QA hardening |
 | `/dr-finalize` | Finalize | Archive, task-owned delivery and cleanup, configured tracker, final report; `autonomy.finalize` controls autonomous routing. |
@@ -262,7 +263,7 @@ Before writing ANY file to `datarim/`:
 > rule, and every learned action stays subject to per-space policy and the immutable
 > hard-gated floor.
 
-Command files: `${DATARIM_RUNTIME:?}/commands/{name}.md` (30 commands, including the plugin command)
+Command files: `${DATARIM_RUNTIME:?}/commands/{name}.md` (31 commands, including the plugin command)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "tests": [
+    {
+      "test_path": "tests/replace-with-selected-test.py",
+      "card": {
+        "protects": "Replace with the existing card's protected behavior.",
+        "fails_when": "Replace with the existing card's concrete causal failure.",
+        "why_new": "Replace with the existing card's coverage gap.",
+        "seam": "none",
+        "no_claim": "Replace with the existing card's limit."
+      },
+      "proposed_action": "replace-with-retain-merge-refactor-or-retire",
+      "rationale": "Replace with a bounded reason for this proposal.",
+      "limits": "Replace with limits supported by the cited evidence.",
+      "overlap_with": [],
+      "evidence_refs": []
+    }
+  ]
+}

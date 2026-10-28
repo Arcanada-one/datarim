@@ -139,7 +139,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 19 specialized agents, 81 reusable skills, and 30 commands that guide
+It includes 19 specialized agents, 81 reusable skills, and 31 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -222,7 +222,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
-- **30 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone + /dr-quick fast-lane + /dr-wizard interactive task-spec wizard, 3 content (write, edit, publish), 5 framework
+- **31 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone + /dr-quick fast-lane + /dr-wizard interactive task-spec wizard, 3 content (write, edit, publish), 5 framework
   and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), utilities (status, next,
   help), and 2 standalone tools (factcheck, humanize).
 
@@ -507,6 +507,7 @@ same name.
 | `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
 | `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `.datarim-runtime/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
 | `/dr-orchestrate` | Maintenance | Self-driving pipeline runner. The command and its autonomy policy are core; the tmux/bot transport runner is the opt-in `dr-orchestrate` plugin. Whitelisted actions only, JSONL audit, hard-gated floor. |
+| [`/dr-test-audit`](commands/dr-test-audit.md) | Quality | Build a read-only structural report from an explicit bounded test selection and retained evidence; it does not run tests or publish the report. |
 | `/dr-quick` | Any | Fast lane for trivial fixes and quick lookups — assigns a `QCK-XXXX` id, scans the knowledge base, applies the change, writes a short archive. Skips PRD, plan, design, QA, and compliance. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
 | `/dr-next` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
@@ -988,7 +989,7 @@ and why it exists.
 datarim/
   agents/            # Agent personas (19 agents)
   skills/            # Knowledge modules (81 skills)
-  commands/          # Slash commands (30 commands)
+  commands/          # Slash commands (31 commands)
   templates/         # Task and document templates (32 templates)
   documentation/              # Extended documentation and use cases
   AGENTS.md          # Framework rules (commands read it from .datarim-runtime/)

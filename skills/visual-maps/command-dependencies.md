@@ -2,7 +2,7 @@
 
 > **GENERATED FILE. DO NOT EDIT.** Source: `dev-tools/command-graph.yaml`. Regenerate with `python3 dev-tools/framework-graph.py --write`.
 
-Full Command Inventory (30 commands)
+Full Command Inventory (31 commands)
 
 ```mermaid
 graph LR
@@ -34,6 +34,7 @@ graph LR
     dr-dream["/dr-dream"]
     dr-optimize["/dr-optimize"]
     dr-plugin["/dr-plugin"]
+    dr-test-audit["/dr-test-audit"]
     dr-orchestrate["/dr-orchestrate"]
     factcheck["/factcheck"]
     humanize["/humanize"]
@@ -68,6 +69,7 @@ graph LR
 - `/dr-dream` — stage `maintenance` · entry point
 - `/dr-optimize` — stage `maintenance` · entry point
 - `/dr-plugin` — stage `extension` · entry point
+- `/dr-test-audit` — stage `utility` · entry point
 - `/dr-orchestrate` — stage `plugin` · entry point
 - `/factcheck` — stage `standalone` · entry point
 - `/humanize` — stage `standalone` · entry point
