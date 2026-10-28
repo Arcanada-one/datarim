@@ -92,7 +92,7 @@ PY
     [[ "$output" == *"160 UTF-8 bytes"* ]]
 }
 
-@test "emits the stable valid JSON summary without changing the card" {
+@test "emits the stable valid JSON summary without changing the card or validator source" {
     write_card <<'EOF'
 ---
 protects: "Invalid test-value cards are rejected before they justify coverage."
@@ -102,13 +102,38 @@ seam: "none"
 no_claim: "Structural card validation does not prove a production test ran."
 ---
 EOF
-    before="$(sha256sum "$CARD" | cut -d' ' -f1)"
-    run --separate-stderr python3 "$VALIDATOR" --card "$CARD" --summary-json
+    card_before="$(sha256sum "$CARD" | cut -d' ' -f1)"
+    source_before="$(sha256sum "$VALIDATOR" | cut -d' ' -f1)"
+    if [[ -n "${D5_TEST_VALUE_RAW_DIR:-}" ]]; then
+        [ -d "$D5_TEST_VALUE_RAW_DIR" ]
+        python3 "$VALIDATOR" --card "$CARD" --summary-json \
+            >"$D5_TEST_VALUE_RAW_DIR/stdout.raw" 2>"$D5_TEST_VALUE_RAW_DIR/stderr.raw" &
+        cli_pid=$!
+        printf '%s\n' "$cli_pid" >"$D5_TEST_VALUE_RAW_DIR/cli.pid"
+        if wait "$cli_pid"; then
+            status=0
+        else
+            status=$?
+        fi
+        printf '%s\n' "$status" >"$D5_TEST_VALUE_RAW_DIR/cli-exit.raw"
+        output="$(cat "$D5_TEST_VALUE_RAW_DIR/stdout.raw")"
+        stderr="$(cat "$D5_TEST_VALUE_RAW_DIR/stderr.raw")"
+    else
+        run --separate-stderr python3 "$VALIDATOR" --card "$CARD" --summary-json
+    fi
+    source_after="$(sha256sum "$VALIDATOR" | cut -d' ' -f1)"
+    card_after="$(sha256sum "$CARD" | cut -d' ' -f1)"
+    if [[ -n "${D5_TEST_VALUE_RAW_DIR:-}" ]]; then
+        printf '%s\n' "$source_before" >"$D5_TEST_VALUE_RAW_DIR/source-before.sha256"
+        printf '%s\n' "$source_after" >"$D5_TEST_VALUE_RAW_DIR/source-after.sha256"
+        printf '%s\n' "$card_before" >"$D5_TEST_VALUE_RAW_DIR/card-before.sha256"
+        printf '%s\n' "$card_after" >"$D5_TEST_VALUE_RAW_DIR/card-after.sha256"
+    fi
     [ "$status" -eq 0 ]
     [ -z "$stderr" ]
     [ "$output" = '{"diagnostic_codes":[],"exit_code":0,"result":true,"schema":"TestValueCardValidationSummary/v1","status":"valid","validation_error_count":0,"validation_error_count_status":"MEASURED"}' ]
-    after="$(sha256sum "$CARD" | cut -d' ' -f1)"
-    [ "$before" = "$after" ]
+    [ "$source_before" = "$source_after" ]
+    [ "$card_before" = "$card_after" ]
 }
 
 @test "maps validation failures to fixed codes and redacts hostile paths and card values" {
