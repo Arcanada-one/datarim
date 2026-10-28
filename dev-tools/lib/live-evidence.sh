@@ -123,6 +123,7 @@ contract='' evidence='' root='' stage=''
 if [[ "$summary_mode" == 1 ]]; then
     [[ "$summary_flag_count" == 1 ]] || usage invalid_arguments
     summary_seen=0
+    contract_seen=0 evidence_seen=0 root_seen=0 stage_seen=0
     for argument in "$@"; do
         case "$argument" in
             --expectations|--qa-report|--report) usage legacy_mode_unsupported ;;
@@ -139,10 +140,26 @@ if [[ "$summary_mode" == 1 ]]; then
                 (($# >= 2)) || usage invalid_arguments
                 [[ "$2" != --* ]] || usage invalid_arguments
                 case "$1" in
-                    --contract) [[ -z "$contract" ]] || usage invalid_arguments; contract=$2 ;;
-                    --evidence) [[ -z "$evidence" ]] || usage invalid_arguments; evidence=$2 ;;
-                    --root) [[ -z "$root" ]] || usage invalid_arguments; root=$2 ;;
-                    --stage) [[ -z "$stage" ]] || usage invalid_arguments; stage=$2 ;;
+                    --contract)
+                        [[ "$contract_seen" == 0 && -n "$2" ]] || usage invalid_arguments
+                        contract_seen=1
+                        contract=$2
+                        ;;
+                    --evidence)
+                        [[ "$evidence_seen" == 0 && -n "$2" ]] || usage invalid_arguments
+                        evidence_seen=1
+                        evidence=$2
+                        ;;
+                    --root)
+                        [[ "$root_seen" == 0 && -n "$2" ]] || usage invalid_arguments
+                        root_seen=1
+                        root=$2
+                        ;;
+                    --stage)
+                        [[ "$stage_seen" == 0 && -n "$2" ]] || usage invalid_arguments
+                        stage_seen=1
+                        stage=$2
+                        ;;
                 esac
                 shift 2
                 ;;
