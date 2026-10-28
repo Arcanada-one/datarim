@@ -174,6 +174,11 @@ outcome explicitly.
      --evidence "$REPO_ROOT/datarim/qa/$TASK_ID/ui-dx-evidence.json"
    ```
 
+   Automation can append `--summary-json` to receive the same validation result
+   as a versioned, allowlisted JSON line. The [UI/DX evidence summary reference](../documentation/reference/ui-dx-evidence-summary.md)
+   defines its fields and refusal behavior; the default human-readable output is
+   unchanged.
+
 4. Inspect cited evidence and report the validator output. The validator checks
    structure, state and journey completeness, typed references and artifact
    digests, prohibited
