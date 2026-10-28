@@ -301,6 +301,9 @@ inventory:
     - path: plugins/dr-jev-control/scripts/components.py
       category: scripts
       component_id: plugin_asset:plugins/dr-jev-control/scripts/components.py
+    - path: plugins/dr-jev-control/scripts/cursor_model_policy.py
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/cursor_model_policy.py
     - path: plugins/dr-jev-control/scripts/decision_evidence.py
       category: scripts
       component_id: plugin_asset:plugins/dr-jev-control/scripts/decision_evidence.py
@@ -608,6 +611,12 @@ edges:
   relation: contains
   source: plugins/dr-jev-control/plugin.yaml
   to: plugin_asset:plugins/dr-jev-control/scripts/components.py
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/cursor_model_policy.py
 - condition:
     plugin_enabled: dr-jev-control
   from: plugin:dr-jev-control

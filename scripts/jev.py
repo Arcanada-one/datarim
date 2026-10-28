@@ -902,13 +902,24 @@ def main():
             model = model or tier
             if effort:
                 args += ['--effort', effort]
-        elif tier:
-            model = model or os.environ.get('DATARIM_CURSOR_MODEL_'+tier.upper())
-            if not model:
-                print('Cursor tier mapping is not configured; keeping its default model', file=sys.stderr)
-        if a.agent == 'cursor' and effort:
-            print('jev: Cursor has no common effort flag; choose --model instead', file=sys.stderr)
-            return 2
+        elif a.agent == 'cursor':
+            # Auto-only (2026-10-22): always pass --model auto unless an
+            # explicit escape hatch permits a named model. Never leave the
+            # flag unset (client default previously fell through to a named
+            # expensive model).
+            configured = model
+            if not configured and tier:
+                configured = os.environ.get('DATARIM_CURSOR_MODEL_' + tier.upper())
+            try:
+                from cursor_model_policy import CursorModelRefused, resolve_launch_model
+                model = resolve_launch_model(configured)
+            except CursorModelRefused as exc:
+                print(f'jev: {exc}', file=sys.stderr)
+                return 2
+            if effort:
+                print('jev: Cursor has no common effort flag; Auto ignores --effort',
+                      file=sys.stderr)
+                return 2
         if a.print:
             args += ['--print']
         if a.resume:

@@ -1,0 +1,4 @@
+{"type":"system","subtype":"init","apiKeySource":"login","cwd":"/tmp/project","session_id":"sess-display-001","model":"Claude 4 Sonnet","permissionMode":"default"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"say hi"}]},"session_id":"sess-display-001"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"hi"}]},"session_id":"sess-display-001"}
+{"type":"result","subtype":"success","duration_ms":70,"duration_api_ms":60,"is_error":false,"result":"hi","session_id":"sess-display-001","usage":{"input_tokens":5,"output_tokens":1}}

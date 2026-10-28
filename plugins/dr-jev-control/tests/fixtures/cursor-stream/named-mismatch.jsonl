@@ -1,0 +1,4 @@
+{"type":"system","subtype":"init","apiKeySource":"env","cwd":"/tmp/project","session_id":"sess-mismatch-001","model":"grok-4.7-high-fast","permissionMode":"default"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"say hi"}]},"session_id":"sess-mismatch-001"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"hi"}]},"session_id":"sess-mismatch-001"}
+{"type":"result","subtype":"success","duration_ms":90,"duration_api_ms":80,"is_error":false,"result":"hi","session_id":"sess-mismatch-001","usage":{"input_tokens":8,"output_tokens":2}}
