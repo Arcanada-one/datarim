@@ -362,22 +362,56 @@ class Checker:
   if t=='hypothesis-card':
    if status not in {'test_ready','under_test','supported','refuted','inconclusive'}: self.add(p,'E_INPUT_NOT_READY')
   elif status!=minimum: self.add(p,'E_INPUT_NOT_READY')
- def run(self,files):
+ def run(self,files,emit_text=True):
   for p in files:self.parse(p)
   for d in list(self.docs):self.validate_doc(d)
   self.validate_source_groups()
-  for path,code in sorted(set(self.diags),key=lambda x:(x[0].encode(),x[1])): print(f'{path}: {code}')
+  if emit_text:
+   for path,code in sorted(set(self.diags),key=lambda x:(x[0].encode(),x[1])): print(f'{path}: {code}')
   return bool(self.diags)
+
+SUMMARY_SCHEMA='DatarimProductArtifactValidationSummary/v1'
+SUMMARY_CODES=frozenset('''
+E_ACCEPTANCE_INVALID E_ACTORS_INVALID E_AUTHORITY_INVALID E_AUTHORITY_REF_INVALID
+E_AUTHORITY_REF_REQUIRED E_BUDGET_INVALID E_CLAIM_DERIVATION E_CLAIM_INVALID
+E_CLAIM_RATIONALE E_CLAIM_UNKNOWN_REASON E_CONFLICT_COUNTEREVIDENCE_REQUIRED
+E_CONFLICT_GROUP_INVALID E_CONFLICT_LINK E_COUNTEREVIDENCE_DUPLICATE
+E_COUNTEREVIDENCE_REQUIRED E_DATA_FENCE E_DRAFT_OBSERVED_CLAIM
+E_DUPLICATE_GROUP_INVALID E_DUPLICATE_GROUP_REQUIRED E_EVIDENCE_ACCEPTANCE_INVALID
+E_FIELD_REQUIRED E_FIELD_TYPE E_FILE_READ E_FRONTMATTER E_ID_DUPLICATE E_ID_INVALID
+E_INPUT_NOT_READY E_INPUT_SUPERSEDED E_KC_SELF_LABEL E_KEY_UNKNOWN
+E_LEDGER_EMPTY_SEARCH E_LOCATOR_INVALID E_NO_MATCH_INCOMPLETE
+E_OBSERVED_PROVENANCE_MISMATCH E_OBSERVED_RAW_REQUIRED
+E_OPTION_DISPOSITION_REQUIRED E_OPTION_INVALID E_OPTION_REQUIRED E_OPTION_SELECTION
+E_OUTCOME_INVALID E_PATH_SYMLINK E_PROVENANCE_INVALID
+E_PUBLISHED_AT_BASIS_INVALID E_RANDOMIZATION_INVALID E_RECOMMENDATION_INVALID
+E_REF_DIGEST_MISMATCH E_REF_INVALID E_REF_MISSING E_REVISION_INVALID
+E_ROLEPLAY_AS_OBSERVED E_SCHEMA_VERSION E_SCOPE_DELTA_INVALID
+E_SOURCE_DIGEST_INVALID E_SOURCE_DIGEST_MISMATCH E_SOURCE_ENTRY_INVALID
+E_SOURCE_FAMILY_INVALID E_SOURCE_GROUP_INVALID E_SOURCE_UNAVAILABLE_INVALID
+E_STATUS_INVALID E_SUPERSEDES_INVALID E_TEXT_FORMAT E_TIMESTAMP_INVALID
+E_TYPE_INVALID E_USER_REPORTED_AS_OBSERVED E_YAML_INVALID
+'''.split())
+
+def emit_summary(mode,result,exit_code,availability,value):
+ print(json.dumps({'schema':SUMMARY_SCHEMA,'selection_mode':mode,'result':result,
+                   'exit_code':exit_code,'diagnostics':{'availability':availability,'value':value}},
+                  sort_keys=True,separators=(',',':')))
 
 def main():
  ap=argparse.ArgumentParser(add_help=False)
  ap.add_argument('--root',required=True); group=ap.add_mutually_exclusive_group(required=True); group.add_argument('--artifact'); group.add_argument('--bundle'); group.add_argument('--files',nargs='+')
+ ap.add_argument('--summary-json',action='store_true')
  ap.add_argument('--help',action='help')
  try: args=ap.parse_args()
  except SystemExit as e: return 0 if e.code==0 else 2
+ mode='artifact' if args.artifact else 'files' if args.files else 'bundle'
+ def early_result(code):
+  if args.summary_json: emit_summary(mode,'NOT_MEASURED',code,'NOT_MEASURED',None)
+  return code
  root=Path(args.root)
- if not root.is_absolute() or not root.is_dir() or root.is_symlink(): print('check-product-artifact: invalid --root',file=sys.stderr); return 2
- if root!=root.resolve(): print('check-product-artifact: --root must be canonical and symlink-free',file=sys.stderr); return 2
+ if not root.is_absolute() or not root.is_dir() or root.is_symlink(): print('check-product-artifact: invalid --root',file=sys.stderr); return early_result(2)
+ if root!=root.resolve(): print('check-product-artifact: --root must be canonical and symlink-free',file=sys.stderr); return early_result(2)
  root=root.resolve()
  def input_path(raw):
   candidate=Path(raw)
@@ -392,22 +426,33 @@ def main():
   return candidate
  if args.artifact:
   p=input_path(args.artifact)
-  if p is None or not p.is_file(): print('check-product-artifact: invalid --artifact',file=sys.stderr); return 2
+  if p is None or not p.is_file(): print('check-product-artifact: invalid --artifact',file=sys.stderr); return early_result(2)
   files=[p]
  elif args.files:
   files=[]
   for raw in args.files:
    p=input_path(raw)
-   if p is None or not p.is_file(): print('check-product-artifact: invalid --files entry',file=sys.stderr); return 2
+   if p is None or not p.is_file(): print('check-product-artifact: invalid --files entry',file=sys.stderr); return early_result(2)
    files.append(p)
-  if len(set(files))!=len(files): print('check-product-artifact: duplicate --files entry',file=sys.stderr); return 2
+  if len(set(files))!=len(files): print('check-product-artifact: duplicate --files entry',file=sys.stderr); return early_result(2)
  else:
   p=input_path(args.bundle)
-  if p is None or not p.is_dir(): print('check-product-artifact: invalid --bundle',file=sys.stderr); return 2
+  if p is None or not p.is_dir(): print('check-product-artifact: invalid --bundle',file=sys.stderr); return early_result(2)
   files=sorted((x for x in p.rglob('*.md') if not x.is_symlink()),key=lambda x:x.relative_to(root).as_posix().encode())
   symlinks=[x for x in p.rglob('*') if x.is_symlink()]
-  if not files: print('check-product-artifact: empty bundle',file=sys.stderr); return 1
+  if not files: print('check-product-artifact: empty bundle',file=sys.stderr); return early_result(1)
  checker=Checker(root)
  for x in symlinks if args.bundle else []: checker.add(x.relative_to(root).as_posix(),'E_PATH_SYMLINK')
- return 1 if checker.run(files) else 0
+ failed=checker.run(files,emit_text=not args.summary_json)
+ code=1 if failed else 0
+ if args.summary_json:
+  diagnostics=set(checker.diags)
+  counts={}
+  known=all(item_code in SUMMARY_CODES for _,item_code in diagnostics)
+  if known:
+   for _,item_code in diagnostics: counts[item_code]=counts.get(item_code,0)+1
+   emit_summary(mode,'FAIL' if failed else 'PASS',code,'MEASURED',{'count':len(diagnostics),'counts_by_code':dict(sorted(counts.items()))})
+  else:
+   emit_summary(mode,'FAIL',code,'NOT_MEASURED',None)
+ return code
 if __name__=='__main__': raise SystemExit(main())
