@@ -31,12 +31,9 @@ set `DATARIM_CODEX_MODEL_HAIKU`, `DATARIM_CODEX_MODEL_SONNET`, and
 `DATARIM_CODEX_MODEL_OPUS` in the current project shell, using IDs your account
 actually supports.
 
-For Cursor, inspect `cursor-agent --list-models` (or the installed `agent`
-binary's model listing). Set `DATARIM_CURSOR_MODEL_HAIKU`,
-`DATARIM_CURSOR_MODEL_SONNET`, and `DATARIM_CURSOR_MODEL_OPUS` to supported model
-IDs. Without a mapping, direct mode explains that it keeps the client's default;
-live mode does not report an unmapped model change as applied. Model availability
-is account-dependent. Never copy another machine's unverified list.
+Leave `DATARIM_CURSOR_MODEL_*` unset (policy 22.10 = Auto). Jev still reads
+those env vars as an override; otherwise it passes `--model auto`
+(`scripts/jev.py`, `plugins/dr-jev-control/scripts/runtimes.py`).
 
 Activate only in the current shell:
 

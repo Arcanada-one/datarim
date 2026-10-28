@@ -28,11 +28,10 @@ loading and session continuity need separate live checks.
 |---|---|---|
 | Claude Code | Model tier and thinking budget | Control requests in the active stream |
 | Codex | Reasoning effort; optional explicitly configured model | Resume the exact thread on the next turn |
-| Cursor | Explicit model mapping; no common effort flag | Resume the exact session on the next turn |
+| Cursor | env `DATARIM_CURSOR_MODEL_*` (leave unset; policy 22.10 = Auto) → default `--model auto`. No common effort flag | Resume the exact session on the next turn |
 
 The supervisor refuses missing or changed continuation IDs. A failed client turn
-is not a completed turn. Cursor mappings must use models available to the account;
-a missing mapping is reported instead of being recorded as an applied switch.
+is not a completed turn.
 
 ## Project hooks and state
 

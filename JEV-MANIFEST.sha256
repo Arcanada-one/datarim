@@ -1,5 +1,5 @@
 # Jev source integrity; verify with shasum -a 256 -c JEV-MANIFEST.sha256
-e0893dbcc62f6d206ba11db3444a4289feed7f13a0cbd0042c508b19887ef1b0  plugins/dr-jev-control/README.md
+5f4a4fac6606f6c393aad50e2a290a15b622f97a87ddda0f750258949fb13b4a  plugins/dr-jev-control/README.md
 4779e76875fb7f3f88c99b894c8d107802a2f8444a3e967875c5b0f0c99dd5e9  plugins/dr-jev-control/bin/dr-claude-jev
 15bd8cf7bb4c0bab11d7fb63096b61c71e880de5e3d5008109dcd5141150454e  plugins/dr-jev-control/bin/dr-jev
 458360a76fb7b452540275e193fe149b9d0701614dcca3522028cd5141a542d6  plugins/dr-jev-control/config/jev-control.json
