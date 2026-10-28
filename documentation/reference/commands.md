@@ -2,7 +2,7 @@
 
 The primary entry points are [autonomous execution with `/dr-auto`](../../commands/dr-auto.md), [agent orchestration with `/dr-orchestrate`](../../commands/dr-orchestrate.md), [the fast lane with `/dr-quick`](../../commands/dr-quick.md), and [JEV classification through the native launchers](../tutorials/initialize-datarim-with-jev.md). Human-facing output follows one reporting policy; exact machine handoffs retain their protocols.
 
-Datarim provides 28 slash commands in the `/dr-*` namespace for Claude Code (plus 2 standalone `/factcheck` and `/humanize` commands). Commands are grouped by category.
+Datarim provides 29 slash commands in the `/dr-*` namespace for Claude Code (plus 2 standalone `/factcheck` and `/humanize` commands, for 31 commands total). Commands are grouped by category.
 
 ## Unified CTA Block (v1.16.0)
 
@@ -124,7 +124,7 @@ All human-facing commands apply [Human Outcome Reporting](../../skills/human-out
 | `/dr-plugin` | Extension | -- | Manage opt-in plugin system: list active plugins, enable/disable third-party modules. Emits CTA. |
 | `/dr-orchestrate run` | Core + Plugin | -- | Self-driving pipeline runner. **The command and its autonomy policy are core** — the hard-gated safety floor and action-autonomy map live in `dev-tools/rules/fb-rules.yaml` and resolve via `dev-tools/fb-policy-loader.sh` without enabling any plugin. Phase 2 adds multi-backend subagent inference for unknown prompts (autonomy L1 → L2). **The transport runner is the opt-in plugin** (terminal-multiplexer driver, inference-backend chain, bot/HTTP interface, audit backends) — enable via `/dr-plugin enable <path>/plugins/dr-orchestrate` only to drive panes. Security floor: whitelist + escape-block + micro/decision cooldown; JSONL audit, hash-only credentials. |
 
-## Utility Commands (7)
+## Utility Commands (8)
 
 | Command | Stage | Agent | Description |
 |---------|-------|-------|-------------|
@@ -134,6 +134,7 @@ All human-facing commands apply [Human Outcome Reporting](../../skills/human-out
 | `/dr-wizard` | Requirements | planner | Interactive task-spec wizard — walks a rough brief into a structured spec through staged questions, resumable state, and a graph artefact handed to the graph sink. Emits CTA. |
 | `/dr-save` | Utility | developer | Capture current session to `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` before context is destroyed. 5-layer body (git state / active tasks / related files / open questions / failed approaches), 32 KB cap with non-truncatable L1/L5, append-only semantics, claim-provenance enforcement (exit 1 on untagged claims), T-8 secret redaction. Works identically in Claude Code, Codex CLI, and Cursor. Emits resume block. |
 | `/dr-continue` | Utility | developer | Resume from session artefact written by `/dr-save` in a **clean context window**. Re-verifies every claim via live probes (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrades provenance tags from the artefact, then routes to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. |
+| `/dr-test-audit` | Audit (read-only) | -- | Build a structural report for an explicit bounded test selection and retained evidence. Does not execute tests, modify tests or gates, publish the report, or trigger CI. |
 | `/dr-help` | Utility | -- | List all commands with descriptions and usage guidance. Emits CTA. |
 
 > **Not a core command: `/dr-continue-checkpoint`.** A worker entry for projects
