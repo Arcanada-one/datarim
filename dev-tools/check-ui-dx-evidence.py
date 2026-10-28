@@ -101,9 +101,11 @@ def object_with(value: Any, required: set[str], optional: set[str], label: str) 
     return value
 
 
-def load_json(path: Path) -> Any:
+def load_json(path: Path) -> tuple[Any, bytes]:
     try:
-        return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_object)
+        raw = path.read_bytes()
+        evidence = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
+        return evidence, raw
     except DuplicateKeyError as exc:
         fail("duplicate_key", f"duplicate JSON object key: {exc}")
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
@@ -399,7 +401,7 @@ def validate(
     progress: ValidationProgress | None = None,
 ) -> tuple[str, str, int | None, list[str], str]:
     evidence_path_value = evidence_path(evidence_value, root)
-    evidence = load_json(evidence_path_value)
+    evidence, evidence_bytes = load_json(evidence_path_value)
     top = object_with(
         evidence,
         {"schema", "source_revision", "ui", "dx", "inputs", "retained_material"},
@@ -422,7 +424,7 @@ def validate(
     validate_inputs(top["inputs"])
     validate_retained_material(top["retained_material"], root)
     notes = ui_notes + dx_notes
-    report_sha = hashlib.sha256(evidence_path_value.read_bytes()).hexdigest()
+    report_sha = hashlib.sha256(evidence_bytes).hexdigest()
     if progress is not None:
         progress.evidence_sha256 = report_sha
         progress.notes_count = len(notes)

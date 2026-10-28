@@ -168,6 +168,57 @@ PY
   [ "$before" = "$after" ]
 }
 
+@test "summary JSON hashes the exact evidence bytes parsed before a later replacement" {
+  python3 - "$VALIDATOR" "$ROOT" <<'PY'
+import contextlib
+import hashlib
+import importlib.util
+import io
+import json
+import pathlib
+import sys
+
+validator_path = pathlib.Path(sys.argv[1])
+root = pathlib.Path(sys.argv[2])
+evidence_path = root / "datarim/qa/synthetic/ui-dx-evidence.json"
+original = evidence_path.read_bytes()
+replacement = original.replace(
+    b'"schema": "DatarimUiDxEvidence/v1"',
+    b'"schema": "DatarimUiDxEvidence/changed"',
+    1,
+)
+assert replacement != original
+
+spec = importlib.util.spec_from_file_location("ui_dx_validator_under_test", validator_path)
+validator = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(validator)
+original_validate_ui = validator.validate_ui
+replacement_observed = False
+
+def replace_after_load(*args, **kwargs):
+    global replacement_observed
+    evidence_path.write_bytes(replacement)
+    replacement_observed = evidence_path.read_bytes() == replacement
+    return original_validate_ui(*args, **kwargs)
+
+validator.validate_ui = replace_after_load
+sys.argv = [str(validator_path), "--root", str(root), "--evidence", str(evidence_path), "--summary-json"]
+stdout = io.StringIO()
+with contextlib.redirect_stdout(stdout):
+    exit_code = validator.main()
+
+summary = json.loads(stdout.getvalue())
+assert replacement_observed, "the fixture evidence replacement did not occur"
+assert exit_code == 0
+assert summary["result"] == "PASS"
+assert summary["evidence_sha256"] == {
+    "availability": "MEASURED",
+    "value": hashlib.sha256(original).hexdigest(),
+}
+assert summary["evidence_sha256"]["value"] != hashlib.sha256(replacement).hexdigest()
+PY
+}
+
 @test "summary JSON reports NOT_APPLICABLE without inventing a rubric score" {
   python3 "$FIXTURE" not-applicable "$ROOT"
   local evidence="$ROOT/datarim/qa/synthetic/ui-dx-evidence.json"
