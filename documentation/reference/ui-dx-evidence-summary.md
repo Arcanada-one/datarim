@@ -21,6 +21,8 @@ normal usage output and exit status.
 
 The machine-readable [Draft 2020-12 schema](schemas/ui-dx-evidence-summary.v1.schema.json) describes the exact summary field shape, fixed values and diagnostic-code domain. It requires all eight fields, rejects additional properties, and preserves `NOT_MEASURED` values as JSON `null`. It also describes the emitted result/exit/diagnostic relationships.
 
+For a successful `NOT_APPLICABLE` summary, the schema requires the rubric score to remain `NOT_MEASURED`/`null` and the measured note count to be zero, matching the serializer's empty note lists for both not-applicable sections.
+
 The schema checks structure only. It cannot establish that a revision or digest is truthful, that evidence is authentic, or that the validator's conclusions are semantically correct. It does not establish UX quality, adoption, runtime behavior, task acceptance, or permission to change a gate.
 
 ## Schema
