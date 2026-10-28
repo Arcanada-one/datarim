@@ -31,7 +31,7 @@ set -euo pipefail
 # remains available for historical callers but cannot certify a task.
 for argument in "$@"; do
     case "$argument" in
-        --contract|--evidence|--root|--stage)
+        --summary-json|--contract|--evidence|--root|--stage)
             exec bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/live-evidence.sh" "$@"
             ;;
     esac
