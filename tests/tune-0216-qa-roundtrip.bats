@@ -120,10 +120,14 @@ p25_failure_fixture_metrics() {
             && [[ "$snapshot_raw" =~ ^[[:space:]0-9a-fA-F]*$ ]] \
             && snapshot_hex="$(printf '%s' "$snapshot_raw" | tr -d '[:space:]')"; then
             snapshot_bytes="$(( ${#snapshot_hex} / 2 ))"
-            if [[ "$fixture_bytes" =~ ^[0-9]+$ ]] && [ "$fixture_bytes" -gt 2048 ]; then
-                snapshot_truncated='yes'
+            if [[ "$fixture_bytes" =~ ^[0-9]+$ ]]; then
+                if [ "$fixture_bytes" -gt 2048 ]; then
+                    snapshot_truncated='yes'
+                else
+                    snapshot_truncated='no'
+                fi
             else
-                snapshot_truncated='no'
+                snapshot_truncated='unavailable'
             fi
         else
             snapshot_hex='unavailable: hex snapshot failed'
@@ -478,6 +482,30 @@ EOF
     [ "$diagnostic_bytes" -eq 4096 ] \
         && grep -Fq 'fixture_snapshot_truncated=yes' "$diagnostic_file" \
         && grep -Fq 'diagnostic_output_truncated=yes' "$diagnostic_file"
+}
+
+@test "P2.5 failure diagnostic leaves snapshot truncation unavailable when size read fails" {
+    local fixture="$TMPROOT/datarim/tasks/TEST-0205-init-task.md"
+    local fake_bin="$TMPROOT/fake-bin"
+    mkdir -p "${fixture%/*}" "$fake_bin"
+    head -c 64 /dev/zero | tr '\000' x > "$fixture"
+    cat > "$fake_bin/wc" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+    chmod +x "$fake_bin/wc"
+
+    local original_path="$PATH"
+    PATH="$fake_bin:$PATH"
+    run p25_failure_diagnostic "$fixture" 0 0 0 0
+    local diagnostic_status="$status" diagnostic_output="$output"
+    PATH="$original_path"
+
+    [ "$diagnostic_status" -eq 0 ] \
+        && [[ "$diagnostic_output" == *'fixture_bytes=unavailable: byte count failed'* ]] \
+        && [[ "$diagnostic_output" == *'fixture_snapshot_encoding=hex fixture_snapshot_source_bytes=64 fixture_snapshot_truncated=unavailable'* ]] \
+        && [[ "$diagnostic_output" == *'fixture_snapshot_hex_prefix=7878'* ]] \
+        && [[ "$diagnostic_output" == *'diagnostic_output_truncated=no'* ]]
 }
 
 @test "P2.6 utility preserves init-task when its source read fails" {
