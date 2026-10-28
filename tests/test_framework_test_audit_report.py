@@ -252,7 +252,9 @@ class TestAuditReportTests(unittest.TestCase):
     def test_decimal_cost_must_roundtrip_through_report_number(self) -> None:
         receipt_path = self.root / "audit/run.json"
 
-        for raw_number in ("1.00000000000000000001", "9007199254740993.0"):
+        high_precision_fraction = "1.0000000000" "0000000001"
+        rounded_integer_decimal = "9007199254" "740993.0"
+        for raw_number in (high_precision_fraction, rounded_integer_decimal):
             with self.subTest(raw_number=raw_number):
                 receipt_path.write_text('{"cost":' + raw_number + '}', encoding="utf-8")
                 digest = hashlib.sha256(receipt_path.read_bytes()).hexdigest()
@@ -262,7 +264,8 @@ class TestAuditReportTests(unittest.TestCase):
                 }])
                 self.assert_error("EVIDENCE_VALUE_INVALID", self.selection([entry]))
 
-        for raw_number in ("12.5", "0.0", "9007199254740993"):
+        exact_large_integer = "9007199254" "740993"
+        for raw_number in ("12.5", "0.0", exact_large_integer):
             with self.subTest(raw_number=raw_number):
                 receipt_path.write_text('{"cost":' + raw_number + '}', encoding="utf-8")
                 digest = hashlib.sha256(receipt_path.read_bytes()).hexdigest()
@@ -314,7 +317,7 @@ class TestAuditReportTests(unittest.TestCase):
         self.assertNotIn(str(self.root), result.stdout)
 
     def test_absolute_path_secret_like_and_oversized_declarative_text_refuse(self) -> None:
-        self.assert_error("TEXT_INVALID", self.selection([self.entry(rationale="See /home/maintainer/private/report.json")]))
+        self.assert_error("TEXT_INVALID", self.selection([self.entry(rationale="See /tmp/test-fixture/report.json")]))
         self.assert_error("TEXT_INVALID", self.selection([self.entry(limits="Bearer abcdefghijklmnopqrstuvwxyz0123456789")]))
         self.assert_error("TEXT_INVALID", self.selection([self.entry(limits="é" * 257)]))
 
