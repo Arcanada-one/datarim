@@ -16,6 +16,13 @@ The JSON mode uses the same validation and exit status as the default mode. It
 does not write to the charter, evidence, or repository. Without `--summary-json`,
 the existing text output and exit behavior are unchanged.
 
+Validate the emitted object with the [JSON Schema](schemas/qa-charter-summary.v1.schema.json)
+for `DatarimQaCharterCoverageSummary/v1`. It describes the JSON summary shape and
+field relationships; it does not validate task acceptance or evidence truth.
+The schema checks field types, fixed values, availability/null pairing, and the
+status relationships expressible in JSON Schema. It does not enforce arithmetic
+relationships between separate count values.
+
 ## Object fields
 
 The top-level object has exactly these fields:
