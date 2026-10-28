@@ -14,7 +14,10 @@ Set `DATARIM_RUNTIME` and `PROJECT_ROOT` using the paths already provided by you
 : "${DATARIM_RUNTIME:?Set DATARIM_RUNTIME to the existing Datarim runtime tree}"
 : "${PROJECT_ROOT:?Set PROJECT_ROOT to the checked-out project root}"
 
-SUMMARY_DIR="$(mktemp -d)"
+if ! SUMMARY_DIR="$(mktemp -d)" || [ -z "$SUMMARY_DIR" ]; then
+  printf 'ERROR: could not create summary output directory\n' >&2
+  exit 1
+fi
 QA_CHARTER="datarim/qa/example/qa-charter.md"
 QA_EVIDENCE="datarim/qa/example/run-20261018T120000Z/evidence.json"
 TEST_VALUE_CARD="$PROJECT_ROOT/path/to/test-value-card.md"
