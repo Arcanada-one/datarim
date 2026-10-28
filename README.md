@@ -139,7 +139,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 19 specialized agents, 81 reusable skills, and 30 commands that guide
+It includes 19 specialized agents, 81 reusable skills, and 31 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -222,7 +222,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
-- **30 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone + /dr-quick fast-lane + /dr-wizard interactive task-spec wizard, 3 content (write, edit, publish), 5 framework
+- **31 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone + /dr-quick fast-lane + /dr-wizard interactive task-spec wizard, 3 content (write, edit, publish), 5 framework
   and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), utilities (status, next,
   help), and 2 standalone tools (factcheck, humanize).
 
@@ -988,7 +988,7 @@ and why it exists.
 datarim/
   agents/            # Agent personas (19 agents)
   skills/            # Knowledge modules (81 skills)
-  commands/          # Slash commands (30 commands)
+  commands/          # Slash commands (31 commands)
   templates/         # Task and document templates (32 templates)
   documentation/              # Extended documentation and use cases
   AGENTS.md          # Framework rules (commands read it from .datarim-runtime/)

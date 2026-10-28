@@ -262,7 +262,7 @@ Before writing ANY file to `datarim/`:
 > rule, and every learned action stays subject to per-space policy and the immutable
 > hard-gated floor.
 
-Command files: `${DATARIM_RUNTIME:?}/commands/{name}.md` (30 commands, including the plugin command)
+Command files: `${DATARIM_RUNTIME:?}/commands/{name}.md` (31 commands, including the plugin command)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 
