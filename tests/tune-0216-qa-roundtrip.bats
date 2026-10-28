@@ -96,6 +96,101 @@ append_qa_block() {
     } >> "$file"
 }
 
+# p25_failure_fixture_metrics <fixture>
+# Returns tab-separated metadata; snapshot bytes are hex-escaped and bounded.
+p25_failure_fixture_metrics() {
+    local fixture="$1" fixture_bytes='unavailable' fixture_sha='unavailable'
+    local snapshot_hex='unavailable' snapshot_bytes='unavailable' snapshot_truncated='unavailable'
+    local hash_output snapshot_raw
+
+    if [[ "$fixture" == "$TMPROOT"/datarim/tasks/TEST-0205-init-task.md ]] \
+        && [ -f "$fixture" ] && [ ! -L "$fixture" ]; then
+        if fixture_bytes="$(wc -c < "$fixture" 2>/dev/null)"; then
+            fixture_bytes="${fixture_bytes//[[:space:]]/}"
+        else
+            fixture_bytes='unavailable: byte count failed'
+        fi
+        if hash_output="$(sha256sum < "$fixture" 2>/dev/null)" \
+            && [[ "${hash_output%%[[:space:]]*}" =~ ^[0-9a-f]{64}$ ]]; then
+            fixture_sha="${hash_output%%[[:space:]]*}"
+        else
+            fixture_sha='unavailable: sha256sum failed'
+        fi
+        if snapshot_raw="$(od -An -v -tx1 -N 2048 < "$fixture" 2>/dev/null)" \
+            && [[ "$snapshot_raw" =~ ^[[:space:]0-9a-fA-F]*$ ]] \
+            && snapshot_hex="$(printf '%s' "$snapshot_raw" | tr -d '[:space:]')"; then
+            snapshot_bytes="$(( ${#snapshot_hex} / 2 ))"
+            if [[ "$fixture_bytes" =~ ^[0-9]+$ ]] && [ "$fixture_bytes" -gt 2048 ]; then
+                snapshot_truncated='yes'
+            else
+                snapshot_truncated='no'
+            fi
+        else
+            snapshot_hex='unavailable: hex snapshot failed'
+        fi
+    else
+        fixture_bytes='unavailable: fixture unavailable'
+        fixture_sha='unavailable: fixture unavailable'
+    fi
+    printf '%s|%s|%s|%s|%s\n' \
+        "$fixture_bytes" "$fixture_sha" "$snapshot_hex" "$snapshot_bytes" "$snapshot_truncated"
+}
+
+# p25_fixture_marker_outcome <fixture> <fixed-marker>
+p25_fixture_marker_outcome() {
+    local fixture="$1" marker="$2" grep_status
+    if [[ "$fixture" != "$TMPROOT"/datarim/tasks/TEST-0205-init-task.md ]] \
+        || [ ! -f "$fixture" ] || [ -L "$fixture" ]; then
+        printf 'unavailable'
+    elif grep -Fq -- "$marker" "$fixture" 2>/dev/null; then
+        printf 'present'
+    else
+        grep_status=$?
+        if [ "$grep_status" -eq 1 ]; then printf 'absent'; else printf 'unavailable'; fi
+    fi
+}
+
+# p25_failure_diagnostic <fixture> <child-1-exit> <child-2-exit> <heading-count> <validator-exit>
+# Emits bounded failure-only evidence; the caller uses it only on assertion failure.
+p25_failure_diagnostic() {
+    local LC_ALL=C fixture="$1" child1="$2" child2="$3" heading_count="$4" validator_status="$5"
+    local diagnostic='' metrics fixture_bytes fixture_sha snapshot_hex snapshot_bytes snapshot_truncated
+    local heading marker index result
+    local -a headings markers
+    headings=('Q&A by /dr-prd (round 1)' 'Q&A by /dr-plan (round 2)')
+    markers=('Q&A by /dr-prd (round 1)' 'Q&A by /dr-plan (round 2)' 'Q1 round 1.' 'Q2 round 2.' 'A1.' 'A2.')
+
+    case "$fixture" in
+        "$TMPROOT"/datarim/tasks/TEST-0205-init-task.md) ;;
+        *) fixture='' ;;
+    esac
+    metrics="$(p25_failure_fixture_metrics "$fixture")"
+    IFS='|' read -r fixture_bytes fixture_sha snapshot_hex snapshot_bytes snapshot_truncated <<< "$metrics"
+    diagnostic+=$'P2.5 failure diagnostic (synthetic fixture only)\n'
+    diagnostic+="child_1_exit=$child1 child_2_exit=$child2 validator_exit=$validator_status heading_count=$heading_count"$'\n'
+    diagnostic+="fixture_bytes=$fixture_bytes fixture_sha256=$fixture_sha"$'\n'
+    for index in 0 1; do
+        heading="${headings[$index]}"
+        result="$(p25_fixture_marker_outcome "$fixture" "$heading")"
+        diagnostic+="heading_$((index + 1))=\"$heading\":$result"$'\n'
+    done
+    for index in 0 1 2 3 4 5; do
+        marker="${markers[$index]}"
+        result="$(p25_fixture_marker_outcome "$fixture" "$marker")"
+        diagnostic+="marker_$((index + 1))=\"$marker\":$result"$'\n'
+    done
+    diagnostic+="fixture_snapshot_encoding=hex fixture_snapshot_source_bytes=$snapshot_bytes fixture_snapshot_truncated=$snapshot_truncated"$'\n'
+    diagnostic+="fixture_snapshot_hex_prefix=$snapshot_hex"$'\n'
+    diagnostic+="diagnostic_output_cap_bytes=4096"$'\n'
+
+    local footer_no=$'diagnostic_output_truncated=no\n' footer_yes=$'diagnostic_output_truncated=yes\n'
+    if (( ${#diagnostic} + ${#footer_no} <= 4096 )); then
+        printf '%s%s' "$diagnostic" "$footer_no"
+    else
+        printf '%s%s' "${diagnostic:0:$((4096 - ${#footer_yes}))}" "$footer_yes"
+    fi
+}
+
 # write_task_description <ID> <created> [<status>]
 write_task_description() {
     local id="$1" created="$2" status="${3:-in_progress}"
@@ -300,7 +395,7 @@ EOF
     local q2="$TMPROOT/q2.txt" a2="$TMPROOT/a2.txt"
     local out1="$TMPROOT/child-1.stdout" out2="$TMPROOT/child-2.stdout"
     local err1="$TMPROOT/child-1.stderr" err2="$TMPROOT/child-2.stderr"
-    local pid1 pid2 status1 status2 child stdout_file stderr_file stream stream_file
+    local pid1 pid2 status1 status2
     echo "Q1 round 1." > "$q1"; echo "A1." > "$a1"
     echo "Q2 round 2." > "$q2"; echo "A2." > "$a2"
 
@@ -317,7 +412,7 @@ EOF
 
     local file="$TMPROOT/datarim/tasks/TEST-0205-init-task.md"
     local heading_count failed=0 marker validator_status
-    heading_count="$(grep -c 'Q&A by /dr-' "$file" || true)"
+    heading_count="$(grep -c 'Q&A by /dr-' "$file" 2>/dev/null || true)"
     [ "$status1" -eq 0 ] || failed=1
     [ "$status2" -eq 0 ] || failed=1
     [ "$heading_count" = 2 ] || failed=1
@@ -333,19 +428,56 @@ EOF
     [ "$validator_status" -eq 0 ] || failed=1
 
     if [ "$failed" -ne 0 ]; then
-        printf 'P2.5 child exits: %s, %s; headings: %s; validator exit: %s\n' \
-            "$status1" "$status2" "$heading_count" "$validator_status"
-        for child in 1 2; do
-            if [ "$child" -eq 1 ]; then stdout_file="$out1"; stderr_file="$err1"; else stdout_file="$out2"; stderr_file="$err2"; fi
-            for stream in stdout stderr; do
-                if [ "$stream" = stdout ]; then stream_file="$stdout_file"; else stream_file="$stderr_file"; fi
-                printf 'child %s %s (first 1024 bytes):\n' "$child" "$stream"
-                head -c 1024 "$stream_file" || true
-                printf '\n'
-            done
-        done
+        p25_failure_diagnostic "$file" "$status1" "$status2" "$heading_count" "$validator_status"
         return 1
     fi
+}
+
+@test "P2.5 failure diagnostic identifies headings, fixed markers, fixture digest and escaped snapshot" {
+    local fixture="$TMPROOT/datarim/tasks/TEST-0205-init-task.md"
+    mkdir -p "${fixture%/*}"
+    printf '%s\n' \
+        'Q&A by /dr-prd (round 1)' \
+        'Q1 round 1.' \
+        'A1.' \
+        'SAFE' \
+        'synthetic-value-must-not-appear-as-raw-text' > "$fixture"
+    local expected_bytes expected_sha
+    expected_bytes="$(wc -c < "$fixture")"
+    expected_bytes="${expected_bytes//[[:space:]]/}"
+    expected_sha="$(sha256sum < "$fixture")"
+    expected_sha="${expected_sha%%[[:space:]]*}"
+
+    run p25_failure_diagnostic "$fixture" 0 0 1 0
+    [ "$status" -eq 0 ] \
+        && [[ "$output" == *'heading_1="Q&A by /dr-prd (round 1)":present'* ]] \
+        && [[ "$output" == *'heading_2="Q&A by /dr-plan (round 2)":absent'* ]] \
+        && [[ "$output" == *'marker_1="Q&A by /dr-prd (round 1)":present'* ]] \
+        && [[ "$output" == *'marker_2="Q&A by /dr-plan (round 2)":absent'* ]] \
+        && [[ "$output" == *'marker_3="Q1 round 1.":present'* ]] \
+        && [[ "$output" == *'marker_4="Q2 round 2.":absent'* ]] \
+        && [[ "$output" == *'marker_5="A1.":present'* ]] \
+        && [[ "$output" == *'marker_6="A2.":absent'* ]] \
+        && [[ "$output" == *"fixture_bytes=$expected_bytes fixture_sha256=$expected_sha"* ]] \
+        && [[ "$output" == *'fixture_snapshot_encoding=hex'* ]] \
+        && [[ "$output" == *'53414645'* ]] \
+        && [[ "$output" == *'diagnostic_output_truncated=no'* ]] \
+        && [[ "$output" != *"$fixture"* ]] \
+        && [[ "$output" != *'synthetic-value-must-not-appear-as-raw-text'* ]]
+}
+
+@test "P2.5 failure diagnostic enforces the total 4096-byte cap with truncation marker" {
+    local fixture="$TMPROOT/datarim/tasks/TEST-0205-init-task.md"
+    local diagnostic_file="$TMPROOT/diagnostic.raw" diagnostic_bytes
+    mkdir -p "${fixture%/*}"
+    head -c 8192 /dev/zero | tr '\000' x > "$fixture"
+
+    p25_failure_diagnostic "$fixture" 0 0 0 0 > "$diagnostic_file"
+    diagnostic_bytes="$(wc -c < "$diagnostic_file")"
+    diagnostic_bytes="${diagnostic_bytes//[[:space:]]/}"
+    [ "$diagnostic_bytes" -eq 4096 ] \
+        && grep -Fq 'fixture_snapshot_truncated=yes' "$diagnostic_file" \
+        && grep -Fq 'diagnostic_output_truncated=yes' "$diagnostic_file"
 }
 
 @test "P2.6 utility preserves init-task when its source read fails" {
