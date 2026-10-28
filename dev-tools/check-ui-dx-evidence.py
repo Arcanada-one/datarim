@@ -24,6 +24,30 @@ DX_PASSES = (
     "development-environment", "community", "measurement",
 )
 FORBIDDEN_INPUTS = {"adoption-statistic", "designer-binary"}
+SUMMARY_SCHEMA = "UIDXEvidenceValidationSummary/v1"
+SUMMARY_DIAGNOSTIC_CODES = frozenset({
+    "dirty_source_tree", "duplicate_key", "evidence_digest_mismatch",
+    "incomplete_journey", "incomplete_persona", "incomplete_review_passes",
+    "incomplete_storyboard", "incomplete_ui_state", "incomplete_ui_state_matrix",
+    "input_unavailable", "invalid_applicability", "invalid_attribution",
+    "invalid_evidence_digest", "invalid_evidence_type", "invalid_feature_id",
+    "invalid_input_kind", "invalid_journey_status", "invalid_json",
+    "invalid_plan_specification", "invalid_review_mode", "invalid_review_pass_status",
+    "invalid_schema", "invalid_shape", "invalid_source_revision",
+    "invalid_ui_state_score", "invalid_ui_state_status", "missing_acceptance_signal",
+    "missing_attribution_notice", "missing_design_gap", "missing_design_reference",
+    "missing_evidence", "missing_evidence_artifact", "missing_feature_name",
+    "missing_field", "missing_input_reference", "missing_journey_gap",
+    "missing_not_applicable_reason", "missing_recovery_action", "missing_storyboard",
+    "missing_ui_features", "missing_ui_state_reason", "no_applicable_ui_states",
+    "prohibited_input", "source_revision_unavailable", "stale_source_revision",
+    "ui_rubric_below_floor", "unattributed_retained_material",
+    "unexpected_applicability_reason", "unexpected_ui_features", "unknown_field",
+    "unreadable_evidence_artifact", "unsafe_attribution_notice", "unsafe_evidence_path",
+    "unsafe_evidence_reference", "validation_error",
+}) | frozenset(f"missing_ui_state_{state}" for state in UI_STATES) | frozenset(
+    f"missing_journey_stage_{stage}" for stage in JOURNEY_STAGES
+)
 
 
 class EvidenceError(Exception):
@@ -34,6 +58,16 @@ class EvidenceError(Exception):
 
 class DuplicateKeyError(ValueError):
     pass
+
+
+class ValidationProgress:
+    """Values established before a validation refusal, for summary availability."""
+
+    def __init__(self) -> None:
+        self.source_revision: str | None = None
+        self.evidence_sha256: str | None = None
+        self.lowest_rubric_score: int | None = None
+        self.notes_count: int | None = None
 
 
 def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -67,9 +101,11 @@ def object_with(value: Any, required: set[str], optional: set[str], label: str) 
     return value
 
 
-def load_json(path: Path) -> Any:
+def load_json(path: Path) -> tuple[Any, bytes]:
     try:
-        return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_object)
+        raw = path.read_bytes()
+        evidence = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
+        return evidence, raw
     except DuplicateKeyError as exc:
         fail("duplicate_key", f"duplicate JSON object key: {exc}")
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
@@ -359,9 +395,13 @@ def validate_retained_material(value: Any, root: Path) -> None:
             fail("missing_attribution_notice", f"retained material {index} notice is missing or uses a symlink")
 
 
-def validate(root: Path, evidence_value: str) -> tuple[str, str, int | None, list[str], str]:
+def validate(
+    root: Path,
+    evidence_value: str,
+    progress: ValidationProgress | None = None,
+) -> tuple[str, str, int | None, list[str], str]:
     evidence_path_value = evidence_path(evidence_value, root)
-    evidence = load_json(evidence_path_value)
+    evidence, evidence_bytes = load_json(evidence_path_value)
     top = object_with(
         evidence,
         {"schema", "source_revision", "ui", "dx", "inputs", "retained_material"},
@@ -373,33 +413,119 @@ def validate(root: Path, evidence_value: str) -> tuple[str, str, int | None, lis
     if not isinstance(top["source_revision"], str) or not REVISION.fullmatch(top["source_revision"]):
         fail("invalid_source_revision", "source_revision must be a full Git object ID")
     current = current_revision(root)
+    if progress is not None:
+        progress.source_revision = current
     if top["source_revision"] != current:
         fail("stale_source_revision", "evidence source_revision differs from current HEAD")
     ui_status, lowest, ui_notes = validate_ui(top["ui"], root, evidence_path_value)
+    if progress is not None:
+        progress.lowest_rubric_score = lowest
     dx_status, dx_notes = validate_dx(top["dx"], root, evidence_path_value)
     validate_inputs(top["inputs"])
     validate_retained_material(top["retained_material"], root)
     notes = ui_notes + dx_notes
-    report_sha = hashlib.sha256(evidence_path_value.read_bytes()).hexdigest()
+    report_sha = hashlib.sha256(evidence_bytes).hexdigest()
+    if progress is not None:
+        progress.evidence_sha256 = report_sha
+        progress.notes_count = len(notes)
     if ui_status == dx_status == "not_applicable":
         return "NOT_APPLICABLE", current, lowest, notes, report_sha
     return "PASS", current, lowest, notes, report_sha
 
 
-def main() -> int:
+def summary_value(value: Any, available: bool) -> dict[str, Any]:
+    return {
+        "availability": "MEASURED" if available else "NOT_MEASURED",
+        "value": value if available else None,
+    }
+
+
+def emit_summary(
+    result: str,
+    exit_code: int,
+    diagnostic_codes: list[str],
+    revision: str | None = None,
+    report_sha: str | None = None,
+    lowest: int | None = None,
+    notes_count: int | None = None,
+) -> None:
+    summary = {
+        "schema": SUMMARY_SCHEMA,
+        "result": result,
+        "exit_code": exit_code,
+        "diagnostic_codes": diagnostic_codes,
+        "source_revision": summary_value(revision, revision is not None),
+        "evidence_sha256": summary_value(report_sha, report_sha is not None),
+        "lowest_rubric_score": summary_value(lowest, lowest is not None),
+        "notes_count": summary_value(notes_count, notes_count is not None),
+    }
+    encoded = json.dumps(
+        summary, sort_keys=True, separators=(",", ":"), allow_nan=False,
+    )
+    sys.stdout.write(encoded + "\n")
+
+
+def emit_refusal(code: str, progress: ValidationProgress) -> None:
+    safe_code = code if code in SUMMARY_DIAGNOSTIC_CODES else "validation_error"
+    emit_summary(
+        "FAIL", 1, [safe_code], progress.source_revision,
+        progress.evidence_sha256, progress.lowest_rubric_score,
+        progress.notes_count,
+    )
+
+
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", required=True, type=Path)
     parser.add_argument("--evidence", required=True)
-    args = parser.parse_args()
-    root = args.root.resolve()
+    parser.add_argument(
+        "--summary-json", action="store_true",
+        help="emit one versioned JSON summary instead of the default text report",
+    )
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    progress = ValidationProgress()
     try:
-        status, revision, lowest, notes, report_sha = validate(root, args.evidence)
+        root = args.root.resolve()
+    except Exception:
+        if args.summary_json:
+            emit_refusal("input_unavailable", progress)
+            return 1
+        raise
+    try:
+        status, revision, lowest, notes, report_sha = validate(
+            root, args.evidence, progress if args.summary_json else None,
+        )
     except EvidenceError as exc:
+        if args.summary_json:
+            emit_refusal(exc.code, progress)
+            return 1
         print(f"UI_DX_REVIEW FAIL code={exc.code}: {exc}", file=sys.stderr)
         return 1
     except (AttributeError, TypeError, ValueError) as exc:
+        if args.summary_json:
+            emit_refusal("invalid_shape", progress)
+            return 1
         print(f"UI_DX_REVIEW FAIL code=invalid_shape: {exc}", file=sys.stderr)
         return 1
+    except OSError:
+        if args.summary_json:
+            emit_refusal("input_unavailable", progress)
+            return 1
+        raise
+    except Exception:
+        if args.summary_json:
+            emit_refusal("validation_error", progress)
+            return 1
+        raise
+    if args.summary_json:
+        emit_summary(
+            status, 0, [], revision, report_sha, lowest, len(notes),
+        )
+        return 0
     score = "none" if lowest is None else str(lowest)
     print(f"UI_DX_REVIEW {status} source_revision={revision} evidence_sha256={report_sha} lowest_rubric_score={score}")
     for note in notes:
