@@ -208,7 +208,7 @@ setup() {
 
 @test "queue consumer processes a job end-to-end" {
     # exercises the real broker; only reached when setup() probed it live
-    ...
+    true  # assertions omitted in this illustrative snippet
 }
 ```
 
