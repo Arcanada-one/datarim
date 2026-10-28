@@ -48,9 +48,37 @@ Discipline in `code/datarim/AGENTS.md`).
 | `append-init-task-qa.sh` | `commands/dr-{init,prd,plan,design,do,qa,compliance}.md` § Q&A round-trip |
 | `check-repo-site-sync.sh` | ecosystem repo↔site drift gate against a consumer-owned `registry.yml`; invoked by the consumer's site-sync deploy gate + archive sub-step. Opt-in `--narrative` dimension audits per-artefact narrative freshness over `page_bindings` (orphan site pages, stale slash-command tokens, stale `--flag` tokens) |
 | `check-inventory-runtime-drift.sh` | ecosystem host-inventory↔runtime drift auditor (declared public IP / Tailscale IP / firewall posture vs SSH-probed runtime facts); consumer-owned weekly cross-check against its own inventory file (`--inventory <path>`), diff → ops warning event. Hardcodes no hosts/IPs. |
-| `check-live-evidence.sh` (structured mode, `lib/live-evidence.sh`) | acceptance/evidence gate in `commands/dr-{init,plan,do,write,edit,publish,qa,compliance,archive,quick,auto}.md` per `skills/immutability/SKILL.md` § Acceptance and Evidence Loop; `--contract --evidence --root --stage` exits 0 STAGE_PASS/preflight receipt, 1 BLOCKED, 2 usage |
+| `check-live-evidence.sh` (structured mode, `lib/live-evidence.sh`) | acceptance/evidence gate in `commands/dr-{init,plan,do,write,edit,publish,qa,compliance,archive,quick,auto}.md` per `skills/immutability/SKILL.md` § Acceptance and Evidence Loop; `--contract --evidence --root --stage` exits 0 STAGE_PASS/preflight receipt, 1 BLOCKED, 2 usage; optional `--summary-json` is the bounded maintainer/CI summary |
 | `check-ui-dx-evidence.py` | read-only UI state and developer-journey evidence check in `commands/dr-qa.md` Layer 2a; validates the versioned contract, current source pin, evidence labels, required states/journey steps, attribution fields, and prohibited input classes |
 | `lib/heartbeat-receipts.py` | `lib/heartbeat-status.sh write` when `DATARIM_INTERACTION_RECEIPTS_DIR` and `DATARIM_INTERACTION_RUN_ID` are both set (opt-in; Python 3 only on that path) |
+
+## Live-evidence JSON summary (maintainer/CI only)
+
+The canonical structured checker accepts `--summary-json` as an explicit opt-in:
+
+```sh
+dev-tools/check-live-evidence.sh --summary-json \
+  --contract <contract.json> --evidence <evidence.json> \
+  --root <repository-root> --stage <stage>
+```
+
+It emits one `datarim.live-evidence-summary/v1` JSON object on stdout and keeps the existing numeric exit domain: `0` for a receipt or `STAGE_PASS`, `1` for `BLOCKED`, and `2` for `USAGE_ERROR`. The verdicts are `PREFLIGHT_RECEIPT`, `SNAPSHOT_RECEIPT`, `STAGE_PASS`, `BLOCKED`, and `USAGE_ERROR`. The fixed `reason_code` values are:
+
+```text
+preflight_receipt_created snapshot_receipt_created evidence_stage_validated
+contract_missing contract_json_invalid contract_document_invalid contract_schema_invalid
+unsafe_path task_description_missing task_metadata_invalid task_identity_mismatch
+scope_invalid input_manifest_invalid contract_changed
+evidence_missing evidence_json_invalid evidence_document_invalid evidence_validation_failed
+evidence_artifact_missing evidence_artifact_hash_mismatch evidence_changed
+task_description_changed scope_changed inputs_changed source_revision_changed
+invalid_arguments invalid_stage dependency_unavailable hash_utility_unavailable
+repository_root_invalid legacy_mode_unsupported
+```
+
+Counts and identity values appear only when established at the corresponding validation point. Unknown counts use `{"availability":"NOT_MEASURED","value":null}`; unavailable source revision uses the same marker and `null`. The summary omits task IDs, filesystem paths, URLs, contract/evidence text, arbitrary diagnostics, and secrets. Summary mode sends no prose to stderr. Without `--summary-json`, existing structured and legacy output and exits are unchanged. A `STAGE_PASS` means only that this validator passed its stage checks; it is not task acceptance, runtime evidence, or customer acceptance.
+
+This is one versioned interface for maintainers and CI. It does not make other `dev-tools/` scripts stable APIs and does not expose a general developer CLI.
 
 ## Why runtime-shipped but no user CLI
 

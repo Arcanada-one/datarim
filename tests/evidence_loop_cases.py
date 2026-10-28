@@ -112,6 +112,80 @@ class EvidenceLoop(unittest.TestCase):
                                "--evidence", str(self.root / "evidence.json"), "--root",
                                str(self.root), "--stage", stage], capture_output=True, text=True)
 
+    def summary_args(self, stage):
+        return ["--summary-json", "--contract", str(self.root / "contract.json"),
+                "--evidence", str(self.root / "evidence.json"), "--root",
+                str(self.root), "--stage", stage]
+
+    def call_summary(self, stage, env=None):
+        return subprocess.run([str(GATE), *self.summary_args(stage)], env=env,
+                              capture_output=True)
+
+    def call_summary_args(self, args, env=None):
+        return subprocess.run([str(GATE), *args], env=env, capture_output=True)
+
+    def parse_summary(self, result):
+        self.assertEqual(result.stderr, b"")
+        self.assertTrue(result.stdout.endswith(b"\n"), result.stdout)
+        self.assertEqual(result.stdout.count(b"\n"), 1, result.stdout)
+
+        def unique_object(pairs):
+            value = {}
+            for key, item in pairs:
+                if key in value:
+                    raise ValueError("duplicate summary key")
+                value[key] = item
+            return value
+
+        def reject_constant(value):
+            raise ValueError(f"invalid JSON constant: {value}")
+
+        summary = json.loads(result.stdout.decode("utf-8"),
+                             object_pairs_hook=unique_object,
+                             parse_constant=reject_constant)
+        self.assertIsInstance(summary, dict)
+        self.assertEqual(set(summary), {"schema", "verdict", "reason_code", "exit_code", "stage",
+                                        "identity", "counts"})
+        self.assertEqual(set(summary["identity"]),
+                         {"task_binding", "source_revision", "input_binding"})
+        self.assertEqual(set(summary["identity"]["source_revision"]), {"availability", "value"})
+        self.assertEqual(set(summary["counts"]), {"criteria_defined", "cases_defined", "cases_due",
+                                                   "cases_validated", "cases_pending"})
+        for count in summary["counts"].values():
+            self.assertEqual(set(count), {"availability", "value"})
+        self.assertNotIn("TEST-0001", result.stdout.decode("utf-8"))
+        self.assertNotIn(str(self.root), result.stdout.decode("utf-8"))
+        self.assertNotIn("contract.json", result.stdout.decode("utf-8"))
+        self.assertNotIn("evidence.json", result.stdout.decode("utf-8"))
+        self.assertNotIn("UNCERTIFIED", result.stdout.decode("utf-8"))
+        return summary
+
+    @staticmethod
+    def count_value(value=None):
+        if value is None:
+            return {"availability": "NOT_MEASURED", "value": None}
+        return {"availability": "AVAILABLE", "value": value}
+
+    def expected_summary(self, verdict, reason, exit_code, stage, *, task_binding="NOT_MEASURED",
+                         revision=None, input_binding="NOT_MEASURED", criteria=None, cases=None,
+                         due=None, validated=None, pending=None):
+        source_revision = ({"availability": "NOT_MEASURED", "value": None} if revision is None
+                           else {"availability": "AVAILABLE", "value": revision})
+        return {
+            "schema": "datarim.live-evidence-summary/v1",
+            "verdict": verdict,
+            "reason_code": reason,
+            "exit_code": exit_code,
+            "stage": stage,
+            "identity": {"task_binding": task_binding, "source_revision": source_revision,
+                         "input_binding": input_binding},
+            "counts": {"criteria_defined": self.count_value(criteria),
+                       "cases_defined": self.count_value(cases),
+                       "cases_due": self.count_value(due),
+                       "cases_validated": self.count_value(validated),
+                       "cases_pending": self.count_value(pending)},
+        }
+
     def attempt(self, stage):
         attempt = {"stage": stage, "actor": stage + "-agent", "timestamp": self.preflight["timestamp"],
                    "revision": self.preflight["revision"],
@@ -208,6 +282,18 @@ class EvidenceLoop(unittest.TestCase):
                 self.bind_inputs(inputs)
             (self.root / path).write_text(f"changed input {index}\n")
             self.reject("compliance")
+            if path == "untracked.data":
+                # The changed input makes the retained preflight/attempt digest
+                # stale before final rechecks, so the existing validator's
+                # fixed boundary is evidence_validation_failed.
+                summary_result = self.call_summary("compliance")
+                self.assertEqual(summary_result.returncode, 1,
+                                 summary_result.stdout + summary_result.stderr)
+                summary = self.parse_summary(summary_result)
+                self.assertEqual(summary, self.expected_summary(
+                    "BLOCKED", "evidence_validation_failed", 1, "compliance",
+                    task_binding="VERIFIED", revision=original_head, input_binding="BOUND",
+                    criteria=1, cases=1))
             self.assertEqual(self.git("rev-parse", "HEAD"), original_head)
 
     def test_missing_planned_input_uses_missing_marker_then_presence_blocks(self):
@@ -653,6 +739,15 @@ class EvidenceLoop(unittest.TestCase):
         result = self.call("compliance")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["pending"][0]["case_id"], "production")
+        summary_result = self.call_summary("compliance")
+        self.assertEqual(summary_result.returncode, 0, summary_result.stdout + summary_result.stderr)
+        summary = self.parse_summary(summary_result)
+        self.assertEqual(summary["verdict"], "STAGE_PASS")
+        self.assertEqual(summary["counts"], {
+            "criteria_defined": self.count_value(1), "cases_defined": self.count_value(2),
+            "cases_due": self.count_value(1), "cases_validated": self.count_value(1),
+            "cases_pending": self.count_value(1),
+        })
         self.reject("archive")
         archive = self.attempt("archive")
         archive["cases"].append(copy.deepcopy(archive["cases"][0]))
@@ -663,6 +758,178 @@ class EvidenceLoop(unittest.TestCase):
         archive["cases"][-1]["status"] = "pass"
         self.save()
         self.assertEqual(self.call("archive").returncode, 0)
+
+    def test_summary_json_preflight_stage_and_default_output_parity(self):
+        revision = self.git("rev-parse", "HEAD")
+        preflight_result = self.call_summary("preflight")
+        self.assertEqual(preflight_result.returncode, 0, preflight_result.stdout + preflight_result.stderr)
+        preflight = self.parse_summary(preflight_result)
+        self.assertEqual(preflight, self.expected_summary(
+            "PREFLIGHT_RECEIPT", "preflight_receipt_created", 0, "preflight",
+            task_binding="VERIFIED", revision=revision, input_binding="LEGACY_OMITTED",
+            criteria=1, cases=1))
+
+        snapshot_result = self.call_summary("snapshot")
+        self.assertEqual(snapshot_result.returncode, 0, snapshot_result.stdout + snapshot_result.stderr)
+        snapshot = self.parse_summary(snapshot_result)
+        self.assertEqual(snapshot, self.expected_summary(
+            "SNAPSHOT_RECEIPT", "snapshot_receipt_created", 0, "snapshot",
+            task_binding="VERIFIED", revision=revision, input_binding="LEGACY_OMITTED",
+            criteria=1, cases=1))
+
+        self.bundle["attempts"][-1]["cases"][0]["observed"] = "https://fixture.invalid/private /tmp/private-output"
+        self.bundle["attempts"][-1]["cases"][0]["command"] = "echo private fixture diagnostic"
+        self.save()
+
+        pass_result = self.call_summary("compliance")
+        self.assertEqual(pass_result.returncode, 0, pass_result.stdout + pass_result.stderr)
+        passed = self.parse_summary(pass_result)
+        self.assertEqual(passed, self.expected_summary(
+            "STAGE_PASS", "evidence_stage_validated", 0, "compliance",
+            task_binding="VERIFIED", revision=revision, input_binding="LEGACY_OMITTED",
+            criteria=1, cases=1, due=1, validated=1, pending=0))
+        for private_value in ("https://fixture.invalid/private", "/tmp/private-output",
+                              "private fixture diagnostic"):
+            self.assertNotIn(private_value, pass_result.stdout.decode("utf-8"))
+
+        default_result = self.call("compliance")
+        self.assertEqual(default_result.returncode, 0, default_result.stderr)
+        default = json.loads(default_result.stdout)
+        self.assertEqual(default["verdict"], "STAGE_PASS")
+        self.assertEqual(default["task_id"], "TEST-0001")
+        self.assertNotIn("schema", default)
+
+    def test_summary_json_fixed_refusal_reasons_and_unknown_counts(self):
+        revision = self.git("rev-parse", "HEAD")
+        contract_path = self.root / "contract.json"
+        contract_path.write_text('{"version":1,"version":1}\n')
+        result = self.call_summary("preflight")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        summary = self.parse_summary(result)
+        self.assertEqual(summary, self.expected_summary(
+            "BLOCKED", "contract_json_invalid", 1, "preflight", revision=revision))
+
+        self.save_contract()
+        evidence_path = self.root / "evidence.json"
+        evidence_path.write_text('{"task_id":"TEST-0001","task_id":"TEST-0001"}\n')
+        result = self.call_summary("compliance")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        summary = self.parse_summary(result)
+        self.assertEqual(summary, self.expected_summary(
+            "BLOCKED", "evidence_json_invalid", 1, "compliance", task_binding="VERIFIED",
+            revision=revision, input_binding="LEGACY_OMITTED", criteria=1, cases=1))
+
+        self.save()
+        self.bundle["attempts"][-1]["cases"][0]["status"] = "fail"
+        self.save()
+        result = self.call_summary("compliance")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        summary = self.parse_summary(result)
+        self.assertEqual(summary, self.expected_summary(
+            "BLOCKED", "evidence_validation_failed", 1, "compliance",
+            task_binding="VERIFIED", revision=revision, input_binding="LEGACY_OMITTED",
+            criteria=1, cases=1))
+
+        self.bundle["attempts"][-1]["cases"][0]["status"] = "pass"
+        self.save()
+        self.contract["version"] = 2
+        self.save_contract()
+        result = self.call_summary("preflight")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        summary = self.parse_summary(result)
+        self.assertEqual(summary["reason_code"], "contract_schema_invalid")
+        self.assertEqual(summary["counts"]["criteria_defined"], self.count_value())
+        self.assertEqual(summary["counts"]["cases_defined"], self.count_value())
+
+    def test_summary_json_invocation_and_root_errors_are_fixed(self):
+        valid = self.summary_args("qa")
+        cases = [
+            ("flag alone", ["--summary-json"], "invalid_arguments", None),
+            ("duplicate summary flag", ["--summary-json", *valid], "invalid_arguments", None),
+            ("missing value", ["--summary-json", "--contract"], "invalid_arguments", None),
+            ("empty first contract before valid duplicate",
+             ["--summary-json", "--contract", "", "--contract", str(self.root / "contract.json"),
+              "--evidence", str(self.root / "evidence.json"), "--root", str(self.root),
+              "--stage", "qa"], "invalid_arguments", None),
+            ("empty first evidence before valid duplicate",
+             ["--summary-json", "--contract", str(self.root / "contract.json"),
+              "--evidence", "", "--evidence", str(self.root / "evidence.json"),
+              "--root", str(self.root), "--stage", "qa"], "invalid_arguments", None),
+            ("empty first root before valid duplicate",
+             ["--summary-json", "--contract", str(self.root / "contract.json"),
+              "--evidence", str(self.root / "evidence.json"), "--root", "", "--root",
+              str(self.root), "--stage", "qa"], "invalid_arguments", None),
+            ("empty first stage before valid duplicate",
+             ["--summary-json", "--contract", str(self.root / "contract.json"),
+              "--evidence", str(self.root / "evidence.json"), "--root", str(self.root),
+              "--stage", "", "--stage", "qa"], "invalid_arguments", None),
+            ("missing required evidence", ["--summary-json", "--contract",
+                                             str(self.root / "contract.json"), "--root",
+                                             str(self.root), "--stage", "qa"],
+             "invalid_arguments", "qa"),
+            ("missing stage", ["--summary-json", "--contract", str(self.root / "contract.json"),
+                               "--evidence", str(self.root / "evidence.json"), "--root",
+                               str(self.root)], "invalid_stage", None),
+            ("flag cannot be a value", ["--summary-json", "--contract", "--summary-json",
+                                         "--evidence", str(self.root / "evidence.json"),
+                                         "--root", str(self.root), "--stage", "qa"],
+             "invalid_arguments", None),
+            ("invalid stage", self.summary_args("not-a-stage"), "invalid_stage", None),
+            ("unknown option", [*valid, "--unknown"], "invalid_arguments", "qa"),
+            ("legacy flags are refused", ["--summary-json", "--expectations", "synthetic"],
+             "legacy_mode_unsupported", None),
+        ]
+        for label, args, reason, stage in cases:
+            with self.subTest(label=label):
+                result = self.call_summary_args(args)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                summary = self.parse_summary(result)
+                self.assertEqual(summary, self.expected_summary(
+                    "USAGE_ERROR", reason, 2, stage))
+
+        invalid_root = list(valid)
+        invalid_root[6] = str(self.root / "missing-root")
+        result = self.call_summary_args(invalid_root)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        summary = self.parse_summary(result)
+        self.assertEqual(summary, self.expected_summary(
+            "USAGE_ERROR", "repository_root_invalid", 2, "qa"))
+
+    def test_summary_json_missing_jq_uses_hermetic_real_entrypoint(self):
+        import shutil
+
+        with tempfile.TemporaryDirectory() as tool_dir:
+            tool_path = Path(tool_dir)
+            for name in ("bash", "dirname", "python3", "git", "sha256sum", "cut"):
+                target = shutil.which(name)
+                self.assertIsNotNone(target, f"required fixture command unavailable: {name}")
+                (tool_path / name).symlink_to(target)
+            isolated_path = str(tool_path)
+            self.assertIsNone(shutil.which("jq", path=isolated_path))
+            for name in ("bash", "dirname", "python3", "git", "sha256sum", "cut"):
+                self.assertEqual(shutil.which(name, path=isolated_path), str(tool_path / name))
+            result = self.call_summary("qa", env={"PATH": isolated_path, "LC_ALL": "C", "TZ": "UTC"})
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        expected = self.expected_summary("USAGE_ERROR", "dependency_unavailable", 2, "qa")
+        self.assertEqual(self.parse_summary(result), expected)
+        self.assertNotIn(b"jq", result.stdout + result.stderr)
+
+    def test_summary_json_reports_hash_tools_unavailable_separately(self):
+        import shutil
+
+        with tempfile.TemporaryDirectory() as tool_dir:
+            tool_path = Path(tool_dir)
+            for name in ("bash", "dirname", "python3", "git", "jq"):
+                target = shutil.which(name)
+                self.assertIsNotNone(target, f"required fixture command unavailable: {name}")
+                (tool_path / name).symlink_to(target)
+            isolated_path = str(tool_path)
+            self.assertIsNone(shutil.which("sha256sum", path=isolated_path))
+            self.assertIsNone(shutil.which("shasum", path=isolated_path))
+            result = self.call_summary("qa", env={"PATH": isolated_path, "LC_ALL": "C", "TZ": "UTC"})
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertEqual(self.parse_summary(result), self.expected_summary(
+            "USAGE_ERROR", "hash_utility_unavailable", 2, "qa"))
 
     def test_ordinary_edit_does_not_rewrite_preflight(self):
         original = copy.deepcopy(self.preflight)
