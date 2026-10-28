@@ -1,5 +1,7 @@
 # Test Audit Report
 
+For the separate opt-in machine summary of one card's structural validation, see [Test Value Card Validation Summary](test-value-card-summary.md).
+
 The report builder summarizes only an explicit selection and its cited retained JSON receipts. It is read-only and structural: it does not execute tests, discover files, evaluate semantic overlap, choose an action, or authorize changing a test plan.
 
 ## Run it
