@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from decimal import Decimal
 from pathlib import Path
 import subprocess
 import sys
@@ -221,6 +222,14 @@ class TestAuditReportTests(unittest.TestCase):
         receipt_path.write_text('{"cost": true}', encoding="utf-8")
         digest = hashlib.sha256(receipt_path.read_bytes()).hexdigest()
         self.assert_error("EVIDENCE_VALUE_INVALID", self.selection([entry_for("/cost", digest)]))
+        receipt_path.write_text('{"cost": null}', encoding="utf-8")
+        digest = hashlib.sha256(receipt_path.read_bytes()).hexdigest()
+        self.assert_error("EVIDENCE_VALUE_INVALID", self.selection([entry_for("/cost", digest)]))
+        for nonfinite in ("NaN", "Infinity", "-Infinity"):
+            with self.subTest(nonfinite=nonfinite):
+                receipt_path.write_text('{"cost":' + nonfinite + '}', encoding="utf-8")
+                digest = hashlib.sha256(receipt_path.read_bytes()).hexdigest()
+                self.assert_error("EVIDENCE_JSON_INVALID", self.selection([entry_for("/cost", digest)]))
         receipt_path.write_text('{"cost": 1,}', encoding="utf-8")
         digest = hashlib.sha256(receipt_path.read_bytes()).hexdigest()
         self.assert_error("EVIDENCE_JSON_INVALID", self.selection([entry_for("/cost", digest)]))
@@ -239,6 +248,33 @@ class TestAuditReportTests(unittest.TestCase):
                     "cost_pointers": {"wall_time_ms": "/cost"},
                 }])
                 self.assert_error("EVIDENCE_VALUE_INVALID", self.selection([entry]))
+
+    def test_decimal_cost_must_roundtrip_through_report_number(self) -> None:
+        receipt_path = self.root / "audit/run.json"
+
+        for raw_number in ("1.00000000000000000001", "9007199254740993.0"):
+            with self.subTest(raw_number=raw_number):
+                receipt_path.write_text('{"cost":' + raw_number + '}', encoding="utf-8")
+                digest = hashlib.sha256(receipt_path.read_bytes()).hexdigest()
+                entry = self.entry(evidence_refs=[{
+                    "path": "audit/run.json", "sha256": digest,
+                    "cost_pointers": {"wall_time_ms": "/cost"},
+                }])
+                self.assert_error("EVIDENCE_VALUE_INVALID", self.selection([entry]))
+
+        for raw_number in ("12.5", "0.0", "9007199254740993"):
+            with self.subTest(raw_number=raw_number):
+                receipt_path.write_text('{"cost":' + raw_number + '}', encoding="utf-8")
+                digest = hashlib.sha256(receipt_path.read_bytes()).hexdigest()
+                entry = self.entry(evidence_refs=[{
+                    "path": "audit/run.json", "sha256": digest,
+                    "cost_pointers": {"wall_time_ms": "/cost"},
+                }])
+                self.write_selection(self.selection([entry]))
+                result = self.invoke()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                report = json.loads(result.stdout, parse_float=Decimal, parse_int=Decimal)
+                self.assertEqual(report["tests"][0]["costs"]["wall_time_ms"]["value"], Decimal(raw_number))
 
     def test_extreme_json_decimal_exponent_returns_fixed_refusal(self) -> None:
         receipt_path = self.root / "audit/run.json"

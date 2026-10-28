@@ -342,7 +342,10 @@ def _valid_cost(value: object) -> bool:
             converted = float(value)
         except (OverflowError, ValueError):
             return False
-        return math.isfinite(converted) and (value.is_zero() or converted != 0)
+        if not math.isfinite(converted):
+            return False
+        emitted_number = json.dumps(converted, allow_nan=False)
+        return json.loads(emitted_number, parse_float=Decimal) == value
     if not isinstance(value, (int, float)) or value < 0:
         return False
     return not isinstance(value, float) or math.isfinite(value)
