@@ -1,6 +1,6 @@
 # Install Human Outcome Reporting without Datarim
 
-Use the reporting skill in ordinary Claude Code, Codex and Cursor sessions. This
+Use the reporting skill in ordinary Claude Code, Codex, Cursor and Antigravity sessions. This
 installation copies one skill and enables a communication preference. It does
 not install Datarim commands, agents, a task directory, orchestration or project
 rules. [Datarim project installation](../../INSTALL.md) remains a separate choice.
@@ -26,7 +26,7 @@ framework source checkout, use this equivalent command:
 python3 scripts/human_reporting_install.py install
 ```
 
-Choose clients with `--agents claude,codex,cursor` or a comma-separated subset.
+Choose clients with `--agents antigravity,claude,codex,cursor` or a comma-separated subset (short alias `agy` is also accepted for `antigravity`).
 Use `--home /path/to/account/home` only for a specifically authorized account;
 remote and local accounts have independent installation scopes. `--source` takes
 the skill directory containing `SKILL.md`. Save a non-secret operation receipt
@@ -39,6 +39,7 @@ with `--receipt /path/to/reporting-install.json`.
 | Claude Code | `~/.claude/skills/human-outcome-reporting/` | `~/.claude/output-styles/human-outcome-reporting.md`, selected through `outputStyle` in user `settings.json`, and synchronous `SessionStart`, `UserPromptSubmit`, `PostToolUse` and `PostToolUseFailure` callbacks; coding instructions are preserved |
 | Codex | `~/.agents/skills/human-outcome-reporting/` | A marked reporting-only section in `~/.codex/AGENTS.md` (a non-empty existing `AGENTS.override.md` receives it instead), and a synchronous `SessionStart` callback in `~/.codex/hooks.json` |
 | Cursor | `~/.cursor/skills/human-outcome-reporting/` | A user `sessionStart` hook in `~/.cursor/hooks.json` injects the reporting preference and installed skill path |
+| Antigravity | `~/.gemini/config/skills/human-outcome-reporting/` | A synchronous `PreInvocation` callback in `~/.gemini/config/hooks.json` under the `datarim-human-outcome-reporting` hook group injects the reporting preference and installed skill path |
 
 The installer merges existing settings and hooks under an account-level transaction lock. It never creates `CLAUDE.md`,
 changes permissions, replaces safety hooks, or activates a framework globally.

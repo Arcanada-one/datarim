@@ -152,7 +152,7 @@ graph LR
 | Plugin | Default state | Categories | Assets | Availability |
 |--------|---------------|------------|--------|--------------|
 | `controller-continuation` | disabled | commands | 1 | conditional on enabling `controller-continuation` |
-| `dr-jev-control` | disabled | productivity, scripts | 21 | conditional on enabling `dr-jev-control` |
+| `dr-jev-control` | disabled | productivity, scripts | 38 | conditional on enabling `dr-jev-control` |
 | `dr-orchestrate` | disabled | rules, scripts | 46 | conditional on enabling `dr-orchestrate` |
 | `product-discovery` | disabled | skills, templates | 19 | conditional on enabling `product-discovery` and selecting the product-discovery profile |
 | `tdd-enforcement` | active | none | 0 | conditional on enabling `tdd-enforcement` |

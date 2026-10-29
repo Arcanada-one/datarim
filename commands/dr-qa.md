@@ -65,7 +65,10 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 **Finalization ownership (MUST, interactive and autonomous):** Immediately after this stage creates a task-owned worktree, branch, temporary path, process, or container, run `python3 "${DATARIM_RUNTIME:?}/dev-tools/finalize-safety.py" add --ledger "$DATARIM_ROOT/datarim/finalize/$TASK_ID.json" --kind KIND --value EXACT` (also `--workspace "$DATARIM_ROOT"` for `path`). Use the observed absolute path or exact branch/container identity; a process value is `PID:start-tick`. Register on creation, including temporary report files and task-owned resources returned by delegated tools. Never hand-edit the JSON. If registration fails, retain the resource, report the gap, and stop dependent cleanup/finalization; an unregistered item cannot be deleted by `/dr-finalize`.
 4.  **SKILL**: Read `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` and `${DATARIM_RUNTIME:?}/skills/testing/SKILL.md`. Also load `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` — read the `/dr-qa Rules` fragment for QA criterion immutability, Layer structure freeze, and Return-to-Source routing.
 5.  **CONTEXT**: Read `datarim/tasks.md` to get the resolved task's implementation plan. Read `datarim/activeContext.md` for current state. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `${DATARIM_RUNTIME:?}/skills/init-task-persistence/SKILL.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the implementation MUST be flagged in the QA report § Expectations / § Plain-language summary. Missing init-task is non-blocking — flag as advisory and continue.
-6.  **ACTION**: Execute the verification layers below in order. Layers 1, 2, 3, 4 are the classical multi-layer review; Layer 3b is the expectations-verification gate (runs after Layer 3 when `datarim/tasks/{TASK-ID}-expectations.md` exists). Skip layers whose artifacts do not exist.
+6.  **ACTION (Exhaustive Single-Pass Audit — No Short-Circuiting)**: Execute ALL applicable verification layers below in order in a single pass. Layers 1, 2, 2a, 3, 3b, 3c, and 4 (4a through 4i) MUST all run to completion whenever their preconditions/artifacts exist.
+    -   **No early exit on failure:** Except for Step 0 (`provenance-gate.sh`, where a dirty tree or uncertified HEAD prevents valid inspection), you MUST NOT stop or short-circuit when a layer, sub-layer, test, linter, expectation wish, or QA-side validator fails. Record the failure and continue executing every remaining applicable layer and check in the same pass so 100% of discrepancies are discovered at once.
+    -   **No fail-fast test/lint flags:** Never invoke test suites or linters with fail-fast flags (`-x`, `--maxfail=1`, `--bail`, etc.) during QA collection. Run full suites across all targets so every failing test and lint error is captured in a single QA run.
+    -   **Consolidated Remediation Batch:** When one or more checks fail (overall verdict `BLOCKED`), aggregate EVERY finding from EVERY failed layer and validator into the `## Consolidated Remediation Batch` section of the QA report so `/dr-do` (or the target upstream stage) fixes all N discrepancies in one single rework iteration rather than fixing one error per round across N rounds.
 6.5. **APPEND Q&A IF ANY** (mandatory per `${DATARIM_RUNTIME:?}/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during the review — either operator answer or autonomous agent-decision under FB-1..FB-5 (the Feedback Behaviour rules governing autonomous decisions, [definition](../skills/autonomous-mode/SKILL.md)) — invoke `"${DATARIM_RUNTIME:?}/dev-tools/append-init-task-qa.sh"` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log` before emitting the QA report.
     -   Write the question, answer, and rationale (when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
     -   Required flags: `--root <repo-root> --task {TASK-ID} --stage qa --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
@@ -718,6 +721,14 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 **Layers executed:** {N of 4}
 **Results:** {list of layer verdicts}
 
+## Consolidated Remediation Batch (mandatory when Overall Verdict is BLOCKED)
+
+When the overall verdict is `BLOCKED`, enumerate **every** discrepancy discovered across **all** executed layers (1, 2, 2a, 3, 3b, 3c, 4a-4i) and QA-side validators in a single numbered checklist below. Do not omit downstream layer failures just because an earlier layer also failed. The rework stage (`/dr-do` or the earliest failed stage) MUST resolve 100% of these items in a single iteration before re-running `/dr-qa`. Write `None — verdict is not BLOCKED` when the verdict is `ALL_PASS` or `CONDITIONAL_PASS`.
+
+| # | Layer / Gate | Location / Wish / Check | Discrepancy | Required Fix |
+|---|--------------|-------------------------|-------------|--------------|
+| 1 | {e.g. Layer 3b / Layer 4a} | {file:line, test name, or wish_id} | {exact failure observed} | {concrete remediation action} |
+
 ## Deferred Items (session-scoped)
 
 Reviewer-identified gaps or defects that this QA pass is knowingly **not**
@@ -793,6 +804,8 @@ After verdict, the reviewer agent MUST emit a CTA block per `${DATARIM_RUNTIME:?
 | Layer 4 (Code Quality) | `/dr-do {TASK-ID}` | Code bugs, security, anti-patterns — fix code |
 
 Multi-layer FAIL: route to **earliest** failed layer (Layer 1 > 2 > 3 > 3b > 4). Earlier failures are root causes. Layer 3b sits between plan completeness and code quality because operator-expectation misses indicate scope-drift; they are higher-level than code defects but presuppose the plan was executed.
+
+**Single-Iteration Batch Remediation Rule:** Routing to the earliest failed layer (or passing `--focus-items <wish_ids>`) sets the **entry point** for rework, NOT a permission to ignore co-occurring failures from other layers or checks. When returning a task on `BLOCKED`, the QA report and FAIL-Routing summary MUST carry the complete **Consolidated Remediation Batch** across all failed layers, and the rework pass MUST resolve **all** listed discrepancies in a single iteration before re-running `/dr-qa`.
 
 The FAIL-Routing CTA header MUST use the FAIL-Routing CTA header phrasing defined in `cta-format.md` § FAIL-Routing, naming this task and the earliest failed layer (`Layer N (Layer name)`). Variant B menu when >1 active tasks.
 

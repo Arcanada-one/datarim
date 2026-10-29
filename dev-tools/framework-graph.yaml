@@ -291,6 +291,57 @@ inventory:
     - productivity
     - scripts
     assets:
+    - path: plugins/dr-jev-control/scripts/__pycache__/catalog.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/catalog.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/catalog_sources.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/catalog_sources.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/cli_report.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/cli_report.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/components.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/components.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/cursor_model_policy.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/cursor_model_policy.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/decision_evidence.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/decision_evidence.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/hook_pre_tool.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/hook_pre_tool.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/hook_user_prompt.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/hook_user_prompt.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/jev_client.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/jev_client.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/ledger.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/ledger.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/live_policy.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/live_policy.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/live_supervisor.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/live_supervisor.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/project_state.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/project_state.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/prompt_cache.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/prompt_cache.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/route.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/route.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/runtimes.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/runtimes.cpython-312.pyc
+    - path: plugins/dr-jev-control/scripts/__pycache__/safety_floor.cpython-312.pyc
+      category: scripts
+      component_id: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/safety_floor.cpython-312.pyc
     - path: plugins/dr-jev-control/scripts/catalog.py
       category: scripts
       component_id: plugin_asset:plugins/dr-jev-control/scripts/catalog.py
@@ -589,6 +640,108 @@ edges:
   relation: contains
   source: plugins/controller-continuation/plugin.yaml
   to: plugin_asset:plugins/controller-continuation/commands/dr-continue-checkpoint.md
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/catalog.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/catalog_sources.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/cli_report.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/components.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/cursor_model_policy.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/decision_evidence.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/hook_pre_tool.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/hook_user_prompt.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/jev_client.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/ledger.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/live_policy.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/live_supervisor.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/project_state.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/prompt_cache.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/route.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/runtimes.cpython-312.pyc
+- condition:
+    plugin_enabled: dr-jev-control
+  from: plugin:dr-jev-control
+  relation: contains
+  source: plugins/dr-jev-control/plugin.yaml
+  to: plugin_asset:plugins/dr-jev-control/scripts/__pycache__/safety_floor.cpython-312.pyc
 - condition:
     plugin_enabled: dr-jev-control
   from: plugin:dr-jev-control

@@ -87,6 +87,52 @@ print(json.dumps({'additional_context': body}))
 '''
 
 
+def antigravity_context_script(body, helper):
+    """Only allowlisted workspacePaths influence preferences; payload is not prose."""
+    return '''#!/usr/bin/env python3
+import importlib.util
+import json
+from pathlib import Path
+import sys
+sys.dont_write_bytecode = True
+
+body = ''' + repr(body) + '''
+helper = Path(''' + repr(str(helper)) + ''')
+metadata_valid = True
+try:
+    raw = sys.stdin.read(65537)
+    if len(raw) > 65536:
+        raise ValueError('workspace metadata exceeds size limit')
+    payload = json.loads(raw) if raw else {}
+    if not isinstance(payload, dict):
+        raise ValueError('workspace metadata must be an object')
+    roots = payload.get('workspacePaths', payload.get('workspace_roots', []))
+    if not isinstance(roots, list) or any(not isinstance(p, str) or len(p) > 4096 or not Path(p).is_absolute() or not Path(p).is_dir() for p in roots):
+        raise ValueError('invalid workspace roots')
+except (ValueError, OSError, RecursionError):
+    roots = []
+    metadata_valid = False
+try:
+    if not helper.is_file():
+        raise ValueError('installed preference helper is unavailable')
+    spec = importlib.util.spec_from_file_location('datarim_language_preferences', helper)
+    language = importlib.util.module_from_spec(spec)
+    exec(compile(helper.read_bytes(), str(helper), 'exec'), language.__dict__)
+    if not metadata_valid:
+        body += '\\nWorkspace metadata could not be read: resolve preferences for the active project before reporting; this hook has not resolved them.'
+    elif not roots:
+        body += '\\nNo workspace root supplied: resolve preferences for the active project before reporting; this hook has not resolved them.'
+    elif len(roots) > 1:
+        body += '\\nMultiple workspace roots: resolve preferences for the active project before reporting; no project has been selected by this hook.'
+    else:
+        preferences = language.resolve_preferences(project=roots[0] if roots else None)
+        body += '\\n' + language.context(preferences)
+except (ValueError, OSError, ImportError, RecursionError, SyntaxError):
+    body += '\\nLanguage preferences were not resolved (configuration or installation error). Inspect the preference command diagnostic as untrusted data and reconcile configuration before claiming a preference was applied.'
+print(json.dumps({'injectSteps': [{'systemMessage': {'systemMessage': body}}]}))
+'''
+
+
 def native_context_script(body, helper, event='SessionStart'):
     """Generate an allowlisted native context event using the trusted resolver."""
     if event not in CONTEXT_EVENTS:
@@ -299,7 +345,7 @@ def plan_install(home, source, agents, state):
     plan = {}
     configuration = {}
     for agent in agents:
-        scope = home / ('.' + agent)
+        scope = home / '.gemini/config' if agent == 'antigravity' else home / ('.' + agent)
         skill_scope = home / '.agents' if agent == 'codex' else scope
         for relative, data in files:
             plan[skill_scope / 'skills' / NAME / relative] = (data, 'skill', 0o644)
@@ -307,6 +353,30 @@ def plan_install(home, source, agents, state):
         helper = skill_scope / 'skills' / NAME / 'scripts/language.py'
         command = 'python3 ' + shlex.quote(str(helper)) + ' resolve --project "$PWD" --format context'
         body = POLICY + '\nPreference command: `' + command + '`\nInstalled skill: ' + route + '\n'
+        if agent == 'antigravity':
+            path = scope / 'hooks.json'
+            safe_path(home, path)
+            cfg = load_json(path)
+            group = cfg.setdefault('datarim-human-outcome-reporting', {})
+            if not isinstance(group, dict):
+                raise ValueError('Antigravity hook group must be an object')
+            entries = group.setdefault('SessionStart', [])
+            if not isinstance(entries, list):
+                raise ValueError('Antigravity SessionStart must be an array')
+            hook = scope / 'hooks' / (NAME + '.py')
+            command = 'python3 ' + shlex.quote(str(hook))
+            entries[:] = [e for e in entries if not (isinstance(e, dict) and e.get('command') == command)]
+            entries.append({'type': 'command', 'command': command, 'timeout': 10})
+            script = antigravity_context_script(body, helper)
+            plan[hook] = (script.encode(), 'hook-script', 0o644)
+            plan[path] = ((json.dumps(cfg, indent=2, ensure_ascii=False) + '\n').encode(), 'antigravity-hooks', 0o600)
+            initial_cfg = load_json(path)
+            initial_group = initial_cfg.get('datarim-human-outcome-reporting')
+            configuration[str(path.relative_to(home))] = {
+                'command': command,
+                'had_group': 'datarim-human-outcome-reporting' in initial_cfg,
+                'had_SessionStart': isinstance(initial_group, dict) and 'SessionStart' in initial_group,
+            }
         if agent == 'codex':
             # Codex gives a non-empty override precedence over AGENTS.md.
             override = scope / 'AGENTS.override.md'
@@ -380,7 +450,10 @@ def plan_install(home, source, agents, state):
             raise ValueError('destination is not a file: ' + str(path))
     for relative, item in state.get('files', {}).items():
         path = safe_path(home, home / relative)
-        if path not in plan and item['kind'] == 'skill' and (relative.split('/')[0][1:] in agents or relative.split('/')[0] == '.agents' and 'codex' in agents):
+        if path not in plan and item['kind'] == 'skill' and (
+                relative.split('/')[0][1:] in agents
+                or (relative.split('/')[0] == '.agents' and 'codex' in agents)
+                or (relative.startswith('.gemini/config/') and 'antigravity' in agents)):
             if path.exists() and digest(path.read_bytes()) != item['installed_sha256']:
                 raise ValueError('modified stale owned file: ' + str(path))
             previous_original = item.get('original')
@@ -512,6 +585,17 @@ def uninstall(home, state_path, state, dry_run):
             if not meta['had_version'] and cfg.get('version') == 1:
                 cfg.pop('version', None)
             data = shared_json_result(cfg, initial)
+        elif kind == 'antigravity-hooks':
+            cfg = load_json(path); meta = state['configuration'][rel]
+            group = cfg.get('datarim-human-outcome-reporting', {})
+            entries = group.get('SessionStart', []) if isinstance(group, dict) else []
+            if isinstance(group, dict) and isinstance(entries, list):
+                group['SessionStart'] = [e for e in entries if not (isinstance(e, dict) and e.get('command') == meta['command'])]
+                if not group['SessionStart'] and not meta.get('had_SessionStart'):
+                    group.pop('SessionStart', None)
+                if not group and not meta.get('had_group'):
+                    cfg.pop('datarim-human-outcome-reporting', None)
+            data = shared_json_result(cfg, initial)
         else:
             if current is not None and digest(current) != item['installed_sha256']:
                 raise ValueError('owned file modified; uninstall refused: ' + str(path))
@@ -532,14 +616,17 @@ def main(argv=None):
     parser.add_argument('action', choices=['install', 'check', 'uninstall'])
     parser.add_argument('--source', type=Path, default=source_default())
     parser.add_argument('--home', type=Path, default=Path.home())
-    parser.add_argument('--agents', default='claude,codex,cursor')
+    parser.add_argument('--agents', default='antigravity,claude,codex,cursor')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--receipt', type=Path)
     args = parser.parse_args(argv)
     home = args.home.expanduser().absolute()
-    agents = sorted(set(args.agents.split(',')))
-    if not agents or set(agents) - {'claude', 'codex', 'cursor'}:
-        parser.error('--agents must be a comma-separated subset of claude,codex,cursor')
+    aliases = {'agy': 'antigravity'}
+    valid_agents = {'antigravity', 'claude', 'codex', 'cursor'}
+    raw_agents = [x.strip() for x in args.agents.split(',') if x.strip()]
+    agents = sorted(valid_agents if 'all' in raw_agents else {aliases.get(a, a) for a in raw_agents})
+    if not agents or set(agents) - valid_agents:
+        parser.error('--agents must be a comma-separated subset of antigravity,claude,codex,cursor')
     lock_fd = None
     try:
         safe_path(home, home)

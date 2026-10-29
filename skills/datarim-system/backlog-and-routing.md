@@ -157,7 +157,7 @@ QA BLOCKED → header `**QA failed for {TASK-ID} — earliest failed layer: Laye
 
 Compliance NON-COMPLIANT → header `**Compliance NON-COMPLIANT for {TASK-ID} — ...**`, primary `/dr-do {TASK-ID}` (default) or earlier stage if PRD/plan gap identified.
 
-After fix: resume forward, re-run QA/compliance. Loop guard: 3 same-layer fails → escalate to user via the escalation option defined in `cta-format.md` § FAIL-Routing.
+After fix: resume forward, re-run QA/compliance. **Exhaustive single-pass collection & single-iteration batch remediation:** `/dr-qa` and `/dr-compliance` MUST run all applicable layers/steps in a single pass without short-circuiting on the first failure, recording every discrepancy in a Consolidated Remediation Batch; `/dr-do` MUST resolve 100% of those discrepancies in one rework iteration before re-entering QA/compliance. Loop guard: 3 same-layer fails → escalate to user via the escalation option defined in `cta-format.md` § FAIL-Routing.
 
 ### Manual Transitions
 
