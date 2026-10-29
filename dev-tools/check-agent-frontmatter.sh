@@ -19,15 +19,18 @@
 #
 # Scans agents/*.md at the given root.
 #
-# Usage: check-agent-frontmatter.sh [--root <repo-root>]
+# Usage: check-agent-frontmatter.sh [--root <repo-root>] [--summary-json]
 # Exit 0 PASS, 1 FAIL, 2 usage error.
 
 set -euo pipefail
+IFS=$'\n\t'
 
 ROOT=""
+SUMMARY_JSON=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --root) ROOT="$2"; shift 2 ;;
+        --summary-json) SUMMARY_JSON=1; shift ;;
         -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
@@ -42,10 +45,20 @@ cd "$ROOT"
 fail=0
 checked=0
 
+emit_summary() {
+    local result="$1" exit_code="$2" diagnostic_codes="$3" checked_count="$4" count_status="$5"
+    printf '{"schema":"DatarimAgentFrontmatterValidationSummary/v1","result":"%s","exit_code":%s,"diagnostic_codes":%s,"checked_count":%s,"checked_count_status":"%s"}\n' \
+        "$result" "$exit_code" "$diagnostic_codes" "$checked_count" "$count_status"
+}
+
 # Canonical tier names come from config/model-tiers.yaml (`tiers:` map keys).
 TIERS_FILE="config/model-tiers.yaml"
 if [[ ! -f "$TIERS_FILE" ]]; then
-    echo "FAIL: canonical tier registry missing: $TIERS_FILE"
+    if [[ "$SUMMARY_JSON" -eq 1 ]]; then
+        emit_summary FAIL 1 '["TIER_REGISTRY_UNAVAILABLE"]' null NOT_MEASURED
+    else
+        echo "FAIL: canonical tier registry missing: $TIERS_FILE"
+    fi
     exit 1
 fi
 allowed_tiers="$(awk '
@@ -58,7 +71,11 @@ allowed_tiers="$(awk '
     }
 ' "$TIERS_FILE")"
 if [[ -z "$allowed_tiers" ]]; then
-    echo "FAIL: no tiers parsed from $TIERS_FILE (schema drift?)"
+    if [[ "$SUMMARY_JSON" -eq 1 ]]; then
+        emit_summary FAIL 1 '["TIER_REGISTRY_UNAVAILABLE"]' null NOT_MEASURED
+    else
+        echo "FAIL: no tiers parsed from $TIERS_FILE (schema drift?)"
+    fi
     exit 1
 fi
 
@@ -125,28 +142,28 @@ check_file() {
     tier="$(fm_metadata "$fm" "model_tier")"
 
     if [[ -z "$name" ]]; then
-        echo "FAIL ($label): MISS name"
+        if [[ "$SUMMARY_JSON" -eq 0 ]]; then echo "FAIL ($label): MISS name"; fi
         fail=1
     fi
 
     if [[ -z "$desc" ]]; then
-        echo "FAIL ($label): MISS description"
+        if [[ "$SUMMARY_JSON" -eq 0 ]]; then echo "FAIL ($label): MISS description"; fi
         fail=1
     fi
 
     if [[ -z "$model" ]]; then
-        echo "FAIL ($label): MISS model — agents must declare 'model: inherit'"
+        if [[ "$SUMMARY_JSON" -eq 0 ]]; then echo "FAIL ($label): MISS model — agents must declare 'model: inherit'"; fi
         fail=1
     elif [[ "$model" != "inherit" ]]; then
-        echo "FAIL ($label): hardcoded model '$model' — agents must use 'model: inherit' (capability intent goes in metadata.model_tier)"
+        if [[ "$SUMMARY_JSON" -eq 0 ]]; then echo "FAIL ($label): hardcoded model '$model' — agents must use 'model: inherit' (capability intent goes in metadata.model_tier)"; fi
         fail=1
     fi
 
     if [[ -z "$tier" ]]; then
-        echo "FAIL ($label): MISS metadata.model_tier — required for runtime tier resolution"
+        if [[ "$SUMMARY_JSON" -eq 0 ]]; then echo "FAIL ($label): MISS metadata.model_tier — required for runtime tier resolution"; fi
         fail=1
     elif ! tier_allowed "$tier"; then
-        echo "FAIL ($label): invalid metadata.model_tier '$tier' — expected one of: $(echo "$allowed_tiers" | tr '\n' ' ')"
+        if [[ "$SUMMARY_JSON" -eq 0 ]]; then echo "FAIL ($label): invalid metadata.model_tier '$tier' — expected one of: $(echo "$allowed_tiers" | tr '\n' ' ')"; fi
         fail=1
     fi
 }
@@ -160,7 +177,20 @@ for entry in agents/*.md; do
 done
 
 if [[ "$found_any" -eq 0 ]]; then
-    echo "FAIL: no agents/*.md found under $ROOT"
+    if [[ "$SUMMARY_JSON" -eq 1 ]]; then
+        emit_summary FAIL 1 '["NO_AGENT_FILES"]' "$checked" MEASURED
+    else
+        echo "FAIL: no agents/*.md found under $ROOT"
+    fi
+    exit 1
+fi
+
+if [[ "$SUMMARY_JSON" -eq 1 ]]; then
+    if [[ $fail -eq 0 ]]; then
+        emit_summary PASS 0 '[]' "$checked" MEASURED
+        exit 0
+    fi
+    emit_summary FAIL 1 '["AGENT_FRONTMATTER_INVALID"]' "$checked" MEASURED
     exit 1
 fi
 
