@@ -51,6 +51,7 @@ PY
     [[ "$output" == *'template targets: checked=2 missing=0' ]]
     after=$(fixture_digest "$FIXTURE")
     [ "$before" = "$after" ]
+    printf 'fixture_sha256 before=%s after=%s\n' "$before" "$after"
 }
 
 @test "missing target summary redacts target, source path, and source text" {
@@ -71,6 +72,7 @@ PY
     [[ "$output" == *'template targets: checked=1 missing=1' ]]
     after=$(fixture_digest "$FIXTURE")
     [ "$before" = "$after" ]
+    printf 'fixture_sha256 before=%s after=%s\n' "$before" "$after"
 }
 
 @test "zero eligible targets returns the existing no-target exit and fixed code" {
@@ -97,6 +99,7 @@ EOF
     [ "$output" = 'template targets: checked=0 missing=0' ]
     after=$(fixture_digest "$FIXTURE")
     [ "$before" = "$after" ]
+    printf 'fixture_sha256 before=%s after=%s\n' "$before" "$after"
 }
 
 @test "summary preserves root containment for symlinked targets" {
@@ -112,4 +115,5 @@ EOF
     [ "$output" = '{"schema":"DatarimTemplateTargetValidationSummary/v1","result":"MISSING_TARGETS","exit_code":1,"checked_count":1,"missing_count":1,"diagnostic_codes":["MISSING_TEMPLATE_TARGETS"]}' ]
     after=$(fixture_digest "$FIXTURE")
     [ "$before" = "$after" ]
+    printf 'fixture_sha256 before=%s after=%s\n' "$before" "$after"
 }
