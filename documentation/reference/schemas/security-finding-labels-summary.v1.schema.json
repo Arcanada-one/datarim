@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DatarimSecurityFindingLabelsValidationSummary/v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "result",
+    "exit_code",
+    "diagnostic_codes",
+    "validation_error_count",
+    "validation_error_count_status"
+  ],
+  "properties": {
+    "schema": {
+      "const": "DatarimSecurityFindingLabelsValidationSummary/v1"
+    },
+    "result": {
+      "enum": ["VALID", "INVALID", "INPUT_REFUSED"]
+    },
+    "exit_code": {
+      "type": "integer",
+      "enum": [0, 1, 2]
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": {
+        "enum": ["LABELS_INCONSISTENT", "REPORT_INPUT_REFUSED"]
+      }
+    },
+    "validation_error_count": {
+      "oneOf": [
+        {"type": "integer", "minimum": 0},
+        {"type": "null"}
+      ]
+    },
+    "validation_error_count_status": {
+      "enum": ["MEASURED", "NOT_MEASURED"]
+    }
+  },
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "result": {"const": "VALID"},
+        "exit_code": {"const": 0},
+        "diagnostic_codes": {"const": []},
+        "validation_error_count": {"const": 0},
+        "validation_error_count_status": {"const": "MEASURED"}
+      }
+    },
+    {
+      "properties": {
+        "result": {"const": "INVALID"},
+        "exit_code": {"const": 1},
+        "diagnostic_codes": {"const": ["LABELS_INCONSISTENT"]},
+        "validation_error_count": {"type": "integer", "minimum": 1},
+        "validation_error_count_status": {"const": "MEASURED"}
+      }
+    },
+    {
+      "properties": {
+        "result": {"const": "INPUT_REFUSED"},
+        "exit_code": {"const": 2},
+        "diagnostic_codes": {"const": ["REPORT_INPUT_REFUSED"]},
+        "validation_error_count": {"const": null},
+        "validation_error_count_status": {"const": "NOT_MEASURED"}
+      }
+    }
+  ]
+}
