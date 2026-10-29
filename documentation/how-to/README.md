@@ -32,7 +32,7 @@ Kebab-case `.md` filenames named after the task, for example
 | [`codex-cli-coworker-hooks.md`](codex-cli-coworker-hooks.md) | Wire the coworker delegation hooks into Codex CLI. |
 | [`cross-kb-evolution-digest.md`](cross-kb-evolution-digest.md) | Produce a cross-knowledge-base evolution digest. |
 | [`consume-validation-json-in-ci.md`](consume-validation-json-in-ci.md) | Consume validator JSON summaries in CI while preserving each validator's exit status. |
-| [`validate-structured-live-evidence.md`](validate-structured-live-evidence.md) | Run the structured live-evidence checker and interpret its receipts and refusals. |
+| [`validate-structured-live-evidence.md`](validate-structured-live-evidence.md) | Run the structured live-evidence checker, interpret receipts and refusals, or capture its optional maintainer/CI JSON summary. |
 | [`datarim-harness.md`](datarim-harness.md) | Run the framework's own test harness. |
 | [`dr-output-hook.md`](dr-output-hook.md) | Install and configure the `/dr-*` output hook. |
 | [`evolution-log.md`](evolution-log.md) | The append-only ledger of accepted framework evolutions. |
