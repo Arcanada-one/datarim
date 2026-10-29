@@ -39,7 +39,7 @@ with `--receipt /path/to/reporting-install.json`.
 | Claude Code | `~/.claude/skills/human-outcome-reporting/` | `~/.claude/output-styles/human-outcome-reporting.md`, selected through `outputStyle` in user `settings.json`, and synchronous `SessionStart`, `UserPromptSubmit`, `PostToolUse` and `PostToolUseFailure` callbacks; coding instructions are preserved |
 | Codex | `~/.agents/skills/human-outcome-reporting/` | A marked reporting-only section in `~/.codex/AGENTS.md` (a non-empty existing `AGENTS.override.md` receives it instead), and a synchronous `SessionStart` callback in `~/.codex/hooks.json` |
 | Cursor | `~/.cursor/skills/human-outcome-reporting/` | A user `sessionStart` hook in `~/.cursor/hooks.json` injects the reporting preference and installed skill path |
-| Antigravity | `~/.gemini/config/skills/human-outcome-reporting/` | A synchronous `PreInvocation` callback in `~/.gemini/config/hooks.json` under the `datarim-human-outcome-reporting` hook group injects the reporting preference and installed skill path |
+| Antigravity | `~/.gemini/config/skills/human-outcome-reporting/` | A synchronous `SessionStart` callback in `~/.gemini/config/hooks.json` under the `datarim-human-outcome-reporting` hook group injects the reporting preference and installed skill path |
 
 The installer merges existing settings and hooks under an account-level transaction lock. It never creates `CLAUDE.md`,
 changes permissions, replaces safety hooks, or activates a framework globally.

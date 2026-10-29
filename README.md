@@ -8,7 +8,7 @@
 
 # Datarim
 
-**A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
+**A universal iterative workflow framework for Claude Code, Codex CLI, Cursor, and Google Antigravity (`agy`) — from requirements to completion.**
 
 [![Version: 4.9.0](https://img.shields.io/badge/Version-4.9.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
