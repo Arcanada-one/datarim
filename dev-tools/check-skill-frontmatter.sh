@@ -21,11 +21,14 @@
 # Exit 0 PASS, 1 FAIL.
 
 set -euo pipefail
+IFS=$'\n\t'
 
 ROOT=""
+SUMMARY_JSON=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --root) ROOT="$2"; shift 2 ;;
+        --summary-json) SUMMARY_JSON=1; shift ;;
         -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
@@ -40,6 +43,14 @@ cd "$ROOT"
 fail=0
 warn=0
 checked=0
+
+# Keep legacy diagnostics byte-for-byte on the default path. Summary mode only
+# serializes the existing completed-scan counters and fail predicate.
+emit_diagnostic() {
+    if [[ "$SUMMARY_JSON" -eq 0 ]]; then
+        echo "$@"
+    fi
+}
 
 # Allowed model: aliases.
 model_alias_re='^(inherit|sonnet|opus|haiku)$'
@@ -103,32 +114,32 @@ check_file() {
     tier="$(fm_metadata "$fm" "model_tier")"
 
     if [[ -z "$name" ]]; then
-        echo "FAIL ($label): MISS name"
+        emit_diagnostic "FAIL ($label): MISS name"
         fail=1
     fi
 
     if [[ -z "$desc" ]]; then
-        echo "FAIL ($label): MISS description"
+        emit_diagnostic "FAIL ($label): MISS description"
         fail=1
     fi
 
     if [[ -n "$model" ]]; then
         if ! [[ "$model" =~ $model_alias_re || "$model" =~ $model_full_re ]]; then
-            echo "FAIL ($label): invalid model value '$model' — expected inherit|sonnet|opus|haiku or full ID"
+            emit_diagnostic "FAIL ($label): invalid model value '$model' — expected inherit|sonnet|opus|haiku or full ID"
             fail=1
         fi
     fi
 
     if [[ -n "$tier" ]]; then
         if ! [[ "$tier" =~ $tier_re ]]; then
-            echo "FAIL ($label): invalid metadata.model_tier '$tier' — expected reasoning|balanced|fast|cheap"
+            emit_diagnostic "FAIL ($label): invalid metadata.model_tier '$tier' — expected reasoning|balanced|fast|cheap"
             fail=1
         fi
     fi
 
     # Legacy top-level runtime: → WARN only (migration window).
     if echo "$fm" | grep -qE '^runtime:[[:space:]]'; then
-        echo "WARN ($label): legacy top-level runtime: — move into metadata.runtime: post-migration"
+        emit_diagnostic "WARN ($label): legacy top-level runtime: — move into metadata.runtime: post-migration"
         warn=$((warn + 1))
     fi
 }
@@ -149,15 +160,25 @@ done
 
 # AGENTS.md is the sole canonical project instruction file.
 if [[ ! -f AGENTS.md || -L AGENTS.md ]]; then
-    echo "FAIL expected a regular AGENTS.md (not a symlink)"
+    emit_diagnostic "FAIL expected a regular AGENTS.md (not a symlink)"
     fail=1
 fi
 # No CLAUDE.md in any form (file, symlink, dangling link, any case, any depth).
 claude_md_found="$(find . -path ./.git -prune -o -iname 'claude.md' -print 2>/dev/null)"
 if [[ -n "$claude_md_found" ]]; then
-    echo "FAIL CLAUDE.md is forbidden, AGENTS.md is the only instruction file:"
-    echo "$claude_md_found"
+    emit_diagnostic "FAIL CLAUDE.md is forbidden, AGENTS.md is the only instruction file:"
+    emit_diagnostic "$claude_md_found"
     fail=1
+fi
+
+if [[ $SUMMARY_JSON -eq 1 ]]; then
+    if [[ $fail -eq 0 ]]; then
+        printf '{"schema":"DatarimSkillFrontmatterValidationSummary/v1","result":"PASS","exit_code":0,"diagnostic_codes":[],"checked_count":%s,"checked_count_status":"MEASURED","warning_count":%s,"warning_count_status":"MEASURED"}\n' "$checked" "$warn"
+        exit 0
+    else
+        printf '{"schema":"DatarimSkillFrontmatterValidationSummary/v1","result":"FAIL","exit_code":1,"diagnostic_codes":["SKILL_FRONTMATTER_INVALID"],"checked_count":%s,"checked_count_status":"MEASURED","warning_count":%s,"warning_count_status":"MEASURED"}\n' "$checked" "$warn"
+        exit 1
+    fi
 fi
 
 echo ""
