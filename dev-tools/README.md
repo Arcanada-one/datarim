@@ -78,6 +78,10 @@ repository_root_invalid legacy_mode_unsupported
 
 Counts and identity values appear only when established at the corresponding validation point. Unknown counts use `{"availability":"NOT_MEASURED","value":null}`; unavailable source revision uses the same marker and `null`. The summary omits task IDs, filesystem paths, URLs, contract/evidence text, arbitrary diagnostics, and secrets. Summary mode sends no prose to stderr. Without `--summary-json`, existing structured and legacy output and exits are unchanged. A `STAGE_PASS` means only that this validator passed its stage checks; it is not task acceptance, runtime evidence, or customer acceptance.
 
+Validate a captured summary with the portable [Draft 2020-12 schema](../documentation/reference/schemas/live-evidence-summary.v1.schema.json) in a maintainer or CI consumer. The schema checks the documented object shape, fixed fields and values, availability/null profiles, and source-guaranteed verdict/exit/reason profiles.
+
+The portable schema does not check arbitrary cross-field count arithmetic or equality, including `cases_due + cases_pending == cases_defined` or `cases_validated == cases_due`; those relations are outside this schema requirement. Schema validation also does not establish emitter provenance, input truth, currentness, task acceptance, runtime authority, or semantic validity. Early argument/parser failures, legacy mode, process signals, and broken pipes may occur before a summary object can be emitted.
+
 This is one versioned interface for maintainers and CI. It does not make other `dev-tools/` scripts stable APIs and does not expose a general developer CLI.
 
 ## Why runtime-shipped but no user CLI
