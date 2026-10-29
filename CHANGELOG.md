@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.9.0] — 2026-10-29
+
 ### Added
 
 - Google Antigravity (`antigravity`, short alias `agy`) is now a first-class supported client across Datarim project installation (`install.sh` / `update.sh` `--client antigravity` or `--client agy`), Jev project and host hooks (`.agents/hooks.json` and `~/.gemini/config/hooks.json` for `PreInvocation`, `PreToolUse` and `PostToolUse`), Jev launchers (`jevagy`, `jevantigravity`, `jev --agent=antigravity`), the Jev control-plane runtime (`AntigravityRuntime`), and standalone Human Outcome Reporting (`human_reporting_install.py --agents antigravity`).

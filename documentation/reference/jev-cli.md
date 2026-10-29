@@ -6,7 +6,9 @@ After project-local activation:
 jevcodex [options] [task] [-- client-arguments...]
 jevclaude [options] [task] [-- client-arguments...]
 jevcursor [options] [task] [-- client-arguments...]
-jev --agent={codex,claude,cursor} [options] [task] [-- client-arguments...]
+jevagy [options] [task] [-- client-arguments...]
+jevantigravity [options] [task] [-- client-arguments...]
+jev --agent={codex,claude,cursor,antigravity} [options] [task] [-- client-arguments...]
 jev doctor [--agent=...] [--api]
 jev stats
 jev on
@@ -48,7 +50,7 @@ context instead. Permission-bypass flags are added only after `jev permissions
 full` (or with `JEV_PERMISSIONS=full` for one launch), and never when you pass
 your own permission option: `--dangerously-skip-permissions` for Claude Code,
 `--dangerously-bypass-approvals-and-sandbox` for Codex, `--force --approve-mcps`
-for Cursor. `jev permissions ask` removes them; `jev permissions` shows the
+for Cursor, and `--yolo` for Antigravity (`agy`). `jev permissions ask` removes them; `jev permissions` shows the
 stored choice. The choice is stored per project, or per host for host Jev.
 
 `jev trust` re-grants Codex trust to Jev's own hooks: the host hooks in
@@ -70,7 +72,7 @@ doctor findings use 1. Live exits follow the supervisor's recorded stop reason.
 
 Scope is checked before reading credentials. The dispatcher sets local runtime,
 config, state and key-file paths; stale global Datarim path variables do not
-select another installation. `CLAUDE_BIN`, `CODEX_BIN`, and `CURSOR_BIN` select
+select another installation. `CLAUDE_BIN`, `CODEX_BIN`, `CURSOR_BIN`, and `AGY_BIN` select
 executables for an explicitly configured client. Model mapping variables are
 documented in [configuration](../how-to/configure-and-use-jev.md).
 

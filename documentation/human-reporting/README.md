@@ -25,7 +25,7 @@ catalog is unavailable; source prose, quotations and machine values remain intac
 
 ## Standalone installation
 
-Follow the [installation guide](../how-to/install-human-outcome-reporting.md) for Claude Code, Codex and Cursor. The complete skill directory includes references, schemas, scripts and portable tests. No Datarim runtime or task directory is required; use the host agent's authorized sources. Host installation affects only communication policy and skill discovery. It does not install the framework, `/dr-*`, Jev, credentials, permissions or model routing.
+Follow the [installation guide](../how-to/install-human-outcome-reporting.md) for Claude Code, Codex, Cursor and Antigravity. The complete skill directory includes references, schemas, scripts and portable tests. No Datarim runtime or task directory is required; use the host agent's authorized sources. Host installation affects only communication policy and skill discovery. It does not install the framework, `/dr-*`, Jev, credentials, permissions or model routing.
 
 Instructions need no Python. Read-only tools need Python 3.10+ with no external runtime dependencies. They read explicit inputs and print results; they never execute test commands.
 
