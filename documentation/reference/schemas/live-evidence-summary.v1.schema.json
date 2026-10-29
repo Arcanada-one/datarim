@@ -1,0 +1,753 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Datarim live-evidence summary v1",
+  "description": "Portable shape validation for the opt-in maintainer/CI summary object.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "verdict",
+        "reason_code",
+        "exit_code",
+        "stage",
+        "identity",
+        "counts"
+      ],
+      "properties": {
+        "schema": {
+          "const": "datarim.live-evidence-summary/v1"
+        },
+        "verdict": {
+          "const": "PREFLIGHT_RECEIPT"
+        },
+        "reason_code": {
+          "const": "preflight_receipt_created"
+        },
+        "exit_code": {
+          "const": 0
+        },
+        "stage": {
+          "const": "preflight"
+        },
+        "identity": {
+          "$ref": "#/$defs/boundIdentity"
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "criteria_defined",
+            "cases_defined",
+            "cases_due",
+            "cases_validated",
+            "cases_pending"
+          ],
+          "properties": {
+            "criteria_defined": {
+              "$ref": "#/$defs/countAvailable"
+            },
+            "cases_defined": {
+              "$ref": "#/$defs/countAvailable"
+            },
+            "cases_due": {
+              "$ref": "#/$defs/countUnknown"
+            },
+            "cases_validated": {
+              "$ref": "#/$defs/countUnknown"
+            },
+            "cases_pending": {
+              "$ref": "#/$defs/countUnknown"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "verdict",
+        "reason_code",
+        "exit_code",
+        "stage",
+        "identity",
+        "counts"
+      ],
+      "properties": {
+        "schema": {
+          "const": "datarim.live-evidence-summary/v1"
+        },
+        "verdict": {
+          "const": "SNAPSHOT_RECEIPT"
+        },
+        "reason_code": {
+          "const": "snapshot_receipt_created"
+        },
+        "exit_code": {
+          "const": 0
+        },
+        "stage": {
+          "const": "snapshot"
+        },
+        "identity": {
+          "$ref": "#/$defs/boundIdentity"
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "criteria_defined",
+            "cases_defined",
+            "cases_due",
+            "cases_validated",
+            "cases_pending"
+          ],
+          "properties": {
+            "criteria_defined": {
+              "$ref": "#/$defs/countAvailable"
+            },
+            "cases_defined": {
+              "$ref": "#/$defs/countAvailable"
+            },
+            "cases_due": {
+              "$ref": "#/$defs/countUnknown"
+            },
+            "cases_validated": {
+              "$ref": "#/$defs/countUnknown"
+            },
+            "cases_pending": {
+              "$ref": "#/$defs/countUnknown"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "verdict",
+        "reason_code",
+        "exit_code",
+        "stage",
+        "identity",
+        "counts"
+      ],
+      "properties": {
+        "schema": {
+          "const": "datarim.live-evidence-summary/v1"
+        },
+        "verdict": {
+          "const": "STAGE_PASS"
+        },
+        "reason_code": {
+          "const": "evidence_stage_validated"
+        },
+        "exit_code": {
+          "const": 0
+        },
+        "stage": {
+          "enum": [
+            "do",
+            "write",
+            "edit",
+            "publish",
+            "qa",
+            "compliance",
+            "archive",
+            "quick"
+          ]
+        },
+        "identity": {
+          "$ref": "#/$defs/boundIdentity"
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "criteria_defined",
+            "cases_defined",
+            "cases_due",
+            "cases_validated",
+            "cases_pending"
+          ],
+          "properties": {
+            "criteria_defined": {
+              "$ref": "#/$defs/countAvailable"
+            },
+            "cases_defined": {
+              "$ref": "#/$defs/countAvailable"
+            },
+            "cases_due": {
+              "$ref": "#/$defs/countAvailable"
+            },
+            "cases_validated": {
+              "$ref": "#/$defs/countAvailable"
+            },
+            "cases_pending": {
+              "$ref": "#/$defs/countAvailable"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "verdict",
+        "reason_code",
+        "exit_code",
+        "stage",
+        "identity",
+        "counts"
+      ],
+      "properties": {
+        "schema": {
+          "const": "datarim.live-evidence-summary/v1"
+        },
+        "verdict": {
+          "const": "BLOCKED"
+        },
+        "reason_code": {
+          "enum": [
+            "contract_missing",
+            "contract_json_invalid",
+            "contract_document_invalid",
+            "contract_schema_invalid",
+            "unsafe_path",
+            "task_description_missing",
+            "task_metadata_invalid",
+            "task_identity_mismatch",
+            "scope_invalid",
+            "input_manifest_invalid",
+            "contract_changed",
+            "evidence_missing",
+            "evidence_json_invalid",
+            "evidence_document_invalid",
+            "evidence_validation_failed",
+            "evidence_artifact_missing",
+            "evidence_artifact_hash_mismatch",
+            "evidence_changed",
+            "task_description_changed",
+            "scope_changed",
+            "inputs_changed",
+            "source_revision_changed"
+          ]
+        },
+        "exit_code": {
+          "const": 1
+        },
+        "stage": {
+          "enum": [
+            "preflight",
+            "snapshot",
+            "do",
+            "write",
+            "edit",
+            "publish",
+            "qa",
+            "compliance",
+            "archive",
+            "quick"
+          ]
+        },
+        "identity": {
+          "$ref": "#/$defs/partialIdentity"
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "criteria_defined",
+            "cases_defined",
+            "cases_due",
+            "cases_validated",
+            "cases_pending"
+          ],
+          "properties": {
+            "criteria_defined": {
+              "$ref": "#/$defs/countMeasurement"
+            },
+            "cases_defined": {
+              "$ref": "#/$defs/countMeasurement"
+            },
+            "cases_due": {
+              "$ref": "#/$defs/countMeasurement"
+            },
+            "cases_validated": {
+              "$ref": "#/$defs/countMeasurement"
+            },
+            "cases_pending": {
+              "$ref": "#/$defs/countMeasurement"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "criteria_defined": {
+                    "properties": {
+                      "availability": {
+                        "const": "AVAILABLE"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "criteria_defined"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "cases_defined": {
+                    "properties": {
+                      "availability": {
+                        "const": "AVAILABLE"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "criteria_defined": {
+                    "properties": {
+                      "availability": {
+                        "const": "NOT_MEASURED"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "criteria_defined"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "cases_defined": {
+                    "properties": {
+                      "availability": {
+                        "const": "NOT_MEASURED"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "cases_due": {
+                    "properties": {
+                      "availability": {
+                        "const": "AVAILABLE"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "cases_due"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "cases_pending": {
+                    "properties": {
+                      "availability": {
+                        "const": "AVAILABLE"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "cases_pending": {
+                    "properties": {
+                      "availability": {
+                        "const": "AVAILABLE"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "cases_pending"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "cases_due": {
+                    "properties": {
+                      "availability": {
+                        "const": "AVAILABLE"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "reason_code": {
+                "const": "source_revision_changed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "identity": {
+                "properties": {
+                  "source_revision": {
+                    "$ref": "#/$defs/revisionUnknown"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "counts": {
+                "properties": {
+                  "cases_due": {
+                    "properties": {
+                      "availability": {
+                        "const": "AVAILABLE"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "cases_due"
+                ]
+              }
+            },
+            "required": [
+              "counts"
+            ]
+          },
+          "then": {
+            "properties": {
+              "identity": {
+                "properties": {
+                  "task_binding": {
+                    "const": "VERIFIED"
+                  },
+                  "input_binding": {
+                    "enum": [
+                      "BOUND",
+                      "LEGACY_OMITTED"
+                    ]
+                  }
+                }
+              }
+            },
+            "required": [
+              "identity"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reason_code": {
+                "not": {
+                  "const": "source_revision_changed"
+                }
+              },
+              "counts": {
+                "properties": {
+                  "cases_due": {
+                    "properties": {
+                      "availability": {
+                        "const": "AVAILABLE"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "cases_due"
+                ]
+              }
+            },
+            "required": [
+              "reason_code",
+              "counts"
+            ]
+          },
+          "then": {
+            "properties": {
+              "identity": {
+                "properties": {
+                  "source_revision": {
+                    "$ref": "#/$defs/revisionAvailable"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "verdict",
+        "reason_code",
+        "exit_code",
+        "stage",
+        "identity",
+        "counts"
+      ],
+      "properties": {
+        "schema": {
+          "const": "datarim.live-evidence-summary/v1"
+        },
+        "verdict": {
+          "const": "USAGE_ERROR"
+        },
+        "reason_code": {
+          "enum": [
+            "invalid_arguments",
+            "invalid_stage",
+            "dependency_unavailable",
+            "hash_utility_unavailable",
+            "repository_root_invalid",
+            "legacy_mode_unsupported"
+          ]
+        },
+        "exit_code": {
+          "const": 2
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "preflight",
+                "snapshot",
+                "do",
+                "write",
+                "edit",
+                "publish",
+                "qa",
+                "compliance",
+                "archive",
+                "quick"
+              ]
+            }
+          ]
+        },
+        "identity": {
+          "$ref": "#/$defs/unavailableIdentity"
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "criteria_defined",
+            "cases_defined",
+            "cases_due",
+            "cases_validated",
+            "cases_pending"
+          ],
+          "properties": {
+            "criteria_defined": {
+              "$ref": "#/$defs/countUnknown"
+            },
+            "cases_defined": {
+              "$ref": "#/$defs/countUnknown"
+            },
+            "cases_due": {
+              "$ref": "#/$defs/countUnknown"
+            },
+            "cases_validated": {
+              "$ref": "#/$defs/countUnknown"
+            },
+            "cases_pending": {
+              "$ref": "#/$defs/countUnknown"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "countAvailable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "value"
+      ],
+      "properties": {
+        "availability": {
+          "const": "AVAILABLE"
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "countUnknown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "value"
+      ],
+      "properties": {
+        "availability": {
+          "const": "NOT_MEASURED"
+        },
+        "value": {
+          "type": "null"
+        }
+      }
+    },
+    "countMeasurement": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/countAvailable"
+        },
+        {
+          "$ref": "#/$defs/countUnknown"
+        }
+      ]
+    },
+    "revisionAvailable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "value"
+      ],
+      "properties": {
+        "availability": {
+          "const": "AVAILABLE"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        }
+      }
+    },
+    "revisionUnknown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "value"
+      ],
+      "properties": {
+        "availability": {
+          "const": "NOT_MEASURED"
+        },
+        "value": {
+          "type": "null"
+        }
+      }
+    },
+    "revisionMeasurement": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/revisionAvailable"
+        },
+        {
+          "$ref": "#/$defs/revisionUnknown"
+        }
+      ]
+    },
+    "boundIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_binding",
+        "source_revision",
+        "input_binding"
+      ],
+      "properties": {
+        "task_binding": {
+          "const": "VERIFIED"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/revisionAvailable"
+        },
+        "input_binding": {
+          "enum": [
+            "BOUND",
+            "LEGACY_OMITTED"
+          ]
+        }
+      }
+    },
+    "partialIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_binding",
+        "source_revision",
+        "input_binding"
+      ],
+      "properties": {
+        "task_binding": {
+          "enum": [
+            "NOT_MEASURED",
+            "VERIFIED"
+          ]
+        },
+        "source_revision": {
+          "$ref": "#/$defs/revisionMeasurement"
+        },
+        "input_binding": {
+          "enum": [
+            "NOT_MEASURED",
+            "BOUND",
+            "LEGACY_OMITTED"
+          ]
+        }
+      }
+    },
+    "unavailableIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_binding",
+        "source_revision",
+        "input_binding"
+      ],
+      "properties": {
+        "task_binding": {
+          "const": "NOT_MEASURED"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/revisionUnknown"
+        },
+        "input_binding": {
+          "const": "NOT_MEASURED"
+        }
+      }
+    }
+  }
+}
