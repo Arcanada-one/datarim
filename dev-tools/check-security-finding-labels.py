@@ -38,6 +38,7 @@ REPRODUCTION_STATES = {
 ASSESSMENT_SCOPES = {"static", "qualified_runtime"}
 ORIGINS = {"author_reported", "artifact_cited", "independent_witness"}
 EMPTY_REFERENCES = {"n/a", "na", "none", "unknown", "tbd", "todo", "pending"}
+SUMMARY_SCHEMA = "DatarimSecurityFindingLabelsValidationSummary/v1"
 
 
 class ValidationError(ValueError):
@@ -182,18 +183,56 @@ def validate_report(path: Path) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", required=True, type=Path)
+    parser.add_argument(
+        "--summary-json",
+        action="store_true",
+        help="emit a fixed, redacted validation summary as JSON",
+    )
     args = parser.parse_args()
     try:
         errors = validate_report(args.report)
     except ValidationError as exc:
+        if args.summary_json:
+            _print_summary("INPUT_REFUSED", 2, ["REPORT_INPUT_REFUSED"], "NOT_MEASURED", None)
+            return 2
         print(f"security finding labels: {exc}", file=sys.stderr)
         return 2
+    if args.summary_json:
+        if errors:
+            _print_summary(
+                "INVALID", 1, ["LABELS_INCONSISTENT"], "MEASURED", len(errors)
+            )
+            return 1
+        _print_summary("VALID", 0, [], "MEASURED", 0)
+        return 0
     if errors:
         for error in errors:
             print(f"security finding labels: {error}", file=sys.stderr)
         return 1
     print("security finding labels: structurally consistent")
     return 0
+
+
+def _print_summary(
+    result: str,
+    exit_code: int,
+    diagnostic_codes: list[str],
+    count_status: str,
+    error_count: int | None,
+) -> None:
+    print(
+        json.dumps(
+            {
+                "schema": SUMMARY_SCHEMA,
+                "result": result,
+                "exit_code": exit_code,
+                "diagnostic_codes": diagnostic_codes,
+                "validation_error_count": error_count,
+                "validation_error_count_status": count_status,
+            },
+            separators=(",", ":"),
+        )
+    )
 
 
 if __name__ == "__main__":
