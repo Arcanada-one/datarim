@@ -10,7 +10,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 4.8.1](https://img.shields.io/badge/Version-4.8.1-green.svg)](VERSION)
+[![Version: 4.9.0](https://img.shields.io/badge/Version-4.9.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -39,6 +39,8 @@ labels disclose English fallback when a requested catalog is unavailable.
 **New in 4.6.0:** L3/L4 tasks are checked for a PRD (or an operator-stated waiver) before implementation starts, `linked_ac` values that are not `V-AC-N` tokens get an early advisory, and acceptance cases must stay observable after every planned step.
 
 **New in 4.6.1:** Test-environment settings used for production-impact predictions are compared through bounded read-only access, with unsafe or unavailable comparisons voiding the prediction. Superseded acceptance contracts receive a complete case-by-case semantic comparison.
+
+**New in 4.9.0:** Google Antigravity (`antigravity`, short alias `agy`) is now a first-class supported client across Datarim project installation, Jev project and host hooks (`.agents/hooks.json` and `~/.gemini/config/hooks.json`), Jev launchers (`jevagy`, `jevantigravity`, `jev --agent=antigravity`), the Jev control-plane runtime, and standalone Human Outcome Reporting. In addition, `/dr-qa` and `/dr-compliance` enforce an Exhaustive Single-Pass Audit and Single-Iteration Batch Remediation contract: all applicable layers and checklist steps run in one pass and aggregate 100% of discrepancies into a single Consolidated Remediation Batch, which `/dr-do` (including under `/dr-auto`) resolves and re-verifies in one rework iteration.
 
 **Fixed in 4.8.1:** A team-neutral update preserves project root instructions from legacy managed installs. Release privacy checks now require a verified protected inventory revision and no longer log the private overlay's line count.
 

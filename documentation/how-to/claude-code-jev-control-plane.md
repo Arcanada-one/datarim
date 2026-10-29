@@ -1,13 +1,13 @@
 # Jev control plane for Datarim
 
-The supported interface is project-local and covers Codex, Claude Code, and
-Cursor. The former user-scope installation instructions have been retired.
+The supported interface is project-local and covers Codex, Claude Code,
+Cursor, and Antigravity. The former user-scope installation instructions have been retired.
 
 Start with [initialize Datarim with Jev](../tutorials/initialize-datarim-with-jev.md).
 Use [configuration and operation](configure-and-use-jev.md) for private key
 files, endpoint settings, modes, per-account model mapping, and troubleshooting.
 The [CLI reference](../reference/jev-cli.md) documents `jevcodex`, `jevclaude`,
-`jevcursor`, and `jev --agent={codex,claude,cursor}`.
+`jevcursor`, `jevagy` (`jevantigravity`), and `jev --agent={codex,claude,cursor,antigravity}`.
 
 ## Decisions and execution
 
