@@ -255,6 +255,24 @@ class HostInstallTests(unittest.TestCase):
         self.assertEqual(sum('jev-hook' in c for c in shell), 1)
         self.assertEqual(data['hooks']['sessionStart'][0]['command'], '/opt/orca/bin/orca-session')
 
+    def test_antigravity_host_install_registers_gemini_hooks_and_launchers(self):
+        self.args.client = ['antigravity']
+        self.install()
+        target = self.home/'.gemini/config/hooks.json'
+        self.assertTrue(target.is_file())
+        data = json.loads(target.read_text())
+        self.assertIn('jev', data)
+        self.assertEqual(len(data['jev']['PreInvocation']), 1)
+        self.assertEqual(len(data['jev']['PreToolUse']), 1)
+        self.assertEqual(len(data['jev']['PostToolUse']), 1)
+        self.assertIn('jev-hook antigravity PreInvocation', data['jev']['PreInvocation'][0]['command'])
+        self.assertIn('jev-hook antigravity PreToolUse', data['jev']['PreToolUse'][0]['hooks'][0]['command'])
+        self.assertIn('jev-hook antigravity PostToolUse', data['jev']['PostToolUse'][0]['hooks'][0]['command'])
+        for name in ('jevagy', 'jevantigravity'):
+            launcher = self.home/'.local/bin'/name
+            self.assertTrue(launcher.is_file(), name)
+            self.assertIn("--agent=antigravity", launcher.read_text())
+
 
 class StableInterpreter(unittest.TestCase):
     """Hook commands must survive an interpreter upgrade: a versioned path

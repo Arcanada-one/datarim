@@ -10,6 +10,11 @@ target_aal: 3
 
 Compliance is the final quality gate before archiving. It verifies that the work meets all stated requirements and standards. The checklist adapts to the task type.
 
+## Exhaustive Single-Pass Audit & Single-Iteration Batch Remediation
+
+1. **No short-circuiting during compliance verification:** Except when Step 0 (`provenance-gate.sh`) detects a dirty working tree or uncertified HEAD drift, the compliance runner MUST execute **every** applicable gate and **every** step of the selected checklist(s) (Software Steps 1-7, Documentation, Research, Legal, Content, Infrastructure, plus Steps 5b-6.6 in `/dr-compliance`) to completion in a single pass. Never stop at the first `NON-COMPLIANT` finding, and never run test suites or linters with fail-fast flags (`-x`, `--maxfail=1`, `--bail`).
+2. **Consolidated Remediation Batch on `NON-COMPLIANT`:** When one or more checks fail, the compliance report MUST aggregate **all** discrepancies across **all** steps and gates into a single enumerated remediation checklist in `## Next steps` and `### Step-by-step verdicts`. When the task returns to `/dr-do`, the developer agent MUST fix **100% of the enumerated discrepancies in one single iteration** and locally re-verify every failed check before re-running `/dr-qa` / `/dr-compliance`. Fixing one finding per round across multiple rounds is prohibited.
+
 ## Deferral vs Inline-Ship Decision Heuristic
 
 When a finding (Low / Medium severity) surfaces during compliance and a clean deferral target exists (a successor task that already owns the same surface), the default reflex is Path A: «document as caller-side contract, hand off to successor». This is the safe choice for high-blast-radius findings or those without a clean inline reduction.

@@ -4,6 +4,14 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- Google Antigravity (`antigravity`, short alias `agy`) is now a first-class supported client across Datarim project installation (`install.sh` / `update.sh` `--client antigravity` or `--client agy`), Jev project and host hooks (`.agents/hooks.json` and `~/.gemini/config/hooks.json` for `PreInvocation`, `PreToolUse` and `PostToolUse`), Jev launchers (`jevagy`, `jevantigravity`, `jev --agent=antigravity`), the Jev control-plane runtime (`AntigravityRuntime`), and standalone Human Outcome Reporting (`human_reporting_install.py --agents antigravity`).
+
+### Changed
+
+- `/dr-qa` and `/dr-compliance` now enforce an Exhaustive Single-Pass Audit and Single-Iteration Batch Remediation contract: neither stage short-circuits on the first failing layer, gate, expectation, or test/lint error (except Step 0 provenance failures), both aggregate 100% of findings across all layers and checklist steps into a single Consolidated Remediation Batch, and `/dr-do` (including under `/dr-auto`) resolves and locally re-verifies the entire batch in one rework iteration instead of looping one discrepancy at a time.
+
 ## [4.8.1] — 2026-10-26
 
 ### Fixed

@@ -35,7 +35,8 @@ class ProjectDoctor(unittest.TestCase):
         self.project.mkdir()
         (self.project/'AGENTS.md').write_text('# Rules\n')
         self.env = dict(os.environ, HOME=str(self.home), CLAUDE_BIN='/usr/bin/true',
-                        CODEX_BIN='/usr/bin/true', CURSOR_BIN='/usr/bin/true')
+                        CODEX_BIN='/usr/bin/true', CURSOR_BIN='/usr/bin/true',
+                        ANTIGRAVITY_BIN='/usr/bin/true')
         self.env.pop('JEV_PERMISSIONS', None)
 
     def install(self, *extra):
@@ -185,6 +186,25 @@ class ProjectDoctor(unittest.TestCase):
         self.assertEqual(live['state'], 'live', live)
         self.assertEqual(live['deliveries'], 1)
         self.assertEqual(live['events'], ['beforeShellExecution'])
+
+    def test_antigravity_doctor_checks_registration_and_delivery(self):
+        self.install('--client', 'agy')
+        code, report = self.doctor('agy')
+        self.assertEqual((code, report['findings']), (0, []))
+        self.assertEqual(report['hook_clients'], ['antigravity'])
+        self.assertEqual(report['native_agents_live']['antigravity']['state'], 'not_measured')
+        payload = json.dumps({'workspacePaths': [str(self.project)], 'conversationId': 'probe-agy',
+                              'toolCall': {'name': 'run_command', 'arguments': {'CommandLine': 'ls'}}})
+        command = json.loads((self.project/'.agents/hooks.json').read_text())['jev']['PreToolUse'][0]['hooks'][0]
+        import shlex
+        run = subprocess.run(shlex.split(command['command']), input=payload, cwd=self.project, env=self.env,
+                             capture_output=True, text=True, timeout=60)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(json.loads(run.stdout), {'decision': 'allow'})
+        live = self.doctor('antigravity')[1]['native_agents_live']['antigravity']
+        self.assertEqual(live['state'], 'live', live)
+        self.assertEqual(live['deliveries'], 1)
+        self.assertEqual(live['events'], ['PreToolUse'])
 
     # -- defect: a versioned interpreter path in every hook -------------------
 

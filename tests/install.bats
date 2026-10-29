@@ -393,7 +393,7 @@ CHECK
     [[ "$output" == *'key (optional): '*'config/credentials/jev/api-key; the Jev floor works without it; paste it with an editor, never with echo/printf'* ]]
     [[ "$output" == *'never in .zshrc/.bashrc: JEV_* or DATARIM_* variables (e.g. JEV_PERMISSIONS) or the key; set them per shell or per launch'* ]]
     [[ "$output" == *'permission mode: ask — '*'/.datarim-runtime/state/jev/FULL_PERMISSIONS (present = full, absent = ask;'* ]]
-    [[ "$output" == *'.agents/skills/dr-* and .cursor/skills/dr-* are the /dr-* commands packaged for Codex/Cursor, not extra framework skills'* ]]
+    [[ "$output" == *'.agents/skills/dr-* and .cursor/skills/dr-* are the /dr-* commands packaged for Codex/Antigravity/Cursor, not extra framework skills'* ]]
     [[ "$output" == *'Codex: open `codex` once in this project and accept the hooks, or run `jev trust`'* ]]
 }
 

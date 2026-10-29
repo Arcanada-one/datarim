@@ -162,6 +162,8 @@ Layer-to-command map (mirrors `skills/datarim-system/backlog-and-routing.md` § 
 | Layer 4 (Code) | `/dr-do {TASK-ID}` |
 | Compliance NON-COMPLIANT | `/dr-do {TASK-ID}` (default) or an earlier stage if a PRD / plan gap is identified |
 
+**Exhaustive Single-Pass Collection & Batch Rework Rule:** Although the FAIL-Routing CTA header names the *earliest* failed layer (`Layer N (Layer name)`) and selects that stage as the primary return command, neither `/dr-qa` nor `/dr-compliance` may short-circuit at that layer, and the rework pass MUST NOT fix only that single layer/item when downstream layers or checks also failed in the same pass. Both `/dr-qa` and `/dr-compliance` evaluate all applicable layers/steps in one pass and write a Consolidated Remediation Batch into the report; the return command fixes **all** enumerated findings in a single iteration before re-entering verification.
+
 ### Expectations-FAIL CTA shape
 
 When `/dr-qa` Layer 3b or `/dr-compliance` reports `BLOCKED` against the expectations checklist (the operator wishlist at `tasks/{TASK-ID}-expectations.md`, verified at `/dr-qa` and `/dr-compliance`), the FAIL-Routing CTA's primary line MUST carry the `--focus-items` argument verbatim from the validator's `Next step:` line. The header changes to `**Expectations BLOCKED for {TASK-ID} — N wish-item(s) missed/partial without override**` and the primary option shows the focus list inline:

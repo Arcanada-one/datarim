@@ -16,7 +16,7 @@ setup() {
 @test "matrix: selected vendor discovers project skill directories" {
     case "$VENDOR_FLAG" in
         claude) discovery=.claude ;;
-        codex) discovery=.agents ;;
+        codex|antigravity|agy) discovery=.agents ;;
         cursor) discovery=.cursor ;;
     esac
     [ -f "$TARGET_DIR/$discovery/skills/testing/SKILL.md" ]
@@ -27,6 +27,7 @@ setup() {
     [ ! -e "$HOME/.claude/skills" ]
     [ ! -e "$HOME/.codex/skills" ]
     [ ! -e "$HOME/.cursor/skills" ]
+    [ ! -e "$HOME/.gemini/config/skills" ]
 }
 
 @test "matrix: update is idempotent and source paths remain pinned" {

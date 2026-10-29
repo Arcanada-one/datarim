@@ -59,6 +59,8 @@ if __name__ == '__main__':
     raise SystemExit(main())
 """
 EVENTS = {
+    'antigravity': [('PreInvocation', None), ('PreToolUse', 'run_command|write_file|edit_file'),
+                    ('PostToolUse', 'run_command|write_file|edit_file')],
     'claude': [('UserPromptSubmit', None), ('PreToolUse', 'Bash|Write|Edit|MultiEdit'),
                ('PostToolUse', 'Write|Edit|MultiEdit')],
     'codex': [('UserPromptSubmit', None), ('PreToolUse', 'Bash|exec_command|shell|apply_patch'),
@@ -66,8 +68,17 @@ EVENTS = {
     'cursor': [('beforeSubmitPrompt', None), ('beforeShellExecution', None),
                ('postToolUse', None)],
 }
-HOOK_PATHS = {'claude': '.claude/settings.json', 'codex': '.codex/hooks.json',
-              'cursor': '.cursor/hooks.json'}
+CLIENT_ALIASES = {'agy': 'antigravity'}
+HOOK_PATHS = {'antigravity': '.gemini/config/hooks.json', 'claude': '.claude/settings.json',
+              'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json'}
+LAUNCHERS = (
+    ('jev', None),
+    ('jevcodex', 'codex'),
+    ('jevclaude', 'claude'),
+    ('jevcursor', 'cursor'),
+    ('jevagy', 'antigravity'),
+    ('jevantigravity', 'antigravity'),
+)
 
 
 _VERSIONED = re.compile(r'\d+\.\d+')
@@ -100,7 +111,8 @@ def clients_with_managed_hooks(home, owned_roots):
             data = json.loads(path.read_text())
         except (OSError, ValueError, TypeError):
             continue
-        hooks = data.get('hooks') if isinstance(data, dict) else None
+        hook_key = 'jev' if client == 'antigravity' else 'hooks'
+        hooks = data.get(hook_key) if isinstance(data, dict) else None
         if not isinstance(hooks, dict):
             continue
         for entries in hooks.values():
@@ -109,7 +121,7 @@ def clients_with_managed_hooks(home, owned_roots):
             for entry in entries:
                 if not isinstance(entry, dict):
                     continue
-                if client == 'cursor':
+                if client == 'cursor' or (client == 'antigravity' and 'hooks' not in entry):
                     commands = [entry.get('command', '')]
                 else:
                     commands = [h.get('command', '') for h in entry.get('hooks') or []
@@ -203,13 +215,14 @@ def merge_hooks(original, client, runtime, owned_roots, *, register=True, entry_
     """
     interpreter = interpreter or hook_interpreter()
     out = json.loads(json.dumps(original))
-    if not isinstance(out, dict) or not isinstance(out.get('hooks', {}), dict):
+    hook_key = 'jev' if client == 'antigravity' else 'hooks'
+    if not isinstance(out, dict) or not isinstance(out.get(hook_key, {}), dict):
         raise ValueError('Hook config and hooks must be objects')
     if client == 'cursor':
         if out.get('version', 1) != 1:
             raise ValueError('Unsupported Cursor hook config version')
         out['version'] = 1
-    hooks = out.setdefault('hooks', {})
+    hooks = out.setdefault(hook_key, {})
     # Remove legacy Jev entries even when their event is no longer registered.
     for event, entries in list(hooks.items()):
         if not isinstance(entries, list):
@@ -218,7 +231,7 @@ def merge_hooks(original, client, runtime, owned_roots, *, register=True, entry_
         for entry in entries:
             if not isinstance(entry, dict):
                 raise ValueError('Hook entry must be an object')
-            if client == 'cursor':
+            if client == 'cursor' or (client == 'antigravity' and 'hooks' not in entry):
                 if not owned_jev_command(entry.get('command', ''), owned_roots):
                     kept.append(entry)
             else:
@@ -229,18 +242,25 @@ def merge_hooks(original, client, runtime, owned_roots, *, register=True, entry_
                              if not owned_jev_command(h.get('command', ''), owned_roots)]
                 if remaining:
                     kept.append(dict(entry, hooks=remaining))
-        hooks[event] = kept
+        if client == 'antigravity' and not kept:
+            hooks.pop(event, None)
+        else:
+            hooks[event] = kept
     for event, matcher in (EVENTS[client] if register else []):
         command = shlex.join([interpreter, str(entry_point or runtime/'scripts/jev_hook.py'), client, event])
         item = {'command': command, 'timeout': 9}
         if client == 'cursor':
             if event == 'beforeShellExecution':
                 item['failClosed'] = True
+        elif client == 'antigravity' and not matcher:
+            item = {'type': 'command', **item}
         else:
             item = {'hooks': [dict(item, type='command')]}
             if matcher:
                 item['matcher'] = matcher
         hooks.setdefault(event, []).append(item)
+    if client == 'antigravity' and not hooks:
+        out.pop('jev', None)
     return out
 
 
@@ -328,14 +348,14 @@ def install(args):
         target = safe_path(home, HOOK_PATHS[client])
         original = json.loads(target.read_text()) if target.exists() else {}
         files[target] = (json.dumps(merge_hooks(original, client, runtime, owned, entry_point=entry), indent=2)+'\n').encode()
-    for name in ('jev', 'jevcodex', 'jevclaude', 'jevcursor'):
+    for name, agent in LAUNCHERS:
         target = safe_path(home, '.local/bin/'+name)
         if target.exists():
             old = target.read_text()
             if '# Jev managed host launcher' not in old:
                 raise ValueError('Unmanaged launcher exists: '+str(target))
         files[target] = ('#!/bin/sh\n# Jev managed host launcher\nexec '+shlex.join(
-            [hook_interpreter(), str(runtime/'scripts/jev.py')])+(' --agent='+name[3:] if name != 'jev' else '')+' "$@"\n').encode()
+            [hook_interpreter(), str(runtime/'scripts/jev.py')])+(' --agent='+agent if agent else '')+' "$@"\n').encode()
     if key.exists() and (not key.is_file() or key.stat().st_mode & 0o077):
         raise ValueError('Existing key must be a private regular file')
     if args.dry_run:
@@ -427,7 +447,7 @@ def install(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--home', default=str(Path.home()))
-    parser.add_argument('--client', action='append', choices=list(EVENTS), required=True)
+    parser.add_argument('--client', action='append', choices=[*EVENTS, *CLIENT_ALIASES], required=True)
     parser.add_argument('--datarim-project', action='append', default=None)
     catalogs = parser.add_mutually_exclusive_group()
     catalogs.add_argument('--catalog-root', action='append', help='Authorize independent catalog ID=ABSOLUTE_PATH (repeatable)')
@@ -435,7 +455,7 @@ def main():
     parser.add_argument('--replace-legacy-root', action='append', default=[])
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
-    args.client = sorted(set(args.client))
+    args.client = sorted({CLIENT_ALIASES.get(c, c) for c in args.client})
     try:
         install(args)
     except (OSError, ValueError, subprocess.CalledProcessError) as exc:

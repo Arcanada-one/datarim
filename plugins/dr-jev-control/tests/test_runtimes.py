@@ -31,7 +31,7 @@ import runtimes  # noqa: E402
 
 class TestRegistry(unittest.TestCase):
     def test_both_runtimes_registered(self):
-        self.assertEqual(sorted(runtimes.REGISTRY), ["claude", "codex", "cursor"])
+        self.assertEqual(sorted(runtimes.REGISTRY), ["antigravity", "claude", "codex", "cursor"])
 
     def test_unknown_runtime_is_rejected(self):
         with self.assertRaises(runtimes.RuntimeError_):
@@ -54,8 +54,47 @@ class TestRegistry(unittest.TestCase):
         # next resumed turn. Both report usage, so both get token hysteresis.
         self.assertTrue(runtimes.build("claude", "sonnet").in_process_switch)
         self.assertFalse(runtimes.build("codex", "sonnet").in_process_switch)
+        self.assertFalse(runtimes.build("antigravity", "sonnet").in_process_switch)
         self.assertTrue(runtimes.build("claude", "sonnet").reports_usage)
         self.assertTrue(runtimes.build("codex", "sonnet").reports_usage)
+        self.assertTrue(runtimes.build("antigravity", "sonnet").reports_usage)
+
+
+class TestAntigravityRuntime(unittest.TestCase):
+    def test_argv_places_all_flags_before_print_and_prompt(self):
+        rt = runtimes.AntigravityRuntime("opus")
+        argv = rt._argv("Inspect repository", resume=False)
+        self.assertEqual(argv[-2:], ["--print", "Inspect repository"])
+        self.assertIn("--output-format", argv)
+        self.assertIn("stream-json", argv)
+        self.assertIn("--effort", argv)
+        self.assertIn("high", argv)
+        rt.thread_id = "conv-42"
+        resumed = rt._argv("Continue", resume=True)
+        self.assertEqual(resumed[-2:], ["--print", "Continue"])
+        self.assertIn("--conversation", resumed)
+        self.assertIn("conv-42", resumed)
+
+    def test_translate_handles_init_step_update_and_result(self):
+        rt = runtimes.AntigravityRuntime("sonnet")
+        self.assertEqual(rt._translate({"event": "init", "init": {"conversation_id": "conv-99"}}),
+                         [{"kind": "session", "id": "conv-99"}])
+        self.assertEqual(rt.thread_id, "conv-99")
+        step_events = rt._translate({
+            "event": "step_update",
+            "step_update": {
+                "step_index": 1,
+                "tool_name": "run_command",
+                "step_text": "Checking files",
+                "state": 3,
+            },
+        })
+        self.assertEqual(step_events, [
+            {"kind": "tool", "name": "Bash"},
+            {"kind": "text", "text": "Checking files"},
+        ])
+        self.assertEqual(rt._translate({"event": "result", "result": {"status": "SUCCESS", "usage": {"total_tokens": 120}}}),
+                         [{"kind": "usage", "tokens": 120}])
 
 
 class TestCodexArgv(unittest.TestCase):

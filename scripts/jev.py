@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Jev dispatcher for Claude Code, Codex and Cursor; Datarim is opt-in."""
+"""Jev dispatcher for Claude Code, Codex, Cursor and Antigravity; Datarim is opt-in."""
 from __future__ import annotations
 
 import argparse
@@ -17,10 +17,15 @@ from project_scope import ScopeError, activate, project_root
 
 
 #: Client options that take a separate value (Claude Code 2.1.280, codex-cli
-#: 0.156.1, cursor-agent 2026.08), per client: `-c` and `-p` are switches in
-#: Claude and take values in Codex. Jev's own --model/--effort/--resume/--agent/
-#: --mode win; a client option with several values still needs --.
+#: 0.156.1, cursor-agent 2026.08, agy 1.4.10), per client: `-c` and `-p` are
+#: switches in Claude and take values in Codex; `-c` takes a conversation ID in
+#: Antigravity. Jev's own --model/--effort/--resume/--agent/--mode win; a client
+#: option with several values still needs --.
 CLIENT_VALUE_OPTIONS = {
+    'antigravity': frozenset((
+        '-c', '--conversation', '--output-format', '--input-format', '--sandbox', '--worktree-name',
+        '--max-turns', '--max-budget-tokens', '--system-prompt', '--append-system-prompt', '--tools',
+        '--allowed-tools', '--disallowed-tools', '--mcp-config', '--settings', '--setting-sources')),
     'claude': frozenset((
         '--permission-mode', '--permission-prompts', '--append-system-prompt', '--system-prompt',
         '--system-prompt-snapshot', '--settings', '--setting-sources', '--mcp-config', '--output-format',
@@ -33,6 +38,14 @@ CLIENT_VALUE_OPTIONS = {
     'cursor': frozenset((
         '--api-key', '-H', '--header', '-e', '--endpoint', '--output-format', '--sandbox', '--plugin-dir',
         '--worktree-base')),
+}
+AGENT_ALIASES = {'agy': 'antigravity'}
+LAUNCHER_ALIASES = {
+    'jevcodex': 'codex',
+    'jevclaude': 'claude',
+    'jevcursor': 'cursor',
+    'jevagy': 'antigravity',
+    'jevantigravity': 'antigravity',
 }
 
 
@@ -57,14 +70,14 @@ def bare_word_error(task):
 
 
 def parse(argv=None):
-    alias = {'jevcodex': 'codex', 'jevclaude': 'claude', 'jevcursor': 'cursor'}.get(Path(sys.argv[0]).name)
+    alias = LAUNCHER_ALIASES.get(Path(sys.argv[0]).name)
     p = argparse.ArgumentParser(
         description=__doc__,
         epilog='Activate with: source .datarim-runtime/activate.sh. Options Jev does not know are passed to '
                'the client (e.g. jevclaude --dangerously-skip-permissions); give a client option its value '
                'as --flag=value, or put client arguments after --. '
                '`jev permissions full|ask` makes every launch skip (or keep) permission prompts.')
-    p.add_argument('--agent', choices=['codex', 'claude', 'cursor'], default=alias)
+    p.add_argument('--agent', choices=['codex', 'claude', 'cursor', 'antigravity', 'agy'], default=alias)
     p.add_argument('--mode', choices=['economy', 'balanced', 'quality'], default='balanced')
     p.add_argument('--model')
     p.add_argument('--effort', choices=['low', 'medium', 'high'])
@@ -92,9 +105,10 @@ def parse(argv=None):
     agent = alias
     for i, word in enumerate(values):
         if word == '--agent' and i + 1 < len(values):
-            agent = values[i + 1]
+            agent = AGENT_ALIASES.get(values[i + 1], values[i + 1])
         elif word.startswith('--agent='):
-            agent = word.split('=', 1)[1]
+            raw_agent = word.split('=', 1)[1]
+            agent = AGENT_ALIASES.get(raw_agent, raw_agent)
     takes_value = CLIENT_VALUE_OPTIONS.get(agent, frozenset())
     ahead = []
     rest = []
@@ -108,6 +122,8 @@ def parse(argv=None):
         rest.append(word)
         i += 1
     a, unknown = p.parse_known_args(rest)
+    if a.agent:
+        a.agent = AGENT_ALIASES.get(a.agent, a.agent)
     extra = ahead + unknown + extra
     if a.setting is not None and a.task != 'permissions':
         p.error(f'unexpected argument: {a.setting}')
@@ -132,12 +148,14 @@ def parse(argv=None):
 #: What each client calls "do not ask". The Jev safety floor still runs in
 #: every one of these modes: it is a hook, and hooks are not permission prompts.
 FULL_PERMISSION_FLAGS = {
+    'antigravity': ['--dangerously-skip-permissions'],
     'claude': ['--dangerously-skip-permissions'],
     'codex': ['--dangerously-bypass-approvals-and-sandbox'],
     'cursor': ['--force', '--approve-mcps'],
 }
 #: Options with which the operator already chose a permission policy.
 PERMISSION_CHOICES = {
+    'antigravity': ('--dangerously-skip-permissions', '--permission-mode', '--mode', '--sandbox'),
     'claude': ('--dangerously-skip-permissions', '--permission-mode', '--allow-dangerously-skip-permissions'),
     'codex': ('--dangerously-bypass-approvals-and-sandbox', '--yolo', '--full-auto', '-a', '--ask-for-approval',
               '-s', '--sandbox'),
@@ -200,11 +218,13 @@ def _is_executable(path):
 def binary(agent):
     """Resolve a client CLI; honour *_BIN, PATH, then well-known install dirs."""
     default_names = {
+        'antigravity': ('agy',),
         'claude': ('claude',),
         'codex': ('codex',),
         'cursor': ('cursor-agent', 'agent'),
     }[agent]
-    override = os.environ.get(agent.upper() + '_BIN')
+    override = os.environ.get(agent.upper() + '_BIN') or (
+        os.environ.get('AGY_BIN') if agent == 'antigravity' else None)
     names = (override,) if override else default_names
     for name in names:
         if not name:
@@ -458,15 +478,16 @@ def codex_trust_own_hooks(home=None, *, hooks=None, entry=None):
 #: What the installers register per client (jev_host_install.EVENTS; a test
 #: keeps the two equal -- the host runtime does not ship the installer).
 REGISTERED_EVENTS = {
+    'antigravity': ('PreInvocation', 'PreToolUse', 'PostToolUse'),
     'claude': ('UserPromptSubmit', 'PreToolUse', 'PostToolUse'),
     'codex': ('UserPromptSubmit', 'PreToolUse', 'PostToolUse'),
     'cursor': ('beforeSubmitPrompt', 'beforeShellExecution', 'postToolUse'),
 }
-CLIENTS = ('claude', 'codex', 'cursor')
-PROJECT_HOOK_FILES = {'claude': '.claude/settings.local.json', 'codex': '.codex/hooks.json',
-                      'cursor': '.cursor/hooks.json'}
-HOST_HOOK_FILES = {'claude': '.claude/settings.json', 'codex': '.codex/hooks.json',
-                   'cursor': '.cursor/hooks.json'}
+CLIENTS = ('antigravity', 'claude', 'codex', 'cursor')
+PROJECT_HOOK_FILES = {'antigravity': '.agents/hooks.json', 'claude': '.claude/settings.local.json',
+                      'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json'}
+HOST_HOOK_FILES = {'antigravity': '.gemini/config/hooks.json', 'claude': '.claude/settings.json',
+                   'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json'}
 
 
 def _names_our_hook(command, entries, client, event):
@@ -486,7 +507,7 @@ def _hook_commands(client, hooks, event):
     for entry in hooks.get(event) or []:
         if not isinstance(entry, dict):
             continue
-        if client == 'cursor':
+        if client == 'cursor' or (client == 'antigravity' and 'hooks' not in entry):
             commands.append(entry.get('command', ''))
         else:
             commands += [h.get('command', '') for h in entry.get('hooks') or [] if isinstance(h, dict)]
@@ -504,7 +525,8 @@ def clients_with_registered_hooks(hook_files, entries):
             data = json.loads(path.read_text())
         except (OSError, ValueError):
             continue
-        hooks = data.get('hooks') if isinstance(data, dict) else None
+        hook_key = 'jev' if client == 'antigravity' else 'hooks'
+        hooks = data.get(hook_key) if isinstance(data, dict) else None
         hooks = hooks if isinstance(hooks, dict) else {}
         if any(any(_names_our_hook(c, entries, client, event)
                    for c in _hook_commands(client, hooks, event))
@@ -532,7 +554,8 @@ def registration_findings(clients, hook_files, entries):
         except (OSError, ValueError):
             findings.append(f'{client}: Jev hook file unreadable ({path})')
             continue
-        hooks = data.get('hooks') if isinstance(data, dict) else None
+        hook_key = 'jev' if client == 'antigravity' else 'hooks'
+        hooks = data.get(hook_key) if isinstance(data, dict) else None
         hooks = hooks if isinstance(hooks, dict) else {}
         missing = []
         for event in REGISTERED_EVENTS[client]:
@@ -737,7 +760,8 @@ def main():
         import subprocess
         findings = []
         versions = {}
-        for agent in ([a.agent] if a.agent else ['claude', 'codex', 'cursor']):
+        checked_agents = [a.agent] if a.agent else [c for c in (manifest.get('clients') or CLIENTS) if c in CLIENTS]
+        for agent in checked_agents:
             exe = binary(agent)
             if not exe:
                 findings.append(agent+': executable missing')
@@ -804,7 +828,7 @@ def main():
             os.environ['JEV_STATS_ROOT'] = str(state)
         os.execv(sys.executable, [sys.executable, str(plugin/'cli_report.py'), 'stats'])
     if not a.agent:
-        print('jev: select --agent=codex, --agent=claude, or --agent=cursor', file=sys.stderr)
+        print('jev: select --agent=codex, --agent=claude, --agent=cursor, or --agent=antigravity', file=sys.stderr)
         return 2
     exe = binary(a.agent)
     if not exe:
@@ -897,6 +921,31 @@ def main():
             args += ['resume', a.resume]
         if effort:
             args += ['-c', 'model_reasoning_effort='+effort]
+        if model:
+            args += ['--model', model]
+        args += extra
+        if a.task is not None:
+            args.append(a.task)
+    elif a.agent == 'antigravity':
+        if tier:
+            from runtimes import antigravity_tier_settings
+            routed_model, routed_effort = antigravity_tier_settings(tier)
+            effort = effort or routed_effort
+            model = model or routed_model
+            applied = ' '.join(x for x in (model, effort) if x)
+            if applied:
+                print(f'Jev applied {tier} as {applied}', file=sys.stderr)
+        if effort:
+            args += ['--effort', effort]
+        if a.resume:
+            args += ['--conversation', a.resume]
+        if model:
+            args += ['--model', model]
+        args += extra
+        if a.print:
+            args += ['--print']
+        if a.task is not None:
+            args.append(a.task)
     else:
         if a.agent == 'claude':
             model = model or tier
@@ -924,11 +973,11 @@ def main():
             args += ['--print']
         if a.resume:
             args += ['--resume', a.resume]
-    if model:
-        args += ['--model', model]
-    args += extra
-    if a.task is not None:
-        args.append(a.task)
+        if model:
+            args += ['--model', model]
+        args += extra
+        if a.task is not None:
+            args.append(a.task)
     # The client/hook reads the scoped key file when needed; do not export a
     # Jev credential into arbitrary agent child processes.
     os.environ.pop('TYPESAFE_API_KEY', None)

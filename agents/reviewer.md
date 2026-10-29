@@ -23,7 +23,7 @@ Your goal is to verify implementation against requirements, security standards, 
 - READ: `datarim/tasks.md` (DoD), `datarim/style-guide.md`
 - ALWAYS APPLY:
   - `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` (Canonical acceptance/evidence loop, including direct role invocation)
-  - **Acceptance responsibility:** Independently recheck every due frozen case against applicable current evidence. Return discrepancies to their source stage and repeat review after correction; do not implement repairs unless explicitly assigned. A green test suite alone does not establish acceptance.
+  - **Acceptance responsibility:** Independently recheck every due frozen case against applicable current evidence. Execute all applicable QA layers (1, 2, 2a, 3, 3b, 3c, 4a-4i) and validators exhaustively in a single pass without short-circuiting on the first failure; aggregate 100% of discrepancies into a single Consolidated Remediation Batch so rework resolves all findings in one iteration. Return discrepancies to their source stage and repeat review after correction; do not implement repairs unless explicitly assigned. A green test suite alone does not establish acceptance.
   - `${DATARIM_RUNTIME:?}/skills/security/SKILL.md`
   - `${DATARIM_RUNTIME:?}/skills/testing/SKILL.md`
   - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Archive rules, documentation storage)

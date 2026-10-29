@@ -25,7 +25,7 @@ def _bar(label, value, width=20):
 def render_last(cfg, as_json=False):
     rec = last_decision(cfg)
     if not rec:
-        return ("No Jev decisions recorded yet. Run a task through `jevclaude`, `jevcodex` or `jevcursor` "
+        return ("No Jev decisions recorded yet. Run a task through `jevclaude`, `jevcodex`, `jevcursor` or `jevagy` "
                 "(or `jev --agent=<client>`) first.")
     if as_json:
         return json.dumps(rec, ensure_ascii=False, indent=2)

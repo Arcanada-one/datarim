@@ -18,14 +18,14 @@
 
 **Identity:** use the approved [Datarim logos and usage guidance](assets/brand/README.md) for project pages and communications.
 
-Datarim coordinates AI agents, takes tasks through their required stages autonomously, offers a fast lane for small tasks, and uses JEV classification to advise the model and reasoning effort. It works with Claude Code, Codex and Cursor.
+Datarim coordinates AI agents, takes tasks through their required stages autonomously, offers a fast lane for small tasks, and uses JEV classification to advise the model and reasoning effort. It works with Claude Code, Codex, Cursor and Antigravity.
 
 | Main capability | What it does for you | Start here |
 |-----------------|----------------------|------------|
 | **Agent orchestration** | Coordinates stage specialists, checkpoints and feedback instead of requiring you to run each step. The optional transport plugin also drives terminal sessions and keeps an audit trail. | [`/dr-orchestrate`](commands/dr-orchestrate.md) and [orchestration setup](plugins/dr-orchestrate/README.md) |
 | **Autonomous execution** | `/dr-auto` starts from your brief or resumes a task, selects the next stage, delegates work, checks results and continues through passing compliance and reflection. Finalization is available when `autonomy.finalize` enables it. | [`/dr-auto "Describe the outcome you need"`](commands/dr-auto.md) |
 | **Quick task execution** | `/dr-quick` handles tiny edits and lookups without the full requirements, planning, design, QA and compliance cycle. Changes still require acceptance evidence and confirmation that they reached the shared main branch; larger work returns to the full workflow. | [`/dr-quick "Describe the small task"`](commands/dr-quick.md) |
-| **JEV model classification** | Classifies the task and advises a model tier and reasoning effort; its separate deterministic safety floor checks commands. Routing advice needs a JEV key, while the safety floor works without one. | [`jevcodex`, `jevclaude`, `jevcursor`](documentation/tutorials/initialize-datarim-with-jev.md) |
+| **JEV model classification** | Classifies the task and advises a model tier and reasoning effort; its separate deterministic safety floor checks commands. Routing advice needs a JEV key, while the safety floor works without one. | [`jevcodex`, `jevclaude`, `jevcursor`, `jevagy`](documentation/tutorials/initialize-datarim-with-jev.md) |
 
 New to Datarim? Read [Datarim for everyone](documentation/explanation/datarim-for-everyone.md) for a short introduction.
 
@@ -69,7 +69,7 @@ signal only for a verified correction to a concrete mistake or logic mismatch.
 
 **Step 1: run `./install.sh --project <path>` with no answer flags. Ask the user nothing before that run; the installer prints the questions.**
 
-Needs Python 3.10+, git, and a signed-in Claude Code, Codex or Cursor client.
+Needs Python 3.10+, git, and a signed-in Claude Code, Codex, Cursor or Antigravity client.
 
 What the installer will ask (defaults in brackets; [INSTALL.md](INSTALL.md) explains each). An agent
 relays the installer's own wording, all six setup choices, without recommending an answer:
@@ -78,7 +78,7 @@ relays the installer's own wording, all six setup choices, without recommending 
   every project of this user [none]. Its safety floor needs no key, so "no
   key" is not a reason to skip Jev; routing advice needs one Jev API key per
   computer, shared by all clients on it.
-- **Clients**: Claude Code, Codex, Cursor — pick with `--client` (repeatable or
+- **Clients**: Claude Code, Codex, Cursor, Antigravity — pick with `--client` (repeatable or
   comma list); a fresh install needs the list.
 - **Permission mode** for the `jev*` launchers: `--permissions ask` or
   `--permissions full` [ask].
@@ -150,7 +150,7 @@ documentation, legal documents, project management, content creation — any wor
 benefits from structured iteration can use the framework. The agents and skills adapt
 to the domain. The process stays the same.
 
-Runtime-agnostic — Datarim runs under Claude Code, Codex CLI, and Cursor — it works
+Runtime-agnostic — Datarim runs under Claude Code, Codex CLI, Cursor, and Antigravity — it works
 for any project and any domain. There are no hardcoded paths, no vendor lock-in, no
 project-specific assumptions. And it is
 self-evolving: after every completed task, the framework analyzes what worked, what
@@ -264,7 +264,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   belong to the installed project. Native agents perform bounded reads and
   reviews according to project policy. Coworker and RTK are retired runtime
   dependencies. Optional Jev classification has separate native hooks for
-  Claude, Codex, and Cursor; see the [host/project guide](documentation/how-to/host-jev-with-project-datarim.md).
+  Claude, Codex, Cursor, and Antigravity; see the [host/project guide](documentation/how-to/host-jev-with-project-datarim.md).
 
 - **Autonomous Agent Operating Rules contract** — the core ships
   `dev-tools/rules/fb-rules.yaml` (FB-1..FB-8 policy block with
@@ -334,7 +334,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ## Runtimes
 
-One project install serves Codex, Claude Code and Cursor (or the ones you pick
+One project install serves Codex, Claude Code, Cursor and Antigravity (or the ones you pick
 with `--client`). Each client finds the
 `/dr-*` commands in its own project-local directory; every command tells the
 agent where this project's runtime is and to read the framework rules from it.

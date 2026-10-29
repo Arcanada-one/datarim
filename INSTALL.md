@@ -12,7 +12,7 @@ was taken from the installer code (`scripts/project_install.py`,
 
 - **Datarim** is installed into **one project at a time**. It copies a pinned
   snapshot of the framework into `<project>/.datarim-runtime/`, writes the `/dr-*`
-  commands where Claude Code, Codex and Cursor find them, and hides everything it
+  commands where Claude Code, Codex, Cursor and Antigravity find them, and hides everything it
   writes from `git status`. It does not touch your home directory, your shell
   startup files, `AGENTS.md` or `.gitignore`, and never creates `CLAUDE.md`
   (Claude Code reads `AGENTS.md` natively).
@@ -54,7 +54,7 @@ Follow these steps in order. Do not improvise other install methods.
    | # | Question | Default |
    |---|---|---|
    | 1 | Install Jev? **none** / **project** (this project only) / **host** (every project of this user on this machine) | none |
-   | 2 | Which clients do you use: Claude Code, Codex, Cursor? Pass one `--client` per client (or a comma list); the project install then writes the commands, and with `--with-jev` the hooks, only for those. The same answer gives host Jev its `--client` options and decides which client `jev doctor --agent=` checks. | the ones installed on the machine |
+   | 2 | Which clients do you use: Claude Code, Codex, Cursor, Antigravity? Pass one `--client` per client (or a comma list); the project install then writes the commands, and with `--with-jev` the hooks, only for those. The same answer gives host Jev its `--client` options and decides which client `jev doctor --agent=` checks. | the ones installed on the machine |
    | 3 | Should the `jev*` launchers (every install has them) start clients **without permission prompts**? Answered with `--permissions ask` or `--permissions full` (required on a fresh install; `jev permissions` changes it later). Starting a client directly is not affected. | no (`ask`) |
    | 4 | Create empty task files `datarim/tasks.md` and `datarim/backlog.md` now (`--init`)? | yes |
    | 5 | Expose every framework skill to the clients' automatic discovery (`--expose-skills`)? It adds their descriptions to every session. | no |
@@ -91,7 +91,7 @@ Follow these steps in order. Do not improvise other install methods.
      your reply to the user unchanged", copied unchanged (your own text may
      follow it);
    - next step: open the client in the project and run `/dr-help` (Claude Code),
-     or ask Codex or Cursor to run the `dr-help` skill.
+     or ask Codex, Cursor or Antigravity to run the `dr-help` skill.
 
 ---
 
@@ -99,16 +99,16 @@ Follow these steps in order. Do not improvise other install methods.
 
 - Python 3.10 or newer, and git.
 - At least one installed and signed-in agent client: Claude Code (`claude`),
-  Codex CLI (`codex`) or Cursor CLI (`cursor-agent` or `agent`). Datarim does
-  not create client accounts and does not read model-provider keys; each client
-  authenticates itself.
+  Codex CLI (`codex`), Cursor CLI (`cursor-agent` or `agent`) or Google
+  Antigravity CLI (`agy`). Datarim does not create client accounts and does not
+  read model-provider keys; each client authenticates itself.
 - The project directory. A git repository is recommended: that is what lets the
   installer hide its files through `.git/info/exclude`.
 - For Jev routing advice only: a Jev API key. Keys are issued by the Jev API
   provider, TypeSafe (`api.typesafe.ai`). You need **one key per computer**,
-  shared by every client on it (Claude Code, Codex and Cursor use the same key
-  file). Without a key Jev still runs its local safety floor; only the routing
-  advice is missing.
+  shared by every client on it (Claude Code, Codex, Cursor and Antigravity use
+  the same key file). Without a key Jev still runs its local safety floor; only
+  the routing advice is missing.
 
 ## Step 2 — Get the source
 
@@ -163,9 +163,9 @@ not a reason to answer "no Jev".
 | Answer | Flag |
 |---|---|
 | Jev: none | `--without-jev` |
-| Jev: project | `--with-jev`. Hooks go into this project only, for the chosen clients (`.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json`), and an empty key file is created at `config/credentials/jev/api-key` (mode `0600`). Not on a machine that already has host Jev: both sets of hooks would run. |
+| Jev: project | `--with-jev`. Hooks go into this project only, for the chosen clients (`.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json`, `.agents/hooks.json`), and an empty key file is created at `config/credentials/jev/api-key` (mode `0600`). Not on a machine that already has host Jev: both sets of hooks would run. |
 | Jev: host | `--with-jev --host-jev`, after the host step below |
-| Clients | `--client` with the chosen ones, e.g. `--client claude,codex`; required on a fresh install |
+| Clients | `--client` with the chosen ones, e.g. `--client claude,codex,antigravity` (or alias `agy`); required on a fresh install |
 | Create task files now | `--init` |
 | Every skill in every session | `--expose-skills` |
 | Nested repositories to include | `--context <relative/path>`, once per repository |
@@ -179,16 +179,16 @@ installed on the machine, `--init` and `--permissions ask`.
 
 Host Jev is installed once per user and applies to every directory that user
 opens. It writes `~/.config/jev/`, `~/.local/share/jev/`, `~/.local/state/jev/`,
-the launchers `~/.local/bin/{jev,jevclaude,jevcodex,jevcursor}` (that directory
+the launchers `~/.local/bin/{jev,jevclaude,jevcodex,jevcursor,jevagy,jevantigravity}` (that directory
 must be on `PATH`), and merges its hooks into each chosen client's user config
-(`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.cursor/hooks.json`),
+(`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.cursor/hooks.json`, `~/.gemini/config/hooks.json`),
 keeping every existing hook. Skip this step for any other Jev answer.
 
 ```sh
 # one --client per client the user chose; one --datarim-project per project that may use Datarim
-python3 scripts/jev_host_install.py --client claude --client codex --client cursor \
+python3 scripts/jev_host_install.py --client claude --client codex --client cursor --client antigravity \
   --datarim-project "$PROJECT" --dry-run
-python3 scripts/jev_host_install.py --client claude --client codex --client cursor \
+python3 scripts/jev_host_install.py --client claude --client codex --client cursor --client antigravity \
   --datarim-project "$PROJECT"
 ```
 
@@ -226,7 +226,7 @@ install.
 
 | Option | Effect |
 |---|---|
-| `--client <name>` | `claude`, `codex`, `cursor` or `all`; repeat it or give a comma list. Only these clients get command files and (with `--with-jev`) hooks. Required on a fresh install. Kept across updates; a client you leave out on an update loses its command files and Jev hooks. |
+| `--client <name>` | `claude`, `codex`, `cursor`, `antigravity` (alias `agy`) or `all`; repeat it or give a comma list. Only these clients get command files and (with `--with-jev`) hooks. Required on a fresh install. Kept across updates; a client you leave out on an update loses its command files and Jev hooks. |
 | `--claude-import`, `--no-claude-import` | Deprecated and ignored: they print a notice and change nothing, so existing command lines keep working. Claude Code reads `AGENTS.md` natively and the installer never creates `CLAUDE.md`. An update or uninstall still removes a `CLAUDE.md` symlink that an older release recorded as its own; any other `CLAUDE.md` is never touched. |
 | `--init` | Creates `datarim/tasks.md` and `datarim/backlog.md` if missing. Existing files are kept. |
 | `--expose-skills` | Also writes every framework skill into `.agents/skills/`, `.claude/skills/`, `.cursor/skills/`. Their descriptions load into every session. Kept across updates once set. |
@@ -242,10 +242,10 @@ install.
 |---|---|---|
 | `.datarim-runtime/` | the framework snapshot, `installation.json`, `activate.sh`, `bin/jev*` | no |
 | `.claude/commands/dr-*.md` | the commands for Claude Code (with `--client claude`, or no `--client`) | no |
-| `.agents/skills/dr-*/`, `.cursor/skills/dr-*/` | the same commands as skills for Codex and Cursor (each only when selected) | no |
+| `.agents/skills/dr-*/`, `.cursor/skills/dr-*/` | the same commands as skills for Codex, Antigravity and Cursor (each only when selected; Codex and Antigravity share `.agents/skills/`) | no |
 | `datarim/` (with `--init`) | this project's task state | no |
 | `config/credentials/jev/api-key` (with `--with-jev`) | empty key file, mode `0600` | no |
-| `.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json` (with `--with-jev`, not `--host-jev`) | Jev hook entries, merged into any existing file | no, if the install created the file |
+| `.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json`, `.agents/hooks.json` (with `--with-jev`, not `--host-jev`) | Jev hook entries, merged into any existing file | no, if the install created the file |
 | `.git/info/exclude` | the rules that hide all of the above | never committed |
 
 A client config file the project already tracked in git stays tracked; the
@@ -278,12 +278,12 @@ jev permissions full     # jev* launchers start clients without permission promp
 jev permissions ask      # back to the client's own prompts (default)
 ```
 
-`full` adds `--dangerously-skip-permissions` (Claude Code),
+`full` adds `--dangerously-skip-permissions` (Claude Code and Antigravity),
 `--dangerously-bypass-approvals-and-sandbox` (Codex) or `--force --approve-mcps`
-(Cursor) to launches through `jev`, `jevclaude`, `jevcodex`, `jevcursor`, unless
+(Cursor) to launches through `jev`, `jevclaude`, `jevcodex`, `jevcursor`, `jevagy`, unless
 you pass your own permission option. It is stored per project (project
 install) or per host (host Jev). The Jev safety floor still runs in `full`
-mode. Starting `claude`, `codex` or `cursor-agent` directly is not affected.
+mode. Starting `claude`, `codex`, `cursor-agent` or `agy` directly is not affected.
 
 ### Configuration and secrets
 
@@ -307,8 +307,9 @@ says. Persistent choices have their own switches: `jev permissions`, `jev on` /
 | Permission mode | `jev permissions full\|ask`: file `FULL_PERMISSIONS` in the same state directory; env `JEV_PERMISSIONS=full\|ask` overrides it for one launch | `scripts/jev.py` `full_permissions()` | no | `ask` |
 | Disable Jev advice for a shell | env `JEV_DISABLE=1` or `DATARIM_JEV_DISABLE=1` (the safety floor still runs) | `project_state.py` `disabled_reason()` | no | unset |
 | Codex model per Jev tier | env `DATARIM_CODEX_MODEL_HAIKU`, `_SONNET`, `_OPUS` | `scripts/jev.py`, `plugins/dr-jev-control/scripts/runtimes.py` | no | Codex account default, tier mapped to effort |
+| Antigravity model per Jev tier | env `DATARIM_ANTIGRAVITY_MODEL_HAIKU`, `_SONNET`, `_OPUS` | `scripts/jev.py`, `plugins/dr-jev-control/scripts/runtimes.py` | no | Antigravity account default, tier mapped to `--effort` (`low`, `medium`, `high`, `max`) |
 | Cursor model | env `DATARIM_CURSOR_MODEL_*` (leave unset; policy 22.10 = Auto) | `scripts/jev.py`, `plugins/dr-jev-control/scripts/runtimes.py` | no | default `--model auto` |
-| Client executable | env `CLAUDE_BIN`, `CODEX_BIN`, `CURSOR_BIN` | `scripts/jev.py` `binary()` | no | `claude`, `codex`, `cursor-agent` (or `agent`) on `PATH` |
+| Client executable | env `CLAUDE_BIN`, `CODEX_BIN`, `CURSOR_BIN`, `ANTIGRAVITY_BIN` (or `AGY_BIN`) | `scripts/jev.py` `binary()` | no | `claude`, `codex`, `cursor-agent` (or `agent`), `agy` on `PATH` |
 | Codex auto re-trust | env `JEV_NO_AUTO_TRUST=1` stops `jevcodex` (host Jev) from re-granting Codex trust to Jev's own hooks | `scripts/jev.py` | no | unset |
 | Execution-host map | env `DATARIM_EXEC_HOSTS_MAP`, a YAML map of which machine may run tasks for a workspace | `/dr-init`, `/dr-quick`, `/dr-next` via `dev-tools/lib/execution-host.sh` | no | `$HOME/.claude/local/config/execution-hosts.yml`; absent map means the check is skipped |
 
@@ -353,7 +354,7 @@ renderer catalog fallback.
 cd "$PROJECT"
 git status --short                       # expect: nothing from Datarim
 source .datarim-runtime/activate.sh      # current shell only
-jev doctor --agent=claude                # or --agent=codex / --agent=cursor
+jev doctor --agent=claude                # or --agent=codex / --agent=cursor / --agent=antigravity
 ```
 
 Expected `jev doctor` output (JSON), exit code `0`:
@@ -362,7 +363,7 @@ Expected `jev doctor` output (JSON), exit code `0`:
 - `"findings": []` — a finding names what is missing (for example
   `claude: executable missing`, or `cursor: Jev hook file missing (...)` when a
   selected client's hook file or entry was removed) and makes the exit code
-  `1`. Without `--agent`, doctor checks all three clients, so a client you do
+  `1`. Without `--agent`, doctor checks all four clients, so a client you do
   not use becomes a finding;
 - `"hook_clients"` — the clients whose Jev hooks this install registered;
 - `"config_path"` — the Jev settings file in use (`.datarim-runtime/jev-config.json`,
@@ -391,7 +392,7 @@ Expected: exit code `0` and an `"api"` block containing
 Then open the client in the project:
 
 - Claude Code: run `/dr-help`.
-- Codex or Cursor: ask the agent to run the `dr-help` skill.
+- Codex, Cursor or Antigravity: ask the agent to run the `dr-help` skill.
 
 The answer comes from `.datarim-runtime/commands/dr-help.md`. Start work with
 `/dr-init "<task description>"`; the [getting-started
@@ -414,7 +415,7 @@ a protected path"}}`.
 
 | Question | Check | Expected |
 |---|---|---|
-| Do the clients call the hooks? | Use a client for one short session in the project (read a file, run a harmless shell command), then `tail -n 3 .datarim-runtime/state/jev/ledger.jsonl` | `hook_delivery` records naming the client (`"client": "claude"`, `"codex"` or `"cursor"`). A floor denial appends one `safety_floor_deny` event with a scrubbed command and the reason when the ledger is writable. The command stays denied when that append fails. Host Jev keeps its ledgers under `~/.local/state/jev/projects/`. |
+| Do the clients call the hooks? | Use a client for one short session in the project (read a file, run a harmless shell command), then `tail -n 3 .datarim-runtime/state/jev/ledger.jsonl` | `hook_delivery` records naming the client (`"client": "claude"`, `"codex"`, `"cursor"` or `"antigravity"`). A floor denial appends one `safety_floor_deny` event with a scrubbed command and the reason when the ledger is writable. The command stays denied when that append fails. Host Jev keeps its ledgers under `~/.local/state/jev/projects/`. |
 | Is Jev installed and scoped correctly? | `jev doctor --agent=<client>` | the fields listed above; after that session `native_agents_live` shows the client as `live` |
 | Are the task files well-formed? | `bash .datarim-runtime/scripts/datarim-doctor.sh --root="$PWD"`, or `/dr-doctor` in a client | `OK: datarim/ structure compliant` |
 
@@ -511,7 +512,7 @@ them.
 Host Jev has no uninstaller. `jev off` stops all Jev API calls on the host. To
 remove it, delete the Jev entries (commands naming
 `~/.local/share/jev/bin/jev-hook`) from the client configs, then
-`~/.local/bin/{jev,jevclaude,jevcodex,jevcursor}`, `~/.local/share/jev/`,
+`~/.local/bin/{jev,jevclaude,jevcodex,jevcursor,jevagy,jevantigravity}`, `~/.local/share/jev/`,
 `~/.config/jev/` (holds the key) and `~/.local/state/jev/` (holds install
 backups).
 
@@ -532,7 +533,7 @@ backups).
 | `jev install: Host Jev requires the pinned provider endpoint` | `~/.config/jev/config.json` has another `api.base_url`. Restore `https://api.typesafe.ai/v1/systemone`. |
 | `jev: No project-local Datarim installation in this directory` | You are outside the project (or the project has no install). `cd` into it. |
 | `jev: Nested repository is not an approved project context` | Reinstall with `--context <relative/path>` for that repository. |
-| `jev doctor` exits `1` with `<client>: executable missing` | That client is not installed, not on `PATH`, and not under `~/.local/bin` or `~/.npm-global/bin`. Use `--agent=` for the clients you have, or set `CLAUDE_BIN` / `CODEX_BIN` / `CURSOR_BIN`. See [Jev without Datarim](documentation/how-to/jev-without-datarim.md#client-executable-missing-false-negative-on-non-interactive-path). |
+| `jev doctor` exits `1` with `<client>: executable missing` | That client is not installed, not on `PATH`, and not under `~/.local/bin` or `~/.npm-global/bin`. Use `--agent=` for the clients you have, or set `CLAUDE_BIN` / `CODEX_BIN` / `CURSOR_BIN` / `ANTIGRAVITY_BIN`. See [Jev without Datarim](documentation/how-to/jev-without-datarim.md#client-executable-missing-false-negative-on-non-interactive-path). |
 | `claude: native AGENTS requires >=2.1.277` | Only affects loading your project's `AGENTS.md` natively; `/dr-*` commands do not depend on it. Update Claude Code to clear the finding. Where Claude Code still does not load `AGENTS.md`, update with `--claude-import`. |
 | `<client>: Jev hook file missing` or `Jev hook not registered for <event>` | The hook file or entry was deleted or rewritten by hand or by another tool. Run `update.sh --project "$PROJECT"` to register it again. |
 | Jev hooks run twice | Host Jev and a project `--with-jev` install without `--host-jev`. Update the project with `--with-jev --host-jev`. |
@@ -547,4 +548,4 @@ More: [configure and use Jev](documentation/how-to/configure-and-use-jev.md),
 
 ## Reporting without a framework installation
 
-Human Outcome Reporting can be installed independently for Claude Code, Codex and Cursor. This does not activate Datarim or install `/dr-*` commands. Use the [standalone installation guide](documentation/how-to/install-human-outcome-reporting.md). Existing Datarim projects receive the reporting policy and `/dr-explain` through a normal project update; their recorded client and Jev options are preserved.
+Human Outcome Reporting can be installed independently for Claude Code, Codex, Cursor and Antigravity. This does not activate Datarim or install `/dr-*` commands. Use the [standalone installation guide](documentation/how-to/install-human-outcome-reporting.md). Existing Datarim projects receive the reporting policy and `/dr-explain` through a normal project update; their recorded client and Jev options are preserved.
