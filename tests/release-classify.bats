@@ -27,6 +27,23 @@ teardown() {
 
 # Helper: commit a subject then classify HEAD..last-tag range and echo bump_level.
 _commit() { git -C "$REPO" commit -q --allow-empty -m "$1"; }
+_prepare_release_metadata() {
+    local version="$1" category="$2" subject="$3"
+    printf '%s\n' "$version" > "$REPO/VERSION"
+    cat > "$REPO/CHANGELOG.md" <<EOF
+# Changelog
+
+## [Unreleased]
+
+## [$version] — 2026-11-02
+
+### $category
+
+- Synthetic declaration for classifier coverage.
+EOF
+    git -C "$REPO" add VERSION CHANGELOG.md
+    git -C "$REPO" commit -q -m "$subject"
+}
 _classify_field() {
     # $1 = key (bump_level|api_diff|zero_x|escalate)
     run "$SCRIPT" --repo "$REPO" --api-diff off
@@ -115,6 +132,77 @@ _classify_field() {
 @test "no commits since last tag yields bump_level=none" {
     # HEAD is exactly the tagged commit — empty range.
     [ "$(_classify_field bump_level)" = "none" ]
+}
+
+@test "exact VERSION and Added changelog declaration classify a squash release as minor" {
+    _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]] &&
+        [[ "$output" == *"api_diff=unavailable"* ]]
+}
+
+@test "release metadata is read from the exact target tree" {
+    _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
+    printf '9.9.9\n' > "$REPO/VERSION"
+    printf '# Unrelated working-tree changelog state\n' > "$REPO/CHANGELOG.md"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]]
+}
+
+@test "Fixed changelog declaration is accepted only for the immediate patch version" {
+    _prepare_release_metadata 0.6.4 Fixed "Datarim release 0.6.4"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff auto
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=patch"* ]] &&
+        [[ "$output" == *"release_metadata=patch"* ]] &&
+        [[ "$output" == *"api_diff=unavailable"* ]]
+}
+
+@test "VERSION alone cannot classify a non-Conventional range" {
+    printf '0.7.0\n' > "$REPO/VERSION"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+- No versioned release declaration.
+EOF
+    git -C "$REPO" add VERSION CHANGELOG.md
+    git -C "$REPO" commit -q -m "Datarim release 0.7.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+        [[ "$output" == *"release_metadata=none"* ]]
+}
+
+@test "mismatched VERSION transition cannot use an Added declaration" {
+    _prepare_release_metadata 0.7.1 Added "Datarim release 0.7.1"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+        [[ "$output" == *"release_metadata=none"* ]]
+}
+
+@test "ambiguous Changed changelog content does not infer a metadata bump" {
+    _prepare_release_metadata 0.7.0 Changed "Datarim release 0.7.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+        [[ "$output" == *"release_metadata=none"* ]]
+}
+
+@test "Conventional breaking marker remains major over a minor metadata declaration" {
+    _prepare_release_metadata 0.7.0 Added "feat!: synthetic breaking declaration"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=major"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]] &&
+        [[ "$output" == *"escalate=true"* ]]
+}
+
+@test "Breaking Changes changelog declaration classifies matching major transition" {
+    _prepare_release_metadata 1.0.0 "Breaking Changes" "Datarim release 1.0.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff auto
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=major"* ]] &&
+        [[ "$output" == *"release_metadata=major"* ]] &&
+        [[ "$output" == *"escalate=true"* ]]
 }
 
 @test "usage error on missing --repo exits 2" {

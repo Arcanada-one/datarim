@@ -168,11 +168,24 @@ dev-tools/release-classify.sh --repo . --from vPREVIOUS --to HEAD --api-diff aut
 
 Replace `vPREVIOUS` with the authenticated previous release tag. Require the
 measured bump to match the intended release and record its escalation verdict;
-`none` does not authorize a patch. A non-Conventional squash subject can produce
-`none` even when VERSION and the tested tree match. Correct a genuine source or
-guide defect through a new reviewed PR with an appropriate Conventional Commit
-subject, then recheck the new resulting commit. Do not amend protected main,
-force a classifier result, or stamp an unsupported bump onto the tag.
+`none` does not authorize a patch. Conventional Commit subjects remain the
+primary signal. When a squash subject is non-Conventional, the classifier may
+use a narrow release-metadata declaration from the exact source trees: the
+previous stable tag must have a matching `VERSION`, the target `VERSION` must
+match exactly one dated heading in that target's `CHANGELOG.md`, and the target
+version must be the immediate SemVer transition declared by nonempty bullets in
+that section (`Added` → minor, `Fixed` → patch, or explicit `Breaking` /
+`Breaking Changes` → major). Ambiguous populated changelog categories (including
+`Changed`, `Deprecated`, `Removed`, and `Security`), missing or mismatched
+metadata, and non-immediate version transitions do not produce a metadata bump.
+The metadata result can raise, never lower, the Conventional Commit result;
+Conventional breaking markers therefore remain major. API compatibility remains
+`unavailable` unless a measured adapter is added. A changelog category is an
+author declaration, not semantic proof: review the actual change and intended
+release independently. No version label or caller-supplied bump override can
+force a result. If neither source contract classifies the range, fix the actual
+source or release declaration through a reviewed PR and reclassify its resulting
+commit. Do not amend protected main or stamp an unsupported bump onto the tag.
 
 On that admitted source:
 
