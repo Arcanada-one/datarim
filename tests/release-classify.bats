@@ -28,14 +28,14 @@ teardown() {
 # Helper: commit a subject then classify HEAD..last-tag range and echo bump_level.
 _commit() { git -C "$REPO" commit -q --allow-empty -m "$1"; }
 _prepare_release_metadata() {
-    local version="$1" category="$2" subject="$3"
+    local version="$1" category="$2" subject="$3" date="${4:-2026-11-02}"
     printf '%s\n' "$version" > "$REPO/VERSION"
     cat > "$REPO/CHANGELOG.md" <<EOF
 # Changelog
 
 ## [Unreleased]
 
-## [$version] — 2026-11-02
+## [$version] — $date
 
 ### $category
 
@@ -142,6 +142,20 @@ _classify_field() {
         [[ "$output" == *"api_diff=unavailable"* ]]
 }
 
+@test "release metadata accepts Gregorian leap dates and rejects impossible dates" {
+    _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0" 2024-02-29
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]]
+
+    for date in 2026-02-29 2026-04-31 2026-13-01; do
+        _prepare_release_metadata 0.7.0 Added "Datarim release with invalid date" "$date"
+        run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+        [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+            [[ "$output" == *"release_metadata=none"* ]]
+    done
+}
+
 @test "release metadata is read from the exact target tree" {
     _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
     printf '9.9.9\n' > "$REPO/VERSION"
@@ -187,6 +201,32 @@ EOF
     run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
     [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
         [[ "$output" == *"release_metadata=none"* ]]
+}
+
+@test "CommonMark plus and ordered Changed items fail closed as ambiguous" {
+    for marker in '+' '1.'; do
+        _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
+        cat > "$REPO/CHANGELOG.md" <<EOF
+# Changelog
+
+## [Unreleased]
+
+## [0.7.0] — 2026-11-02
+
+### Added
+
+- Synthetic declared feature.
+
+### Changed
+
+$marker Synthetic ambiguous change.
+EOF
+        git -C "$REPO" add CHANGELOG.md
+        git -C "$REPO" commit -q --amend --no-edit
+        run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+        [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+            [[ "$output" == *"release_metadata=none"* ]]
+    done
 }
 
 @test "Conventional breaking marker remains major over a minor metadata declaration" {

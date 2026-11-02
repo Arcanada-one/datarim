@@ -172,9 +172,10 @@ measured bump to match the intended release and record its escalation verdict;
 primary signal. When a squash subject is non-Conventional, the classifier may
 use a narrow release-metadata declaration from the exact source trees: the
 previous stable tag must have a matching `VERSION`, the target `VERSION` must
-match exactly one dated heading in that target's `CHANGELOG.md`, and the target
-version must be the immediate SemVer transition declared by nonempty bullets in
-that section (`Added` → minor, `Fixed` → patch, or explicit `Breaking` /
+match exactly one heading with a valid Gregorian calendar date in that target's
+`CHANGELOG.md`, and the target version must be the immediate SemVer transition
+declared by nonempty CommonMark list items in that section (`-`, `*`, `+`, or
+ordered markers; `Added` → minor, `Fixed` → patch, or explicit `Breaking` /
 `Breaking Changes` → major). Ambiguous populated changelog categories (including
 `Changed`, `Deprecated`, `Removed`, and `Security`), missing or mismatched
 metadata, and non-immediate version transitions do not produce a metadata bump.

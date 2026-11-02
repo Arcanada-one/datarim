@@ -102,12 +102,28 @@ release_section_bump() {
     local changelog="$1" version="$2"
     printf '%s\n' "$changelog" | awk -v version="$version" '
         BEGIN { prefix = "## [" version "] — "; in_target = 0; headings = 0; max = 0; ambiguous = 0 }
+        function valid_date(date, year, month, day, last_day) {
+            if (date !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) return 0
+            year = substr(date, 1, 4) + 0
+            month = substr(date, 6, 2) + 0
+            day = substr(date, 9, 2) + 0
+            if (year < 1 || month < 1 || month > 12 || day < 1) return 0
+            if (month == 2) {
+                last_day = 28
+                if (year % 400 == 0 || (year % 4 == 0 && year % 100 != 0)) last_day = 29
+            } else if (month == 4 || month == 6 || month == 9 || month == 11) {
+                last_day = 30
+            } else {
+                last_day = 31
+            }
+            return day <= last_day
+        }
         /^## / {
             in_target = 0
             category = ""
             if (index($0, prefix) == 1) {
                 date = substr($0, length(prefix) + 1)
-                if (date ~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) {
+                if (valid_date(date)) {
                     headings++
                     in_target = 1
                 }
@@ -115,7 +131,7 @@ release_section_bump() {
             next
         }
         in_target && /^### / { category = substr($0, 5); next }
-        in_target && /^[[:space:]]*[-*][[:space:]]+[^[:space:]]/ {
+        in_target && /^[[:space:]]*([-+*]|[0-9]+[.)])[[:space:]]+[^[:space:]]/ {
             if (category == "Added") rank = 2
             else if (category == "Fixed") rank = 1
             else if (category == "Breaking" || category == "Breaking Changes") rank = 3
