@@ -43,9 +43,9 @@ write_codex() {
   printf 'developer_instructions = "DATARIM_CONTEXT_PROFILE_CANARY"\nnotify = ["bash", %s, "ingest-codex", "--kind", "notify"]\n\n[features]\nhooks = true\n\n[[hooks.SessionStart]]\nmatcher = "startup|resume|clear|compact"\n[[hooks.SessionStart.hooks]]\ntype = "command"\ncommand = %s\n\n[[hooks.PostCompact]]\n[[hooks.PostCompact.hooks]]\ntype = "command"\ncommand = %s\n\n# DATARIM_MANAGED_END\n' "$quoted" "$(printf '%s ingest-codex --kind session_start' "$command" | jq -Rs .)" "$(printf '%s ingest-codex --kind post_compact' "$command" | jq -Rs .)" >"$tmp"
   if [ -e "$dest" ]; then
     [ "$(grep -c '^# DATARIM_MANAGED_END$' "$dest")" -eq 1 ] || { rm -f "$tmp"; return 1; }
-    prefix="$(mktemp)"; awk '/^# DATARIM_MANAGED_END$/ || /^\[projects\./ || /^\[tui\./ || /^\[hooks\.state\./ {exit} {print}' "$dest" >"$prefix" || { rm -f "$tmp" "$prefix"; return 1; }
+    prefix="$(mktemp)"; awk '/^# DATARIM_MANAGED_END$/ || /^\[projects\./ || /^\[tui\]$/ || /^\[tui\./ || /^\[hooks\.state\./ {exit} {print}' "$dest" >"$prefix" || { rm -f "$tmp" "$prefix"; return 1; }
     expected_prefix="$(mktemp)"; awk '/^# DATARIM_MANAGED_END$/ {exit} {print}' "$tmp" >"$expected_prefix"; cmp -s "$expected_prefix" "$prefix" || { rm -f "$tmp" "$prefix" "$expected_prefix"; return 1; }
-    awk 'BEGIN{after=0} /^# DATARIM_MANAGED_END$/ || /^\[projects\./ || /^\[tui\./ || /^\[hooks\.state\./ {after=1} after && /^\[/ {if ($0 !~ /^\[projects\./ && $0 !~ /^\[tui\./ && $0 !~ /^\[hooks\.state\./) exit 2}' "$dest" || { rm -f "$tmp" "$prefix" "$expected_prefix"; return 1; }
+    awk 'BEGIN{after=0} /^# DATARIM_MANAGED_END$/ || /^\[projects\./ || /^\[tui\]$/ || /^\[tui\./ || /^\[hooks\.state\./ {after=1} after && /^\[/ {if ($0 !~ /^\[projects\./ && $0 !~ /^\[tui\]$/ && $0 !~ /^\[tui\./ && $0 !~ /^\[hooks\.state\./) exit 2}' "$dest" || { rm -f "$tmp" "$prefix" "$expected_prefix"; return 1; }
     rm -f "$prefix" "$expected_prefix"
   else
     ctx_atomic_publish "$tmp" "$dest" 600 || { rm -f "$tmp"; return 1; }
