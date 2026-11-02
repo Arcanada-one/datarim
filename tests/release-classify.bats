@@ -146,13 +146,13 @@ _classify_field() {
     _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0" 2024-02-29
     run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
     [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
-        [[ "$output" == *"release_metadata=minor"* ]]
+        [[ "$output" == *"release_metadata=minor"* ]] || return 1
 
     for date in 2026-02-29 2026-04-31 2026-13-01; do
         _prepare_release_metadata 0.7.0 Added "Datarim release with invalid date" "$date"
         run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
         [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
-            [[ "$output" == *"release_metadata=none"* ]]
+            [[ "$output" == *"release_metadata=none"* ]] || return 1
     done
 }
 
@@ -225,8 +225,81 @@ EOF
         git -C "$REPO" commit -q --amend --no-edit
         run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
         [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
-            [[ "$output" == *"release_metadata=none"* ]]
+            [[ "$output" == *"release_metadata=none"* ]] || return 1
     done
+}
+
+@test "release metadata ignores fenced Changed examples" {
+    _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.7.0] — 2026-11-02
+
+### Added
+
+- Synthetic declared feature.
+
+```markdown
+### Changed
++ This is an example, not a declaration.
+```
+EOF
+    git -C "$REPO" add CHANGELOG.md
+    git -C "$REPO" commit -q --amend --no-edit
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]]
+}
+
+@test "release metadata ignores indented Changed examples" {
+    _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.7.0] — 2026-11-02
+
+### Added
+
+- Synthetic declared feature.
+
+### Changed
+
+    - This is an indented code example, not a declaration.
+EOF
+    git -C "$REPO" add CHANGELOG.md
+    git -C "$REPO" commit -q --amend --no-edit
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]]
+}
+
+@test "ordered metadata markers accept zero and limit marker length to nine digits" {
+    _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.7.0] — 2026-11-02
+
+### Added
+
+0. Synthetic declared feature.
+
+### Changed
+
+1234567890. This is not a CommonMark ordered marker.
+EOF
+    git -C "$REPO" add CHANGELOG.md
+    git -C "$REPO" commit -q --amend --no-edit
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]]
 }
 
 @test "Conventional breaking marker remains major over a minor metadata declaration" {

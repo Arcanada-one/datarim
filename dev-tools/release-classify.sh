@@ -96,12 +96,13 @@ resolve_version() {
 
 is_zero_x() { case "$1" in 0.*) echo true ;; *) echo false ;; esac; }
 
-# Derive a declared bump from exactly one dated target-version CHANGELOG section.
-# Unknown populated categories are ambiguous and therefore fail closed.
+# Derive a declared bump from exactly one valid-dated target-version CHANGELOG
+# section. Only top-level list items outside fenced/indented code count; unknown
+# populated categories are ambiguous and therefore fail closed.
 release_section_bump() {
     local changelog="$1" version="$2"
     printf '%s\n' "$changelog" | awk -v version="$version" '
-        BEGIN { prefix = "## [" version "] — "; in_target = 0; headings = 0; max = 0; ambiguous = 0 }
+        BEGIN { prefix = "## [" version "] — "; in_target = 0; headings = 0; max = 0; ambiguous = 0; fence_marker = ""; fence_size = 0 }
         function valid_date(date, year, month, day, last_day) {
             if (date !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) return 0
             year = substr(date, 1, 4) + 0
@@ -118,6 +119,58 @@ release_section_bump() {
             }
             return day <= last_day
         }
+        function leading_spaces(line, spaces) {
+            spaces = line
+            sub(/[^ ].*$/, "", spaces)
+            return length(spaces)
+        }
+        function opens_fence(line, indent, rest, marker, count, info) {
+            indent = leading_spaces(line)
+            if (indent > 3) return 0
+            rest = substr(line, indent + 1)
+            marker = substr(rest, 1, 1)
+            if (marker != "`" && marker != "~") return 0
+            count = 0
+            while (substr(rest, count + 1, 1) == marker) count++
+            if (count < 3) return 0
+            info = substr(rest, count + 1)
+            if (marker == "`" && index(info, "`") > 0) return 0
+            fence_marker = marker
+            fence_size = count
+            return 1
+        }
+        function closes_fence(line, indent, rest, count, tail) {
+            indent = leading_spaces(line)
+            if (indent > 3) return 0
+            rest = substr(line, indent + 1)
+            if (substr(rest, 1, 1) != fence_marker) return 0
+            count = 0
+            while (substr(rest, count + 1, 1) == fence_marker) count++
+            if (count < fence_size) return 0
+            tail = substr(rest, count + 1)
+            return tail !~ /[^[:space:]]/
+        }
+        function is_list_item(line, indent, rest, digits, marker, content) {
+            indent = leading_spaces(line)
+            if (indent > 3) return 0
+            rest = substr(line, indent + 1)
+            if (rest ~ /^[-+*][[:space:]]+[^[:space:]]/) return 1
+            digits = rest
+            sub(/[^0-9].*$/, "", digits)
+            if (length(digits) < 1 || length(digits) > 9) return 0
+            marker = substr(rest, length(digits) + 1, 1)
+            if (marker != "." && marker != ")") return 0
+            content = substr(rest, length(digits) + 2)
+            return content ~ /^[[:space:]]+[^[:space:]]/
+        }
+        {
+            if (fence_marker != "") {
+                if (closes_fence($0)) { fence_marker = ""; fence_size = 0 }
+                next
+            }
+            if (opens_fence($0)) next
+            if (substr($0, 1, 4) == "    " || substr($0, 1, 1) == "\t") next
+        }
         /^## / {
             in_target = 0
             category = ""
@@ -131,7 +184,7 @@ release_section_bump() {
             next
         }
         in_target && /^### / { category = substr($0, 5); next }
-        in_target && /^[[:space:]]*([-+*]|[0-9]+[.)])[[:space:]]+[^[:space:]]/ {
+        in_target && is_list_item($0) {
             if (category == "Added") rank = 2
             else if (category == "Fixed") rank = 1
             else if (category == "Breaking" || category == "Breaking Changes") rank = 3
