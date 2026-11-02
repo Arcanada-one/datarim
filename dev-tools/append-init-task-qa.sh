@@ -20,7 +20,8 @@
 #   1 — validation / I/O error
 #   2 — usage error
 
-set -uo pipefail
+set -euo pipefail
+IFS=$'\n\t'
 
 VERSION="1.0.0"
 SCRIPT_NAME="append-init-task-qa.sh"
@@ -88,24 +89,86 @@ EOF
 fail_usage() { echo "ERROR: $1" >&2; usage >&2; exit 2; }
 fail_io()    { echo "ERROR: $1" >&2; exit 1; }
 
+line_has_control() {
+    local value="$1" grep_status
+    case "$value" in
+        *$'\n'*|*$'\r'*) return 0 ;;
+    esac
+    if ( set +o pipefail; printf '%s' "$value" | LC_ALL=C grep -q '[[:cntrl:]]' 2>/dev/null ); then
+        return 0
+    else
+        grep_status=$?
+    fi
+    if [ "$grep_status" -ne 1 ]; then
+        return "$grep_status"
+    fi
+    if ( set +o pipefail; printf '%s' "$value" | LC_ALL=C grep -q $'\xc2[\x80-\x9f]' 2>/dev/null ); then
+        return 0
+    else
+        grep_status=$?
+    fi
+    if [ "$grep_status" -ne 1 ]; then
+        return "$grep_status"
+    fi
+    return 1
+}
+
+check_one_line_field() {
+    local option="$1" value="$2" guard_status
+    if line_has_control "$value"; then
+        fail_usage "$option must be one line without control characters"
+    else
+        guard_status=$?
+    fi
+    if [ "$guard_status" -ne 1 ]; then
+        fail_io "failed to inspect $option for control characters"
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # Arg parsing
 # ---------------------------------------------------------------------------
 while [ $# -gt 0 ]; do
     case "$1" in
-        --root)                 shift; ROOT="${1:-}";;
-        --task)                 shift; TASK_ID="${1:-}";;
-        --stage)                shift; STAGE="${1:-}";;
-        --round)                shift; ROUND="${1:-}";;
-        --question-file)        shift; QUESTION_FILE="${1:-}";;
-        --answer-file)          shift; ANSWER_FILE="${1:-}";;
-        --decided-by)           shift; DECIDED_BY="${1:-}";;
-        --rationale-file)       shift; RATIONALE_FILE="${1:-}";;
-        --summary)              shift; SUMMARY="${1:-}";;
-        --asked-by)             shift; ASKED_BY="${1:-agent}";;
-        --conflict-with)        shift; CONFLICT_WITH="${1:-}";;
-        --conflict-detail-file) shift; CONFLICT_DETAIL_FILE="${1:-}";;
-        --timestamp)            shift; TIMESTAMP="${1:-}";;
+        --root)
+            [ "$#" -ge 2 ] || fail_usage "--root requires a value"
+            shift; ROOT="${1:-}";;
+        --task)
+            [ "$#" -ge 2 ] || fail_usage "--task requires a value"
+            shift; TASK_ID="${1:-}";;
+        --stage)
+            [ "$#" -ge 2 ] || fail_usage "--stage requires a value"
+            shift; STAGE="${1:-}";;
+        --round)
+            [ "$#" -ge 2 ] || fail_usage "--round requires a value"
+            shift; ROUND="${1:-}";;
+        --question-file)
+            [ "$#" -ge 2 ] || fail_usage "--question-file requires a value"
+            shift; QUESTION_FILE="${1:-}";;
+        --answer-file)
+            [ "$#" -ge 2 ] || fail_usage "--answer-file requires a value"
+            shift; ANSWER_FILE="${1:-}";;
+        --decided-by)
+            [ "$#" -ge 2 ] || fail_usage "--decided-by requires a value"
+            shift; DECIDED_BY="${1:-}";;
+        --rationale-file)
+            [ "$#" -ge 2 ] || fail_usage "--rationale-file requires a value"
+            shift; RATIONALE_FILE="${1:-}";;
+        --summary)
+            [ "$#" -ge 2 ] || fail_usage "--summary requires a value"
+            shift; SUMMARY="${1:-}";;
+        --asked-by)
+            [ "$#" -ge 2 ] || fail_usage "--asked-by requires a value"
+            shift; ASKED_BY="${1:-agent}";;
+        --conflict-with)
+            [ "$#" -ge 2 ] || fail_usage "--conflict-with requires a value"
+            shift; CONFLICT_WITH="${1:-}";;
+        --conflict-detail-file)
+            [ "$#" -ge 2 ] || fail_usage "--conflict-detail-file requires a value"
+            shift; CONFLICT_DETAIL_FILE="${1:-}";;
+        --timestamp)
+            [ "$#" -ge 2 ] || fail_usage "--timestamp requires a value"
+            shift; TIMESTAMP="${1:-}";;
         --help|-h)              usage; exit 0;;
         --version)              echo "$SCRIPT_NAME $VERSION"; exit 0;;
         *)                      fail_usage "unknown argument: $1";;
@@ -148,6 +211,11 @@ if [ -n "$CONFLICT_WITH" ]; then
         fail_usage "--conflict-with must be a slug ([A-Za-zА-Яа-я0-9_-]+), got '$CONFLICT_WITH'"
     fi
 fi
+
+# These values are written as single logical lines in the init-task Markdown.
+check_one_line_field --summary "$SUMMARY"
+check_one_line_field --asked-by "$ASKED_BY"
+check_one_line_field --timestamp "$TIMESTAMP"
 
 # ---------------------------------------------------------------------------
 # Path resolution + boundary check (IO errors → exit 1)
@@ -269,7 +337,9 @@ fi
     fi
 } > "$TMP_FILE"
 
-mv -f "$TMP_FILE" "$INIT_FILE"
+if ! mv -f "$TMP_FILE" "$INIT_FILE"; then
+    fail_io "failed to replace init-task file: $INIT_FILE"
+fi
 TMP_FILE=""
 
 exit 0
