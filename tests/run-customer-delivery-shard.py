@@ -104,6 +104,16 @@ class ContractError(ValueError):
     pass
 
 
+MAX_TIMEOUT_OUTPUT_BYTES = 64 * 1024
+RESULT_FIELDS = {"suite", "shard", "status", "exit_code", "phase"}
+
+
+class BoundedProcessTimeout(subprocess.TimeoutExpired):
+    def __init__(self, command, timeout, output_excerpt: str, output_truncated: bool):
+        super().__init__(command, timeout, output=output_excerpt)
+        self.output_truncated = output_truncated
+
+
 @dataclass(frozen=True)
 class Row:
     suite: str
@@ -151,13 +161,30 @@ def run_bounded_process(
     )
     try:
         output, _ = process.communicate(timeout=timeout_seconds)
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as error:
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except (ProcessLookupError, PermissionError):
             pass
-        process.communicate()
-        raise
+        try:
+            output, _ = process.communicate()
+        except (OSError, ValueError):
+            output = error.output
+        raw = output if output is not None else error.output
+        if raw is None:
+            raw_bytes = b""
+        elif isinstance(raw, str):
+            raw_bytes = raw.encode("utf-8", errors="replace")
+        else:
+            raw_bytes = raw
+        truncated = len(raw_bytes) > MAX_TIMEOUT_OUTPUT_BYTES
+        if truncated:
+            marker = b"[timeout output truncated; showing final bytes]\n"
+            raw_bytes = marker + raw_bytes[-(MAX_TIMEOUT_OUTPUT_BYTES - len(marker)):]
+        excerpt = raw_bytes.decode("utf-8", errors="replace")
+        raise BoundedProcessTimeout(
+            command, timeout_seconds, excerpt, truncated
+        ) from error
     return process.returncode, output
 
 
@@ -343,21 +370,37 @@ def check_results(rows: list[Row], platform: str, directory: Path) -> int:
     if not directory.is_dir():
         raise ContractError("result inventory mismatch: missing directory")
     observed: Counter[tuple[str, str]] = Counter()
+    failed = 0
+    timed_out = 0
     for path in sorted(directory.glob("*.json")):
         try:
             item = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, UnicodeError) as error:
             raise ContractError(f"result inventory mismatch: changed {path.name}") from error
+        if not isinstance(item, dict) or set(item) != RESULT_FIELDS:
+            raise ContractError(f"result inventory mismatch: changed {path.name}")
         if (
-            not isinstance(item, dict)
-            or set(item) != {"suite", "shard"}
-            or not all(isinstance(item[field], str) for field in ("suite", "shard"))
+            not all(isinstance(item[field], str) for field in ("suite", "shard", "status", "phase"))
+            or isinstance(item["exit_code"], bool)
+            or not isinstance(item["exit_code"], int)
+            or item["status"] not in {"passed", "failed", "timed_out"}
+            or item["phase"] not in {"count", "shard"}
+        ):
+            raise ContractError(f"result inventory mismatch: changed {path.name}")
+        if (
+            (item["status"] == "passed" and (item["exit_code"] != 0 or item["phase"] != "shard"))
+            or (item["status"] == "failed" and (item["exit_code"] == 0 or item["phase"] != "shard"))
+            or (item["status"] == "timed_out" and item["exit_code"] != 124)
         ):
             raise ContractError(f"result inventory mismatch: changed {path.name}")
         key = (item["suite"], item["shard"])
         observed[key] += 1
         if observed[key] > 1:
             raise ContractError(f"result inventory mismatch: duplicate {key[0]} {key[1]}")
+        if item["status"] == "timed_out":
+            timed_out += 1
+        elif item["status"] == "failed":
+            failed += 1
     missing = expected - observed
     extra = observed - expected
     if missing:
@@ -366,8 +409,25 @@ def check_results(rows: list[Row], platform: str, directory: Path) -> int:
     if extra:
         key = next(iter(extra))
         raise ContractError(f"result inventory mismatch: extra {key[0]} {key[1]}")
-    print(f"customer_delivery_results=valid platform={platform} count={sum(observed.values())}")
-    return 0
+    print(
+        f"customer_delivery_results=complete platform={platform} count={sum(observed.values())} "
+        f"passed={sum(observed.values()) - failed - timed_out} failed={failed} timed_out={timed_out}"
+    )
+    return 1 if failed or timed_out else 0
+
+
+def write_result(path: Path, row: Row, status: str, exit_code: int, phase: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({
+            "suite": row.suite,
+            "shard": f"{row.shard}/{row.total}",
+            "status": status,
+            "exit_code": exit_code,
+            "phase": phase,
+        }) + "\n",
+        encoding="utf-8",
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -389,6 +449,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    row = None
+    timeout_phase = "count"
     try:
         rows = load_registry(args.registry)
         inventories, security_arms = validate_registry(rows)
@@ -464,6 +526,7 @@ def main() -> int:
                 f"expected {len(names)}, observed {authoritative_count}"
             )
         timeout_context = f"shard exceeded {args.timeout_seconds}s: {args.suite} {args.shard}"
+        timeout_phase = "shard"
         returncode, output = run_bounded_process(
             [bats, "--filter", filter_pattern, str(SUITE_PATHS[row.suite])],
             environment,
@@ -472,16 +535,30 @@ def main() -> int:
         print(output, end="")
         if returncode == 0:
             validate_bats_execution(output, len(names))
-        if returncode == 0 and args.result_file:
+        if args.result_file:
             if not args.platform:
                 raise ContractError("result-file requires platform")
-            args.result_file.parent.mkdir(parents=True, exist_ok=True)
-            args.result_file.write_text(
-                json.dumps({"suite": row.suite, "shard": f"{row.shard}/{row.total}"}) + "\n",
-                encoding="utf-8",
+            write_result(
+                args.result_file, row,
+                "passed" if returncode == 0 else "failed",
+                returncode,
+                "shard",
             )
         return returncode
-    except subprocess.TimeoutExpired:
+    except BoundedProcessTimeout as error:
+        if error.output:
+            print(error.output, end="" if error.output.endswith("\n") else "\n")
+        if error.output_truncated:
+            print(f"timeout output limit: {MAX_TIMEOUT_OUTPUT_BYTES} bytes", file=sys.stderr)
+        if args.result_file and row is not None:
+            if not args.platform:
+                print("ERROR: result-file requires platform", file=sys.stderr)
+                return 2
+            try:
+                write_result(args.result_file, row, "timed_out", 124, timeout_phase)
+            except OSError as write_error:
+                print(f"ERROR: could not record timed-out shard: {write_error}", file=sys.stderr)
+                return 2
         print(f"ERROR: {timeout_context}", file=sys.stderr)
         return 124
     except (ContractError, OSError, UnicodeError) as error:

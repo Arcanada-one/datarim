@@ -221,11 +221,12 @@ jobs:
             --result-file "$result_dir/${{ matrix.suite }}-${shard//\//-}.json"
 
       - name: Upload exact shard result
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: customer-delivery-linux-${{ strategy.job-index }}
           path: ${{ runner.temp }}/customer-delivery-result/*.json
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 1
 
   macos-portability:
@@ -367,11 +368,12 @@ jobs:
             --result-file "$result_dir/${{ matrix.suite }}-${shard//\//-}.json"
 
       - name: Upload exact shard result
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: customer-delivery-macos-${{ strategy.job-index }}
           path: ${{ runner.temp }}/customer-delivery-result/*.json
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 1
 
   customer-delivery-aggregate:

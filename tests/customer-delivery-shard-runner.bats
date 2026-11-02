@@ -26,6 +26,7 @@ from pathlib import Path
 import sys
 directory = Path(sys.argv[1])
 for index, item in enumerate(json.loads(sys.argv[2]), 1):
+    item.update({"status": "passed", "exit_code": 0, "phase": "shard"})
     (directory / f"result-{index}.json").write_text(json.dumps(item) + "\n")
 PY
 }
@@ -349,11 +350,21 @@ PY
 }
 
 @test "customer-delivery shard timeout kills the child group and returns 124" {
-    local pid_file="$BATS_TEST_TMPDIR/descendant.pid" descendant attempt
-    make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 10; exit 0; fi; (trap '' TERM; sleep 30) & printf '%s\\n' \"\$!\" > '$pid_file'; wait"
+    local pid_file="$BATS_TEST_TMPDIR/descendant.pid" descendant attempt result="$BATS_TEST_TMPDIR/result.json"
+    make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 10; exit 0; fi; printf '%090000d\\n' 0; echo TIMEOUT-STOP-MARKER; (trap '' TERM; sleep 30) & printf '%s\\n' \"\$!\" > '$pid_file'; wait"
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/38 --bats-bin "$CHILD" --timeout-seconds 1
-    [ "$status" -eq 124 ] || return 1
+        --suite functional --shard 1/38 --bats-bin "$CHILD" --timeout-seconds 1 \
+        --platform linux --result-file "$result"
+    [ "$status" -eq 124 ] \
+        && [[ "$output" == *"TIMEOUT-STOP-MARKER"* ]] \
+        && [[ "$output" == *"timeout output limit: 65536 bytes"* ]] \
+        && [ "$(printf '%s' "$output" | wc -c)" -lt 70000 ] \
+        || return 1
+    "$PYTHON" - "$result" <<'PY' || return 1
+import json,pathlib,sys
+record=json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert record == {"suite":"functional","shard":"1/38","status":"timed_out","exit_code":124,"phase":"shard"}
+PY
     descendant="$(<"$pid_file")"
     for attempt in {1..10}; do
         kill -0 "$descendant" 2>/dev/null || return 0
@@ -364,11 +375,12 @@ PY
 }
 
 @test "customer-delivery authoritative count timeout kills descendants and returns structured 124" {
-    local pid_file="$BATS_TEST_TMPDIR/count-descendant.pid" descendant attempt started elapsed
+    local pid_file="$BATS_TEST_TMPDIR/count-descendant.pid" descendant attempt started elapsed result="$BATS_TEST_TMPDIR/count-result.json"
     make_bats_child "if [ \"\${1:-}\" = --count ]; then (trap '' TERM; sleep 30) & printf '%s\\n' \"\$!\" > '$pid_file'; wait; fi; exit 17"
     started="$("$PYTHON" -c 'import time; print(time.monotonic())')" || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/38 --bats-bin "$CHILD" --timeout-seconds 1
+        --suite functional --shard 1/38 --bats-bin "$CHILD" --timeout-seconds 1 \
+        --platform linux --result-file "$result"
     elapsed="$("$PYTHON" -c 'import sys,time; print(time.monotonic()-float(sys.argv[1]))' "$started")" \
         || return 1
     [ "$status" -eq 124 ] \
@@ -376,6 +388,11 @@ PY
         && [[ "$output" != *"Traceback"* ]] \
         && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 4' "$elapsed" \
         || { printf 'count_timeout_status=%s output=%s\n' "$status" "$output"; return 1; }
+    "$PYTHON" - "$result" <<'PY' || return 1
+import json,pathlib,sys
+record=json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert record == {"suite":"functional","shard":"1/38","status":"timed_out","exit_code":124,"phase":"count"}
+PY
     descendant="$(<"$pid_file")"
     for attempt in {1..10}; do
         kill -0 "$descendant" 2>/dev/null || return 0
@@ -463,7 +480,21 @@ PY
     seed_results linux "$results" || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
     [ "$status" -eq 0 ] \
-        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=100"* ]]
+        && [[ "$output" == *"customer_delivery_results=complete platform=linux count=100 passed=100 failed=0 timed_out=0"* ]]
+}
+
+@test "customer-delivery aggregate reports a complete timed-out inventory as failure" {
+    local results="$BATS_TEST_TMPDIR/results"
+    seed_results linux "$results" || return 1
+    "$PYTHON" - "$results/result-1.json" <<'PY' || return 1
+import json,pathlib,sys
+path=pathlib.Path(sys.argv[1]); item=json.loads(path.read_text())
+item.update(status="timed_out", exit_code=124)
+path.write_text(json.dumps(item)+"\n")
+PY
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"customer_delivery_results=complete platform=linux count=100 passed=99 failed=0 timed_out=1"* ]]
 }
 
 @test "customer-delivery aggregate rejects a missing result" {
