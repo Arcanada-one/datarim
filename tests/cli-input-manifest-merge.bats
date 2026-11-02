@@ -3,10 +3,18 @@
 set -o pipefail
 
 setup_file() {
-  [ -n "$D5_MERGE_EVIDENCE_DIR" ] \
-    && [ -f "$D5_MERGE_EVIDENCE_DIR/preflight.json" ] \
-    && [ "$(stat -c '%a' "$D5_MERGE_EVIDENCE_DIR")" = "700" ] \
-    && [ "$(stat -c '%a' "$D5_MERGE_EVIDENCE_DIR/preflight.json")" = "600" ]
+  if [ "${D5_MERGE_EVIDENCE_DIR+x}" = x ]; then
+    [ -n "$D5_MERGE_EVIDENCE_DIR" ] \
+      && [ -d "$D5_MERGE_EVIDENCE_DIR" ] \
+      && [ -f "$D5_MERGE_EVIDENCE_DIR/preflight.json" ] \
+      && [ "$(stat -c '%a' "$D5_MERGE_EVIDENCE_DIR")" = "700" ] \
+      && [ "$(stat -c '%a' "$D5_MERGE_EVIDENCE_DIR/preflight.json")" = "600" ]
+  else
+    [ -n "$BATS_FILE_TMPDIR" ] \
+      && D5_MERGE_EVIDENCE_DIR="$BATS_FILE_TMPDIR/merge-evidence" \
+      && (umask 077 && mkdir -m 700 "$D5_MERGE_EVIDENCE_DIR") \
+      && export D5_MERGE_EVIDENCE_DIR
+  fi
 }
 
 setup() {
@@ -661,4 +669,20 @@ PY
   [ "$CLI_STATUS" -eq 2 ] \
     && assert_receipt 2 \
     && assert_output
+}
+
+@test "F2 ordinary startup allocates a private Bats-owned evidence directory" {
+  [[ "$D5_MERGE_EVIDENCE_DIR" == "$BATS_FILE_TMPDIR/merge-evidence" ]] \
+    && [ -d "$D5_MERGE_EVIDENCE_DIR" ] \
+    && [ "$(stat -c '%a' "$D5_MERGE_EVIDENCE_DIR")" = "700" ] \
+    && [ ! -e "$D5_MERGE_EVIDENCE_DIR/preflight.json" ]
+}
+
+@test "F2 explicit invalid external evidence directory is refused" {
+  run env D5_MERGE_EVIDENCE_DIR="$CASE_DIR/missing-external" \
+    bats --filter 'F2 ordinary startup allocates a private Bats-owned evidence directory' \
+      "$BATS_TEST_FILENAME"
+  [ "$status" -ne 0 ] \
+    && [[ "$output" == *"setup_file"* ]] \
+    && [ ! -e "$CASE_DIR/missing-external" ]
 }
