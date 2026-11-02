@@ -119,7 +119,8 @@ invoke() {
   if [[ -n "${D5_CAPTURE_HELPER:-}" ]]; then
     if "$D5_CAPTURE_HELPER" --capture-dir "$D5_CAPTURE_DIR/direct" --cwd "$D5_OWN_CLONE" \
       --source "$cli" --test "$BATS_TEST_NAME" \
-      --fixture "$input" --timeout 15 -- "$cli" "$@"; then
+      --fixture "$input" --timeout 15 -- /bin/bash -c \
+      'input=$1; shift; exec "$@" < "$input"' _ "$input" "$cli" "$@"; then
       rc=0
     else
       rc=$?
@@ -127,7 +128,7 @@ invoke() {
     cp -- "$D5_CAPTURE_DIR/direct/latest.stdout" "$TEST_TMPDIR/$label.stdout"
     cp -- "$D5_CAPTURE_DIR/direct/latest.stderr" "$TEST_TMPDIR/$label.stderr"
   else
-    if "$cli" "$@" >"$TEST_TMPDIR/$label.stdout" 2>"$TEST_TMPDIR/$label.stderr"; then
+    if "$cli" "$@" <"$input" >"$TEST_TMPDIR/$label.stdout" 2>"$TEST_TMPDIR/$label.stderr"; then
       rc=0
     else
       rc=$?
