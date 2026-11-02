@@ -57,7 +57,7 @@ cases = {
         '"file_count":1,"file_count_status":"MEASURED",'
         '"changed_paths":[' + '[' * 1200 + '0' + ']' * 1200 + ']}',
     "decimal-count.json": json.dumps({**matched, "file_count": 1.0}),
-    "fractional-count.json": json.dumps(matched).replace('"file_count": 3', '"file_count": 2.0000000000000001'),
+    "fractional-count.json": json.dumps(matched).replace('"file_count": 3', '"file_count": 2.1e-1'),
     "invalid-path.json": json.dumps({**changed, "changed_paths": ["../outside"]}),
     "unsorted-paths.json": json.dumps({**changed, "file_count": 2,
         "changed_paths": ["z/file", "a/file"]}),
