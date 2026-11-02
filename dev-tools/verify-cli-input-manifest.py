@@ -51,7 +51,7 @@ def _parse_manifest(raw: bytes) -> list[tuple[str, str, int]]:
             parse_int=int,
             parse_constant=_reject_constant,
         )
-    except (UnicodeDecodeError, json.JSONDecodeError, Refused, ValueError):
+    except (UnicodeDecodeError, json.JSONDecodeError, Refused, ValueError, RecursionError):
         raise Refused from None
 
     if not isinstance(document, dict):
@@ -157,7 +157,10 @@ def _open_root(root: str) -> int:
         raise
 
 
-def _read_selected(root_fd: int, path: str) -> bytes:
+def _read_selected(root_fd: int, path: str, remaining_total: int) -> bytes:
+    if remaining_total < 0:
+        raise Refused
+    read_limit = min(FILE_LIMIT, remaining_total)
     components = path.split("/")
     current = os.dup(root_fd)
     try:
@@ -180,10 +183,15 @@ def _read_selected(root_fd: int, path: str) -> bytes:
             raise Refused from None
         try:
             opened = os.fstat(fd)
-            if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino)
+                or opened.st_size > FILE_LIMIT
+                or opened.st_size > remaining_total
+            ):
                 raise Refused
             chunks: list[bytes] = []
-            remaining = FILE_LIMIT + 1
+            remaining = read_limit
             while remaining:
                 chunk = os.read(fd, min(65536, remaining))
                 if not chunk:
@@ -191,8 +199,6 @@ def _read_selected(root_fd: int, path: str) -> bytes:
                 chunks.append(chunk)
                 remaining -= len(chunk)
             data = b"".join(chunks)
-            if len(data) > FILE_LIMIT:
-                raise Refused
             return data
         except OSError:
             raise Refused from None
@@ -223,7 +229,7 @@ def _verify(root: str, raw: bytes) -> tuple[dict[str, Any], int]:
             changed: list[str] = []
             actual_total = 0
             for path, expected_digest, expected_size in selected:
-                data = _read_selected(root_fd, path)
+                data = _read_selected(root_fd, path, TOTAL_LIMIT - actual_total)
                 actual_total += len(data)
                 if actual_total > TOTAL_LIMIT:
                     raise Refused
@@ -231,7 +237,7 @@ def _verify(root: str, raw: bytes) -> tuple[dict[str, Any], int]:
                     changed.append(path)
         finally:
             os.close(root_fd)
-    except (Refused, OSError, OverflowError, ValueError):
+    except (Refused, OSError, OverflowError, ValueError, RecursionError):
         return _result("INPUT_REFUSED", 2, ["INPUT_MANIFEST_VERIFICATION_REFUSED"], None, "NOT_MEASURED", []), 2
 
     changed.sort()

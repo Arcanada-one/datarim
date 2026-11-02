@@ -19,7 +19,7 @@ The command emits one JSON result on standard output. Exit `0` means the selecte
 
 The consumer accepts only a complete core manifest: `schema` is `DatarimCliInputManifest/v1`; `result` is `COMPLETE`; `exit_code` is integer zero; `diagnostic_codes` is empty; `file_count_status` is `MEASURED`; and `file_count` is an integer from 1 through 64 equal to the number of entries in `files`. Unknown top-level metadata is ignored. Each entry has exactly `relative_path`, `sha256`, and `byte_count`.
 
-Paths must be unique canonical relative POSIX paths. Empty, absolute, NUL-containing, backslash-containing, empty-component, `.` and `..` paths are refused. Digests are lowercase 64-character hexadecimal SHA-256. Byte counts are non-boolean integral JSON numbers from zero through 1 MiB; integral decimal notation such as `1.0` is accepted. Declared and actual total bytes are bounded to 16 MiB. The input JSON is limited to 2 MiB, with one extra byte read to detect overflow. Duplicate JSON keys, non-finite JSON numbers, invalid UTF-8 and entry extensions are refused.
+Paths must be unique canonical relative POSIX paths. Empty, absolute, NUL-containing, backslash-containing, empty-component, `.` and `..` paths are refused. Digests are lowercase 64-character hexadecimal SHA-256. Byte counts are non-boolean integral JSON numbers from zero through 1 MiB; integral decimal notation such as `1.0` is accepted. Declared and actual total bytes are bounded to 16 MiB. Each selected-file read receives the remaining actual-byte budget and consumes no more than the smaller of that budget and the 1 MiB per-file limit. A file whose observed size exceeds either remaining limit is refused without reading past the bound. The input JSON is limited to 2 MiB, with one extra byte read to detect overflow. Duplicate JSON keys, non-finite JSON numbers, invalid UTF-8, parser recursion exhaustion and entry extensions are refused.
 
 ## Result fields
 
@@ -39,7 +39,7 @@ Every emitted object has exactly these fields:
 
 ## Limits and privacy
 
-Directory traversal uses POSIX descriptor-relative opens, no-follow checks, nonblocking flags and regular-file identity checks. The tool refuses platforms that cannot provide the required primitives rather than silently following links. Each explicitly selected file is read once, bounded, and hashed from those same bytes. It does not walk the tree, access the network, spawn subprocesses, run a producer, or invoke a schema engine.
+Directory traversal uses POSIX descriptor-relative opens, no-follow checks, nonblocking flags and regular-file identity checks. The tool refuses platforms that cannot provide the required primitives rather than silently following links. Each explicitly selected file is read once, bounded by the per-file and remaining aggregate actual-byte limits, and hashed from those same bytes. It does not walk the tree, access the network, spawn subprocesses, run a producer, or invoke a schema engine.
 
 The result describes bounded byte snapshots, not a universal atomic filesystem snapshot or a guarantee against every concurrent file mutation. A `MATCHED` result does not establish that a producer was accepted, that its declaration is semantically truthful, or that a checker is ready to run. It is a standalone consistency check only.
 
