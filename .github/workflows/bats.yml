@@ -226,7 +226,7 @@ jobs:
         with:
           name: customer-delivery-linux-${{ strategy.job-index }}
           path: ${{ runner.temp }}/customer-delivery-result/*.json
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 1
 
   macos-portability:
@@ -373,7 +373,7 @@ jobs:
         with:
           name: customer-delivery-macos-${{ strategy.job-index }}
           path: ${{ runner.temp }}/customer-delivery-result/*.json
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 1
 
   customer-delivery-aggregate:

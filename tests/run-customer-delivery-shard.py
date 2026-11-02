@@ -114,6 +114,29 @@ class BoundedProcessTimeout(subprocess.TimeoutExpired):
         self.output_truncated = output_truncated
 
 
+def bounded_timeout_excerpt(output: str | bytes | None) -> tuple[str, bool]:
+    if output is None:
+        text = ""
+    elif isinstance(output, bytes):
+        text = output.decode("utf-8", errors="replace")
+    else:
+        text = output
+    encoded = text.encode("utf-8")
+    if len(encoded) <= MAX_TIMEOUT_OUTPUT_BYTES:
+        return text, False
+
+    marker = "[timeout output truncated; showing final bytes]\n"
+    available = MAX_TIMEOUT_OUTPUT_BYTES - len(marker.encode("utf-8"))
+    tail = encoded[-available:]
+    while True:
+        try:
+            tail_text = tail.decode("utf-8")
+            break
+        except UnicodeDecodeError as error:
+            tail = tail[error.end:]
+    return marker + tail_text, True
+
+
 @dataclass(frozen=True)
 class Row:
     suite: str
@@ -158,6 +181,8 @@ def run_bounded_process(
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     try:
         output, _ = process.communicate(timeout=timeout_seconds)
@@ -171,17 +196,7 @@ def run_bounded_process(
         except (OSError, ValueError):
             output = error.output
         raw = output if output is not None else error.output
-        if raw is None:
-            raw_bytes = b""
-        elif isinstance(raw, str):
-            raw_bytes = raw.encode("utf-8", errors="replace")
-        else:
-            raw_bytes = raw
-        truncated = len(raw_bytes) > MAX_TIMEOUT_OUTPUT_BYTES
-        if truncated:
-            marker = b"[timeout output truncated; showing final bytes]\n"
-            raw_bytes = marker + raw_bytes[-(MAX_TIMEOUT_OUTPUT_BYTES - len(marker)):]
-        excerpt = raw_bytes.decode("utf-8", errors="replace")
+        excerpt, truncated = bounded_timeout_excerpt(raw)
         raise BoundedProcessTimeout(
             command, timeout_seconds, excerpt, truncated
         ) from error

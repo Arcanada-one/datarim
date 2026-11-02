@@ -374,6 +374,25 @@ PY
     return 1
 }
 
+@test "customer-delivery timeout excerpt stays byte-bounded after UTF-8 replacement" {
+    local result="$BATS_TEST_TMPDIR/multibyte-result.json" output_bytes
+    make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 10; exit 0; fi; /usr/bin/python3 -c 'import sys; sys.stdout.buffer.write(bytes([128]) * 30000); print(\"MULTIBYTE-STOP-MARKER\")'; (trap '' TERM; sleep 30) & wait"
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
+        --suite functional --shard 1/38 --bats-bin "$CHILD" --timeout-seconds 1 \
+        --platform linux --result-file "$result"
+    output_bytes="$(printf '%s' "$output" | wc -c)"
+    [ "$status" -eq 124 ] \
+        && [[ "$output" == *"MULTIBYTE-STOP-MARKER"* ]] \
+        && [[ "$output" == *"timeout output limit: 65536 bytes"* ]] \
+        && [ "$output_bytes" -lt 67000 ] \
+        || { printf 'multibyte_timeout_status=%s output_bytes=%s output=%s\n' "$status" "$output_bytes" "$output"; return 1; }
+    "$PYTHON" - "$result" <<'PY' || return 1
+import json,pathlib,sys
+record=json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert record == {"suite":"functional","shard":"1/38","status":"timed_out","exit_code":124,"phase":"shard"}
+PY
+}
+
 @test "customer-delivery authoritative count timeout kills descendants and returns structured 124" {
     local pid_file="$BATS_TEST_TMPDIR/count-descendant.pid" descendant attempt started elapsed result="$BATS_TEST_TMPDIR/count-result.json"
     make_bats_child "if [ \"\${1:-}\" = --count ]; then (trap '' TERM; sleep 30) & printf '%s\\n' \"\$!\" > '$pid_file'; wait; fi; exit 17"
