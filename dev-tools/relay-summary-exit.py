@@ -14,7 +14,7 @@ MAX_INPUT_BYTES = 64 * 1024
 READ_CHUNK_BYTES = 8192
 MAX_SCHEMA_ID_CHARS = 128
 SCHEMA_ID_RE = re.compile(
-    r"(?:D|d)atarim(?:[A-Za-z0-9]+|[._-][A-Za-z0-9]+)*/v[1-9][0-9]*",
+    r"(?:D|d)atarim(?:[A-Za-z0-9]+|[._-][A-Za-z0-9]+)(?:[._-][A-Za-z0-9]+)*/v[1-9][0-9]*",
     re.ASCII,
 )
 

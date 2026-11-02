@@ -554,7 +554,7 @@ PY
 @test "customer-delivery aggregate rejects an extra result" {
     local results="$BATS_TEST_TMPDIR/results"
     seed_results linux "$results" || return 1
-    printf '%s\n' '{"suite":"foreign","shard":"1/1"}' >"$results/extra.json"
+    printf '%s\n' '{"suite":"foreign","shard":"1/1","status":"passed","exit_code":0,"phase":"shard"}' >"$results/extra.json"
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
     [ "$status" -eq 2 ] && [[ "$output" == *"result inventory mismatch: extra"* ]]
 }

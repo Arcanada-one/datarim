@@ -201,6 +201,23 @@ PY
         capture_cli --expected-schema 'datarim.live-evidence-summary/v1' && assert_capture 1 ''
 }
 
+@test "maximum-length schema identifier is accepted without changing its grammar" {
+    local boundary_schema
+    boundary_schema="Datarim$(printf '%0118d' 0)/v1"
+    [ "${#boundary_schema}" -eq 128 ] || return 1
+    write_input "{\"schema\":\"$boundary_schema\",\"exit_code\":0}" &&
+        capture_cli --expected-schema "$boundary_schema" && assert_capture 0 ''
+}
+
+@test "long invalid schema identifier is refused within the schema length limit" {
+    local invalid_schema
+    invalid_schema="Datarim$(printf '%0118d' 0)/v0"
+    [ "${#invalid_schema}" -eq 128 ] || return 1
+    write_input '{"schema":"DatarimTestSummary/v1","exit_code":0}' &&
+        capture_cli --expected-schema "$invalid_schema" &&
+        assert_capture 2 'ERROR: INVALID_EXPECTED_SCHEMA'
+}
+
 @test "boolean exit code is refused with a fixed label" {
     write_input '{"schema":"DatarimTestSummary/v1","exit_code":true}' &&
         capture_cli --expected-schema "$SCHEMA" && assert_capture 2 'ERROR: INVALID_SUMMARY'
