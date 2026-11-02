@@ -277,21 +277,13 @@ SH
         && assert_case_immutable
 }
 
-@test "missing-heading no-summary output matches the frozen parent" {
-    write_init_task TEST-0001 missing-brief
-    local parent_check="$WORK/parent-check-init-task-presence.sh"
-    git -C "$REPO_ROOT" show 1b666d32898e7c404afb62fa8d022e1e8dab0201:dev-tools/check-init-task-presence.sh > "$parent_check"
-    chmod 700 "$parent_check"
-
-    CLI_CHECK_OVERRIDE="$parent_check" invoke_cli parent-no-summary --task TEST-0001 --root "$WORK"
-    local parent_status="$CASE_STATUS" parent_out="$WORK/parent.stdout" parent_err="$WORK/parent.stderr"
-    cp "$CASE_OUT" "$parent_out"
-    cp "$CASE_ERR" "$parent_err"
-    assert_case_immutable \
-        && CLI_CHECK_OVERRIDE="$CHECK" invoke_cli current-no-summary --task TEST-0001 --root "$WORK" \
-        && [ "$parent_status" -eq 1 ] \
-        && [ "$CASE_STATUS" -eq "$parent_status" ] \
-        && cmp -s "$parent_out" "$CASE_OUT" \
-        && cmp -s "$parent_err" "$CASE_ERR" \
-        && assert_case_immutable
+@test "missing-heading no-summary output matches the frozen contract" {
+    write_init_task TEST-0001 missing-brief || return 1
+    local expected_err="$WORK/expected.stderr"
+    invoke_cli current-no-summary --task TEST-0001 --root "$WORK" || return 1
+    [ "$CASE_STATUS" -eq 1 ] || return 1
+    [ ! -s "$CASE_OUT" ] || return 1
+    printf "ERROR: %s: missing required heading '## Operator brief (verbatim)'\n" "$FIXTURE_PATH" > "$expected_err" || return 1
+    cmp -s "$expected_err" "$CASE_ERR" || return 1
+    assert_case_immutable || return 1
 }
