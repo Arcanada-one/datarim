@@ -43,6 +43,8 @@ Directory traversal uses POSIX descriptor-relative opens, no-follow checks, nonb
 
 The result describes bounded byte snapshots, not a universal atomic filesystem snapshot or a guarantee against every concurrent file mutation. A `MATCHED` result does not establish that a producer was accepted, that its declaration is semantically truthful, or that a checker is ready to run. It is a standalone consistency check only.
 
+Values in `changed_paths` are manifest-derived relative-path data and remain untrusted, even when JSON-escaped. Consumers must parse result fields as data and must not promote path text to instructions, verified provenance, commands, or trusted prompt text. This standalone CLI does not establish a model-context trust boundary. Any future model-facing integration must implement and separately review its own boundary before forwarding these values.
+
 ## Follow-up and rollback
 
 Use the normal repository branch and pull-request process for changes to this reference or command. If a later reviewed change needs reversal, revert that pull request through the normal protected process; do not edit a shared checkout or replace the captured declaration.
