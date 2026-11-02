@@ -201,6 +201,29 @@ PY
         capture_cli --expected-schema 'datarim.live-evidence-summary/v1' && assert_capture 1 ''
 }
 
+@test "bare upper- and lowercase Datarim schema prefixes are accepted" {
+    write_input '{"schema":"Datarim/v1","exit_code":0}' &&
+        capture_cli --expected-schema 'Datarim/v1' && assert_capture 0 '' || return 1
+    write_input '{"schema":"datarim/v1","exit_code":1}' &&
+        capture_cli --expected-schema 'datarim/v1' && assert_capture 1 ''
+}
+
+@test "alphanumeric and separated schema components are accepted" {
+    write_input '{"schema":"DatarimA9/v12","exit_code":0}' &&
+        capture_cli --expected-schema 'DatarimA9/v12' && assert_capture 0 '' || return 1
+    write_input '{"schema":"Datarim.foo-bar_baz/v1","exit_code":1}' &&
+        capture_cli --expected-schema 'Datarim.foo-bar_baz/v1' && assert_capture 1 ''
+}
+
+@test "doubled and trailing schema separators are refused" {
+    write_input '{"schema":"DatarimTestSummary/v1","exit_code":0}' &&
+        capture_cli --expected-schema 'Datarim.foo--bar/v1' &&
+        assert_capture 2 'ERROR: INVALID_EXPECTED_SCHEMA' || return 1
+    write_input '{"schema":"DatarimTestSummary/v1","exit_code":0}' &&
+        capture_cli --expected-schema 'Datarim.foo-/v1' &&
+        assert_capture 2 'ERROR: INVALID_EXPECTED_SCHEMA'
+}
+
 @test "maximum-length schema identifier is accepted without changing its grammar" {
     local boundary_schema
     boundary_schema="Datarim$(printf '%0118d' 0)/v1"
