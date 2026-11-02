@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CLI Input Manifest Summary",
+  "description": "Portable structural contract for DatarimCliInputManifest/v1 output. The producer remains the source of inventory behavior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "result",
+    "exit_code",
+    "diagnostic_codes",
+    "file_count",
+    "file_count_status",
+    "files"
+  ],
+  "properties": {
+    "schema": {
+      "const": "DatarimCliInputManifest/v1"
+    },
+    "result": {
+      "enum": ["COMPLETE", "INPUT_REFUSED"]
+    },
+    "exit_code": {
+      "type": "integer",
+      "enum": [0, 2]
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": {
+        "const": "INPUT_MANIFEST_REFUSED"
+      },
+      "uniqueItems": true
+    },
+    "file_count": {
+      "type": ["integer", "null"]
+    },
+    "file_count_status": {
+      "enum": ["MEASURED", "NOT_MEASURED"]
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["relative_path", "sha256", "byte_count"],
+        "properties": {
+          "relative_path": {
+            "type": "string",
+            "pattern": "^(?!/)(?![\\s\\S]*//)(?![\\s\\S]*/$(?![\\s\\S]))(?![\\s\\S]*(?:^|/)(?:\\.|\\.\\.)(?:/|$(?![\\s\\S])))(?![\\s\\S]*\\u0000)[\\s\\S]+$(?![\\s\\S])"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+          },
+          "byte_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1048576
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "result": { "const": "COMPLETE" }
+        },
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": { "const": 0 },
+          "diagnostic_codes": { "const": [] },
+          "file_count": { "type": "integer", "minimum": 1, "maximum": 64 },
+          "file_count_status": { "const": "MEASURED" },
+          "files": { "minItems": 1, "maxItems": 64 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "result": { "const": "INPUT_REFUSED" }
+        },
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": { "const": 2 },
+          "diagnostic_codes": { "const": ["INPUT_MANIFEST_REFUSED"] },
+          "file_count": { "const": null },
+          "file_count_status": { "const": "NOT_MEASURED" },
+          "files": { "const": [] }
+        }
+      }
+    }
+  ]
+}
