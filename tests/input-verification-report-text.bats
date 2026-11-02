@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 import pathlib
+from decimal import Decimal, localcontext
 import sys
 
 root = pathlib.Path(sys.argv[1])
@@ -38,6 +39,11 @@ refused = {
     "diagnostic_codes": ["INPUT_MANIFEST_VERIFICATION_REFUSED"],
     "file_count": None, "file_count_status": "NOT_MEASURED", "changed_paths": [],
 }
+with localcontext() as context:
+    context.prec = 40
+    float_rounded_fraction = str(Decimal(2) + Decimal(1).scaleb(-16))
+if Decimal(float_rounded_fraction) == Decimal(2) or not float(float_rounded_fraction).is_integer():
+    raise SystemExit("precision fixture must be fractional in Decimal and integral as float")
 cases = {
     "matched.json": json.dumps(matched),
     "changed-hostile.json": json.dumps(changed, ensure_ascii=False),
@@ -58,6 +64,8 @@ cases = {
         '"changed_paths":[' + '[' * 1200 + '0' + ']' * 1200 + ']}',
     "decimal-count.json": json.dumps({**matched, "file_count": 1.0}),
     "fractional-count.json": json.dumps(matched).replace('"file_count": 3', '"file_count": 2.1e-1'),
+    "float-rounded-fractional-count.json": json.dumps(matched).replace(
+        '"file_count": 3', f'"file_count": {float_rounded_fraction}'),
     "invalid-path.json": json.dumps({**changed, "changed_paths": ["../outside"]}),
     "unsorted-paths.json": json.dumps({**changed, "file_count": 2,
         "changed_paths": ["z/file", "a/file"]}),
@@ -160,6 +168,23 @@ PY
 
 @test "fractional decimal count is refused without rounding" {
   run --separate-stderr python3 "$SCRIPT" < "$FIXTURE_DIR/fractional-count.json"
+  [ "$status" -eq 2 ] && [[ -z "$output" ]] && [[ "$stderr" == "INPUT_VERIFICATION_FORMAT_REFUSED" ]]
+}
+
+@test "fractional decimal count that binary float rounds to an integer is refused exactly" {
+  run python3 - "$FIXTURE_DIR/float-rounded-fractional-count.json" <<'PY'
+import json
+import pathlib
+import sys
+from decimal import Decimal
+
+text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+value = json.loads(text, parse_float=Decimal)["file_count"]
+assert value != value.to_integral_value()
+assert float(value).is_integer()
+PY
+  [ "$status" -eq 0 ] || return 1
+  run --separate-stderr python3 "$SCRIPT" < "$FIXTURE_DIR/float-rounded-fractional-count.json"
   [ "$status" -eq 2 ] && [[ -z "$output" ]] && [[ "$stderr" == "INPUT_VERIFICATION_FORMAT_REFUSED" ]]
 }
 
