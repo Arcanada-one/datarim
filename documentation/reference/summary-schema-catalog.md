@@ -11,6 +11,8 @@ python3 dev-tools/list-summary-schemas.py --root /path/to/checkout
 
 The default root is the repository parent of the script. The catalog reads only immediate `*.schema.json` entries in `documentation/reference/schemas/`. It does not recurse, follow symlinked schema directories or files, access network references, or invoke a schema validator.
 
+Before opening the root, the command requires POSIX directory-relative operations and the `O_DIRECTORY`, `O_NOFOLLOW`, and `O_NONBLOCK` flags. If any required primitive is unavailable, it returns `SCHEMA_DIRECTORY_UNAVAILABLE`; it never substitutes a weaker open. For each matching name, it checks the entry type without following symlinks before opening it. A FIFO or other non-regular entry is refused as `SCHEMA_INPUT_REFUSED` without opening its contents. A regular file is opened relative to the held directory descriptor with no-follow and nonblocking flags, then its opened device and inode are checked against the pre-open entry. A replacement or symlink race is refused without partial output. These checks do not guarantee that every filesystem operation returns promptly or provide an atomic snapshot of a concurrently changing namespace.
+
 ## Output
 
 The command writes one JSON object with exactly seven top-level fields:
