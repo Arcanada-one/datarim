@@ -70,14 +70,15 @@ def main():
         hook_cfg['api']['retries'] = 0
         hook_cfg['api']['base_url'] = 'invalid:offline-canary'
         settings.write_text(json.dumps(hook_cfg))
-        for index, client in enumerate(('claude', 'codex', 'cursor')):
+        for index, client in enumerate(('antigravity', 'claude', 'codex', 'cursor')):
             delivery_id = f'{index + 1:032x}'
             context = json.dumps({'delivery_id': delivery_id, 'client': client})
             with mock.patch.dict(os.environ, env):
                 cache = prompt_cache.save('Synthetic review', decision)
             child_env = dict(os.environ, **env, JEV_PROMPT_CACHE=str(cache), JEV_EVENT_CONTEXT=context,
                              TYPESAFE_API_KEY='', TYPESAFE_API_KEY_FILE=str(root/'absent-key'))
-            event = 'beforeSubmitPrompt' if client == 'cursor' else 'UserPromptSubmit'
+            event = ('beforeSubmitPrompt' if client == 'cursor'
+                     else 'PreInvocation' if client == 'antigravity' else 'UserPromptSubmit')
             with mock.patch.object(jev_hook, 'environment', return_value=(child_env, root)):
                 output = jev_hook.run(client, event, {'prompt': 'Synthetic review'})
             rows = ledger.read_events(config)
@@ -91,7 +92,7 @@ def main():
         print(json.dumps({'schema': 'JevProvenanceCanary/v1', 'result': 'PASS',
                           'provider_calls': 0, 'real_model_calls': 0, 'runtime': 'synthetic CLI subprocess',
                           'deferred_then_dispatched': True, 'applied_switches': counts['applied'],
-                          'hook_clients': 3, 'cached_request_identity_preserved': True,
+                          'hook_clients': 4, 'cached_request_identity_preserved': True,
                           'cursor_unsupported_advice_not_counted': True}))
     return 0
 

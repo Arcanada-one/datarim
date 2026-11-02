@@ -706,7 +706,176 @@ class CursorRuntime(CodexRuntime):
         return False, {'reason': 'cursor_effort_not_supported'}
 
 
-REGISTRY = {"claude": ClaudeRuntime, "codex": CodexRuntime, "cursor": CursorRuntime}
+# ---------------------------------------------------------------------------
+# Antigravity (agy)
+# ---------------------------------------------------------------------------
+
+ANTIGRAVITY_TIER_EFFORTS = {
+    'haiku': 'low',
+    'sonnet': 'medium',
+    'opus': 'high',
+}
+
+ANTIGRAVITY_TOOL_MAP = {
+    'read_file': 'Read',
+    'write_file': 'Write',
+    'edit_file': 'Edit',
+    'multi_edit': 'Edit',
+    'run_command': 'Bash',
+    'invoke_subagent': 'Task',
+}
+
+
+def antigravity_tier_settings(tier):
+    """Return (model_or_None, effort) for an Antigravity tier.
+
+    Measured on agy 1.4.10: short aliases (`flash`, `pro`) are rejected by the
+    CLI because available model names depend on the account (`Gemini 4 Argon
+    (Low/Medium/High)`, `Gemini 3.8 Flash (Low/Medium/High)`, `Claude Opus 5.5`,
+    etc.), whereas `--effort low|medium|high` cleanly selects the active model's
+    effort tier (`gemini-4-argon-low`, `-medium`, `-high`). An explicit
+    `DATARIM_ANTIGRAVITY_MODEL_<TIER>` override passes `--model <model>`.
+    """
+    effort = ANTIGRAVITY_TIER_EFFORTS.get(tier, 'medium')
+    model = os.environ.get('DATARIM_ANTIGRAVITY_MODEL_' + tier.upper()) or None
+    return model, effort
+
+
+class AntigravityRuntime(CodexRuntime):
+    """Google Antigravity CLI (`agy`), steered by resume-chaining turns.
+
+    Every turn runs `agy --output-format stream-json [--conversation <id>]
+    [--model <model>] [--effort <low|medium|high>] ... --print <prompt>`.
+    All flags must precede `--print`: measured on agy 1.4.10, placing a flag
+    immediately after `--print` causes `--print` to consume the flag token as
+    its prompt and fail with exit code 2.
+    """
+
+    name = 'antigravity'
+    reports_usage = True
+
+    def __init__(self, tier, **kwargs):
+        kwargs.setdefault('bin_path', resolve_client_binary('antigravity') or 'agy')
+        super().__init__(tier, **kwargs)
+        self._result_seen = False
+        self._result_ok = False
+        self._emitted_text = False
+        self._seen_tool_steps = set()
+
+    def _tier_settings(self, tier):
+        model, effort = antigravity_tier_settings(tier)
+        effort = self._effort_override.get(tier, effort)
+        return model, effort
+
+    def _argv(self, text, *, resume):
+        self._result_seen = self._result_ok = False
+        self._emitted_text = False
+        self._seen_tool_steps = set()
+        model, effort = self._tier_settings(self.tier)
+        args = [self.bin, '--output-format', 'stream-json']
+        if resume:
+            if not self.thread_id:
+                raise RuntimeError_('Antigravity did not report a conversation ID')
+            args += ['--conversation', self.thread_id]
+        if model:
+            args += ['--model', model]
+        if effort:
+            args += ['--effort', effort]
+        args += self.extra_args
+        args += ['--print', text]
+        return args
+
+    def _translate(self, data, gen=None):
+        if not isinstance(data, dict):
+            return []
+        events = []
+        event_kind = data.get('event')
+        if event_kind == 'init':
+            init = data.get('init') if isinstance(data.get('init'), dict) else {}
+            conv = init.get('conversation_id')
+            if isinstance(conv, str) and conv and (gen is None or gen == self._generation):
+                if self.thread_id and self.thread_id != conv:
+                    return [{'kind': 'error', 'message': 'Antigravity changed conversation identity'}]
+                self.thread_id = conv
+                events.append({'kind': 'session', 'id': conv})
+        elif event_kind == 'step_update':
+            step = data.get('step_update') if isinstance(data.get('step_update'), dict) else {}
+            step_idx = step.get('step_index')
+            tool_name = step.get('tool_name')
+            if isinstance(tool_name, str) and tool_name:
+                if step_idx is None or step_idx not in self._seen_tool_steps:
+                    if step_idx is not None:
+                        self._seen_tool_steps.add(step_idx)
+                    events.append({'kind': 'tool', 'name': ANTIGRAVITY_TOOL_MAP.get(tool_name, tool_name)})
+            step_text = step.get('step_text')
+            if isinstance(step_text, str) and step_text and step.get('state') in (None, 3):
+                self._emitted_text = True
+                events.append({'kind': 'text', 'text': step_text})
+        elif event_kind == 'result':
+            res = data.get('result') if isinstance(data.get('result'), dict) else {}
+            conv = res.get('conversation_id')
+            if isinstance(conv, str) and conv and (gen is None or gen == self._generation):
+                if self.thread_id and self.thread_id != conv:
+                    return [{'kind': 'error', 'message': 'Antigravity changed conversation identity'}]
+                if not self.thread_id:
+                    self.thread_id = conv
+                    events.append({'kind': 'session', 'id': conv})
+            if not self._emitted_text and isinstance(res.get('response'), str) and res.get('response'):
+                self._emitted_text = True
+                events.append({'kind': 'text', 'text': res['response']})
+            self._result_seen = True
+            self._result_ok = res.get('status') == 'SUCCESS' and not res.get('error')
+            usage = res.get('usage') if isinstance(res.get('usage'), dict) else {}
+            total = 0
+            for key in ('input_tokens', 'output_tokens', 'thinking_tokens',
+                        'cache_read_tokens', 'cache_write_tokens'):
+                try:
+                    total += int(usage.get(key) or 0)
+                except (TypeError, ValueError):
+                    pass
+            if not total:
+                try:
+                    total = int(usage.get('total_tokens') or 0)
+                except (TypeError, ValueError):
+                    total = 0
+            if total:
+                events.append({'kind': 'usage', 'tokens': total})
+            if not self._result_ok:
+                err = res.get('error') or 'Antigravity result reported failure'
+                events.append({'kind': 'error', 'message': str(err)[:500]})
+        elif event_kind == 'error':
+            err = data.get('error') or 'Antigravity error'
+            events.append({'kind': 'error', 'message': str(err)[:500]})
+        return events
+
+    def _read_stdout(self, proc, q, gen):
+        for line in proc.stdout:
+            line = line.strip()
+            if not line.startswith('{'):
+                continue
+            try:
+                data = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            for event in self._translate(data, gen):
+                q.put(event)
+        proc.wait()
+        with self._lock:
+            if gen == self._generation:
+                self._last_rc = proc.returncode
+        if proc.returncode or not self._result_seen or not self._result_ok:
+            q.put({'kind': 'error', 'message': 'Antigravity exited without a successful terminal result'})
+            q.put({'kind': 'eof'})
+        else:
+            q.put({'kind': 'turn_end', 'cost_usd': None})
+
+
+REGISTRY = {
+    "antigravity": AntigravityRuntime,
+    "claude": ClaudeRuntime,
+    "codex": CodexRuntime,
+    "cursor": CursorRuntime,
+}
 
 
 def agent_search_dirs():
@@ -726,13 +895,15 @@ def _is_executable(path):
 def resolve_client_binary(agent):
     """Resolve a client CLI; honour *_BIN, PATH, then well-known install dirs."""
     default_names = {
+        'antigravity': ('agy',),
         'claude': ('claude',),
         'codex': ('codex',),
         'cursor': ('cursor-agent', 'agent'),
     }.get(agent)
     if not default_names:
         return None
-    override = os.environ.get(agent.upper() + '_BIN')
+    override = os.environ.get(agent.upper() + '_BIN') or (
+        os.environ.get('AGY_BIN') if agent == 'antigravity' else None)
     names = (override,) if override else default_names
     for name in names:
         if not name:

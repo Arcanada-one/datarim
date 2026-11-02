@@ -1,6 +1,6 @@
 # Use Jev on its own, without Datarim
 
-Jev is a routing layer for Claude Code, Codex CLI and Cursor. It does not need
+Jev is a routing layer for Claude Code, Codex CLI, Cursor and Antigravity. It does not need
 Datarim, and installing it does not install Datarim. This page covers the case
 where you want classification and the deterministic safety floor on a machine
 whose projects have nothing to do with the framework.
@@ -43,8 +43,8 @@ Only these paths are created or modified:
 ~/.config/jev/config.json
 ~/.config/jev/installation.json
 ~/.config/jev/credentials/api-key   (created empty, never overwritten)
-~/.claude/settings.json             (merged, see below; likewise ~/.codex/hooks.json, ~/.cursor/hooks.json)
-~/.local/bin/jev jevclaude jevcodex jevcursor
+~/.claude/settings.json             (merged, see below; likewise ~/.codex/hooks.json, ~/.cursor/hooks.json, ~/.gemini/config/hooks.json)
+~/.local/bin/jev jevclaude jevcodex jevcursor jevagy jevantigravity
 ~/.local/share/jev/bin/jev-hook
 ~/.local/share/jev/releases/<sha>/
 ~/.local/state/jev/install-backup-<time>/
@@ -59,7 +59,7 @@ been added, and every other key in the file was unchanged. An upgrade replaces
 the Jev entries only, leaving foreign ones alone.
 
 Add `--home` to install into a different account's home, and
-`--client cursor` if you use Cursor.
+`--client cursor` or `--client antigravity` (or `--client agy`) if you use Cursor or Antigravity.
 
 Pass every client still in use on each install (`--client` is repeatable).
 The installer records the sorted union of this run, the active runtime
@@ -108,6 +108,7 @@ not be read as either pass or fail.
 jevclaude "Review this change"
 jevcodex  "Investigate the failing test"
 jevcursor "Explain this module"
+jevagy    "Trace this request flow"
 jev --agent=codex "Investigate the failing test"     # same thing, long form
 ```
 
@@ -116,6 +117,7 @@ Resume an existing session:
 ```sh
 jevclaude --resume <session-id> "continue"
 jevcodex  --resume <session-id> --effort high "continue"
+jevagy    --conversation <session-id> --effort high "continue"
 ```
 
 Codex `resume` does **not** inherit the model or the reasoning effort — state
@@ -159,6 +161,7 @@ With `full`, each launcher adds the client's own "do not ask" flag:
 | Claude Code | `--dangerously-skip-permissions` |
 | Codex | `--dangerously-bypass-approvals-and-sandbox` |
 | Cursor | `--force --approve-mcps` |
+| Antigravity | `--dangerously-skip-permissions` |
 
 The launcher says so on stderr each time, and `jev doctor` reports
 `"permissions": "full"`. `JEV_PERMISSIONS=full` or `JEV_PERMISSIONS=ask` in
@@ -280,8 +283,8 @@ jev doctor
 
 ### Client executable missing (false negative on non-interactive PATH)
 
-`jev doctor` and the launchers resolve Claude / Codex / Cursor binaries from
-`CLAUDE_BIN` / `CODEX_BIN` / `CURSOR_BIN` when set, then from `PATH`, then from
+`jev doctor` and the launchers resolve Claude / Codex / Cursor / Antigravity binaries from
+`CLAUDE_BIN` / `CODEX_BIN` / `CURSOR_BIN` / `ANTIGRAVITY_BIN` (or `AGY_BIN`) when set, then from `PATH`, then from
 well-known directories: `~/.local/bin`, `~/.npm-global/bin`, and
 `/opt/orca/agent-bin` when that directory exists. Cursor still falls back to
 `agent`. Before starting a client they also prepend those directories to `PATH`

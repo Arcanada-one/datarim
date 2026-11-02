@@ -1,6 +1,6 @@
 # Use host Jev with project-local Datarim
 
-Jev can classify work for Claude Code, Codex, and Cursor across a host without
+Jev can classify work for Claude Code, Codex, Cursor, and Antigravity across a host without
 enabling Datarim globally. Datarim is an optional catalog provider, enabled only
 for explicitly approved project installations. Keep all project instructions
 in `AGENTS.md`; installing Jev does not install global framework instructions.
@@ -13,7 +13,7 @@ at your editable checkout. Replace the example project path with your project.
 
 ```sh
 python3 scripts/jev_host_install.py \
-  --client claude --client codex --client cursor \
+  --client claude --client codex --client cursor --client antigravity \
   --datarim-project /absolute/path/to/project --dry-run
 ```
 
@@ -21,7 +21,7 @@ Review the proposed paths, then repeat without `--dry-run`. Existing unrelated
 hooks are retained. To retire a previous Jev source directory, explicitly add
 `--replace-legacy-root /absolute/path/to/old-source`; only recognized Jev hook
 commands under that directory are replaced. No shell startup file is changed.
-The four launchers are written to `~/.local/bin`, which must be on your PATH.
+The launchers (`jev`, `jevclaude`, `jevcodex`, `jevcursor`, `jevagy`, `jevantigravity`) are written to `~/.local/bin`, which must be on your PATH.
 
 The installer records a private backup and reports its path. Native Codex hook
 definitions require review through `/hooks` in a fresh Codex session; the
@@ -82,6 +82,7 @@ For a server that should have project-only Jev, omit `--host-jev` and follow the
 jevcodex "Review this change"
 jevclaude "Implement the documented plan"
 jevcursor "Investigate this failure"
+jevagy "Review this change"
 jev --agent=codex "Review this change"
 jev --agent=claude --live --max-turns 4 "Implement the documented plan"
 ```

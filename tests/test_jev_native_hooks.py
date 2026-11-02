@@ -94,14 +94,38 @@ class NativeHookTests(unittest.TestCase):
         self.assertEqual(len(received), 6)
 
     def test_floor_survives_missing_context_for_every_vendor(self):
-        for client in ('claude', 'codex', 'cursor'):
+        for client in ('antigravity', 'claude', 'codex', 'cursor'):
             event = 'beforeShellExecution' if client == 'cursor' else 'PreToolUse'
-            payload = {'command': 'rm -rf /'} if client == 'cursor' else {
-                'tool_name': 'Bash', 'tool_input': {'command': 'rm -rf /'}}
+            if client == 'cursor':
+                payload = {'command': 'rm -rf /'}
+            elif client == 'antigravity':
+                payload = {'toolCall': {'name': 'run_command', 'arguments': {'CommandLine': 'rm -rf /'}}}
+            else:
+                payload = {'tool_name': 'Bash', 'tool_input': {'command': 'rm -rf /'}}
             with self.subTest(client=client), patch.object(jev_hook, 'environment', side_effect=AssertionError):
                 output = jev_hook.run(client, event, payload)
-            self.assertEqual(output['permission'] if client == 'cursor' else
-                             output['hookSpecificOutput']['permissionDecision'], 'deny')
+            decision = (output['permission'] if client == 'cursor' else
+                        output['decision'] if client == 'antigravity' else
+                        output['hookSpecificOutput']['permissionDecision'])
+            self.assertEqual(decision, 'deny')
+
+    def test_antigravity_normalization_and_native_output(self):
+        name, value = jev_hook.normalize('antigravity', 'PreInvocation', {
+            'conversationId': 'conv-1', 'stepIdx': 3, 'lastUserInput': 'Inspect the repo',
+            'workspacePaths': ['/tmp']})
+        self.assertEqual(name, 'UserPromptSubmit')
+        self.assertEqual(value['session_id'], 'conv-1')
+        self.assertEqual(value['turn_id'], 3)
+        self.assertEqual(value['prompt'], 'Inspect the repo')
+        self.assertEqual(jev_hook.workdir(value), Path('/tmp').resolve())
+        out = jev_hook.native_output('antigravity', 'PreInvocation',
+                                     {'hookSpecificOutput': {'additionalContext': 'JEV ROUTING ADVICE'}})
+        self.assertEqual(out, {'injectSteps': [{'ephemeralMessage': 'JEV ROUTING ADVICE'}]})
+        with patch.object(jev_hook, 'environment', side_effect=ValueError('no context')):
+            self.assertEqual(jev_hook.run('antigravity', 'PreToolUse', {
+                'toolCall': {'name': 'run_command', 'arguments': {'CommandLine': 'git status'}}}),
+                {'decision': 'allow'})
+        self.assertEqual(jev_hook.native_output('antigravity', 'PostToolUse', {}), {})
 
     def test_patch_text_is_not_interpreted_as_a_shell_command(self):
         with patch.object(jev_hook, 'environment', side_effect=ValueError('no context')):
