@@ -40,6 +40,7 @@ run_verify() {
   local raw="$case_dir/stdout.raw"
   local err="$case_dir/stderr.raw"
   local input="$case_dir/manifest.stdin"
+  local marker="$case_dir/recursion-injected.marker"
   mkdir -p "$case_dir/fixture"
   cp -a "$FIXTURE_ROOT/." "$case_dir/fixture/"
   printf '%s\n' "$manifest" > "$input"
@@ -48,7 +49,7 @@ run_verify() {
   local test_source="$BATS_TEST_DIRNAME/cli-input-manifest-verify.bats"
   local started pid ended exit_code fixture_before source_before test_before input_sha
   local fixture_after source_after test_after input_after fixture_copy_before fixture_copy_after
-  local read_counter='' read_counter_sha=''
+  local read_counter='' read_counter_sha='' marker_sha=''
   fixture_before=$(cd "$FIXTURE_ROOT" && find . -type f -print0 | sort -z | xargs -0 sha256sum)
   fixture_copy_before=$(cd "$case_dir/fixture" && find . -type f -print0 | sort -z | xargs -0 sha256sum)
   [[ "$fixture_before" == "$fixture_copy_before" ]]
@@ -60,8 +61,13 @@ run_verify() {
   if [[ -f "$case_dir/instrument/sitecustomize.py" ]]; then
     read_counter="$case_dir/read-counts.raw"
     : > "$read_counter"; chmod 600 "$read_counter"
-    D5_READ_ROOT="$FIXTURE_ROOT" D5_READ_COUNTER_FILE="$read_counter" D5_GROW_PATH="${D5_GROW_PATH:-}" PYTHONPATH="$case_dir/instrument" \
-      python3 "$source" --root "$FIXTURE_ROOT" < "$input" >"$raw" 2>"$err" &
+    if [[ "${D5_FORCE_RECURSION:-}" == 1 ]]; then
+      D5_READ_ROOT="$FIXTURE_ROOT" D5_READ_COUNTER_FILE="$read_counter" D5_GROW_PATH="${D5_GROW_PATH:-}" D5_RECURSION_MARKER="$marker" PYTHONPATH="$case_dir/instrument" \
+        python3 "$source" --root "$FIXTURE_ROOT" < "$input" >"$raw" 2>"$err" &
+    else
+      D5_READ_ROOT="$FIXTURE_ROOT" D5_READ_COUNTER_FILE="$read_counter" D5_GROW_PATH="${D5_GROW_PATH:-}" PYTHONPATH="$case_dir/instrument" \
+        python3 "$source" --root "$FIXTURE_ROOT" < "$input" >"$raw" 2>"$err" &
+    fi
   else
     python3 "$source" --root "$FIXTURE_ROOT" < "$input" >"$raw" 2>"$err" &
   fi
@@ -74,10 +80,13 @@ run_verify() {
   test_after=$(sha256sum "$test_source" | cut -d' ' -f1)
   input_after=$(sha256sum "$input" | cut -d' ' -f1)
   if [[ -n "$read_counter" ]]; then read_counter_sha=$(sha256sum "$read_counter" | cut -d' ' -f1); fi
-  python3 - "$case_dir/receipt.json" "$name" "$pid" "$started" "$ended" "$exit_code" "$PWD" "$FIXTURE_ROOT" "$source" "$source_before" "$source_after" "$test_source" "$test_before" "$test_after" "$input" "$input_sha" "$input_after" "$fixture_before" "$fixture_after" "$case_dir/fixture" "$fixture_copy_before" "$fixture_copy_after" "$read_counter" "$read_counter_sha" "${D5_GROW_PATH:-}" <<'PY'
+  if [[ -f "$marker" ]]; then marker_sha=$(sha256sum "$marker" | cut -d' ' -f1); fi
+  python3 - "$case_dir/receipt.json" "$name" "$pid" "$started" "$ended" "$exit_code" "$PWD" "$FIXTURE_ROOT" "$source" "$source_before" "$source_after" "$test_source" "$test_before" "$test_after" "$input" "$input_sha" "$input_after" "$fixture_before" "$fixture_after" "$case_dir/fixture" "$fixture_copy_before" "$fixture_copy_after" "$read_counter" "$read_counter_sha" "${D5_GROW_PATH:-}" "$marker" "$marker_sha" <<'PY'
 import json,os,sys
-(out,name,pid,start,end,code,cwd,root,source,source_before,source_after,test,test_before,test_after,input_path,input_sha,input_after,fixture_before,fixture_after,fixture_copy,fixture_copy_before,fixture_copy_after,read_counter,read_counter_sha,grow_path)=sys.argv[1:]
-value={"case":name,"pid":int(pid),"started_utc":start,"ended_utc":end,"argv":["python3",source,"--root",root],"cwd":cwd,"exit":int(code),"input_path":input_path,"input_sha256_before":input_sha,"input_sha256_after":input_after,"source_path":source,"source_sha256_before":source_before,"source_sha256_after":source_after,"test_path":test,"test_sha256_before":test_before,"test_sha256_after":test_after,"fixture_root":root,"fixture_sha256_before":fixture_before,"fixture_sha256_after":fixture_after,"fixture_evidence_path":fixture_copy,"fixture_evidence_sha256_before":fixture_copy_before,"fixture_evidence_sha256_after":fixture_copy_after,"controlled_growth_path":grow_path or None,"read_counter_path":read_counter or None,"read_counter_sha256":read_counter_sha or None}
+(out,name,pid,start,end,code,cwd,root,source,source_before,source_after,test,test_before,test_after,input_path,input_sha,input_after,fixture_before,fixture_after,fixture_copy,fixture_copy_before,fixture_copy_after,read_counter,read_counter_sha,grow_path,marker,marker_sha)=sys.argv[1:]
+value={"case":name,"pid":int(pid),"started_utc":start,"ended_utc":end,"argv":["python3",source,"--root",root],"cwd":cwd,"exit":int(code),"input_path":input_path,"input_sha256_before":input_sha,"input_sha256_after":input_after,"source_path":source,"source_sha256_before":source_before,"source_sha256_after":source_after,"test_path":test,"test_sha256_before":test_before,"test_sha256_after":test_after,"fixture_root":root,"fixture_sha256_before":fixture_before,"fixture_sha256_after":fixture_after,"fixture_evidence_path":fixture_copy,"fixture_evidence_sha256_before":fixture_copy_before,"fixture_evidence_sha256_after":fixture_copy_after,"controlled_growth_path":grow_path or None,"read_counter_path":read_counter or None,"read_counter_sha256":read_counter_sha or None,"recursion_injection_marker":marker if marker_sha else None,"recursion_marker_sha256":marker_sha or None}
+with open(out,"w",encoding="utf-8") as f: json.dump(value,f,sort_keys=True); f.write("\n")
+os.chmod(out,0o600)
 assert value["pid"] > 0 and value["started_utc"] and value["ended_utc"]
 assert value["input_sha256_before"] == value["input_sha256_after"]
 assert value["source_sha256_before"] == value["source_sha256_after"]
@@ -86,8 +95,6 @@ assert value["fixture_evidence_sha256_before"] == value["fixture_evidence_sha256
 assert value["fixture_sha256_before"] == value["fixture_evidence_sha256_before"]
 if not grow_path:
     assert value["fixture_sha256_before"] == value["fixture_sha256_after"]
-with open(out,"w",encoding="utf-8") as f: json.dump(value,f,sort_keys=True); f.write("\n")
-os.chmod(out,0o600)
 PY
   [[ "$(stat -c '%a' "$raw")" == 600 && "$(stat -c '%a' "$err")" == 600 && "$(stat -c '%a' "$input")" == 600 ]]
   [[ -z "$read_counter" || "$(stat -c '%a' "$read_counter")" == 600 ]]
@@ -105,11 +112,28 @@ import os
 
 _root = os.path.realpath(os.environ["D5_READ_ROOT"]) + os.sep
 _target = os.environ["D5_READ_COUNTER_FILE"]
+_recursion_marker = os.environ.get("D5_RECURSION_MARKER", "")
 _original_read = os.read
 _original_fstat = os.fstat
+_original_json_loads = json.loads
 _grow_path = os.environ.get("D5_GROW_PATH", "")
 _counts = {}
 _grew = False
+_recursion_calls = 0
+
+def _controlled_json_loads(*args, **kwargs):
+    global _recursion_calls
+    if _recursion_marker:
+        _recursion_calls += 1
+        fd = os.open(_recursion_marker, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        try:
+            os.write(fd, (str(_recursion_calls) + "\n").encode("ascii"))
+        finally:
+            os.close(fd)
+        raise RecursionError("controlled JSON decoder exhaustion")
+    return _original_json_loads(*args, **kwargs)
+
+json.loads = _controlled_json_loads
 
 def _counted_read(fd, size):
     data = _original_read(fd, size)
@@ -396,22 +420,27 @@ PY
   [[ ! -s "$VERIFY_ERR" ]]
 }
 
-@test "deeply nested JSON is converted to the fixed bounded refusal" {
-  local nested
-  nested=$(python3 - "$FIXTURE_SHA_A" "$FIXTURE_SIZE_A" <<'PY'
-import sys
-prefix='{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"a.txt","sha256":"%s","byte_count":%s}],"extra":' % tuple(sys.argv[1:])
-print(prefix + '[' * 20000 + '0' + ']' * 20000 + '}')
-PY
-)
-  run_verify nested_json "$nested"
+@test "controlled JSON decoder RecursionError reaches the fixed refusal handler" {
+  write_read_instrumentation recursion_oracle
+  export D5_FORCE_RECURSION=1
+  run_verify recursion_oracle '{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"a.txt","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","byte_count":1}]}'
   assert_profile INPUT_REFUSED 2 NOT_MEASURED
-  python3 - "$VERIFY_RAW" <<'PY'
-import json,sys
-value=json.load(open(sys.argv[1],encoding="utf-8"))
-assert value["diagnostic_codes"] == ["INPUT_MANIFEST_VERIFICATION_REFUSED"]
-assert value["file_count"] is None and value["changed_paths"] == []
+  python3 - "$VERIFY_RAW" "$VERIFY_ERR" "$VERIFY_RECEIPT" "$CLI_INPUT_MANIFEST_EVIDENCE_DIR/recursion_oracle/recursion-injected.marker" <<'PY'
+import hashlib,json,pathlib,sys
+raw_path,err_path,receipt_path,marker_path=map(pathlib.Path,sys.argv[1:])
+value=json.loads(raw_path.read_text(encoding="utf-8"))
+receipt=json.loads(receipt_path.read_text(encoding="utf-8"))
+marker=marker_path.read_bytes()
+assert value == {"schema":"DatarimCliInputManifestVerification/v1","result":"INPUT_REFUSED","exit_code":2,"diagnostic_codes":["INPUT_MANIFEST_VERIFICATION_REFUSED"],"file_count":None,"file_count_status":"NOT_MEASURED","changed_paths":[]}
+assert marker == b"1\n" and marker_path.stat().st_mode & 0o777 == 0o600
+assert receipt["exit"] == 2 and receipt["recursion_injection_marker"] == str(marker_path)
+assert receipt["recursion_marker_sha256"] == hashlib.sha256(marker).hexdigest()
+assert receipt["source_sha256_before"] == receipt["source_sha256_after"]
+assert receipt["test_sha256_before"] == receipt["test_sha256_after"]
+assert receipt["input_sha256_before"] == receipt["input_sha256_after"]
+assert receipt["fixture_sha256_before"] == receipt["fixture_sha256_after"]
+assert receipt["fixture_evidence_sha256_before"] == receipt["fixture_evidence_sha256_after"]
+assert not err_path.read_bytes()
+assert raw_path.read_bytes().endswith(b"\n")
 PY
-  [[ ! -s "$VERIFY_ERR" ]]
-  ! grep -qi 'traceback\|recursionerror' "$VERIFY_RAW"
 }
