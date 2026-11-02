@@ -80,11 +80,12 @@ PY
 run_catalog() {
   local root="$1"
   local label="$2"
-  local case_dir start end source_before source_after input_before input_after pid rc
+  local case_dir start end source_before source_after test_before test_after input_before input_after pid rc
   CASE_NUMBER=$((CASE_NUMBER + 1))
   case_dir="$EVIDENCE_DIR/${BATS_TEST_NUMBER}/${CASE_NUMBER}-${label}"
   mkdir -m 700 "$case_dir"
   source_before="$(sha256sum "$SCRIPT" | cut -d ' ' -f 1)"
+  test_before="$(sha256sum "$TEST_FILE" | cut -d ' ' -f 1)"
   input_before="$(fixture_digest "$root")"
   start="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   (
@@ -95,14 +96,15 @@ run_catalog() {
   if wait "$pid"; then rc=0; else rc=$?; fi
   end="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   source_after="$(sha256sum "$SCRIPT" | cut -d ' ' -f 1)"
+  test_after="$(sha256sum "$TEST_FILE" | cut -d ' ' -f 1)"
   input_after="$(fixture_digest "$root")"
   chmod 600 "$case_dir/stdout.raw" "$case_dir/stderr.raw"
-  python3 - "$case_dir/receipt.json" "$pid" "$start" "$end" "$rc" "$SCRIPT" "$root" "$BATS_TEST_TMPDIR" "$source_before" "$source_after" "$input_before" "$input_after" <<'PY'
+  python3 - "$case_dir/receipt.json" "$pid" "$start" "$end" "$rc" "$SCRIPT" "$root" "$BATS_TEST_TMPDIR" "$source_before" "$source_after" "$TEST_FILE" "$test_before" "$test_after" "$input_before" "$input_after" <<'PY'
 import json
 import os
 import sys
 
-path, pid, started, ended, status, script, root, cwd, source_before, source_after, input_before, input_after = sys.argv[1:]
+path, pid, started, ended, status, script, root, cwd, source_before, source_after, test_file, test_before, test_after, input_before, input_after = sys.argv[1:]
 record = {
     "direct_pid": int(pid),
     "started_utc": started,
@@ -110,10 +112,15 @@ record = {
     "argv": ["python3", script, "--root", root],
     "cwd": cwd,
     "exit_code": int(status),
+    "script": script,
     "stdout_raw": "stdout.raw",
     "stderr_raw": "stderr.raw",
     "source_sha256_before": source_before,
     "source_sha256_after": source_after,
+    "test_file": test_file,
+    "test_sha256_before": test_before,
+    "test_sha256_after": test_after,
+    "fixture_root": root,
     "fixture_manifest_sha256_before": input_before,
     "fixture_manifest_sha256_after": input_after,
 }
