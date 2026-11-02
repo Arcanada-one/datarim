@@ -2,7 +2,9 @@
 
 `dev-tools/list-summary-schemas.py` lists the public JSON Schema files installed in a repository checkout. Use the relative paths to open a schema and its SHA-256 digest to identify the exact bytes in that checkout:
 
-```sh
+```bash
+set -euo pipefail
+IFS=$'\n\t'
 python3 dev-tools/list-summary-schemas.py
 python3 dev-tools/list-summary-schemas.py --root /path/to/checkout
 ```
