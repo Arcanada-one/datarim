@@ -4,6 +4,15 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.10.0] — 2026-11-02
+
+### Added
+
+- Bounded CLI input-manifest workflows now select, verify, hash, compare, merge, inspect conflicts, and format structured or readable diffs.
+- Summary tooling now resolves declared schemas, relays declared exit statuses, and aggregates summary rollups. These outputs report supplied data and do not establish that a producer ran or accepted its result.
+- QA helpers now report init-task presence and preserve diagnostics for append I/O failures.
+
+
 ## [4.9.0] — 2026-10-29
 
 ### Added
