@@ -60,7 +60,7 @@ run_verify() {
   if [[ -f "$case_dir/instrument/sitecustomize.py" ]]; then
     read_counter="$case_dir/read-counts.raw"
     : > "$read_counter"; chmod 600 "$read_counter"
-    D5_READ_ROOT="$FIXTURE_ROOT" D5_READ_COUNTER_FILE="$read_counter" PYTHONPATH="$case_dir/instrument" \
+    D5_READ_ROOT="$FIXTURE_ROOT" D5_READ_COUNTER_FILE="$read_counter" D5_GROW_PATH="${D5_GROW_PATH:-}" PYTHONPATH="$case_dir/instrument" \
       python3 "$source" --root "$FIXTURE_ROOT" < "$input" >"$raw" 2>"$err" &
   else
     python3 "$source" --root "$FIXTURE_ROOT" < "$input" >"$raw" 2>"$err" &
@@ -74,17 +74,18 @@ run_verify() {
   test_after=$(sha256sum "$test_source" | cut -d' ' -f1)
   input_after=$(sha256sum "$input" | cut -d' ' -f1)
   if [[ -n "$read_counter" ]]; then read_counter_sha=$(sha256sum "$read_counter" | cut -d' ' -f1); fi
-  python3 - "$case_dir/receipt.json" "$name" "$pid" "$started" "$ended" "$exit_code" "$PWD" "$FIXTURE_ROOT" "$source" "$source_before" "$source_after" "$test_source" "$test_before" "$test_after" "$input" "$input_sha" "$input_after" "$fixture_before" "$fixture_after" "$case_dir/fixture" "$fixture_copy_before" "$fixture_copy_after" "$read_counter" "$read_counter_sha" <<'PY'
+  python3 - "$case_dir/receipt.json" "$name" "$pid" "$started" "$ended" "$exit_code" "$PWD" "$FIXTURE_ROOT" "$source" "$source_before" "$source_after" "$test_source" "$test_before" "$test_after" "$input" "$input_sha" "$input_after" "$fixture_before" "$fixture_after" "$case_dir/fixture" "$fixture_copy_before" "$fixture_copy_after" "$read_counter" "$read_counter_sha" "${D5_GROW_PATH:-}" <<'PY'
 import json,os,sys
-(out,name,pid,start,end,code,cwd,root,source,source_before,source_after,test,test_before,test_after,input_path,input_sha,input_after,fixture_before,fixture_after,fixture_copy,fixture_copy_before,fixture_copy_after,read_counter,read_counter_sha)=sys.argv[1:]
-value={"case":name,"pid":int(pid),"started_utc":start,"ended_utc":end,"argv":["python3",source,"--root",root],"cwd":cwd,"exit":int(code),"input_path":input_path,"input_sha256_before":input_sha,"input_sha256_after":input_after,"source_path":source,"source_sha256_before":source_before,"source_sha256_after":source_after,"test_path":test,"test_sha256_before":test_before,"test_sha256_after":test_after,"fixture_root":root,"fixture_sha256_before":fixture_before,"fixture_sha256_after":fixture_after,"fixture_evidence_path":fixture_copy,"fixture_evidence_sha256_before":fixture_copy_before,"fixture_evidence_sha256_after":fixture_copy_after,"read_counter_path":read_counter or None,"read_counter_sha256":read_counter_sha or None}
+(out,name,pid,start,end,code,cwd,root,source,source_before,source_after,test,test_before,test_after,input_path,input_sha,input_after,fixture_before,fixture_after,fixture_copy,fixture_copy_before,fixture_copy_after,read_counter,read_counter_sha,grow_path)=sys.argv[1:]
+value={"case":name,"pid":int(pid),"started_utc":start,"ended_utc":end,"argv":["python3",source,"--root",root],"cwd":cwd,"exit":int(code),"input_path":input_path,"input_sha256_before":input_sha,"input_sha256_after":input_after,"source_path":source,"source_sha256_before":source_before,"source_sha256_after":source_after,"test_path":test,"test_sha256_before":test_before,"test_sha256_after":test_after,"fixture_root":root,"fixture_sha256_before":fixture_before,"fixture_sha256_after":fixture_after,"fixture_evidence_path":fixture_copy,"fixture_evidence_sha256_before":fixture_copy_before,"fixture_evidence_sha256_after":fixture_copy_after,"controlled_growth_path":grow_path or None,"read_counter_path":read_counter or None,"read_counter_sha256":read_counter_sha or None}
 assert value["pid"] > 0 and value["started_utc"] and value["ended_utc"]
 assert value["input_sha256_before"] == value["input_sha256_after"]
 assert value["source_sha256_before"] == value["source_sha256_after"]
 assert value["test_sha256_before"] == value["test_sha256_after"]
-assert value["fixture_sha256_before"] == value["fixture_sha256_after"]
 assert value["fixture_evidence_sha256_before"] == value["fixture_evidence_sha256_after"]
 assert value["fixture_sha256_before"] == value["fixture_evidence_sha256_before"]
+if not grow_path:
+    assert value["fixture_sha256_before"] == value["fixture_sha256_after"]
 with open(out,"w",encoding="utf-8") as f: json.dump(value,f,sort_keys=True); f.write("\n")
 os.chmod(out,0o600)
 PY
@@ -105,7 +106,10 @@ import os
 _root = os.path.realpath(os.environ["D5_READ_ROOT"]) + os.sep
 _target = os.environ["D5_READ_COUNTER_FILE"]
 _original_read = os.read
+_original_fstat = os.fstat
+_grow_path = os.environ.get("D5_GROW_PATH", "")
 _counts = {}
+_grew = False
 
 def _counted_read(fd, size):
     data = _original_read(fd, size)
@@ -119,11 +123,27 @@ def _counted_read(fd, size):
 
 os.read = _counted_read
 
+def _grow_after_snapshot(fd):
+    global _grew
+    snapshot = _original_fstat(fd)
+    if _grow_path and not _grew:
+        try:
+            path = os.readlink(f"/proc/self/fd/{fd}")
+        except OSError:
+            return snapshot
+        if path == _root + _grow_path:
+            with open(path, "ab") as stream:
+                stream.write(b"\x00")
+            _grew = True
+    return snapshot
+
+os.fstat = _grow_after_snapshot
+
 @atexit.register
 def _persist_counts():
     fd = os.open(_target, os.O_WRONLY | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as stream:
-        json.dump({"reads": _counts, "total_bytes": sum(_counts.values())}, stream, sort_keys=True)
+        json.dump({"reads": _counts, "total_bytes": sum(_counts.values()), "grew_after_fstat": _grew, "growth_path": _grow_path or None}, stream, sort_keys=True)
         stream.write("\n")
 PY
   chmod 600 "$case_dir/instrument/sitecustomize.py"
@@ -288,6 +308,90 @@ assert result["diagnostic_codes"] == ["INPUT_MANIFEST_VERIFICATION_REFUSED"]
 assert counter["total_bytes"] == 16 * 1024 * 1024
 assert counter["reads"].get(extra,0) == 0
 assert receipt["read_counter_sha256"] and receipt["fixture_evidence_path"]
+PY
+  [[ ! -s "$VERIFY_ERR" ]]
+}
+
+@test "F2 refuses post-fstat growth at the per-file payload cap after one detector byte" {
+  head -c 1048576 /dev/zero > "$FIXTURE_ROOT/a.txt"
+  FIXTURE_SHA_A=$(sha256sum "$FIXTURE_ROOT/a.txt" | cut -d' ' -f1)
+  FIXTURE_SIZE_A=1048576
+  write_read_instrumentation f2_per_file_growth
+  export D5_GROW_PATH=a.txt
+  run_verify f2_per_file_growth "$(manifest_one)"
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" "$FIXTURE_ROOT/a.txt" "$CLI_INPUT_MANIFEST_EVIDENCE_DIR/f2_per_file_growth/fixture/a.txt" <<'PY'
+import json,pathlib,sys
+raw,counter_path,receipt_path,fixture,evidence=map(pathlib.Path,sys.argv[1:])
+result=json.loads(raw.read_text())
+counter=json.loads(counter_path.read_text())
+receipt=json.loads(receipt_path.read_text())
+assert result["diagnostic_codes"] == ["INPUT_MANIFEST_VERIFICATION_REFUSED"]
+assert counter["grew_after_fstat"] is True and counter["growth_path"] == "a.txt"
+assert counter["total_bytes"] == 1024 * 1024 + 1
+assert sum(counter["reads"].values()) == counter["total_bytes"]
+assert [n for path,n in counter["reads"].items() if path.endswith("/a.txt")] == [1024 * 1024 + 1]
+assert evidence.read_bytes() == b"\x00" * (1024 * 1024)
+assert fixture.read_bytes() == evidence.read_bytes() + b"\x00"
+assert receipt["fixture_sha256_before"] == receipt["fixture_evidence_sha256_before"]
+assert receipt["fixture_evidence_sha256_before"] == receipt["fixture_evidence_sha256_after"]
+assert receipt["input_sha256_before"] == receipt["input_sha256_after"]
+assert receipt["source_sha256_before"] == receipt["source_sha256_after"]
+assert receipt["test_sha256_before"] == receipt["test_sha256_after"]
+PY
+  [[ ! -s "$VERIFY_ERR" ]]
+}
+
+@test "F2 refuses post-fstat growth at the aggregate payload cap after one detector byte" {
+  prepare_aggregate_fixture
+  write_read_instrumentation f2_aggregate_growth
+  export D5_GROW_PATH=part-16.bin
+  local manifest
+  manifest=$(manifest_all)
+  run_verify f2_aggregate_growth "$manifest"
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" "$FIXTURE_ROOT/part-16.bin" "$CLI_INPUT_MANIFEST_EVIDENCE_DIR/f2_aggregate_growth/fixture/part-16.bin" <<'PY'
+import json,pathlib,sys
+raw,counter_path,receipt_path,fixture,evidence=map(pathlib.Path,sys.argv[1:])
+result=json.loads(raw.read_text())
+counter=json.loads(counter_path.read_text())
+receipt=json.loads(receipt_path.read_text())
+assert result["diagnostic_codes"] == ["INPUT_MANIFEST_VERIFICATION_REFUSED"]
+assert counter["grew_after_fstat"] is True and counter["growth_path"] == "part-16.bin"
+assert counter["total_bytes"] == 16 * 1024 * 1024 + 1
+assert sum(counter["reads"].values()) == counter["total_bytes"]
+assert [n for path,n in counter["reads"].items() if path.endswith("/part-16.bin")] == [1024 * 1024 + 1]
+assert evidence.read_bytes() == b"\x00" * (1024 * 1024)
+assert fixture.read_bytes() == evidence.read_bytes() + b"\x00"
+assert receipt["fixture_sha256_before"] == receipt["fixture_evidence_sha256_before"]
+assert receipt["fixture_evidence_sha256_before"] == receipt["fixture_evidence_sha256_after"]
+assert receipt["input_sha256_before"] == receipt["input_sha256_after"]
+assert receipt["source_sha256_before"] == receipt["source_sha256_after"]
+assert receipt["test_sha256_before"] == receipt["test_sha256_after"]
+PY
+  [[ ! -s "$VERIFY_ERR" ]]
+}
+
+@test "F2 accepts an exact sixteen mebibyte payload and measures EOF at the boundary" {
+  prepare_aggregate_fixture
+  write_read_instrumentation f2_aggregate_exact
+  unset D5_GROW_PATH
+  run_verify f2_aggregate_exact "$(manifest_all)"
+  assert_profile MATCHED 0 MEASURED
+  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" <<'PY'
+import json,sys
+result=json.load(open(sys.argv[1],encoding="utf-8"))
+counter=json.load(open(sys.argv[2],encoding="utf-8"))
+receipt=json.load(open(sys.argv[3],encoding="utf-8"))
+assert result["file_count"] == 16 and result["changed_paths"] == []
+assert counter["total_bytes"] == 16 * 1024 * 1024
+assert len(counter["reads"]) == 16 and all(n == 1024 * 1024 for n in counter["reads"].values())
+assert counter["grew_after_fstat"] is False
+assert receipt["input_sha256_before"] == receipt["input_sha256_after"]
+assert receipt["source_sha256_before"] == receipt["source_sha256_after"]
+assert receipt["test_sha256_before"] == receipt["test_sha256_after"]
+assert receipt["fixture_sha256_before"] == receipt["fixture_sha256_after"]
+assert receipt["fixture_evidence_sha256_before"] == receipt["fixture_evidence_sha256_after"]
 PY
   [[ ! -s "$VERIFY_ERR" ]]
 }

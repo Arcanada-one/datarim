@@ -191,13 +191,17 @@ def _read_selected(root_fd: int, path: str, remaining_total: int) -> bytes:
             ):
                 raise Refused
             chunks: list[bytes] = []
-            remaining = read_limit
-            while remaining:
-                chunk = os.read(fd, min(65536, remaining))
+            actual_read = 0
+            while actual_read <= read_limit:
+                # Count the EOF detector as actual usage and refuse at once
+                # when it observes data beyond the accepted payload bound.
+                chunk = os.read(fd, min(65536, read_limit + 1 - actual_read))
                 if not chunk:
                     break
                 chunks.append(chunk)
-                remaining -= len(chunk)
+                actual_read += len(chunk)
+                if actual_read > read_limit:
+                    raise Refused
             data = b"".join(chunks)
             return data
         except OSError:
