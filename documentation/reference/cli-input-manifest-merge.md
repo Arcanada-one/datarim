@@ -18,6 +18,8 @@ Pass the saved manifests through standard input; the utility accepts no path or 
 
 ```bash
 set -euo pipefail
+# Keep shell word splitting limited to newline and tab; quote each command argument.
+IFS=$'\n\t'
 python3 dev-tools/merge-cli-input-manifests.py < saved-manifests.json > merged-manifest.json
 ```
 
@@ -28,8 +30,11 @@ The shell redirections name the caller's input and output files. The merger itse
 Make follow-up changes through the repository's normal branch and pull-request process. Before a rollback, initialize and validate the intended full commit SHA against the reviewed change and current repository state; quote it when using Git so it remains one argument:
 
 ```bash
+set -euo pipefail
+IFS=$'\n\t'
 rollback_sha='0123456789abcdef0123456789abcdef01234567'
+[[ "$rollback_sha" =~ ^[0-9a-f]{40}$ ]] || { printf '%s\n' 'Set rollback_sha to the reviewed full commit SHA.' >&2; exit 2; }
 git rev-parse --verify "${rollback_sha}^{commit}"
 ```
 
-The example SHA is a placeholder, not a rollback target. Do not copy it as an operational value.
+The example SHA is a placeholder, not a rollback target. Replace it with the intended reviewed full SHA and confirm it identifies the change being rolled back. Then use `git revert "$rollback_sha"` and submit that revert through the normal follow-up pull-request process; do not rewrite shared history.
