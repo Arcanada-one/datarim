@@ -7,6 +7,7 @@
 - Each input must be a complete manifest with 1–64 file declarations, valid lowercase SHA-256 digests, and byte counts from 0 through 1 MiB per declaration. The declared total in each manifest cannot exceed 16 MiB.
 - The union can contain at most 64 distinct relative paths and at most 16 MiB of declared bytes. Output rows are sorted by relative path.
 - Repeated paths coalesce only when both the digest and byte count match. A different digest or byte count for the same path refuses the entire merge. No partial result is emitted.
+- JSON integer tokens are retained as exact decimal values until their field bounds and integrality are checked; conversion to an integer happens only after those checks. Producer core counters still require JSON integer tokens. File byte counts accept bounded integer tokens and mathematically integral decimal tokens, without float approximation.
 - Input is limited to 2 MiB, with one additional byte read only to detect an oversized input. The serialized output is also limited to 2 MiB.
 - Invalid JSON, duplicate object keys, non-finite numbers, invalid UTF-8, an invalid manifest, or any limit violation produces a fixed `INPUT_REFUSED` manifest with exit code 2 and the fixed stderr code `INPUT_MANIFEST_MERGE_REFUSED`.
 

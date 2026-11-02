@@ -19,6 +19,10 @@ SHA256_RE = re.compile(r"[0-9a-f]{64}\Z", re.ASCII)
 ROW_KEYS = {"relative_path", "sha256", "byte_count"}
 
 
+class _JsonIntegerToken(Decimal):
+    """Keep an integer JSON token exact until its field-specific checks finish."""
+
+
 class InputRefused(Exception):
     """Input is outside the saved-manifest merge contract."""
 
@@ -36,6 +40,10 @@ def _reject_constant(_value: str) -> Any:
     raise InputRefused
 
 
+def _parse_integer_token(token: str) -> _JsonIntegerToken:
+    return _JsonIntegerToken(token)
+
+
 def _relative_path(value: Any) -> str:
     if not isinstance(value, str):
         raise InputRefused
@@ -51,9 +59,7 @@ def _relative_path(value: Any) -> str:
 
 
 def _integer_value(value: Any, *, maximum: int) -> int:
-    if type(value) is int:
-        number = value
-    elif isinstance(value, Decimal):
+    if isinstance(value, Decimal):
         try:
             if not value.is_finite() or value < 0 or value > maximum:
                 raise InputRefused
@@ -70,10 +76,15 @@ def _integer_value(value: Any, *, maximum: int) -> int:
 
 
 def _core_integer(value: Any, *, expected: int, maximum: int) -> int:
-    # Producer core counters/status use JSON integer tokens, never bool or Decimal.
-    if type(value) is not int or value != expected or value > maximum:
+    # Keep producer core counters restricted to JSON integer tokens, not bools or decimals.
+    if type(value) is not _JsonIntegerToken:
         raise InputRefused
-    return value
+    try:
+        if not value.is_finite() or value < 0 or value > maximum or value != expected:
+            raise InputRefused
+    except DecimalException as exc:
+        raise InputRefused from exc
+    return expected
 
 
 def _load_manifest(item: Any) -> dict[str, tuple[str, int]]:
@@ -127,7 +138,7 @@ def _merge(raw: bytes) -> dict[str, Any]:
         text = raw.decode("utf-8", "strict")
         manifests = json.loads(
             text,
-            parse_int=int,
+            parse_int=_parse_integer_token,
             parse_float=Decimal,
             parse_constant=_reject_constant,
             object_pairs_hook=_object_without_duplicates,

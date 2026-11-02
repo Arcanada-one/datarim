@@ -143,6 +143,20 @@ elif scenario in ("path_dotdot", "path_absolute", "path_empty", "path_empty_comp
     save(compact([manifest([row(paths[scenario], hash_a, 0)])], ascii_only=scenario == "path_surrogate"), refused())
 elif scenario == "bad_digest":
     save(compact([manifest([row("x.txt", "A" * 64, 0)])]), refused())
+elif scenario == "huge_integer_token":
+    doc = manifest([row("x.txt", hash_a, 0)])
+    raw = compact([doc]).replace(b'"byte_count":0', b'"byte_count":' + b"9" * 5000, 1)
+    if raw == compact([doc]):
+        raise RuntimeError("large integer token fixture substitution failed")
+    save(raw, refused())
+elif scenario == "bounded_integer_token":
+    rows = [row("x.txt", hash_a, 23)]
+    save(compact([manifest(rows)]), complete(rows))
+elif scenario == "bounded_integral_decimal":
+    raw = ('[{"schema":"%s","result":"COMPLETE","exit_code":0,'
+           '"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED",'
+           '"files":[{"relative_path":"x.txt","sha256":"%s","byte_count":23.0}]}]\n') % (schema, hash_a)
+    save(raw.encode("utf-8"), complete([row("x.txt", hash_a, 23)]))
 elif scenario in ("byte_boolean", "byte_fraction", "decimal_integral", "file_over_limit"):
     sizes = {
         "byte_boolean": True,
@@ -485,6 +499,30 @@ PY
   capture_cli
   [ "$CLI_STATUS" -eq 2 ] \
     && assert_receipt 2 \
+    && assert_output
+}
+
+@test "huge JSON integer token uses the fixed refusal profile" {
+  build_input huge_integer_token
+  capture_cli
+  [ "$CLI_STATUS" -eq 2 ] \
+    && assert_receipt 2 \
+    && assert_output
+}
+
+@test "bounded JSON integer token is accepted" {
+  build_input bounded_integer_token
+  capture_cli
+  [ "$CLI_STATUS" -eq 0 ] \
+    && assert_receipt 0 \
+    && assert_output
+}
+
+@test "bounded mathematically integral Decimal token is accepted" {
+  build_input bounded_integral_decimal
+  capture_cli
+  [ "$CLI_STATUS" -eq 0 ] \
+    && assert_receipt 0 \
     && assert_output
 }
 
