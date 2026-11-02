@@ -154,10 +154,147 @@ p25_fixture_marker_outcome() {
     fi
 }
 
-# p25_failure_diagnostic <fixture> <child-1-exit> <child-2-exit> <heading-count> <validator-exit>
+# p25_child_stream_metrics <fixed-stream-name>
+# Reads only one of the four fixed child stream names under TMPROOT.
+# Returns availability|bytes|sha256|prefix_hex|prefix_truncated without raw data.
+p25_child_stream_metrics() {
+    local LC_ALL=C name="$1" path="$TMPROOT/$1"
+    local availability='unavailable' bytes='NOT_MEASURED' sha='NOT_MEASURED'
+    local prefix='NOT_MEASURED' truncated='NOT_MEASURED' sha_output hex_output
+    local measured_bytes measured_sha measured_hex
+
+    case "$name" in
+        child-1.stdout|child-1.stderr|child-2.stdout|child-2.stderr) ;;
+        *) printf 'unavailable|NOT_MEASURED|NOT_MEASURED|NOT_MEASURED|NOT_MEASURED\n'; return 0 ;;
+    esac
+
+    if [[ ! -d "$TMPROOT" || -L "$TMPROOT" ]]; then
+        availability='unavailable:fixture_root'
+    elif [ -L "$path" ]; then
+        availability='unavailable:symlink'
+    elif [ ! -e "$path" ]; then
+        availability='unavailable:missing'
+    elif [ ! -f "$path" ]; then
+        availability='unavailable:not_regular'
+    elif [ ! -r "$path" ]; then
+        availability='unavailable:unreadable'
+    elif ! measured_bytes="$(wc -c < "$path" 2>/dev/null)" \
+        || ! [[ "${measured_bytes//[[:space:]]/}" =~ ^[0-9]+$ ]]; then
+        availability='unavailable:byte_count'
+    elif ! sha_output="$(sha256sum < "$path" 2>/dev/null)" \
+        || ! [[ "${sha_output%%[[:space:]]*}" =~ ^[0-9a-f]{64}$ ]]; then
+        availability='unavailable:digest'
+    elif ! measured_hex="$(od -An -v -tx1 -N64 < "$path" 2>/dev/null)" \
+        || ! [[ "$measured_hex" =~ ^[[:space:]0-9a-fA-F]*$ ]]; then
+        availability='unavailable:prefix'
+    else
+        availability='available'
+        bytes="${measured_bytes//[[:space:]]/}"
+        sha="${sha_output%%[[:space:]]*}"
+        prefix="$(printf '%s' "$measured_hex" | tr -d '[:space:]')"
+        if (( bytes > 64 )); then truncated='yes'; else truncated='no'; fi
+    fi
+
+    printf '%s|%s|%s|%s|%s\n' "$availability" "$bytes" "$sha" "$prefix" "$truncated"
+}
+
+# p25_child_diagnostic_lines <child-1-exit> <child-2-exit> <child-1-pid> <child-2-pid>
+# PID arguments are the parent-observed values captured from $! by P2.5.
+p25_child_diagnostic_lines() {
+    local child1_exit="$1" child2_exit="$2" child1_pid="$3" child2_pid="$4"
+    local output='' child pid name metrics
+    local availability bytes sha prefix truncated
+    local child_index stream_index
+    local -a stream_names=('child-1.stdout' 'child-1.stderr' 'child-2.stdout' 'child-2.stderr')
+    local -a pid_values=("$child1_pid" "$child2_pid")
+
+    for child_index in 1 2; do
+        child="${pid_values[$((child_index - 1))]}"
+        if [[ "$child" =~ ^[0-9]+$ ]]; then
+            output+="child_${child_index}_pid=$child"
+        else
+            output+="child_${child_index}_pid=NOT_MEASURED"
+        fi
+        if [ "$child_index" -eq 1 ]; then
+            output+=" child_${child_index}_exit=$child1_exit"
+        else
+            output+=" child_${child_index}_exit=$child2_exit"
+        fi
+        output+=$'\n'
+    done
+
+    for stream_index in 0 1 2 3; do
+        name="${stream_names[$stream_index]}"
+        metrics="$(p25_child_stream_metrics "$name")"
+        IFS='|' read -r availability bytes sha prefix truncated <<< "$metrics"
+        child="${name%%.*}"
+        child="${child//-/_}"
+        name="${name#*.}"
+        output+="${child}_${name}_availability=$availability ${child}_${name}_bytes=$bytes ${child}_${name}_sha256=$sha ${child}_${name}_prefix_hex=$prefix ${child}_${name}_prefix_truncated=$truncated"$'\n'
+    done
+    printf '%s' "$output"
+}
+
+# p25_measure_test_inputs <fixture>
+# Records byte identity only for this synthetic fixture and the exact test source.
+p25_measure_test_inputs() {
+    local fixture="$1" path name bytes sha_output sha state
+    local source="$ROOT_DIR/tests/tune-0216-qa-roundtrip.bats"
+    local -a paths=("$source" "$fixture" "$TMPROOT/child-1.stdout" "$TMPROOT/child-1.stderr" "$TMPROOT/child-2.stdout" "$TMPROOT/child-2.stderr")
+    for path in "${paths[@]}"; do
+        name="${path##*/}"
+        if [ -L "$path" ]; then
+            state='unavailable:symlink'
+        elif [ ! -e "$path" ]; then
+            state='unavailable:missing'
+        elif [ ! -f "$path" ]; then
+            state='unavailable:not_regular'
+        elif [ ! -r "$path" ]; then
+            state='unavailable:unreadable'
+        elif ! bytes="$(wc -c < "$path" 2>/dev/null)" \
+            || ! [[ "${bytes//[[:space:]]/}" =~ ^[0-9]+$ ]] \
+            || ! sha_output="$(sha256sum < "$path" 2>/dev/null)" \
+            || ! [[ "${sha_output%%[[:space:]]*}" =~ ^[0-9a-f]{64}$ ]]; then
+            state='unavailable:measurement'
+        else
+            sha="${sha_output%%[[:space:]]*}"
+            state="available:${bytes//[[:space:]]/}:$sha"
+        fi
+        printf '%s=%s\n' "$name" "$state"
+    done
+}
+
+# p25_record_diagnostic_case <fixed-case-name> <status> <output> <before> <after>
+# Runs only when a private evidence directory is explicitly supplied.
+p25_record_diagnostic_case() {
+    local case_name="$1" result_status="$2" result_output="$3" before="$4" after="$5"
+    local evidence_dir="${P25_EVIDENCE_DIR:-}" raw_path result_path output_sha changed
+    [ -n "$evidence_dir" ] || return 0
+    case "$evidence_dir" in /*) ;; *) return 1 ;; esac
+    case "$evidence_dir" in "$ROOT_DIR"/*) return 1 ;; esac
+    [ -d "$evidence_dir" ] && [ ! -L "$evidence_dir" ] || return 1
+    [[ "$case_name" =~ ^child-diagnostic-[1-4]$ ]] || return 1
+    raw_path="$evidence_dir/$case_name.stdout.raw"
+    result_path="$evidence_dir/$case_name.primary.json"
+    printf '%s\n' "$result_output" > "$raw_path" || return 1
+    chmod 600 "$raw_path" || return 1
+    output_sha="$(sha256sum < "$raw_path")" || return 1
+    output_sha="${output_sha%%[[:space:]]*}"
+    if [ "$before" = "$after" ]; then changed=true; else changed=false; fi
+    {
+        printf '{\n  "case": "%s",\n  "exit": %s,\n  "diagnostic_sha256": "%s",\n  "inputs_unchanged": %s,\n' \
+            "$case_name" "$result_status" "$output_sha" "$changed"
+        printf '  "inputs_before": "%s",\n  "inputs_after": "%s"\n}\n' \
+            "${before//$'\n'/; }" "${after//$'\n'/; }"
+    } > "$result_path" || return 1
+    chmod 600 "$result_path" || return 1
+}
+
+# p25_failure_diagnostic <fixture> <child-1-exit> <child-2-exit> <heading-count> <validator-exit> [<child-1-pid> <child-2-pid>]
 # Emits bounded failure-only evidence; the caller uses it only on assertion failure.
 p25_failure_diagnostic() {
     local LC_ALL=C fixture="$1" child1="$2" child2="$3" heading_count="$4" validator_status="$5"
+    local child1_pid="${6:-}" child2_pid="${7:-}"
     local diagnostic='' metrics fixture_bytes fixture_sha snapshot_hex snapshot_bytes snapshot_truncated
     local heading marker index result
     local -a headings markers
@@ -172,6 +309,7 @@ p25_failure_diagnostic() {
     IFS='|' read -r fixture_bytes fixture_sha snapshot_hex snapshot_bytes snapshot_truncated <<< "$metrics"
     diagnostic+=$'P2.5 failure diagnostic (synthetic fixture only)\n'
     diagnostic+="child_1_exit=$child1 child_2_exit=$child2 validator_exit=$validator_status heading_count=$heading_count"$'\n'
+    diagnostic+="$(p25_child_diagnostic_lines "$child1" "$child2" "$child1_pid" "$child2_pid")"$'\n'
     diagnostic+="fixture_bytes=$fixture_bytes fixture_sha256=$fixture_sha"$'\n'
     for index in 0 1; do
         heading="${headings[$index]}"
@@ -432,7 +570,7 @@ EOF
     [ "$validator_status" -eq 0 ] || failed=1
 
     if [ "$failed" -ne 0 ]; then
-        p25_failure_diagnostic "$file" "$status1" "$status2" "$heading_count" "$validator_status"
+        p25_failure_diagnostic "$file" "$status1" "$status2" "$heading_count" "$validator_status" "$pid1" "$pid2"
         return 1
     fi
 }
@@ -506,6 +644,149 @@ EOF
         && [[ "$diagnostic_output" == *'fixture_snapshot_encoding=hex fixture_snapshot_source_bytes=64 fixture_snapshot_truncated=unavailable'* ]] \
         && [[ "$diagnostic_output" == *'fixture_snapshot_hex_prefix=7878'* ]] \
         && [[ "$diagnostic_output" == *'diagnostic_output_truncated=no'* ]]
+}
+
+@test "P2.5 failure diagnostic captures four fixed child streams as bounded metadata" {
+    local fixture="$TMPROOT/datarim/tasks/TEST-0205-init-task.md"
+    mkdir -p "${fixture%/*}"
+    write_base_init_task TEST-0205
+    local one_out='child-one-stdout-private-canary' one_err='child-one-stderr-private-canary'
+    local two_out='child-two-stdout-private-canary' two_err='child-two-stderr-private-canary'
+    printf '%s' "$one_out" > "$TMPROOT/child-1.stdout"
+    printf '%s' "$one_err" > "$TMPROOT/child-1.stderr"
+    printf '%s' "$two_out" > "$TMPROOT/child-2.stdout"
+    printf '%s' "$two_err" > "$TMPROOT/child-2.stderr"
+    local before after status_copy output_copy
+    local expected_one_out_sha expected_one_out_prefix
+    local expected_one_err_sha expected_one_err_prefix
+    local expected_two_out_sha expected_two_out_prefix
+    local expected_two_err_sha expected_two_err_prefix
+    before="$(p25_measure_test_inputs "$fixture")"
+    run p25_failure_diagnostic "$fixture" 3 4 0 0 43121 43122
+    status_copy="$status"; output_copy="$output"
+    after="$(p25_measure_test_inputs "$fixture")"
+    p25_record_diagnostic_case child-diagnostic-1 "$status_copy" "$output_copy" "$before" "$after"
+
+    expected_one_out_sha="$(printf '%s' "$one_out" | sha256sum)"; expected_one_out_sha="${expected_one_out_sha%%[[:space:]]*}"
+    expected_one_out_prefix="$(printf '%s' "$one_out" | od -An -v -tx1 -N64 | tr -d '[:space:]')"
+    expected_one_err_sha="$(printf '%s' "$one_err" | sha256sum)"; expected_one_err_sha="${expected_one_err_sha%%[[:space:]]*}"
+    expected_one_err_prefix="$(printf '%s' "$one_err" | od -An -v -tx1 -N64 | tr -d '[:space:]')"
+    expected_two_out_sha="$(printf '%s' "$two_out" | sha256sum)"; expected_two_out_sha="${expected_two_out_sha%%[[:space:]]*}"
+    expected_two_out_prefix="$(printf '%s' "$two_out" | od -An -v -tx1 -N64 | tr -d '[:space:]')"
+    expected_two_err_sha="$(printf '%s' "$two_err" | sha256sum)"; expected_two_err_sha="${expected_two_err_sha%%[[:space:]]*}"
+    expected_two_err_prefix="$(printf '%s' "$two_err" | od -An -v -tx1 -N64 | tr -d '[:space:]')"
+
+    [ "$status_copy" -eq 0 ] \
+        && [[ "$output_copy" == *'child_1_pid=43121 child_1_exit=3'* ]] \
+        && [[ "$output_copy" == *'child_2_pid=43122 child_2_exit=4'* ]] \
+        && [[ "$output_copy" == *'child_1_stdout_availability=available'* ]] \
+        && [[ "$output_copy" == *'child_1_stderr_availability=available'* ]] \
+        && [[ "$output_copy" == *'child_2_stdout_availability=available'* ]] \
+        && [[ "$output_copy" == *'child_2_stderr_availability=available'* ]] \
+        && [[ "$output_copy" == *'child_1_stdout_bytes=31'* ]] \
+        && [[ "$output_copy" == *'child_1_stderr_bytes=31'* ]] \
+        && [[ "$output_copy" == *'child_2_stdout_bytes=31'* ]] \
+        && [[ "$output_copy" == *'child_2_stderr_bytes=31'* ]] \
+        && [[ "$output_copy" == *"child_1_stdout_sha256=$expected_one_out_sha"* ]] \
+        && [[ "$output_copy" == *"child_1_stdout_prefix_hex=$expected_one_out_prefix"* ]] \
+        && [[ "$output_copy" == *'child_1_stdout_prefix_truncated=no'* ]] \
+        && [[ "$output_copy" == *"child_1_stderr_sha256=$expected_one_err_sha"* ]] \
+        && [[ "$output_copy" == *"child_1_stderr_prefix_hex=$expected_one_err_prefix"* ]] \
+        && [[ "$output_copy" == *'child_1_stderr_prefix_truncated=no'* ]] \
+        && [[ "$output_copy" == *"child_2_stdout_sha256=$expected_two_out_sha"* ]] \
+        && [[ "$output_copy" == *"child_2_stdout_prefix_hex=$expected_two_out_prefix"* ]] \
+        && [[ "$output_copy" == *'child_2_stdout_prefix_truncated=no'* ]] \
+        && [[ "$output_copy" == *"child_2_stderr_sha256=$expected_two_err_sha"* ]] \
+        && [[ "$output_copy" == *"child_2_stderr_prefix_hex=$expected_two_err_prefix"* ]] \
+        && [[ "$output_copy" == *'child_2_stderr_prefix_truncated=no'* ]] \
+        && [[ "$output_copy" == *'diagnostic_output_truncated=no'* ]] \
+        && [[ "$before" == "$after" ]] \
+        && [[ "$output_copy" != *"$one_out"* ]] \
+        && [[ "$output_copy" != *"$one_err"* ]] \
+        && [[ "$output_copy" != *"$two_out"* ]] \
+        && [[ "$output_copy" != *"$two_err"* ]]
+}
+
+@test "P2.5 failure diagnostic distinguishes empty, missing, unreadable, and symlink streams" {
+    local fixture="$TMPROOT/datarim/tasks/TEST-0205-init-task.md"
+    mkdir -p "${fixture%/*}"
+    write_base_init_task TEST-0205
+    : > "$TMPROOT/child-1.stdout"
+    printf 'unreadable-private-canary' > "$TMPROOT/child-2.stdout"
+    chmod 000 "$TMPROOT/child-2.stdout"
+    printf 'symlink-private-canary' > "$TMPROOT/child-2.stderr-target"
+    ln -s "$TMPROOT/child-2.stderr-target" "$TMPROOT/child-1.stderr"
+    local before after status_copy output_copy
+    before="$(p25_measure_test_inputs "$fixture")"
+    run p25_failure_diagnostic "$fixture" 0 0 0 0 43131 43132
+    status_copy="$status"; output_copy="$output"
+    after="$(p25_measure_test_inputs "$fixture")"
+    p25_record_diagnostic_case child-diagnostic-2 "$status_copy" "$output_copy" "$before" "$after"
+    chmod 600 "$TMPROOT/child-2.stdout"
+
+    [ "$status_copy" -eq 0 ] \
+        && [[ "$output_copy" == *'child_1_stdout_availability=available child_1_stdout_bytes=0'* ]] \
+        && [[ "$output_copy" == *'child_1_stdout_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'* ]] \
+        && [[ "$output_copy" == *'child_1_stdout_prefix_truncated=no'* ]] \
+        && [[ "$output_copy" == *'child_1_stderr_availability=unavailable:symlink'* ]] \
+        && [[ "$output_copy" == *'child_1_stderr_bytes=NOT_MEASURED'* ]] \
+        && [[ "$output_copy" == *'child_2_stdout_availability=unavailable:unreadable'* ]] \
+        && [[ "$output_copy" == *'child_2_stdout_sha256=NOT_MEASURED'* ]] \
+        && [[ "$output_copy" == *'child_2_stderr_availability=unavailable:missing'* ]] \
+        && [[ "$output_copy" != *'unreadable-private-canary'* ]] \
+        && [[ "$output_copy" != *'symlink-private-canary'* ]]
+}
+
+@test "P2.5 failure diagnostic keeps child metadata and explicit truncation within 4096 bytes" {
+    local fixture="$TMPROOT/datarim/tasks/TEST-0205-init-task.md"
+    local diagnostic_file="$TMPROOT/diagnostic.raw" diagnostic_bytes prefix before after output_copy status_copy
+    mkdir -p "${fixture%/*}"
+    head -c 8192 /dev/zero | tr '\000' x > "$fixture"
+    for stream in child-1.stdout child-1.stderr child-2.stdout child-2.stderr; do
+        head -c 256 /dev/zero | tr '\000' y > "$TMPROOT/$stream"
+    done
+    before="$(p25_measure_test_inputs "$fixture")"
+    p25_failure_diagnostic "$fixture" 0 0 0 0 43141 43142 > "$diagnostic_file"
+    status_copy="$?"
+    output_copy="$(cat "$diagnostic_file")"
+    after="$(p25_measure_test_inputs "$fixture")"
+    p25_record_diagnostic_case child-diagnostic-3 "$status_copy" "$output_copy" "$before" "$after"
+    diagnostic_bytes="$(wc -c < "$diagnostic_file")"; diagnostic_bytes="${diagnostic_bytes//[[:space:]]/}"
+    prefix="$(head -c 4096 "$diagnostic_file")"
+
+    [ "$status_copy" -eq 0 ] \
+        && [ "$diagnostic_bytes" -eq 4096 ] \
+        && grep -Fq 'child_1_pid=43141 child_1_exit=0' "$diagnostic_file" \
+        && grep -Fq 'child_2_pid=43142 child_2_exit=0' "$diagnostic_file" \
+        && grep -Fq 'child_1_stdout_prefix_truncated=yes' "$diagnostic_file" \
+        && grep -Fq 'fixture_snapshot_truncated=yes' "$diagnostic_file" \
+        && grep -Fq 'diagnostic_output_truncated=yes' "$diagnostic_file" \
+        && [[ "$prefix" != *'child-1.stdout'* ]]
+}
+
+@test "P2.5 failure diagnostic preserves fixed-field propagation and synthetic inputs" {
+    local fixture="$TMPROOT/datarim/tasks/TEST-0205-init-task.md"
+    mkdir -p "${fixture%/*}"
+    write_base_init_task TEST-0205
+    printf 'field-propagation-canary' > "$TMPROOT/child-1.stdout"
+    local before source_before source_after status_copy output_copy
+    before="$(p25_measure_test_inputs "$fixture")"
+    source_before="$(sha256sum < "$ROOT_DIR/tests/tune-0216-qa-roundtrip.bats")"; source_before="${source_before%%[[:space:]]*}"
+    run p25_failure_diagnostic "$fixture" 7 8 1 9 43151 43152
+    status_copy="$status"; output_copy="$output"
+    source_after="$(sha256sum < "$ROOT_DIR/tests/tune-0216-qa-roundtrip.bats")"; source_after="${source_after%%[[:space:]]*}"
+    p25_record_diagnostic_case child-diagnostic-4 "$status_copy" "$output_copy" "$before" "$(p25_measure_test_inputs "$fixture")"
+
+    [ "$status_copy" -eq 0 ] \
+        && [[ "$output_copy" == *'child_1_exit=7 child_2_exit=8 validator_exit=9 heading_count=1'* ]] \
+        && [[ "$output_copy" == *'child_1_pid=43151 child_1_exit=7'* ]] \
+        && [[ "$output_copy" == *'child_2_pid=43152 child_2_exit=8'* ]] \
+        && [[ "$output_copy" == *'child_1_stdout_availability=available'* ]] \
+        && [[ "$output_copy" == *'child_1_stderr_availability=unavailable:missing'* ]] \
+        && [[ "$output_copy" == *'child_1_stdout_prefix_hex='* ]] \
+        && [[ "$output_copy" != *'field-propagation-canary'* ]] \
+        && [ "$source_before" = "$source_after" ] \
+        && [[ "$before" == "$(p25_measure_test_inputs "$fixture")" ]]
 }
 
 @test "P2.6 utility preserves init-task when its source read fails" {
