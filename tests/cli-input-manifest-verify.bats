@@ -1,0 +1,313 @@
+#!/usr/bin/env bats
+
+setup_file() {
+  local base=${BATS_TEST_DIRNAME}/../.cli-input-manifest-verify-evidence
+  export CLI_INPUT_MANIFEST_EVIDENCE_DIR=${CLI_INPUT_MANIFEST_EVIDENCE_DIR:-$base}
+  mkdir -p "$CLI_INPUT_MANIFEST_EVIDENCE_DIR"
+  [[ -d "$CLI_INPUT_MANIFEST_EVIDENCE_DIR" && -w "$CLI_INPUT_MANIFEST_EVIDENCE_DIR" ]] || return 1
+  chmod 700 "$CLI_INPUT_MANIFEST_EVIDENCE_DIR"
+  [[ "$CLI_INPUT_MANIFEST_EVIDENCE_DIR" == /* ]] || return 1
+  local mode
+  mode=$(stat -c '%a' "$CLI_INPUT_MANIFEST_EVIDENCE_DIR")
+  [[ "$mode" == 700 ]]
+}
+
+setup() {
+  local root="$BATS_TEST_TMPDIR/root"
+  mkdir -p "$root/sub"
+  printf 'alpha\n' > "$root/a.txt"
+  printf '\000\377payload' > "$root/sub/b.bin"
+  chmod 600 "$root/a.txt" "$root/sub/b.bin"
+  export FIXTURE_ROOT="$root"
+  export FIXTURE_SHA_A
+  export FIXTURE_SHA_B
+  export FIXTURE_SIZE_A
+  export FIXTURE_SIZE_B
+  FIXTURE_SHA_A=$(sha256sum "$root/a.txt" | cut -d' ' -f1)
+  FIXTURE_SHA_B=$(sha256sum "$root/sub/b.bin" | cut -d' ' -f1)
+  FIXTURE_SIZE_A=$(wc -c < "$root/a.txt" | tr -d ' ')
+  FIXTURE_SIZE_B=$(wc -c < "$root/sub/b.bin" | tr -d ' ')
+  export MANIFEST=''
+}
+
+manifest_one() {
+  printf '{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"a.txt","sha256":"%s","byte_count":%s}]}\n' "$FIXTURE_SHA_A" "$FIXTURE_SIZE_A"
+}
+
+run_verify() {
+  local name=$1 manifest=$2
+  local case_dir="$CLI_INPUT_MANIFEST_EVIDENCE_DIR/$name"
+  local raw="$case_dir/stdout.raw"
+  local err="$case_dir/stderr.raw"
+  local input="$case_dir/manifest.stdin"
+  mkdir -p "$case_dir/fixture"
+  cp -a "$FIXTURE_ROOT/." "$case_dir/fixture/"
+  printf '%s\n' "$manifest" > "$input"
+  chmod 600 "$input"
+  local source="$BATS_TEST_DIRNAME/../dev-tools/verify-cli-input-manifest.py"
+  local test_source="$BATS_TEST_DIRNAME/cli-input-manifest-verify.bats"
+  local started pid ended exit_code fixture_before source_before test_before input_sha
+  local fixture_after source_after test_after input_after fixture_copy_before fixture_copy_after
+  local read_counter='' read_counter_sha=''
+  fixture_before=$(cd "$FIXTURE_ROOT" && find . -type f -print0 | sort -z | xargs -0 sha256sum)
+  fixture_copy_before=$(cd "$case_dir/fixture" && find . -type f -print0 | sort -z | xargs -0 sha256sum)
+  [[ "$fixture_before" == "$fixture_copy_before" ]]
+  source_before=$(sha256sum "$source" | cut -d' ' -f1)
+  test_before=$(sha256sum "$test_source" | cut -d' ' -f1)
+  input_sha=$(sha256sum "$input" | cut -d' ' -f1)
+  started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  : > "$raw"; : > "$err"; chmod 600 "$raw" "$err"
+  if [[ -f "$case_dir/instrument/sitecustomize.py" ]]; then
+    read_counter="$case_dir/read-counts.raw"
+    : > "$read_counter"; chmod 600 "$read_counter"
+    D5_READ_ROOT="$FIXTURE_ROOT" D5_READ_COUNTER_FILE="$read_counter" PYTHONPATH="$case_dir/instrument" \
+      python3 "$source" --root "$FIXTURE_ROOT" < "$input" >"$raw" 2>"$err" &
+  else
+    python3 "$source" --root "$FIXTURE_ROOT" < "$input" >"$raw" 2>"$err" &
+  fi
+  pid=$!
+  if wait "$pid"; then exit_code=0; else exit_code=$?; fi
+  ended=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  fixture_after=$(cd "$FIXTURE_ROOT" && find . -type f -print0 | sort -z | xargs -0 sha256sum)
+  fixture_copy_after=$(cd "$case_dir/fixture" && find . -type f -print0 | sort -z | xargs -0 sha256sum)
+  source_after=$(sha256sum "$source" | cut -d' ' -f1)
+  test_after=$(sha256sum "$test_source" | cut -d' ' -f1)
+  input_after=$(sha256sum "$input" | cut -d' ' -f1)
+  if [[ -n "$read_counter" ]]; then read_counter_sha=$(sha256sum "$read_counter" | cut -d' ' -f1); fi
+  python3 - "$case_dir/receipt.json" "$name" "$pid" "$started" "$ended" "$exit_code" "$PWD" "$FIXTURE_ROOT" "$source" "$source_before" "$source_after" "$test_source" "$test_before" "$test_after" "$input" "$input_sha" "$input_after" "$fixture_before" "$fixture_after" "$case_dir/fixture" "$fixture_copy_before" "$fixture_copy_after" "$read_counter" "$read_counter_sha" <<'PY'
+import json,os,sys
+(out,name,pid,start,end,code,cwd,root,source,source_before,source_after,test,test_before,test_after,input_path,input_sha,input_after,fixture_before,fixture_after,fixture_copy,fixture_copy_before,fixture_copy_after,read_counter,read_counter_sha)=sys.argv[1:]
+value={"case":name,"pid":int(pid),"started_utc":start,"ended_utc":end,"argv":["python3",source,"--root",root],"cwd":cwd,"exit":int(code),"input_path":input_path,"input_sha256_before":input_sha,"input_sha256_after":input_after,"source_path":source,"source_sha256_before":source_before,"source_sha256_after":source_after,"test_path":test,"test_sha256_before":test_before,"test_sha256_after":test_after,"fixture_root":root,"fixture_sha256_before":fixture_before,"fixture_sha256_after":fixture_after,"fixture_evidence_path":fixture_copy,"fixture_evidence_sha256_before":fixture_copy_before,"fixture_evidence_sha256_after":fixture_copy_after,"read_counter_path":read_counter or None,"read_counter_sha256":read_counter_sha or None}
+assert value["pid"] > 0 and value["started_utc"] and value["ended_utc"]
+assert value["input_sha256_before"] == value["input_sha256_after"]
+assert value["source_sha256_before"] == value["source_sha256_after"]
+assert value["test_sha256_before"] == value["test_sha256_after"]
+assert value["fixture_sha256_before"] == value["fixture_sha256_after"]
+assert value["fixture_evidence_sha256_before"] == value["fixture_evidence_sha256_after"]
+assert value["fixture_sha256_before"] == value["fixture_evidence_sha256_before"]
+with open(out,"w",encoding="utf-8") as f: json.dump(value,f,sort_keys=True); f.write("\n")
+os.chmod(out,0o600)
+PY
+  [[ "$(stat -c '%a' "$raw")" == 600 && "$(stat -c '%a' "$err")" == 600 && "$(stat -c '%a' "$input")" == 600 ]]
+  [[ -z "$read_counter" || "$(stat -c '%a' "$read_counter")" == 600 ]]
+  export VERIFY_EXIT=$exit_code VERIFY_RAW=$raw VERIFY_ERR=$err
+  export VERIFY_RECEIPT="$case_dir/receipt.json" VERIFY_COUNTER="$read_counter"
+}
+
+write_read_instrumentation() {
+  local case_dir="$CLI_INPUT_MANIFEST_EVIDENCE_DIR/$1"
+  mkdir -p "$case_dir/instrument"
+  cat > "$case_dir/instrument/sitecustomize.py" <<'PY'
+import atexit
+import json
+import os
+
+_root = os.path.realpath(os.environ["D5_READ_ROOT"]) + os.sep
+_target = os.environ["D5_READ_COUNTER_FILE"]
+_original_read = os.read
+_counts = {}
+
+def _counted_read(fd, size):
+    data = _original_read(fd, size)
+    try:
+        path = os.readlink(f"/proc/self/fd/{fd}")
+    except OSError:
+        return data
+    if path.startswith(_root):
+        _counts[path] = _counts.get(path, 0) + len(data)
+    return data
+
+os.read = _counted_read
+
+@atexit.register
+def _persist_counts():
+    fd = os.open(_target, os.O_WRONLY | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        json.dump({"reads": _counts, "total_bytes": sum(_counts.values())}, stream, sort_keys=True)
+        stream.write("\n")
+PY
+  chmod 600 "$case_dir/instrument/sitecustomize.py"
+}
+
+prepare_aggregate_fixture() {
+  rm -f "$FIXTURE_ROOT/a.txt" "$FIXTURE_ROOT/sub/b.bin"
+  rmdir "$FIXTURE_ROOT/sub"
+  for index in $(seq 1 16); do
+    local name
+    printf -v name 'part-%02d.bin' "$index"
+    head -c 1048576 /dev/zero > "$FIXTURE_ROOT/$name"
+    chmod 600 "$FIXTURE_ROOT/$name"
+  done
+}
+
+manifest_all() {
+  python3 - "$FIXTURE_ROOT" <<'PY'
+import hashlib,json,pathlib,sys
+root=pathlib.Path(sys.argv[1])
+entries=[]
+for path in sorted(item for item in root.rglob("*") if item.is_file()):
+    data=path.read_bytes()
+    entries.append({"relative_path":path.relative_to(root).as_posix(),"sha256":hashlib.sha256(data).hexdigest(),"byte_count":len(data)})
+print(json.dumps({"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":len(entries),"file_count_status":"MEASURED","files":entries},separators=(",",":")))
+PY
+}
+
+assert_profile() {
+  local expected_result=$1 expected_exit=$2 expected_status=$3
+  [[ "$VERIFY_EXIT" == "$expected_exit" ]]
+  python3 - "$VERIFY_RAW" "$expected_result" "$expected_exit" "$expected_status" <<'PY'
+import json,sys
+p, result, code, status = sys.argv[1:]
+with open(p, encoding="utf-8") as f: value=json.load(f)
+assert set(value) == {"schema","result","exit_code","diagnostic_codes","file_count","file_count_status","changed_paths"}
+assert value["schema"] == "DatarimCliInputManifestVerification/v1"
+assert value["result"] == result and value["exit_code"] == int(code)
+assert value["file_count_status"] == status
+if status == "NOT_MEASURED":
+    assert value["file_count"] is None and value["changed_paths"] == []
+PY
+}
+
+@test "matching selected bytes produce MATCHED without exposing file content" {
+  local before after
+  before=$(sha256sum "$FIXTURE_ROOT/a.txt" "$FIXTURE_ROOT/sub/b.bin")
+  run_verify matched "$(manifest_one)"
+  assert_profile MATCHED 0 MEASURED
+  [[ ! -s "$VERIFY_ERR" ]]
+  ! grep -q 'alpha' "$VERIFY_RAW"
+  after=$(sha256sum "$FIXTURE_ROOT/a.txt" "$FIXTURE_ROOT/sub/b.bin")
+  [[ "$before" == "$after" ]]
+}
+
+@test "changed bytes are measured only after a complete safe read" {
+  printf 'changed\n' > "$FIXTURE_ROOT/a.txt"
+  run_verify changed "$(manifest_one)"
+  assert_profile CHANGED 1 MEASURED
+  python3 - "$VERIFY_RAW" <<'PY'
+import json,sys
+v=json.load(open(sys.argv[1])); assert v["diagnostic_codes"] == ["INPUT_MANIFEST_BYTES_CHANGED"]
+assert v["changed_paths"] == ["a.txt"] and v["file_count"] == 1
+PY
+}
+
+@test "missing selected path is a fixed refusal with no partial result" {
+  local sha size
+  sha=$(printf x | sha256sum | cut -d' ' -f1); size=1
+  run_verify missing "$(printf '{\"schema\":\"DatarimCliInputManifest/v1\",\"result\":\"COMPLETE\",\"exit_code\":0,\"diagnostic_codes\":[],\"file_count\":2,\"file_count_status\":\"MEASURED\",\"files\":[{\"relative_path\":\"a.txt\",\"sha256\":\"%s\",\"byte_count\":%s},{\"relative_path\":\"missing.txt\",\"sha256\":\"%s\",\"byte_count\":1}]}\n' "$FIXTURE_SHA_A" "$FIXTURE_SIZE_A" "$sha")"
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+  python3 - "$VERIFY_RAW" <<'PY'
+import json,sys
+v=json.load(open(sys.argv[1])); assert v["diagnostic_codes"] == ["INPUT_MANIFEST_VERIFICATION_REFUSED"]
+PY
+}
+
+@test "duplicate object keys are refused" {
+  run_verify duplicate '{"schema":"DatarimCliInputManifest/v1","schema":"x"}'
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+}
+
+@test "boolean byte count is refused" {
+  run_verify boolean '{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"a.txt","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","byte_count":true}]}'
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+}
+
+@test "integral decimal byte count is accepted" {
+  run_verify decimal "$(printf '{\"schema\":\"DatarimCliInputManifest/v1\",\"result\":\"COMPLETE\",\"exit_code\":0,\"diagnostic_codes\":[],\"file_count\":1,\"file_count_status\":\"MEASURED\",\"files\":[{\"relative_path\":\"a.txt\",\"sha256\":\"%s\",\"byte_count\":%s.0}]}\n' "$FIXTURE_SHA_A" "$FIXTURE_SIZE_A")"
+  assert_profile MATCHED 0 MEASURED
+}
+
+@test "non-finite numbers are refused" {
+  run_verify nonfinite '{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"a.txt","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","byte_count":NaN}]}'
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+}
+
+@test "one mebibyte boundary matches and one byte over is refused" {
+  head -c 1048576 /dev/zero > "$FIXTURE_ROOT/a.txt"
+  FIXTURE_SHA_A=$(sha256sum "$FIXTURE_ROOT/a.txt" | cut -d' ' -f1)
+  FIXTURE_SIZE_A=1048576
+  run_verify maximum_file "$(manifest_one)"
+  assert_profile MATCHED 0 MEASURED
+  printf '\0' >> "$FIXTURE_ROOT/a.txt"
+  run_verify oversized_file "$(manifest_one)"
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+}
+
+@test "huge integral decimal is refused before integer conversion" {
+  run_verify huge_decimal '{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"a.txt","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","byte_count":1e1000000000}]}'
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+}
+
+@test "canonical path boundaries and hostile control data are refused" {
+  run_verify traversal '{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"../a.txt","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","byte_count":1}]}'
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+  run_verify hostile '{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"x\u0000secret","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","byte_count":1}]}'
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+}
+
+@test "aggregate actual-byte budget accepts an exact sixteen mebibyte snapshot" {
+  prepare_aggregate_fixture
+  write_read_instrumentation aggregate_exact
+  run_verify aggregate_exact "$(manifest_all)"
+  assert_profile MATCHED 0 MEASURED
+  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" <<'PY'
+import json,sys
+result=json.load(open(sys.argv[1],encoding="utf-8"))
+counter=json.load(open(sys.argv[2],encoding="utf-8"))
+receipt=json.load(open(sys.argv[3],encoding="utf-8"))
+assert result["file_count"] == 16 and result["changed_paths"] == []
+assert counter["total_bytes"] == 16 * 1024 * 1024
+assert len(counter["reads"]) == 16 and all(n == 1024 * 1024 for n in counter["reads"].values())
+assert receipt["read_counter_sha256"]
+PY
+}
+
+@test "aggregate actual-byte budget refuses the next nonempty file without reading it" {
+  prepare_aggregate_fixture
+  printf 'z' > "$FIXTURE_ROOT/zz-after-budget.bin"
+  write_read_instrumentation aggregate_over_budget
+  local manifest
+  manifest=$(manifest_all)
+  manifest=$(python3 - "$manifest" <<'PY'
+import hashlib,json,sys
+value=json.loads(sys.argv[1])
+extra=next(item for item in value["files"] if item["relative_path"] == "zz-after-budget.bin")
+extra["byte_count"]=0
+extra["sha256"]=hashlib.sha256(b"").hexdigest()
+print(json.dumps(value,separators=(",",":")))
+PY
+)
+  run_verify aggregate_over_budget "$manifest"
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" "$FIXTURE_ROOT/zz-after-budget.bin" <<'PY'
+import json,sys
+result=json.load(open(sys.argv[1],encoding="utf-8"))
+counter=json.load(open(sys.argv[2],encoding="utf-8"))
+receipt=json.load(open(sys.argv[3],encoding="utf-8"))
+extra=sys.argv[4]
+assert result["diagnostic_codes"] == ["INPUT_MANIFEST_VERIFICATION_REFUSED"]
+assert counter["total_bytes"] == 16 * 1024 * 1024
+assert counter["reads"].get(extra,0) == 0
+assert receipt["read_counter_sha256"] and receipt["fixture_evidence_path"]
+PY
+  [[ ! -s "$VERIFY_ERR" ]]
+}
+
+@test "deeply nested JSON is converted to the fixed bounded refusal" {
+  local nested
+  nested=$(python3 - "$FIXTURE_SHA_A" "$FIXTURE_SIZE_A" <<'PY'
+import sys
+prefix='{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"a.txt","sha256":"%s","byte_count":%s}],"extra":' % tuple(sys.argv[1:])
+print(prefix + '[' * 20000 + '0' + ']' * 20000 + '}')
+PY
+)
+  run_verify nested_json "$nested"
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+  python3 - "$VERIFY_RAW" <<'PY'
+import json,sys
+value=json.load(open(sys.argv[1],encoding="utf-8"))
+assert value["diagnostic_codes"] == ["INPUT_MANIFEST_VERIFICATION_REFUSED"]
+assert value["file_count"] is None and value["changed_paths"] == []
+PY
+  [[ ! -s "$VERIFY_ERR" ]]
+  ! grep -qi 'traceback\|recursionerror' "$VERIFY_RAW"
+}
