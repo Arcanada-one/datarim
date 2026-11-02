@@ -8,12 +8,15 @@ setup_file() {
       && [ -d "$D5_MERGE_EVIDENCE_DIR" ] \
       && [ -f "$D5_MERGE_EVIDENCE_DIR/preflight.json" ] \
       && [ "$(stat -c '%a' "$D5_MERGE_EVIDENCE_DIR")" = "700" ] \
-      && [ "$(stat -c '%a' "$D5_MERGE_EVIDENCE_DIR/preflight.json")" = "600" ]
+      && [ "$(stat -c '%a' "$D5_MERGE_EVIDENCE_DIR/preflight.json")" = "600" ] \
+      && D5_MERGE_EVIDENCE_MODE=external \
+      && export D5_MERGE_EVIDENCE_MODE
   else
     [ -n "$BATS_FILE_TMPDIR" ] \
       && D5_MERGE_EVIDENCE_DIR="$BATS_FILE_TMPDIR/merge-evidence" \
       && (umask 077 && mkdir -m 700 "$D5_MERGE_EVIDENCE_DIR") \
-      && export D5_MERGE_EVIDENCE_DIR
+      && D5_MERGE_EVIDENCE_MODE=bats-default \
+      && export D5_MERGE_EVIDENCE_DIR D5_MERGE_EVIDENCE_MODE
   fi
 }
 
@@ -671,16 +674,41 @@ PY
     && assert_output
 }
 
-@test "F2 ordinary startup allocates a private Bats-owned evidence directory" {
-  [[ "$D5_MERGE_EVIDENCE_DIR" == "$BATS_FILE_TMPDIR/merge-evidence" ]] \
-    && [ -d "$D5_MERGE_EVIDENCE_DIR" ] \
-    && [ "$(stat -c '%a' "$D5_MERGE_EVIDENCE_DIR")" = "700" ] \
-    && [ ! -e "$D5_MERGE_EVIDENCE_DIR/preflight.json" ]
+@test "F2 ordinary startup and valid external evidence mode both work" {
+  if [ "${D5_MERGE_SETUP_PROBE:-}" = "1" ]; then
+    if [ "$D5_MERGE_EVIDENCE_MODE" = "bats-default" ]; then
+      [[ "$D5_MERGE_EVIDENCE_DIR" == "$BATS_FILE_TMPDIR/merge-evidence" ]] \
+        && [ -d "$D5_MERGE_EVIDENCE_DIR" ] \
+        && [ "$(stat -c '%a' "$D5_MERGE_EVIDENCE_DIR")" = "700" ] \
+        && [ ! -e "$D5_MERGE_EVIDENCE_DIR/preflight.json" ]
+    else
+      [ "$D5_MERGE_EVIDENCE_MODE" = "external" ] \
+        && [ "$D5_MERGE_EVIDENCE_DIR" = "$D5_MERGE_TEST_EXPECTED_DIR" ] \
+        && [ "$(stat -c '%a' "$D5_MERGE_EVIDENCE_DIR")" = "700" ] \
+        && [ "$(stat -c '%a' "$D5_MERGE_EVIDENCE_DIR/preflight.json")" = "600" ]
+    fi
+  else
+    run env -u D5_MERGE_EVIDENCE_DIR D5_MERGE_SETUP_PROBE=1 \
+      bats --filter '^F2 ordinary startup and valid external evidence mode both work$' \
+        "$BATS_TEST_FILENAME"
+    [ "$status" -eq 0 ] \
+      && [[ "$output" == *"ok 1 F2 ordinary startup and valid external evidence mode both work"* ]] \
+      && EXTERNAL_CASE_DIR="$CASE_DIR/valid-external" \
+      && mkdir -m 700 "$EXTERNAL_CASE_DIR" \
+      && (umask 077 && printf '{"preflight":"synthetic"}\n' > "$EXTERNAL_CASE_DIR/preflight.json") \
+      && chmod 600 "$EXTERNAL_CASE_DIR/preflight.json" \
+      && run env D5_MERGE_EVIDENCE_DIR="$EXTERNAL_CASE_DIR" \
+        D5_MERGE_TEST_EXPECTED_DIR="$EXTERNAL_CASE_DIR" D5_MERGE_SETUP_PROBE=1 \
+        bats --filter '^F2 ordinary startup and valid external evidence mode both work$' \
+          "$BATS_TEST_FILENAME" \
+      && [ "$status" -eq 0 ] \
+      && [[ "$output" == *"ok 1 F2 ordinary startup and valid external evidence mode both work"* ]]
+  fi
 }
 
 @test "F2 explicit invalid external evidence directory is refused" {
   run env D5_MERGE_EVIDENCE_DIR="$CASE_DIR/missing-external" \
-    bats --filter 'F2 ordinary startup allocates a private Bats-owned evidence directory' \
+    bats --filter 'F2 ordinary startup and valid external evidence mode both work' \
       "$BATS_TEST_FILENAME"
   [ "$status" -ne 0 ] \
     && [[ "$output" == *"setup_file"* ]] \
