@@ -198,7 +198,36 @@ PY
 
 assert_profile() {
   local expected_result=$1 expected_exit=$2 expected_status=$3
-  [[ "$VERIFY_EXIT" == "$expected_exit" ]]
+  if [[ "$VERIFY_EXIT" != "$expected_exit" ]]; then
+    python3 - "${VERIFY_EXIT:-}" "$expected_exit" "${VERIFY_RECEIPT:-}" "${VERIFY_RAW:-}" "${VERIFY_ERR:-}" >&2 <<'PY' || true
+import hashlib,json,pathlib,sys
+actual,expected,receipt_path,stdout_path,stderr_path=sys.argv[1:]
+def numeric(value):
+    return value if value.isascii() and value.isdigit() else "NOT_RETAINED"
+def stream(path):
+    try:
+        data=pathlib.Path(path).read_bytes()
+    except (OSError,ValueError):
+        return "NOT_RETAINED","NOT_RETAINED"
+    return str(len(data)),hashlib.sha256(data).hexdigest()
+try:
+    receipt=json.loads(pathlib.Path(receipt_path).read_text(encoding="utf-8"))
+    raw_pid=receipt.get("pid") if isinstance(receipt,dict) else None
+    raw_exit=receipt.get("exit") if isinstance(receipt,dict) else None
+    pid=str(raw_pid) if type(raw_pid) is int and raw_pid > 0 and type(raw_exit) is int and numeric(actual) != "NOT_RETAINED" and raw_exit == int(actual) else "NOT_RETAINED"
+except (OSError,ValueError,TypeError):
+    pid="NOT_RETAINED"
+out_bytes,out_sha=stream(stdout_path)
+err_bytes,err_sha=stream(stderr_path)
+line=(f"F4_TEST_FAILURE actual_exit={numeric(actual)} expected_exit={numeric(expected)} "
+      f"child_pid={pid} stdout_bytes={out_bytes} stdout_sha256={out_sha} "
+      f"stderr_bytes={err_bytes} stderr_sha256={err_sha}")
+if len(line.encode("ascii")) > 1024:
+    line="F4_TEST_FAILURE actual_exit=NOT_RETAINED expected_exit=NOT_RETAINED child_pid=NOT_RETAINED stdout_bytes=NOT_RETAINED stdout_sha256=NOT_RETAINED stderr_bytes=NOT_RETAINED stderr_sha256=NOT_RETAINED"
+sys.stderr.write(line+"\n")
+PY
+    return 1
+  fi
   python3 - "$VERIFY_RAW" "$expected_result" "$expected_exit" "$expected_status" <<'PY'
 import json,sys
 p, result, code, status = sys.argv[1:]
@@ -442,5 +471,111 @@ assert receipt["fixture_sha256_before"] == receipt["fixture_sha256_after"]
 assert receipt["fixture_evidence_sha256_before"] == receipt["fixture_evidence_sha256_after"]
 assert not err_path.read_bytes()
 assert raw_path.read_bytes().endswith(b"\n")
+PY
+}
+
+@test "profile exit mismatch emits bounded typed child diagnostic" {
+  local case_dir="$CLI_INPUT_MANIFEST_EVIDENCE_DIR/failure_diagnostic"
+  local fixture="$case_dir/fixture"
+  local source="$BATS_TEST_DIRNAME/../dev-tools/verify-cli-input-manifest.py"
+  local test_source="$BATS_TEST_DIRNAME/cli-input-manifest-verify.bats"
+  mkdir -p "$fixture"
+  chmod 700 "$case_dir" "$fixture"
+  printf 'F4 synthetic fixture\n' > "$fixture/input.txt"
+  chmod 600 "$fixture/input.txt"
+  python3 - "$case_dir" "$PWD" "$source" "$test_source" "$fixture/input.txt" <<'PY'
+import datetime,hashlib,json,os,pathlib,subprocess,sys
+case_dir,cwd,source,test_source,fixture=sys.argv[1:]
+root=pathlib.Path(case_dir)
+if root.stat().st_mode & 0o777 != 0o700:
+    raise SystemExit("evidence directory mode preflight failed")
+paths={name:root/name for name in ("stdout.raw","stderr.raw","receipt.json")}
+for path in paths.values():
+    fd=os.open(path,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+    os.close(fd)
+sample={"case":"failure_diagnostic","pid":1,"started_utc":"2000-01-01T00:00:00Z","ended_utc":"2000-01-01T00:00:01Z","argv":["synthetic"],"cwd":cwd,"exit":23,"stdout_bytes":1,"stdout_sha256":"0"*64,"stderr_bytes":1,"stderr_sha256":"1"*64,"source_sha256_before":"2"*64,"source_sha256_after":"2"*64,"test_sha256_before":"3"*64,"test_sha256_after":"3"*64,"fixture_sha256_before":"4"*64,"fixture_sha256_after":"4"*64}
+probe=(json.dumps(sample,sort_keys=True,separators=(",",":"))+"\n").encode("utf-8")
+if not probe.endswith(b"\n") or probe.endswith(b"\\n") or json.loads(probe)!=sample:
+    raise SystemExit("JSON receipt serialization preflight failed")
+def sha(path):
+    return hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
+def write_durable(path,data):
+    with open(path,"wb") as stream:
+        stream.write(data)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.chmod(path,0o600)
+source_before=sha(source)
+test_before=sha(test_source)
+fixture_before=sha(fixture)
+started=datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00","Z")
+child_code=("import sys; sys.stdout.buffer.write(b'F4_PRIVATE_PAYLOAD_SENTINEL\\n'); "
+            "sys.stderr.buffer.write(b'F4_PRIVATE_PATH_SENTINEL '+sys.argv[1].encode()+b'\\n'); "
+            "raise SystemExit(23)")
+argv=[sys.executable,"-c",child_code,str(pathlib.Path(fixture).resolve())]
+proc=subprocess.Popen(argv,cwd=cwd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+stdout,stderr=proc.communicate()
+ended=datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00","Z")
+write_durable(paths["stdout.raw"],stdout)
+write_durable(paths["stderr.raw"],stderr)
+source_after=sha(source)
+test_after=sha(test_source)
+fixture_after=sha(fixture)
+record={"case":"failure_diagnostic","pid":proc.pid,"started_utc":started,"ended_utc":ended,"argv":argv,"cwd":cwd,"exit":proc.returncode,"stdout_path":str(paths["stdout.raw"]),"stdout_bytes":len(stdout),"stdout_sha256":hashlib.sha256(stdout).hexdigest(),"stderr_path":str(paths["stderr.raw"]),"stderr_bytes":len(stderr),"stderr_sha256":hashlib.sha256(stderr).hexdigest(),"source_path":source,"source_sha256_before":source_before,"source_sha256_after":source_after,"test_path":test_source,"test_sha256_before":test_before,"test_sha256_after":test_after,"fixture_path":fixture,"fixture_sha256_before":fixture_before,"fixture_sha256_after":fixture_after}
+encoded=(json.dumps(record,sort_keys=True,separators=(",",":"))+"\n").encode("utf-8")
+json.loads(encoded)
+write_durable(paths["receipt.json"],encoded)
+if proc.returncode != 23:
+    raise SystemExit("synthetic process outcome was not the allocated nonzero code")
+PY
+  local receipt="$case_dir/receipt.json"
+  export VERIFY_RECEIPT="$receipt" VERIFY_RAW="$case_dir/stdout.raw" VERIFY_ERR="$case_dir/stderr.raw"
+  VERIFY_EXIT=$(python3 - "$receipt" <<'PY'
+import json,sys
+print(json.load(open(sys.argv[1],encoding="utf-8"))["exit"])
+PY
+)
+  export VERIFY_EXIT
+  local assertion_stdout="$case_dir/assertion.stdout.raw"
+  local assertion_stderr="$case_dir/assertion.stderr.raw"
+  : > "$assertion_stdout"; : > "$assertion_stderr"
+  chmod 600 "$assertion_stdout" "$assertion_stderr"
+  local assertion_status=0
+  if assert_profile MATCHED 0 MEASURED >"$assertion_stdout" 2>"$assertion_stderr"; then
+    assertion_status=0
+  else
+    assertion_status=$?
+  fi
+  [[ "$assertion_status" -eq 1 ]]
+  [[ ! -s "$assertion_stdout" ]]
+  local pid stdout_bytes stdout_sha stderr_bytes stderr_sha diagnostic
+  read -r pid stdout_bytes stdout_sha stderr_bytes stderr_sha < <(python3 - "$receipt" <<'PY'
+import json,sys
+r=json.load(open(sys.argv[1],encoding="utf-8"))
+print(r["pid"],r["stdout_bytes"],r["stdout_sha256"],r["stderr_bytes"],r["stderr_sha256"])
+PY
+)
+  diagnostic=$(cat "$assertion_stderr")
+  [[ "$diagnostic" == "F4_TEST_FAILURE actual_exit=23 expected_exit=0 child_pid=$pid stdout_bytes=$stdout_bytes stdout_sha256=$stdout_sha stderr_bytes=$stderr_bytes stderr_sha256=$stderr_sha" ]]
+  [[ "${#diagnostic}" -le 1024 ]]
+  [[ "$diagnostic" != *F4_PRIVATE_PAYLOAD_SENTINEL* ]]
+  [[ "$diagnostic" != *F4_PRIVATE_PATH_SENTINEL* ]]
+  [[ "$diagnostic" != *"$fixture"* ]]
+  [[ "$(stat -c '%a' "$case_dir/receipt.json")" == 600 ]]
+  [[ "$(stat -c '%a' "$case_dir/stdout.raw")" == 600 ]]
+  [[ "$(stat -c '%a' "$case_dir/stderr.raw")" == 600 ]]
+  python3 - "$receipt" "$case_dir" "$source" "$test_source" "$fixture/input.txt" <<'PY'
+import hashlib,json,pathlib,sys
+receipt,case_dir,source,test_source,fixture=map(pathlib.Path,sys.argv[1:])
+r=json.loads(receipt.read_text(encoding="utf-8"))
+assert r["exit"] == 23 and type(r["pid"]) is int and r["pid"] > 0
+for stream in ("stdout","stderr"):
+    data=(pathlib.Path(case_dir)/(stream+".raw")).read_bytes()
+    assert r[stream+"_bytes"] == len(data)
+    assert r[stream+"_sha256"] == hashlib.sha256(data).hexdigest()
+for key,path in (("source",source),("test",test_source),("fixture",fixture)):
+    expected=r[key+"_sha256_before"]
+    assert r[key+"_sha256_after"] == expected == hashlib.sha256(path.read_bytes()).hexdigest()
+assert r["started_utc"] and r["ended_utc"] and r["argv"] and r["cwd"]
 PY
 }
