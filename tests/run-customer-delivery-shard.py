@@ -9,10 +9,12 @@ import json
 import os
 from pathlib import Path
 import re
+import selectors
 import shutil
 import signal
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 
 
@@ -114,7 +116,18 @@ class BoundedProcessTimeout(subprocess.TimeoutExpired):
         self.output_truncated = output_truncated
 
 
-def bounded_timeout_excerpt(output: str | bytes | None) -> tuple[str, bool]:
+class BoundedProcessOutputExceeded(ContractError):
+    def __init__(self, output_excerpt: str):
+        super().__init__(f"Bats output exceeded {MAX_TIMEOUT_OUTPUT_BYTES} byte limit")
+        self.output_excerpt = output_excerpt
+
+
+def bounded_timeout_excerpt(
+    output: str | bytes | None,
+    *,
+    force_truncated: bool = False,
+    marker: str = "[timeout output truncated; showing final bytes]\n",
+) -> tuple[str, bool]:
     if output is None:
         text = ""
     elif isinstance(output, bytes):
@@ -122,10 +135,9 @@ def bounded_timeout_excerpt(output: str | bytes | None) -> tuple[str, bool]:
     else:
         text = output
     encoded = text.encode("utf-8")
-    if len(encoded) <= MAX_TIMEOUT_OUTPUT_BYTES:
+    if not force_truncated and len(encoded) <= MAX_TIMEOUT_OUTPUT_BYTES:
         return text, False
 
-    marker = "[timeout output truncated; showing final bytes]\n"
     available = MAX_TIMEOUT_OUTPUT_BYTES - len(marker.encode("utf-8"))
     tail = encoded[-available:]
     while True:
@@ -135,6 +147,16 @@ def bounded_timeout_excerpt(output: str | bytes | None) -> tuple[str, bool]:
         except UnicodeDecodeError as error:
             tail = tail[error.end:]
     return marker + tail_text, True
+
+
+def append_bounded_tail(buffer: bytearray, chunk: bytes) -> None:
+    if len(chunk) >= MAX_TIMEOUT_OUTPUT_BYTES:
+        buffer[:] = chunk[-MAX_TIMEOUT_OUTPUT_BYTES:]
+        return
+    excess = len(buffer) + len(chunk) - MAX_TIMEOUT_OUTPUT_BYTES
+    if excess > 0:
+        del buffer[:excess]
+    buffer.extend(chunk)
 
 
 @dataclass(frozen=True)
@@ -180,27 +202,105 @@ def run_bounded_process(
         start_new_session=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
     )
-    try:
-        output, _ = process.communicate(timeout=timeout_seconds)
-    except subprocess.TimeoutExpired as error:
+    assert process.stdout is not None
+    selector = selectors.DefaultSelector()
+    selector.register(process.stdout, selectors.EVENT_READ)
+    captured = bytearray()
+    total_bytes = 0
+    deadline = time.monotonic() + timeout_seconds
+    timed_out = False
+    output_exceeded = False
+    group_stopped = False
+
+    def stop_process_group() -> None:
+        nonlocal group_stopped
+        if process.poll() is not None and not selector.get_map():
+            group_stopped = True
+            return
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except (ProcessLookupError, PermissionError):
             pass
+        group_stopped = True
+
+    def drain_ready(wait_seconds: float) -> None:
+        nonlocal total_bytes, output_exceeded
+        for key, _ in selector.select(wait_seconds):
+            chunk = os.read(key.fd, 16 * 1024)
+            if not chunk:
+                selector.unregister(key.fileobj)
+                key.fileobj.close()
+                continue
+            total_bytes += len(chunk)
+            append_bounded_tail(captured, chunk)
+            output_exceeded = output_exceeded or total_bytes > MAX_TIMEOUT_OUTPUT_BYTES
+
+    def finish_stopped_group() -> None:
+        cleanup_deadline = time.monotonic() + 2.0
+        while selector.get_map() and time.monotonic() < cleanup_deadline:
+            drain_ready(min(cleanup_deadline - time.monotonic(), 0.1))
+        if selector.get_map():
+            for key in list(selector.get_map().values()):
+                selector.unregister(key.fileobj)
+                key.fileobj.close()
         try:
-            output, _ = process.communicate()
-        except (OSError, ValueError):
-            output = error.output
-        raw = output if output is not None else error.output
-        excerpt, truncated = bounded_timeout_excerpt(raw)
-        raise BoundedProcessTimeout(
-            command, timeout_seconds, excerpt, truncated
-        ) from error
-    return process.returncode, output
+            process.wait(timeout=2.0)
+        except subprocess.TimeoutExpired:
+            stop_process_group()
+            process.kill()
+            process.wait()
+
+    try:
+        while process.poll() is None or selector.get_map():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                timed_out = True
+                break
+            drain_ready(min(remaining, 0.1))
+
+        if timed_out:
+            stop_process_group()
+            finish_stopped_group()
+            raw = bytes(captured)
+            excerpt, truncated = bounded_timeout_excerpt(
+                raw, force_truncated=total_bytes > MAX_TIMEOUT_OUTPUT_BYTES
+            )
+            raise BoundedProcessTimeout(
+                command, timeout_seconds, excerpt, truncated
+            )
+
+        if output_exceeded:
+            stop_process_group()
+            finish_stopped_group()
+            excerpt, _ = bounded_timeout_excerpt(
+                bytes(captured),
+                force_truncated=True,
+                marker="[process output exceeded capture limit; showing final bytes]\n",
+            )
+            raise BoundedProcessOutputExceeded(excerpt)
+
+        returncode = process.wait()
+        raw = bytes(captured)
+        output = raw.decode("utf-8", errors="replace")
+        if total_bytes > MAX_TIMEOUT_OUTPUT_BYTES or len(output.encode("utf-8")) > MAX_TIMEOUT_OUTPUT_BYTES:
+            excerpt, _ = bounded_timeout_excerpt(
+                raw,
+                force_truncated=True,
+                marker="[process output exceeded capture limit; showing final bytes]\n",
+            )
+            raise BoundedProcessOutputExceeded(excerpt)
+        return returncode, output
+    except BaseException:
+        if not group_stopped:
+            stop_process_group()
+            if process.poll() is None:
+                process.wait()
+        raise
+    finally:
+        selector.close()
+        if process.stdout and not process.stdout.closed:
+            process.stdout.close()
 
 
 def extract_security_arms(path: Path) -> list[str]:
@@ -576,6 +676,20 @@ def main() -> int:
                 return 2
         print(f"ERROR: {timeout_context}", file=sys.stderr)
         return 124
+    except BoundedProcessOutputExceeded as error:
+        if error.output_excerpt:
+            print(error.output_excerpt, end="" if error.output_excerpt.endswith("\n") else "\n")
+        print(f"ERROR: {error}", file=sys.stderr)
+        if args.result_file and row is not None and timeout_phase == "shard":
+            if not args.platform:
+                print("ERROR: result-file requires platform", file=sys.stderr)
+                return 2
+            try:
+                write_result(args.result_file, row, "failed", 2, "shard")
+            except OSError as write_error:
+                print(f"ERROR: could not record failed shard: {write_error}", file=sys.stderr)
+                return 2
+        return 2
     except (ContractError, OSError, UnicodeError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2

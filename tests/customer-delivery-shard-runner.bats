@@ -329,7 +329,26 @@ PY
         --platform linux --result-file "$result"
     [ "$status" -eq 0 ] \
         && [ "$(<"$observed")" = /usr/bin/python3 ] \
-        && "$PYTHON" -c 'import json,sys; assert json.load(open(sys.argv[1])) == {"suite":"functional","shard":"1/38"}' "$result"
+        && "$PYTHON" -c 'import json,sys; assert json.load(open(sys.argv[1])) == {"suite":"functional","shard":"1/38","status":"passed","exit_code":0,"phase":"shard"}' "$result"
+}
+
+@test "customer-delivery shard runner refuses output beyond its bounded capture" {
+    local result="$BATS_TEST_TMPDIR/result.json" output_bytes
+    make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 10; exit 0; fi; echo '1..10'; for n in {1..10}; do echo \"ok \$n fixture\"; done; /usr/bin/python3 -c 'import sys; sys.stdout.write(\"x\" * 1048576)'"
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
+        --suite functional --shard 1/38 --bats-bin "$CHILD" \
+        --platform linux --result-file "$result"
+    output_bytes="$(printf '%s' "$output" | wc -c)"
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *"process output exceeded capture limit"* ]] \
+        && [[ "$output" == *"ERROR: Bats output exceeded 65536 byte limit"* ]] \
+        && [ "$output_bytes" -lt 70000 ] \
+        || { printf 'bounded_output_status=%s output_bytes=%s output=%s\n' "$status" "$output_bytes" "$output"; return 1; }
+    "$PYTHON" - "$result" <<'PY' || return 1
+import json,pathlib,sys
+record=json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert record == {"suite":"functional","shard":"1/38","status":"failed","exit_code":2,"phase":"shard"}
+PY
 }
 
 @test "customer-delivery shard runner separates validator and fixture interpreters" {
