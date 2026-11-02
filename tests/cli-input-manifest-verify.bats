@@ -546,8 +546,6 @@ PY
   else
     assertion_status=$?
   fi
-  [[ "$assertion_status" -eq 1 ]]
-  [[ ! -s "$assertion_stdout" ]]
   local pid stdout_bytes stdout_sha stderr_bytes stderr_sha diagnostic
   read -r pid stdout_bytes stdout_sha stderr_bytes stderr_sha < <(python3 - "$receipt" <<'PY'
 import json,sys
@@ -556,15 +554,21 @@ print(r["pid"],r["stdout_bytes"],r["stdout_sha256"],r["stderr_bytes"],r["stderr_
 PY
 )
   diagnostic=$(cat "$assertion_stderr")
-  [[ "$diagnostic" == "F4_TEST_FAILURE actual_exit=23 expected_exit=0 child_pid=$pid stdout_bytes=$stdout_bytes stdout_sha256=$stdout_sha stderr_bytes=$stderr_bytes stderr_sha256=$stderr_sha" ]]
-  [[ "${#diagnostic}" -le 1024 ]]
-  [[ "$diagnostic" != *F4_PRIVATE_PAYLOAD_SENTINEL* ]]
-  [[ "$diagnostic" != *F4_PRIVATE_PATH_SENTINEL* ]]
-  [[ "$diagnostic" != *"$fixture"* ]]
-  [[ "$(stat -c '%a' "$case_dir/receipt.json")" == 600 ]]
-  [[ "$(stat -c '%a' "$case_dir/stdout.raw")" == 600 ]]
-  [[ "$(stat -c '%a' "$case_dir/stderr.raw")" == 600 ]]
-  python3 - "$receipt" "$case_dir" "$source" "$test_source" "$fixture/input.txt" <<'PY'
+  local receipt_mode stdout_mode stderr_mode
+  receipt_mode=$(stat -c '%a' "$case_dir/receipt.json") || return 1
+  stdout_mode=$(stat -c '%a' "$case_dir/stdout.raw") || return 1
+  stderr_mode=$(stat -c '%a' "$case_dir/stderr.raw") || return 1
+  [[ "$diagnostic" == "F4_TEST_FAILURE actual_exit=23 expected_exit=0 child_pid=$pid stdout_bytes=$stdout_bytes stdout_sha256=$stdout_sha stderr_bytes=$stderr_bytes stderr_sha256=$stderr_sha" ]] \
+    && [[ "$assertion_status" -eq 1 ]] \
+    && [[ ! -s "$assertion_stdout" ]] \
+    && [[ "${#diagnostic}" -le 1024 ]] \
+    && [[ "$diagnostic" != *F4_PRIVATE_PAYLOAD_SENTINEL* ]] \
+    && [[ "$diagnostic" != *F4_PRIVATE_PATH_SENTINEL* ]] \
+    && [[ "$diagnostic" != *"$fixture"* ]] \
+    && [[ "$receipt_mode" == 600 ]] \
+    && [[ "$stdout_mode" == 600 ]] \
+    && [[ "$stderr_mode" == 600 ]] \
+    && python3 - "$receipt" "$case_dir" "$source" "$test_source" "$fixture/input.txt" <<'PY'
 import hashlib,json,pathlib,sys
 receipt,case_dir,source,test_source,fixture=map(pathlib.Path,sys.argv[1:])
 r=json.loads(receipt.read_text(encoding="utf-8"))
