@@ -52,7 +52,7 @@ run_verify() {
   local read_counter='' read_counter_sha='' marker_sha=''
   fixture_before=$(cd "$FIXTURE_ROOT" && find . -type f -print0 | sort -z | xargs -0 sha256sum)
   fixture_copy_before=$(cd "$case_dir/fixture" && find . -type f -print0 | sort -z | xargs -0 sha256sum)
-  [[ "$fixture_before" == "$fixture_copy_before" ]]
+  [[ "$fixture_before" == "$fixture_copy_before" ]] || return 1
   source_before=$(sha256sum "$source" | cut -d' ' -f1)
   test_before=$(sha256sum "$test_source" | cut -d' ' -f1)
   input_sha=$(sha256sum "$input" | cut -d' ' -f1)
@@ -81,7 +81,7 @@ run_verify() {
   input_after=$(sha256sum "$input" | cut -d' ' -f1)
   if [[ -n "$read_counter" ]]; then read_counter_sha=$(sha256sum "$read_counter" | cut -d' ' -f1); fi
   if [[ -f "$marker" ]]; then marker_sha=$(sha256sum "$marker" | cut -d' ' -f1); fi
-  python3 - "$case_dir/receipt.json" "$name" "$pid" "$started" "$ended" "$exit_code" "$PWD" "$FIXTURE_ROOT" "$source" "$source_before" "$source_after" "$test_source" "$test_before" "$test_after" "$input" "$input_sha" "$input_after" "$fixture_before" "$fixture_after" "$case_dir/fixture" "$fixture_copy_before" "$fixture_copy_after" "$read_counter" "$read_counter_sha" "${D5_GROW_PATH:-}" "$marker" "$marker_sha" <<'PY'
+  python3 - "$case_dir/receipt.json" "$name" "$pid" "$started" "$ended" "$exit_code" "$PWD" "$FIXTURE_ROOT" "$source" "$source_before" "$source_after" "$test_source" "$test_before" "$test_after" "$input" "$input_sha" "$input_after" "$fixture_before" "$fixture_after" "$case_dir/fixture" "$fixture_copy_before" "$fixture_copy_after" "$read_counter" "$read_counter_sha" "${D5_GROW_PATH:-}" "$marker" "$marker_sha" <<'PY' || return 1
 import json,os,sys
 (out,name,pid,start,end,code,cwd,root,source,source_before,source_after,test,test_before,test_after,input_path,input_sha,input_after,fixture_before,fixture_after,fixture_copy,fixture_copy_before,fixture_copy_after,read_counter,read_counter_sha,grow_path,marker,marker_sha)=sys.argv[1:]
 value={"case":name,"pid":int(pid),"started_utc":start,"ended_utc":end,"argv":["python3",source,"--root",root],"cwd":cwd,"exit":int(code),"input_path":input_path,"input_sha256_before":input_sha,"input_sha256_after":input_after,"source_path":source,"source_sha256_before":source_before,"source_sha256_after":source_after,"test_path":test,"test_sha256_before":test_before,"test_sha256_after":test_after,"fixture_root":root,"fixture_sha256_before":fixture_before,"fixture_sha256_after":fixture_after,"fixture_evidence_path":fixture_copy,"fixture_evidence_sha256_before":fixture_copy_before,"fixture_evidence_sha256_after":fixture_copy_after,"controlled_growth_path":grow_path or None,"read_counter_path":read_counter or None,"read_counter_sha256":read_counter_sha or None,"recursion_injection_marker":marker if marker_sha else None,"recursion_marker_sha256":marker_sha or None}
@@ -96,8 +96,8 @@ assert value["fixture_sha256_before"] == value["fixture_evidence_sha256_before"]
 if not grow_path:
     assert value["fixture_sha256_before"] == value["fixture_sha256_after"]
 PY
-  [[ "$(stat -c '%a' "$raw")" == 600 && "$(stat -c '%a' "$err")" == 600 && "$(stat -c '%a' "$input")" == 600 ]]
-  [[ -z "$read_counter" || "$(stat -c '%a' "$read_counter")" == 600 ]]
+  [[ "$(stat -c '%a' "$raw")" == 600 && "$(stat -c '%a' "$err")" == 600 && "$(stat -c '%a' "$input")" == 600 ]] || return 1
+  [[ -z "$read_counter" || "$(stat -c '%a' "$read_counter")" == 600 ]] || return 1
   export VERIFY_EXIT=$exit_code VERIFY_RAW=$raw VERIFY_ERR=$err
   export VERIFY_RECEIPT="$case_dir/receipt.json" VERIFY_COUNTER="$read_counter"
 }
@@ -244,19 +244,19 @@ PY
 @test "matching selected bytes produce MATCHED without exposing file content" {
   local before after
   before=$(sha256sum "$FIXTURE_ROOT/a.txt" "$FIXTURE_ROOT/sub/b.bin")
-  run_verify matched "$(manifest_one)"
-  assert_profile MATCHED 0 MEASURED
-  [[ ! -s "$VERIFY_ERR" ]]
-  ! grep -q 'alpha' "$VERIFY_RAW"
+  run_verify matched "$(manifest_one)" || return 1
+  assert_profile MATCHED 0 MEASURED || return 1
+  [[ ! -s "$VERIFY_ERR" ]] || return 1
+  ! grep -q 'alpha' "$VERIFY_RAW" || return 1
   after=$(sha256sum "$FIXTURE_ROOT/a.txt" "$FIXTURE_ROOT/sub/b.bin")
-  [[ "$before" == "$after" ]]
+  [[ "$before" == "$after" ]] || return 1
 }
 
 @test "changed bytes are measured only after a complete safe read" {
   printf 'changed\n' > "$FIXTURE_ROOT/a.txt"
-  run_verify changed "$(manifest_one)"
-  assert_profile CHANGED 1 MEASURED
-  python3 - "$VERIFY_RAW" <<'PY'
+  run_verify changed "$(manifest_one)" || return 1
+  assert_profile CHANGED 1 MEASURED || return 1
+  python3 - "$VERIFY_RAW" <<'PY' || return 1
 import json,sys
 v=json.load(open(sys.argv[1])); assert v["diagnostic_codes"] == ["INPUT_MANIFEST_BYTES_CHANGED"]
 assert v["changed_paths"] == ["a.txt"] and v["file_count"] == 1
@@ -266,9 +266,9 @@ PY
 @test "missing selected path is a fixed refusal with no partial result" {
   local sha size
   sha=$(printf x | sha256sum | cut -d' ' -f1); size=1
-  run_verify missing "$(printf '{\"schema\":\"DatarimCliInputManifest/v1\",\"result\":\"COMPLETE\",\"exit_code\":0,\"diagnostic_codes\":[],\"file_count\":2,\"file_count_status\":\"MEASURED\",\"files\":[{\"relative_path\":\"a.txt\",\"sha256\":\"%s\",\"byte_count\":%s},{\"relative_path\":\"missing.txt\",\"sha256\":\"%s\",\"byte_count\":1}]}\n' "$FIXTURE_SHA_A" "$FIXTURE_SIZE_A" "$sha")"
-  assert_profile INPUT_REFUSED 2 NOT_MEASURED
-  python3 - "$VERIFY_RAW" <<'PY'
+  run_verify missing "$(printf '{\"schema\":\"DatarimCliInputManifest/v1\",\"result\":\"COMPLETE\",\"exit_code\":0,\"diagnostic_codes\":[],\"file_count\":2,\"file_count_status\":\"MEASURED\",\"files\":[{\"relative_path\":\"a.txt\",\"sha256\":\"%s\",\"byte_count\":%s},{\"relative_path\":\"missing.txt\",\"sha256\":\"%s\",\"byte_count\":1}]}\n' "$FIXTURE_SHA_A" "$FIXTURE_SIZE_A" "$sha")" || return 1
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED || return 1
+  python3 - "$VERIFY_RAW" <<'PY' || return 1
 import json,sys
 v=json.load(open(sys.argv[1])); assert v["diagnostic_codes"] == ["INPUT_MANIFEST_VERIFICATION_REFUSED"]
 PY
@@ -298,11 +298,11 @@ PY
   head -c 1048576 /dev/zero > "$FIXTURE_ROOT/a.txt"
   FIXTURE_SHA_A=$(sha256sum "$FIXTURE_ROOT/a.txt" | cut -d' ' -f1)
   FIXTURE_SIZE_A=1048576
-  run_verify maximum_file "$(manifest_one)"
-  assert_profile MATCHED 0 MEASURED
+  run_verify maximum_file "$(manifest_one)" || return 1
+  assert_profile MATCHED 0 MEASURED || return 1
   printf '\0' >> "$FIXTURE_ROOT/a.txt"
-  run_verify oversized_file "$(manifest_one)"
-  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+  run_verify oversized_file "$(manifest_one)" || return 1
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED || return 1
 }
 
 @test "huge integral decimal is refused before integer conversion" {
@@ -311,18 +311,18 @@ PY
 }
 
 @test "canonical path boundaries and hostile control data are refused" {
-  run_verify traversal '{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"../a.txt","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","byte_count":1}]}'
-  assert_profile INPUT_REFUSED 2 NOT_MEASURED
-  run_verify hostile '{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"x\u0000secret","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","byte_count":1}]}'
-  assert_profile INPUT_REFUSED 2 NOT_MEASURED
+  run_verify traversal '{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"../a.txt","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","byte_count":1}]}' || return 1
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED || return 1
+  run_verify hostile '{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"x\u0000secret","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","byte_count":1}]}' || return 1
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED || return 1
 }
 
 @test "aggregate actual-byte budget accepts an exact sixteen mebibyte snapshot" {
   prepare_aggregate_fixture
   write_read_instrumentation aggregate_exact
-  run_verify aggregate_exact "$(manifest_all)"
-  assert_profile MATCHED 0 MEASURED
-  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" <<'PY'
+  run_verify aggregate_exact "$(manifest_all)" || return 1
+  assert_profile MATCHED 0 MEASURED || return 1
+  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" <<'PY' || return 1
 import json,sys
 result=json.load(open(sys.argv[1],encoding="utf-8"))
 counter=json.load(open(sys.argv[2],encoding="utf-8"))
@@ -339,7 +339,7 @@ PY
   printf 'z' > "$FIXTURE_ROOT/zz-after-budget.bin"
   write_read_instrumentation aggregate_over_budget
   local manifest
-  manifest=$(manifest_all)
+  manifest=$(manifest_all) || return 1
   manifest=$(python3 - "$manifest" <<'PY'
 import hashlib,json,sys
 value=json.loads(sys.argv[1])
@@ -348,10 +348,10 @@ extra["byte_count"]=0
 extra["sha256"]=hashlib.sha256(b"").hexdigest()
 print(json.dumps(value,separators=(",",":")))
 PY
-)
-  run_verify aggregate_over_budget "$manifest"
-  assert_profile INPUT_REFUSED 2 NOT_MEASURED
-  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" "$FIXTURE_ROOT/zz-after-budget.bin" <<'PY'
+  ) || return 1
+  run_verify aggregate_over_budget "$manifest" || return 1
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED || return 1
+  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" "$FIXTURE_ROOT/zz-after-budget.bin" <<'PY' || return 1
 import json,sys
 result=json.load(open(sys.argv[1],encoding="utf-8"))
 counter=json.load(open(sys.argv[2],encoding="utf-8"))
@@ -362,7 +362,7 @@ assert counter["total_bytes"] == 16 * 1024 * 1024
 assert counter["reads"].get(extra,0) == 0
 assert receipt["read_counter_sha256"] and receipt["fixture_evidence_path"]
 PY
-  [[ ! -s "$VERIFY_ERR" ]]
+  [[ ! -s "$VERIFY_ERR" ]] || return 1
 }
 
 @test "F2 refuses post-fstat growth at the per-file payload cap after one detector byte" {
@@ -371,9 +371,9 @@ PY
   FIXTURE_SIZE_A=1048576
   write_read_instrumentation f2_per_file_growth
   export D5_GROW_PATH=a.txt
-  run_verify f2_per_file_growth "$(manifest_one)"
-  assert_profile INPUT_REFUSED 2 NOT_MEASURED
-  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" "$FIXTURE_ROOT/a.txt" "$CLI_INPUT_MANIFEST_EVIDENCE_DIR/f2_per_file_growth/fixture/a.txt" <<'PY'
+  run_verify f2_per_file_growth "$(manifest_one)" || return 1
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED || return 1
+  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" "$FIXTURE_ROOT/a.txt" "$CLI_INPUT_MANIFEST_EVIDENCE_DIR/f2_per_file_growth/fixture/a.txt" <<'PY' || return 1
 import json,pathlib,sys
 raw,counter_path,receipt_path,fixture,evidence=map(pathlib.Path,sys.argv[1:])
 result=json.loads(raw.read_text())
@@ -392,7 +392,7 @@ assert receipt["input_sha256_before"] == receipt["input_sha256_after"]
 assert receipt["source_sha256_before"] == receipt["source_sha256_after"]
 assert receipt["test_sha256_before"] == receipt["test_sha256_after"]
 PY
-  [[ ! -s "$VERIFY_ERR" ]]
+  [[ ! -s "$VERIFY_ERR" ]] || return 1
 }
 
 @test "F2 refuses post-fstat growth at the aggregate payload cap after one detector byte" {
@@ -400,10 +400,10 @@ PY
   write_read_instrumentation f2_aggregate_growth
   export D5_GROW_PATH=part-16.bin
   local manifest
-  manifest=$(manifest_all)
-  run_verify f2_aggregate_growth "$manifest"
-  assert_profile INPUT_REFUSED 2 NOT_MEASURED
-  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" "$FIXTURE_ROOT/part-16.bin" "$CLI_INPUT_MANIFEST_EVIDENCE_DIR/f2_aggregate_growth/fixture/part-16.bin" <<'PY'
+  manifest=$(manifest_all) || return 1
+  run_verify f2_aggregate_growth "$manifest" || return 1
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED || return 1
+  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" "$FIXTURE_ROOT/part-16.bin" "$CLI_INPUT_MANIFEST_EVIDENCE_DIR/f2_aggregate_growth/fixture/part-16.bin" <<'PY' || return 1
 import json,pathlib,sys
 raw,counter_path,receipt_path,fixture,evidence=map(pathlib.Path,sys.argv[1:])
 result=json.loads(raw.read_text())
@@ -422,16 +422,16 @@ assert receipt["input_sha256_before"] == receipt["input_sha256_after"]
 assert receipt["source_sha256_before"] == receipt["source_sha256_after"]
 assert receipt["test_sha256_before"] == receipt["test_sha256_after"]
 PY
-  [[ ! -s "$VERIFY_ERR" ]]
+  [[ ! -s "$VERIFY_ERR" ]] || return 1
 }
 
 @test "F2 accepts an exact sixteen mebibyte payload and measures EOF at the boundary" {
   prepare_aggregate_fixture
   write_read_instrumentation f2_aggregate_exact
   unset D5_GROW_PATH
-  run_verify f2_aggregate_exact "$(manifest_all)"
-  assert_profile MATCHED 0 MEASURED
-  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" <<'PY'
+  run_verify f2_aggregate_exact "$(manifest_all)" || return 1
+  assert_profile MATCHED 0 MEASURED || return 1
+  python3 - "$VERIFY_RAW" "$VERIFY_COUNTER" "$VERIFY_RECEIPT" <<'PY' || return 1
 import json,sys
 result=json.load(open(sys.argv[1],encoding="utf-8"))
 counter=json.load(open(sys.argv[2],encoding="utf-8"))
@@ -446,15 +446,15 @@ assert receipt["test_sha256_before"] == receipt["test_sha256_after"]
 assert receipt["fixture_sha256_before"] == receipt["fixture_sha256_after"]
 assert receipt["fixture_evidence_sha256_before"] == receipt["fixture_evidence_sha256_after"]
 PY
-  [[ ! -s "$VERIFY_ERR" ]]
+  [[ ! -s "$VERIFY_ERR" ]] || return 1
 }
 
 @test "controlled JSON decoder RecursionError reaches the fixed refusal handler" {
   write_read_instrumentation recursion_oracle
   export D5_FORCE_RECURSION=1
-  run_verify recursion_oracle '{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"a.txt","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","byte_count":1}]}'
-  assert_profile INPUT_REFUSED 2 NOT_MEASURED
-  python3 - "$VERIFY_RAW" "$VERIFY_ERR" "$VERIFY_RECEIPT" "$CLI_INPUT_MANIFEST_EVIDENCE_DIR/recursion_oracle/recursion-injected.marker" <<'PY'
+  run_verify recursion_oracle '{"schema":"DatarimCliInputManifest/v1","result":"COMPLETE","exit_code":0,"diagnostic_codes":[],"file_count":1,"file_count_status":"MEASURED","files":[{"relative_path":"a.txt","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","byte_count":1}]}' || return 1
+  assert_profile INPUT_REFUSED 2 NOT_MEASURED || return 1
+  python3 - "$VERIFY_RAW" "$VERIFY_ERR" "$VERIFY_RECEIPT" "$CLI_INPUT_MANIFEST_EVIDENCE_DIR/recursion_oracle/recursion-injected.marker" <<'PY' || return 1
 import hashlib,json,pathlib,sys
 raw_path,err_path,receipt_path,marker_path=map(pathlib.Path,sys.argv[1:])
 value=json.loads(raw_path.read_text(encoding="utf-8"))
