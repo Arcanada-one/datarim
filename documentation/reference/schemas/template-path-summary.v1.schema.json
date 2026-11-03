@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Template-path convention summary",
+  "description": "Structural contract for the fixed DatarimTemplatePathConventionSummary/v1 result; the producer remains the source of scan behavior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "result",
+    "exit_code",
+    "diagnostic_codes",
+    "offences_present",
+    "offences_present_status"
+  ],
+  "properties": {
+    "schema": { "const": "DatarimTemplatePathConventionSummary/v1" },
+    "result": { "enum": ["PASS", "FAIL"] },
+    "exit_code": { "type": "integer", "enum": [0, 1] },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": { "const": "TEMPLATE_PATH_CONVENTION_INVALID" },
+      "maxItems": 1,
+      "uniqueItems": true
+    },
+    "offences_present": { "type": "boolean" },
+    "offences_present_status": { "const": "MEASURED" }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "result": { "const": "PASS" },
+        "exit_code": { "const": 0 },
+        "diagnostic_codes": { "const": [] },
+        "offences_present": { "const": false },
+        "offences_present_status": { "const": "MEASURED" }
+      }
+    },
+    {
+      "properties": {
+        "result": { "const": "FAIL" },
+        "exit_code": { "const": 1 },
+        "diagnostic_codes": { "const": ["TEMPLATE_PATH_CONVENTION_INVALID"] },
+        "offences_present": { "const": true },
+        "offences_present_status": { "const": "MEASURED" }
+      }
+    }
+  ]
+}

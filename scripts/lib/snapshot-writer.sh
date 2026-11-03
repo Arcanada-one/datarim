@@ -391,14 +391,14 @@ write_stage_snapshot() {
     # safe-on-overwrite for regular files. Pre-unlink symlink already handled.
     mv -f "$tmp_path" "$final_path"
 
-    # Harness journal hook — auto-detect /tmp/datarim-test-{task_id}.
+    # Harness journal hook — auto-detect ${TMPDIR:-/tmp}/datarim-test-{task_id}.
     # If the operator initialised the test harness for this TASK-ID
     # via dev-tools/datarim-stage-probe-init.sh, append one journal line
     # per writer call. Fail-soft per V-AC-7 contract — never abort snapshot.
     # Detection heuristics: header-present = body_file first line matches
     # ^**{task_id} · ; cta-footer = body contains Cyrillic CTA marker
     # or /dr-* {task_id} primary line.
-    local journal_dir="/tmp/datarim-test-${task_id}"
+    local journal_dir="${TMPDIR:-/tmp}/datarim-test-${task_id}"
     if [ -d "$journal_dir" ] && [ ! -L "$journal_dir" ]; then
         local _first _hdr_y _cta_y _sha
         _first="$(head -1 "$body_file" 2>/dev/null || true)"

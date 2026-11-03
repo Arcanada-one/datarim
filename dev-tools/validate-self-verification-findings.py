@@ -26,6 +26,33 @@ EVIDENCE_TYPES = {"file_quote", "test_output", "verified_absence", "absent"}
 RESOLUTIONS = {"actionable", "advisory", "unresolved"}
 DISCARD_REASONS = {"no_evidence_provided", "parse_error", "malformed_evidence"}
 TRUNCATION_SUFFIX = "[truncated]"
+SUMMARY_SCHEMA = "DatarimSelfVerificationFindingsSummary/v1"
+
+
+def _emit_summary(
+    result: str,
+    exit_code: int,
+    diagnostic_codes: list[str],
+    normalized_count,
+    normalized_count_status: str,
+    malformed_count,
+    malformed_count_status: str,
+) -> None:
+    """Emit only the fixed, privacy-safe summary contract."""
+    print(
+        json.dumps(
+            {
+                "schema": SUMMARY_SCHEMA,
+                "result": result,
+                "exit_code": exit_code,
+                "diagnostic_codes": diagnostic_codes,
+                "normalized_count": normalized_count,
+                "normalized_count_status": normalized_count_status,
+                "malformed_count": malformed_count,
+                "malformed_count_status": malformed_count_status,
+            }
+        )
+    )
 
 
 def _nonempty_string(value: Any) -> bool:
@@ -150,6 +177,11 @@ def main() -> int:
         action="store_true",
         help="promote legacy records in a live run to unresolved at the current round",
     )
+    parser.add_argument(
+        "--summary-json",
+        action="store_true",
+        help="emit fixed structural counts and result without finding details",
+    )
     args = parser.parse_args()
     if args.max_iter < 1 or args.current_round < 1 or args.current_round > args.max_iter:
         parser.error("require 1 <= --round <= --max-iter")
@@ -157,7 +189,10 @@ def main() -> int:
     try:
         payload = json.load(sys.stdin)
     except json.JSONDecodeError as exc:
-        print(json.dumps({"ok": False, "findings": [], "malformed": [{"index": 0, "errors": [f"invalid JSON: {exc.msg}"]}]}))
+        if args.summary_json:
+            _emit_summary("INPUT_REFUSED", 1, ["FINDINGS_JSON_INVALID"], None, "NOT_MEASURED", None, "NOT_MEASURED")
+        else:
+            print(json.dumps({"ok": False, "findings": [], "malformed": [{"index": 0, "errors": [f"invalid JSON: {exc.msg}"]}]}))
         return 1
 
     if isinstance(payload, list):
@@ -165,7 +200,10 @@ def main() -> int:
     elif isinstance(payload, dict) and isinstance(payload.get("findings"), list):
         records = payload["findings"]
     else:
-        print(json.dumps({"ok": False, "findings": [], "malformed": [{"index": 0, "errors": ["input must be an array or an object with a findings array"]}]}))
+        if args.summary_json:
+            _emit_summary("INPUT_REFUSED", 1, ["FINDINGS_SHAPE_INVALID"], None, "NOT_MEASURED", None, "NOT_MEASURED")
+        else:
+            print(json.dumps({"ok": False, "findings": [], "malformed": [{"index": 0, "errors": ["input must be an array or an object with a findings array"]}]}))
         return 1
 
     valid: list[dict[str, Any]] = []
@@ -180,8 +218,21 @@ def main() -> int:
             assert normalized is not None
             valid.append(normalized)
 
-    print(json.dumps({"ok": not malformed, "findings": valid, "malformed": malformed}, indent=2, ensure_ascii=False))
-    return 1 if malformed else 0
+    exit_code = 1 if malformed else 0
+    if args.summary_json:
+        failed = bool(malformed)
+        _emit_summary(
+            "INVALID" if failed else "VALID",
+            exit_code,
+            ["FINDINGS_INVALID"] if failed else [],
+            len(valid),
+            "MEASURED",
+            len(malformed),
+            "MEASURED",
+        )
+    else:
+        print(json.dumps({"ok": not malformed, "findings": valid, "malformed": malformed}, indent=2, ensure_ascii=False))
+    return exit_code
 
 
 if __name__ == "__main__":

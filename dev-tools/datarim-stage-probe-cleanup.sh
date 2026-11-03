@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # datarim-stage-probe-cleanup.sh — remove the Datarim stage-probe harness dir.
 #
-# Idempotent: exit 0 whether or not /tmp/datarim-test-{TASK-ID}/ existed.
-# Symlink-safe: refuses to follow symlinks targeting outside /tmp.
+# Idempotent: exit 0 whether or not
+# ${TMPDIR:-/tmp}/datarim-test-{TASK-ID}/ existed.
+# Symlink-safe: refuses a symlink at the harness path.
 #
 # Invoked by /dr-archive when wish phase2-harness-axes-a-b-c-d closure is
 # required (Axis D — cleanup invariant).
@@ -26,7 +27,7 @@ if ! printf '%s' "$TASK_ID" | grep -qE "$TASK_ID_BASE_RE"; then
     exit 2
 fi
 
-DIR="/tmp/datarim-test-${TASK_ID}"
+DIR="${TMPDIR:-/tmp}/datarim-test-${TASK_ID}"
 
 if [ -L "$DIR" ]; then
     printf 'cleanup: refuse symlink %s (T2 mitigation)\n' "$DIR" >&2
