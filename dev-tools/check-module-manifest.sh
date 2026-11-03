@@ -17,19 +17,44 @@
 # Read-only: no writes, no network.
 
 set -euo pipefail
+IFS=$'\n\t'
+
+SUMMARY_JSON=0
+MANIFEST=""
 
 usage() {
     sed -n '2,20p' "$0"
     exit "${1:-2}"
 }
 
+if [ "${1:-}" = "--summary-json" ]; then
+    SUMMARY_JSON=1
+    shift
+fi
+if [ "${1:-}" = "--" ]; then
+    shift
+fi
 case "${1:-}" in
     -h|--help) usage 0 ;;
     "") echo "ERROR: no manifest path given" >&2; usage 2 ;;
 esac
 
 MANIFEST="$1"
+valid_path_argument() {
+    local LC_ALL=C
+    local without_tabs="${1//$'\t'/}"
+    [[ "$without_tabs" =~ ^[^[:cntrl:]]*$ ]]
+}
+if ! valid_path_argument "$MANIFEST"; then
+    echo "ERROR: manifest path contains a control character" >&2
+    exit 2
+fi
+
 if [ ! -f "$MANIFEST" ]; then
+    if [ "$SUMMARY_JSON" -eq 1 ]; then
+        printf '{"schema":"DatarimModuleManifestSummary/v1","result":"INPUT_UNAVAILABLE","exit_code":2,"diagnostic_codes":["MODULE_MANIFEST_UNAVAILABLE"],"skill_count":null,"skill_count_status":"NOT_MEASURED","warning_count":null,"warning_count_status":"NOT_MEASURED"}\n'
+        exit 2
+    fi
     echo "ERROR: manifest not found: $MANIFEST" >&2
     exit 2
 fi
@@ -38,8 +63,9 @@ KEBAB_RE='^[a-z][a-z0-9-]{0,63}$'
 SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+$'
 
 fail=0
-err() { echo "FAIL: $1" >&2; fail=1; }
-warn() { echo "WARN: $1" >&2; }
+warning_count=0
+err() { if [ "$SUMMARY_JSON" -eq 0 ]; then echo "FAIL: $1" >&2; fi; fail=1; }
+warn() { warning_count=$((warning_count + 1)); if [ "$SUMMARY_JSON" -eq 0 ]; then echo "WARN: $1" >&2; fi; }
 
 # ---- schema_version (top-level) ----
 schema_version="$(grep -E '^schema_version:' "$MANIFEST" | head -n1 \
@@ -155,8 +181,16 @@ $skill_report
 EOF
 
 if [ "$fail" -ne 0 ]; then
+    if [ "$SUMMARY_JSON" -eq 1 ]; then
+        printf '{"schema":"DatarimModuleManifestSummary/v1","result":"INVALID","exit_code":1,"diagnostic_codes":["MODULE_MANIFEST_INVALID"],"skill_count":%s,"skill_count_status":"MEASURED","warning_count":%s,"warning_count_status":"MEASURED"}\n' "$skill_count" "$warning_count"
+        exit 1
+    fi
     echo "RESULT: INVALID ($MANIFEST)" >&2
     exit 1
+fi
+if [ "$SUMMARY_JSON" -eq 1 ]; then
+    printf '{"schema":"DatarimModuleManifestSummary/v1","result":"VALID","exit_code":0,"diagnostic_codes":[],"skill_count":%s,"skill_count_status":"MEASURED","warning_count":%s,"warning_count_status":"MEASURED"}\n' "$skill_count" "$warning_count"
+    exit 0
 fi
 echo "RESULT: VALID ($MANIFEST) — schema_version=$schema_version, module=$module_id@$module_version, skills=$skill_count"
 exit 0

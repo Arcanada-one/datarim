@@ -209,10 +209,22 @@ run_lint() {
 
 # --- Fix B security: no eval, regex-validated var name, injection inert ---
 @test "compose: \${VAR:?\$(id)} injection does not execute command" {
-    rm -f /tmp/network-exposure-injection-canary
-    run_lint --compose "$F/compose-var-injection.yml"
-    [ ! -f /tmp/network-exposure-injection-canary ]
-    [ "$status" -ne 0 ]
+    local private_dir fixture canary
+    private_dir="$(mktemp -d "$BATS_TEST_TMPDIR/network-exposure-injection.XXXXXX")" || return 1
+    fixture="$private_dir/compose-var-injection.yml"
+    canary="$private_dir/canary"
+    printf '%s\n' \
+        'version: "3.9"' \
+        'services:' \
+        '  app:' \
+        '    image: arcanada/app:latest' \
+        '    ports:' > "$fixture" || return 1
+    printf '      - "${BIND_HOST:?$(id > %s)}:8080:8080"\n' "$canary" >> "$fixture" || return 1
+    [ ! -e "$canary" ] || return 1
+    run_lint --compose "$fixture"
+    [ "$status" -ne 0 ] || return 1
+    [ ! -e "$canary" ] || return 1
+    rm -rf -- "$private_dir" || return 1
 }
 
 @test "compose: malformed var name rejected by regex gate" {

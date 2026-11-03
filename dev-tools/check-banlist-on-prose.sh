@@ -14,10 +14,11 @@
 #   check-banlist-on-prose.sh --file <path.md> [--banlist <path>] [--whitelist <path>] [--language <tag>]
 
 set -euo pipefail
+IFS=$'\n\t'
 
 usage() {
     cat >&2 <<'USAGE'
-usage: check-banlist-on-prose.sh --file <path.md> [--banlist <path>] [--whitelist <path>] [--language <tag>]
+usage: check-banlist-on-prose.sh [--summary-json] --file <path.md> [--banlist <path>] [--whitelist <path>] [--language <tag>]
   --file       markdown file to scan (required; must match ^[A-Za-z0-9._/-]+\.md$)
   --banlist    banlist source (default: <script-dir>/../skills/human-summary/banlist.txt)
   --whitelist  whitelist source (default: <script-dir>/../skills/human-summary/whitelist.txt)
@@ -31,9 +32,14 @@ FILE=""
 BANLIST=""
 WHITELIST=""
 LANGUAGE="ru"  # Preserve legacy callers; new callers pass resolved artifact language.
+SUMMARY_JSON=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
+        --summary-json)
+            SUMMARY_JSON=1
+            shift
+            ;;
         --file)
             [ $# -ge 2 ] || usage
             FILE="$2"
@@ -81,7 +87,15 @@ if (( ${#LANGUAGE} > 63 )) || ! [[ "$LANGUAGE" =~ ^([A-Za-z]{2,8}(-[A-Za-z0-9]{1
     exit 2
 fi
 # This vocabulary is a Russian prose rule, not an English or universal rule.
-case "$LANGUAGE" in [rR][uU]|[rR][uU]-*) ;; *) exit 0 ;; esac
+case "$LANGUAGE" in
+    [rR][uU]|[rR][uU]-*) ;;
+    *)
+        if [ "$SUMMARY_JSON" -eq 1 ]; then
+            printf '{"schema":"DatarimProseBanlistSummary/v1","result":"NOT_APPLICABLE","exit_code":0,"diagnostic_codes":["LANGUAGE_NOT_APPLICABLE"],"offence_count":null,"offence_count_status":"NOT_MEASURED"}\n'
+        fi
+        exit 0
+        ;;
+esac
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEFAULT_BANLIST="$SCRIPT_DIR/../skills/human-summary/banlist.txt"
@@ -90,18 +104,36 @@ DEFAULT_WHITELIST="$SCRIPT_DIR/../skills/human-summary/whitelist.txt"
 : "${BANLIST:=$DEFAULT_BANLIST}"
 : "${WHITELIST:=$DEFAULT_WHITELIST}"
 
+valid_path_argument() {
+    local LC_ALL=C
+    local without_tabs="${1//$'\t'/}"
+    [[ "$without_tabs" =~ ^[^[:cntrl:]]*$ ]]
+}
+if ! valid_path_argument "$BANLIST" || ! valid_path_argument "$WHITELIST"; then
+    echo "ERROR: list path contains a control character" >&2
+    exit 2
+fi
+
 if [ ! -f "$BANLIST" ]; then
+    if [ "$SUMMARY_JSON" -eq 1 ]; then
+        printf '{"schema":"DatarimProseBanlistSummary/v1","result":"INPUT_UNAVAILABLE","exit_code":1,"diagnostic_codes":["PROSE_BANLIST_UNAVAILABLE"],"offence_count":null,"offence_count_status":"NOT_MEASURED"}\n'
+        exit 1
+    fi
     echo "ERROR: banlist not found: $BANLIST" >&2
     exit 1
 fi
 if [ ! -f "$WHITELIST" ]; then
+    if [ "$SUMMARY_JSON" -eq 1 ]; then
+        printf '{"schema":"DatarimProseBanlistSummary/v1","result":"INPUT_UNAVAILABLE","exit_code":1,"diagnostic_codes":["PROSE_WHITELIST_UNAVAILABLE"],"offence_count":null,"offence_count_status":"NOT_MEASURED"}\n'
+        exit 1
+    fi
     echo "ERROR: whitelist not found: $WHITELIST" >&2
     exit 1
 fi
 
 # awk one-shot: BEGIN loads banlist+whitelist hashmaps; main runs fence-state machine,
 # tokenizes ASCII tokens length>=3, lowercases, looks up whitelist then banlist.
-awk -v BANLIST="$BANLIST" -v WHITELIST="$WHITELIST" '
+awk -v BANLIST="$BANLIST" -v WHITELIST="$WHITELIST" -v SUMMARY_JSON="$SUMMARY_JSON" '
 BEGIN {
     # Load banlist
     while ((getline line < BANLIST) > 0) {
@@ -143,12 +175,20 @@ in_yaml { next }
         if (length(tok) < 3) continue
         if (tok in whitelist) continue
         if (tok in banlist) {
-            printf("%s:%d:%s\n", FILENAME, NR, tok)
+            if (SUMMARY_JSON != "1") printf("%s:%d:%s\n", FILENAME, NR, tok)
             count++
         }
     }
 }
 END {
+    if (SUMMARY_JSON == "1") {
+        if (count > 0) {
+            printf("{\"schema\":\"DatarimProseBanlistSummary/v1\",\"result\":\"OFFENCES\",\"exit_code\":1,\"diagnostic_codes\":[\"PROSE_BANLIST_MATCH\"],\"offence_count\":%d,\"offence_count_status\":\"MEASURED\"}\n", count)
+            exit 1
+        }
+        printf("{\"schema\":\"DatarimProseBanlistSummary/v1\",\"result\":\"CLEAN\",\"exit_code\":0,\"diagnostic_codes\":[],\"offence_count\":0,\"offence_count_status\":\"MEASURED\"}\n")
+        exit 0
+    }
     exit (count > 0 ? 1 : 0)
 }
 ' "$FILE"

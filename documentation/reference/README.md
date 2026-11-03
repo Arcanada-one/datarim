@@ -64,6 +64,7 @@ Kebab-case `.md` filenames named after the subject, for example `agents.md`,
 | [`self-verification-findings-summary-schema.md`](self-verification-findings-summary-schema.md) | Portable self-verification findings summary schema. |
 | [`product-artifact-validation-summary.md`](product-artifact-validation-summary.md) | Opt-in ProductArtifact checker summary. |
 | [`ui-dx-evidence-summary.md`](ui-dx-evidence-summary.md) | Versioned UI/DX evidence checker summary. |
+| [`qa-contract-version-summary.md`](qa-contract-version-summary.md) | Opt-in fixed outcome for QA contract-version binding. |
 | [`security-finding-labels-summary.md`](security-finding-labels-summary.md) | Security finding-label checker summary. |
 | [`skill-frontmatter-summary.md`](skill-frontmatter-summary.md) | Skill frontmatter checker summary. |
 | [`test-value-card-summary.md`](test-value-card-summary.md) | Test-value-card checker summary. |
