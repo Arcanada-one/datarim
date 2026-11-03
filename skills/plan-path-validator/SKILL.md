@@ -51,29 +51,43 @@ is a deterministic shell probe — no LLM judgement, no fabrication.
 Extract the path-shaped tokens from the plan text. A path-shaped token is a
 slash-bearing string in backticks, a code fence, or a Validation-row command
 (e.g. `` `scripts/check-doc-refs.sh` ``, `dev-tools/append-init-task-qa.sh`).
-Deduplicate. Untrusted-input hygiene (Security Mandate S1/S5): every path is
-planner-emitted text — always quote it and terminate option parsing with `--`
-before passing it to a shell tool.
+Deduplicate. The caller must set `PLAN_PATH_REPO_DIR` to the repository
+directory and `PLAN_PATH_COLLECTED_PATH` to one collected path before this
+probe. Relative paths are resolved from the repository directory; absolute
+paths remain absolute. Missing or empty
+values stop with a fixed error; neither value is inferred from the current
+directory or another input. For untrusted-input hygiene (Security Mandate
+S1/S5), planner-emitted path text must always be quoted, and option parsing
+must be terminated with `--` before passing it to a shell tool.
 
 ### 2. Existence probe (choose by git topology)
 
 First disambiguate whether the path lives inside a git working tree, then probe:
 
 ```bash
-# $p is one collected path; $dir is dirname($p) or the repo root
+dir=${PLAN_PATH_REPO_DIR-}
+p=${PLAN_PATH_COLLECTED_PATH-}
+if [ -z "$dir" ] || [ -z "$p" ]; then
+    echo "ERROR: PLAN_PATH_REPO_DIR and PLAN_PATH_COLLECTED_PATH are required." >&2
+    exit 2
+fi
+
 if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     # Inside a working tree: prefer the git index for tracked targets,
     # fall back to the filesystem for untracked-but-present paths.
     if git -C "$dir" cat-file -e "HEAD:$p" 2>/dev/null \
        || git -C "$dir" ls-files --error-unmatch -- "$p" >/dev/null 2>&1 \
-       || test -e "$p"; then
+       || { case "$p" in /*) test -e "$p" ;; *) (cd -- "$dir" && test -e "$p") ;; esac; }; then
         : # PRESENT
     else
         echo "MISSING: $p" # phantom / renamed / deleted
     fi
 else
     # Non-git path (gitignored web root, deploy-synced dist, sibling submodule):
-    test -e "$p" && : || echo "MISSING: $p"
+    case "$p" in
+        /*) test -e "$p" && : || echo "MISSING: $p" ;;
+        *) (cd -- "$dir" && test -e "$p") && : || echo "MISSING: $p" ;;
+    esac
 fi
 ```
 
