@@ -88,7 +88,7 @@ _resolve_backend() {
     # model BEFORE echoing any argv so a refusal leaves an empty vector.
     cursor)
       local model_out
-      model_out="$(_cursor_model_argv)" || return 2
+      model_out="$(_cursor_model_argv "${DATARIM_CURSOR_MODEL:-}")" || return 2
       echo cursor-agent
       echo --print
       echo --output-format=stream-json
@@ -119,7 +119,7 @@ _resolve_fleet_backend() {
     codex)    echo codex ;;
     cursor)
       local model_out
-      model_out="$(_cursor_model_argv)" || return 2
+      model_out="$(_cursor_model_argv "${DATARIM_CURSOR_MODEL:-}")" || return 2
       echo cursor-agent
       printf '%s\n' "$model_out"
       ;;
