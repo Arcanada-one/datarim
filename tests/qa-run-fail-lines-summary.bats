@@ -73,15 +73,24 @@ PY
 }
 
 @test "harness-fixed response mismatch is refused with one fixed code and no fixture values" {
-    write_fail_line
+    printf 'FAIL: private line canary marker\n' > "$RUN/private-line-canary.log"
     printf 'synthetic response bytes\n' > "$RUN/response.txt"
-    printf '{"response_sha256":"0000000000000000000000000000000000000000000000000000000000000000","result":"pass"}\n' > "$RUN/reevaluation.json"
-    printf '{"cases":{},"fail_lines":[{"path":"private-line-canary.log","line":47,"disposition":"harness_fixed","response_path":"response.txt","reevaluation_path":"reevaluation.json"}]}\n' > "$MANIFEST"
+    response_sha="$(sha256sum "$RUN/response.txt" | cut -d' ' -f1)"
+    wrong_sha="$(python3 - "$response_sha" <<'PY'
+import sys
+
+digest = sys.argv[1]
+replacement = "1" if digest[0] != "1" else "0"
+print(replacement + digest[1:])
+PY
+)"
+    printf '{"response_sha256":"%s","result":"pass"}\n' "$wrong_sha" > "$RUN/reevaluation.json"
+    printf '{"cases":{},"fail_lines":[{"path":"private-line-canary.log","line":1,"disposition":"harness_fixed","response_path":"response.txt","reevaluation_path":"reevaluation.json"}]}\n' > "$MANIFEST"
     run_summary
     assert_summary FAIL 1 RUN_VALIDATION_FAILED
     [[ "$output" != *"private-line-canary"* ]]
     [[ "$output" != *"response.txt"* ]]
-    [[ "$output" != *"0000000000000000"* ]]
+    [[ "$output" != *"$wrong_sha"* ]]
 }
 
 @test "orphan FAIL line with private path marker is summarized without exception text" {
