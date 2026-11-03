@@ -278,6 +278,74 @@ EOF
         [[ "$output" == *"release_metadata=minor"* ]]
 }
 
+@test "HTML-commented release section cannot supply a target heading or declaration" {
+    printf '0.7.0\n' > "$REPO/VERSION"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+<!--
+## [0.7.0] — 2026-11-02
+
+### Added
+
+- This declaration is not visible release metadata.
+-->
+EOF
+    git -C "$REPO" add VERSION CHANGELOG.md
+    git -C "$REPO" commit -q -m "Datarim release 0.7.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+        [[ "$output" == *"release_metadata=none"* ]] || return 1
+}
+
+@test "inline HTML comment cannot make a hidden Added item count" {
+    printf '0.7.0\n' > "$REPO/VERSION"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.7.0] — 2026-11-02
+
+### Added
+
+- <!-- Hidden declaration. -->
+EOF
+    git -C "$REPO" add VERSION CHANGELOG.md
+    git -C "$REPO" commit -q -m "Datarim release 0.7.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+        [[ "$output" == *"release_metadata=none"* ]] || return 1
+}
+
+@test "multiline HTML comment hides Changed content and preserves live Added content" {
+    printf '0.7.0\n' > "$REPO/VERSION"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.7.0] — 2026-11-02
+
+### Added <!-- visible category with an inline comment -->
+
+<!-- hidden changelog example starts
+### Changed
+- This hidden category must not make the section ambiguous.
+hidden changelog example ends -->
+
+### Added
+- Visible feature declaration.
+EOF
+    git -C "$REPO" add VERSION CHANGELOG.md
+    git -C "$REPO" commit -q -m "Datarim release 0.7.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]] || return 1
+}
+
 @test "ordered metadata markers accept zero and limit marker length to nine digits" {
     _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
     cat > "$REPO/CHANGELOG.md" <<'EOF'

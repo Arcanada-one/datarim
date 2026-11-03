@@ -102,7 +102,7 @@ is_zero_x() { case "$1" in 0.*) echo true ;; *) echo false ;; esac; }
 release_section_bump() {
     local changelog="$1" version="$2"
     printf '%s\n' "$changelog" | awk -v version="$version" '
-        BEGIN { prefix = "## [" version "] — "; in_target = 0; headings = 0; max = 0; ambiguous = 0; fence_marker = ""; fence_size = 0 }
+        BEGIN { prefix = "## [" version "] — "; in_target = 0; headings = 0; max = 0; ambiguous = 0; fence_marker = ""; fence_size = 0; in_html_comment = 0 }
         function valid_date(date, year, month, day, last_day) {
             if (date !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) return 0
             year = substr(date, 1, 4) + 0
@@ -150,6 +150,32 @@ release_section_bump() {
             tail = substr(rest, count + 1)
             return tail !~ /[^[:space:]]/
         }
+        function strip_html_comments(line, result, rest, open_at, close_at) {
+            result = ""
+            rest = line
+            while (length(rest) > 0) {
+                if (in_html_comment) {
+                    close_at = index(rest, "-->")
+                    if (!close_at) return result
+                    rest = substr(rest, close_at + 3)
+                    in_html_comment = 0
+                    result = result " "
+                    continue
+                }
+                open_at = index(rest, "<!--")
+                if (!open_at) {
+                    result = result rest
+                    break
+                }
+                result = result substr(rest, 1, open_at - 1) " "
+                rest = substr(rest, open_at + 4)
+                in_html_comment = 1
+            }
+            return result
+        }
+        function is_indented_code(line) {
+            return substr(line, 1, 4) == "    " || substr(line, 1, 1) == "\t"
+        }
         function is_list_item(line, indent, rest, digits, marker, content) {
             indent = leading_spaces(line)
             if (indent > 3) return 0
@@ -168,8 +194,11 @@ release_section_bump() {
                 if (closes_fence($0)) { fence_marker = ""; fence_size = 0 }
                 next
             }
+            if (!in_html_comment && is_indented_code($0)) next
+            if (!in_html_comment && opens_fence($0)) next
+            $0 = strip_html_comments($0)
             if (opens_fence($0)) next
-            if (substr($0, 1, 4) == "    " || substr($0, 1, 1) == "\t") next
+            if (is_indented_code($0)) next
         }
         /^## / {
             in_target = 0
@@ -183,7 +212,12 @@ release_section_bump() {
             }
             next
         }
-        in_target && /^### / { category = substr($0, 5); next }
+        in_target && /^### / {
+            category = substr($0, 5)
+            sub(/^[[:space:]]+/, "", category)
+            sub(/[[:space:]]+$/, "", category)
+            next
+        }
         in_target && is_list_item($0) {
             if (category == "Added") rank = 2
             else if (category == "Fixed") rank = 1

@@ -174,7 +174,8 @@ use a narrow release-metadata declaration from the exact source trees: the
 previous stable tag must have a matching `VERSION`, the target `VERSION` must
 match exactly one heading with a valid Gregorian calendar date in that target's
 `CHANGELOG.md`, and the target version must be the immediate SemVer transition
-declared by nonempty top-level list items outside fenced or indented code blocks
+declared by nonempty top-level list items outside HTML comments, fenced code
+blocks, or indented code blocks
 in that section (`-`, `*`, `+`, or ordered markers with one to nine digits;
 `Added` → minor, `Fixed` → patch, or explicit `Breaking` /
 `Breaking Changes` → major). Ambiguous populated changelog categories (including
