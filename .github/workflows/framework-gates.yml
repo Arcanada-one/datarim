@@ -178,7 +178,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install pinned test dependencies
-        run: python3 -m pip install pytest==8.3.5 pyyaml==6.0.2
+        run: python3 -m pip install pytest==8.3.5 pyyaml==6.0.2 jsonschema==4.23.0
       - name: Verify reporting and host installer contracts
         run: |
           python3 -m pytest -q tests/test_human_reporting*.py tests/test_language_preferences.py tests/test_language_framework.py
