@@ -261,7 +261,7 @@ its legacy compatibility and resolution/round contract are documented in
 `resolution` and `round`; legacy records carrying neither remain valid. The live
 consumer upgrades legacy producer output to unresolved at the current round.
 `fixed` and `confidence` are not schema values. An unresolved finding at
-`max_iter` remains unresolved.
+`max_iter` remains unresolved; limit exhausted does not mean fixed.
 
 ## Severity Anchors
 

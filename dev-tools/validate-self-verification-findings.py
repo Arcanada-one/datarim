@@ -154,16 +154,20 @@ def _validate_record(
         round_number = normalized.get("round")
         if not isinstance(resolution, str) or resolution not in RESOLUTIONS:
             errors.append("resolution must be actionable, advisory, or unresolved")
+            # Reject explicit "fixed" (and any other non-enum) without treating the
+            # iteration cap as proof of closure. Limit exhausted != fixed.
+            if isinstance(resolution, str) and resolution == "fixed":
+                errors.append(
+                    "fixed is not an accepted resolution; iteration limit exhausted does not mean fixed"
+                )
         if isinstance(round_number, bool) or not isinstance(round_number, int):
             errors.append("round must be an integer")
         elif round_number < 1 or round_number > max_iter:
             errors.append("round must be between 1 and max_iter")
         elif round_number != current_round:
             errors.append("round must match the current verification iteration")
-        # At the cap unresolved remains unresolved. The validator never infers
-        # or writes a fixed state; "fixed" is outside the resolution enum.
-        if current_round == max_iter and resolution == "fixed":
-            errors.append("iteration cap cannot convert an unresolved finding to fixed")
+        # At the cap, an accepted unresolved record is left unresolved. The
+        # validator never rewrites resolution to a closed/fixed state.
 
     return (normalized if not errors else None), errors
 
