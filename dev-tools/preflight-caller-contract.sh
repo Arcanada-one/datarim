@@ -17,6 +17,11 @@ readonly CHECKOUT_ACTION="actions/checkout@3d3c42e5aac5ba805825da76410c181273ba9
 readonly VAULT_ADDR_EXPRESSION='${{ vars.VAULT_ADDR }}'
 # shellcheck disable=SC2016 # GitHub expressions are intentionally literal.
 readonly WORKFLOW_SHA_EXPRESSION='${{ github.workflow_sha }}'
+# BATCH-004 / DEC-AUP stage CI: the only job-level `if` admitted on the
+# capability-free contract job. Arbitrary skip forms (always()/false/…) remain
+# rejected. Absence of `if` stays valid for consumers that always run the job.
+# shellcheck disable=SC2016 # GitHub expressions are intentionally literal.
+readonly ALLOWED_CONTRACT_JOB_IF="github.event_name != 'pull_request' || startsWith(github.head_ref, 'integration/') || contains(github.event.pull_request.labels.*.name, 'ci:run')"
 
 fail() {
     printf 'ERROR: %s\n' "$1" >&2
@@ -189,7 +194,20 @@ yaml_true '(.on | type) == "!!map" and (.on | has("pull_request")) and
     ".on.pull_request"
 yaml_true '.jobs."preflight-caller-contract" | type == "!!map"' ".jobs.${CONTRACT_JOB}"
 yaml_true '.jobs.deploy | type == "!!map"' ".jobs.${DEPLOY_JOB}"
-yaml_true '(.jobs."preflight-caller-contract" | keys | sort | join(",")) == "permissions,runs-on,steps,timeout-minutes"' \
+# Capability-free shape: either the legacy key set, or the same set plus the
+# exact BATCH-004 PR-skip `if`. Any other key or any other `if` expression is a
+# contract violation (does not weaken deploy/vault/step checks below).
+export EXPECTED_CONTRACT_JOB_IF="$ALLOWED_CONTRACT_JOB_IF"
+yaml_true '
+    (
+      (.jobs."preflight-caller-contract" | keys | sort | join(","))
+        == "permissions,runs-on,steps,timeout-minutes"
+    ) or (
+      (.jobs."preflight-caller-contract" | keys | sort | join(","))
+        == "if,permissions,runs-on,steps,timeout-minutes"
+      and
+      ((.jobs."preflight-caller-contract".if | tostring) == strenv(EXPECTED_CONTRACT_JOB_IF))
+    )' \
     ".jobs.${CONTRACT_JOB}.capabilities"
 yaml_true '.jobs."preflight-caller-contract"."runs-on" == "ubuntu-latest"' ".jobs.${CONTRACT_JOB}.runs-on"
 yaml_true '.jobs."preflight-caller-contract"."timeout-minutes" == 5' ".jobs.${CONTRACT_JOB}.timeout-minutes"
