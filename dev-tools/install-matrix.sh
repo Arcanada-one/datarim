@@ -71,7 +71,7 @@ while [ $# -gt 0 ]; do
 done
 
 [ "${#IMAGES[@]}" -eq 0 ] && IMAGES=("${DEFAULT_IMAGES[@]}")
-case "$VENDOR_FLAG" in claude|codex|cursor) ;; *) echo "error: --vendor must be claude, codex, or cursor" >&2; exit 2 ;; esac
+case "$VENDOR_FLAG" in claude|codex|cursor|antigravity|agy) ;; *) echo "error: --vendor must be claude, codex, cursor, or antigravity" >&2; exit 2 ;; esac
 
 # ---------- pre-flight --------------------------------------------------------
 

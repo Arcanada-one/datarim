@@ -1,6 +1,8 @@
 # Security finding labels validation summary
 
-`dev-tools/check-security-finding-labels.py --summary-json --report <path>` emits one compact JSON object describing the existing structural validation result. It uses the checker's single existing validation call. Without `--summary-json`, the checker keeps its existing text output, diagnostics, and exit behavior.
+The command `dev-tools/check-security-finding-labels.py --summary-json --report <path>` emits one compact JSON object describing the existing structural validation result. It uses the checker's single existing validation call. Without `--summary-json`, the checker keeps its existing text output, diagnostics, and exit behavior.
+
+Validate the emitted object with the local [DatarimSecurityFindingLabelsValidationSummary/v1 JSON Schema](schemas/security-finding-labels-summary.v1.schema.json) and a Draft 2020-12 JSON Schema implementation. The schema has no public identifier or endpoint; consumers should use this repository copy.
 
 ## Fixed output contract
 

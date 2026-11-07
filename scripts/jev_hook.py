@@ -20,6 +20,8 @@ sys.path.insert(0, str(ENGINE))
 from safety_floor import destructive_reason
 
 EVENTS = {
+    'antigravity': {'PreInvocation': 'UserPromptSubmit', 'SessionStart': 'UserPromptSubmit',
+                    'PreToolUse': 'PreToolUse', 'PostToolUse': 'PostToolUse'},
     'claude': {'UserPromptSubmit': 'UserPromptSubmit', 'PreToolUse': 'PreToolUse',
                'PostToolUse': 'PostToolUse'},
     'codex': {'UserPromptSubmit': 'UserPromptSubmit', 'PreToolUse': 'PreToolUse',
@@ -64,17 +66,44 @@ def normalize(client, event, payload):
         out.update(tool_name='Bash', tool_input={'command': payload.get('command', '')})
     elif client == 'cursor' and event == 'afterFileEdit':
         out.update(tool_name='Edit', tool_input={'file_path': payload.get('file_path', '')})
+    elif client == 'antigravity':
+        out['session_id'] = payload.get('conversationId') or payload.get('session_id')
+        out['turn_id'] = payload.get('stepIdx') if payload.get('stepIdx') is not None else payload.get('invocationNum')
+        if event in ('PreInvocation', 'SessionStart'):
+            out.setdefault('prompt', payload.get('lastUserInput') or payload.get('prompt') or '')
+        tool_call = payload.get('toolCall')
+        if isinstance(tool_call, dict):
+            raw_name = str(tool_call.get('name', ''))
+            args = (tool_call.get('args') if isinstance(tool_call.get('args'), dict) else
+                    (tool_call.get('arguments') if isinstance(tool_call.get('arguments'), dict) else {}))
+            lower_name = raw_name.lower()
+            if lower_name in ('run_command', 'bash', 'shell', 'exec_command'):
+                out.update(tool_name='Bash',
+                           tool_input={'command': args.get('CommandLine', args.get('command', args.get('cmd', '')))})
+            elif lower_name in ('write_file', 'write'):
+                out.update(tool_name='Write',
+                           tool_input={'file_path': args.get('Path', args.get('file_path', '')),
+                                       'content': args.get('Content', args.get('content', ''))})
+            elif lower_name in ('edit_file', 'edit', 'multi_edit', 'multiedit'):
+                out.update(tool_name='Edit',
+                           tool_input={'file_path': args.get('Path', args.get('file_path', ''))})
+            elif raw_name:
+                out.setdefault('tool_name', raw_name)
+                out.setdefault('tool_input', args)
+        if 'toolOutput' in payload:
+            out['tool_response'] = payload['toolOutput']
     return canonical, out
 
 
 def workdir(payload):
-    """Cursor's global hook process cwd is its config directory, not the project."""
+    """Cursor's and Antigravity's hook process cwd may be their config directory, not the project."""
     value = payload.get('cwd')
     if isinstance(value, str) and value:
         return Path(value).resolve(strict=True)
-    roots = payload.get('workspace_roots')
-    if isinstance(roots, list) and len(roots) == 1 and isinstance(roots[0], str):
-        return Path(roots[0]).resolve(strict=True)
+    for key in ('workspace_roots', 'workspacePaths'):
+        roots = payload.get(key)
+        if isinstance(roots, list) and len(roots) == 1 and isinstance(roots[0], str):
+            return Path(roots[0]).resolve(strict=True)
     raise ValueError('No unambiguous event working directory')
 
 
@@ -142,6 +171,23 @@ def native_output(client, event, result):
             # Codex rejects `ask` and then continues the tool. Require a new,
             # explicitly reviewed invocation using the supported deny contract.
             result = dict(result, hookSpecificOutput=dict(body, permissionDecision='deny'))
+    if client == 'antigravity':
+        body = result.get('hookSpecificOutput', {})
+        advice = body.get('additionalContext', '')
+        decision = body.get('permissionDecision')
+        reason = body.get('permissionDecisionReason', '')
+        if event in ('PreInvocation', 'SessionStart'):
+            if result.get('decision') == 'block':
+                return {'injectSteps': [{'ephemeralMessage': result.get('reason', 'Jev requested review')}]}
+            if advice:
+                return {'injectSteps': [{'ephemeralMessage': advice}]}
+            return {}
+        if event == 'PreToolUse':
+            out = {'decision': 'deny' if decision == 'deny' else ('ask' if decision == 'ask' else 'allow')}
+            if reason or advice:
+                out['reason'] = reason or advice
+            return out
+        return {}
     if client != 'cursor':
         return result
     body = result.get('hookSpecificOutput', {})
@@ -244,8 +290,9 @@ def receipt(env, client, event, output, *, unavailable):
         body = output.get('hookSpecificOutput', {})
         data = json.loads(env['JEV_EVENT_CONTEXT'])
         data.update(advice_emitted=bool(body.get('additionalContext') or output.get('additional_context')
-                                       or output.get('agent_message')),
-                    blocked=body.get('permissionDecision') == 'deny' or output.get('permission') == 'deny',
+                                       or output.get('agent_message') or output.get('injectSteps')),
+                    blocked=(body.get('permissionDecision') == 'deny' or output.get('permission') == 'deny'
+                             or output.get('decision') == 'deny'),
                     unavailable=unavailable, applied='not_measured')
         log_event({'telemetry': {'path': str(Path(env['JEV_STATE_DIR'])/'ledger.jsonl'),
                                 'store_prompt_text': False}}, 'hook_delivery', '', data)
@@ -260,7 +307,7 @@ def main():
         if not isinstance(payload, dict):
             return 0
         result = run(client, event, payload)
-        if result:
+        if result or client == 'antigravity':
             print(json.dumps(result))
     except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired):
         return 0

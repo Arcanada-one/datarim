@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Captured Summary Exit Rollup",
+  "description": "Structural contract for DatarimSummaryExitRollup/v1. It does not attest to producer execution, input provenance, or the truth of the declared results.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "result",
+    "exit_code",
+    "diagnostic_codes",
+    "summary_count",
+    "summary_count_status",
+    "exit_counts"
+  ],
+  "properties": {
+    "schema": {
+      "const": "DatarimSummaryExitRollup/v1"
+    },
+    "result": {
+      "enum": ["CLEAN", "FINDINGS", "ERROR", "INPUT_REFUSED"]
+    },
+    "exit_code": {
+      "type": "integer",
+      "enum": [0, 1, 2]
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true,
+      "maxItems": 1
+    },
+    "summary_count": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0, "maximum": 256 },
+        { "type": "null" }
+      ]
+    },
+    "summary_count_status": {
+      "enum": ["MEASURED", "NOT_MEASURED"]
+    },
+    "exit_counts": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["0", "1", "2"],
+          "properties": {
+            "0": { "type": "integer", "minimum": 0, "maximum": 256 },
+            "1": { "type": "integer", "minimum": 0, "maximum": 256 },
+            "2": { "type": "integer", "minimum": 0, "maximum": 256 }
+          }
+        },
+        { "type": "null" }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "result": { "const": "CLEAN" } },
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": { "const": 0 },
+          "diagnostic_codes": { "const": [] },
+          "summary_count": { "type": "integer", "minimum": 0, "maximum": 256 },
+          "summary_count_status": { "const": "MEASURED" },
+          "exit_counts": {
+            "type": "object",
+            "properties": {
+              "1": { "const": 0 },
+              "2": { "const": 0 }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "summary_count": { "const": 0 }
+              },
+              "required": ["summary_count"]
+            },
+            "then": {
+              "properties": {
+                "exit_counts": {
+                  "properties": {
+                    "0": { "const": 0 }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": { "result": { "const": "FINDINGS" } },
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": { "const": 1 },
+          "diagnostic_codes": { "const": ["SUMMARY_FINDINGS_PRESENT"] },
+          "summary_count": { "type": "integer", "minimum": 1, "maximum": 256 },
+          "summary_count_status": { "const": "MEASURED" },
+          "exit_counts": {
+            "type": "object",
+            "properties": {
+              "1": { "type": "integer", "minimum": 1, "maximum": 256 },
+              "2": { "const": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "result": { "const": "ERROR" } },
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": { "const": 2 },
+          "diagnostic_codes": { "const": ["SUMMARY_ERROR_PRESENT"] },
+          "summary_count": { "type": "integer", "minimum": 1, "maximum": 256 },
+          "summary_count_status": { "const": "MEASURED" },
+          "exit_counts": {
+            "type": "object",
+            "properties": {
+              "2": { "type": "integer", "minimum": 1, "maximum": 256 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "result": { "const": "INPUT_REFUSED" } },
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": { "const": 2 },
+          "diagnostic_codes": { "const": ["SUMMARY_EXIT_ROLLUP_REFUSED"] },
+          "summary_count": { "type": "null" },
+          "summary_count_status": { "const": "NOT_MEASURED" },
+          "exit_counts": { "type": "null" }
+        }
+      }
+    }
+  ]
+}

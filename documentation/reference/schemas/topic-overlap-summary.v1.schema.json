@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Topic Overlap Advisory Summary",
+  "description": "Portable structural contract for the fixed DatarimTopicOverlapSummary/v1 output. The producer remains the source of advisory behavior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "result",
+    "exit_code",
+    "diagnostic_codes",
+    "selected_count",
+    "selected_count_status",
+    "match_count",
+    "match_count_status"
+  ],
+  "properties": {
+    "schema": {
+      "const": "DatarimTopicOverlapSummary/v1"
+    },
+    "result": {
+      "enum": ["ADVISORY", "NO_CANDIDATES", "INPUT_UNAVAILABLE"]
+    },
+    "exit_code": {
+      "const": 0
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": {
+        "const": "TASK_DESCRIPTION_UNAVAILABLE"
+      },
+      "maxItems": 1,
+      "uniqueItems": true
+    },
+    "selected_count": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "selected_count_status": {
+      "enum": ["MEASURED", "NOT_MEASURED"]
+    },
+    "match_count": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "match_count_status": {
+      "enum": ["MEASURED", "NOT_MEASURED"]
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "result": { "const": "ADVISORY" },
+        "exit_code": { "const": 0 },
+        "diagnostic_codes": { "const": [] },
+        "selected_count": { "type": "integer", "minimum": 1 },
+        "selected_count_status": { "const": "MEASURED" },
+        "match_count": { "type": "integer", "minimum": 0 },
+        "match_count_status": { "const": "MEASURED" }
+      }
+    },
+    {
+      "properties": {
+        "result": { "const": "NO_CANDIDATES" },
+        "exit_code": { "const": 0 },
+        "diagnostic_codes": { "const": [] },
+        "selected_count": { "const": 0 },
+        "selected_count_status": { "const": "MEASURED" },
+        "match_count": { "const": 0 },
+        "match_count_status": { "const": "MEASURED" }
+      }
+    },
+    {
+      "properties": {
+        "result": { "const": "INPUT_UNAVAILABLE" },
+        "exit_code": { "const": 0 },
+        "diagnostic_codes": { "const": ["TASK_DESCRIPTION_UNAVAILABLE"] },
+        "selected_count": { "const": null },
+        "selected_count_status": { "const": "NOT_MEASURED" },
+        "match_count": { "const": null },
+        "match_count_status": { "const": "NOT_MEASURED" }
+      }
+    }
+  ]
+}

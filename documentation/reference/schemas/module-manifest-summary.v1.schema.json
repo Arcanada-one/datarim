@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Module Manifest Validation Summary",
+  "description": "Portable structural contract for the fixed DatarimModuleManifestSummary/v1 output. The producer remains the source of validation behavior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "result",
+    "exit_code",
+    "diagnostic_codes",
+    "skill_count",
+    "skill_count_status",
+    "warning_count",
+    "warning_count_status"
+  ],
+  "properties": {
+    "schema": {
+      "const": "DatarimModuleManifestSummary/v1"
+    },
+    "result": {
+      "enum": ["VALID", "INVALID", "INPUT_UNAVAILABLE"]
+    },
+    "exit_code": {
+      "type": "integer",
+      "enum": [0, 1, 2]
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": {
+        "enum": ["MODULE_MANIFEST_INVALID", "MODULE_MANIFEST_UNAVAILABLE"]
+      },
+      "maxItems": 1,
+      "uniqueItems": true
+    },
+    "skill_count": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "skill_count_status": {
+      "enum": ["MEASURED", "NOT_MEASURED"]
+    },
+    "warning_count": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "warning_count_status": {
+      "enum": ["MEASURED", "NOT_MEASURED"]
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "result": { "const": "VALID" },
+        "exit_code": { "const": 0 },
+        "diagnostic_codes": { "const": [] },
+        "skill_count": { "type": "integer", "minimum": 1 },
+        "skill_count_status": { "const": "MEASURED" },
+        "warning_count": { "type": "integer", "minimum": 0 },
+        "warning_count_status": { "const": "MEASURED" }
+      }
+    },
+    {
+      "properties": {
+        "result": { "const": "INVALID" },
+        "exit_code": { "const": 1 },
+        "diagnostic_codes": { "const": ["MODULE_MANIFEST_INVALID"] },
+        "skill_count": { "type": "integer", "minimum": 0 },
+        "skill_count_status": { "const": "MEASURED" },
+        "warning_count": { "type": "integer", "minimum": 0 },
+        "warning_count_status": { "const": "MEASURED" }
+      }
+    },
+    {
+      "properties": {
+        "result": { "const": "INPUT_UNAVAILABLE" },
+        "exit_code": { "const": 2 },
+        "diagnostic_codes": { "const": ["MODULE_MANIFEST_UNAVAILABLE"] },
+        "skill_count": { "const": null },
+        "skill_count_status": { "const": "NOT_MEASURED" },
+        "warning_count": { "const": null },
+        "warning_count_status": { "const": "NOT_MEASURED" }
+      }
+    }
+  ]
+}

@@ -10,12 +10,14 @@
 #
 # Reserved namespace skills/.system/ is skipped (Constraint C3 — Codex bundled).
 #
-# Usage: check-skill-layout.sh [--root <repo-root>] [--allow-flat-coexistence]
+# Usage: check-skill-layout.sh [--root <repo-root>] [--allow-flat-coexistence] [--summary-json]
 #
 # --allow-flat-coexistence tolerates skills/<name>.md alongside
 #   skills/<name>/SKILL.md (the Phase 2-4 hybrid window). Phase 5 contract
 #   removal is verified by running this script WITHOUT the flag — at that
 #   point all flat originals must be gone.
+#
+# --summary-json emits a fixed structural result without skill names or paths.
 #
 # Exit 0 on PASS, 1 on FAIL.
 
@@ -23,11 +25,13 @@ set -euo pipefail
 
 ROOT=""
 ALLOW_FLAT=0
+SUMMARY_JSON=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --root) ROOT="$2"; shift 2 ;;
         --allow-flat-coexistence) ALLOW_FLAT=1; shift ;;
-        -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+        --summary-json) SUMMARY_JSON=1; shift ;;
+        -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
 done
@@ -38,7 +42,11 @@ fi
 
 SKILLS_DIR="$ROOT/skills"
 if [[ ! -d "$SKILLS_DIR" ]]; then
-    echo "ERROR: skills/ not found under $ROOT" >&2
+    if [[ "$SUMMARY_JSON" -eq 1 ]]; then
+        printf '%s\n' '{"schema":"DatarimSkillLayoutValidationSummary/v1","result":"INPUT_UNAVAILABLE","exit_code":2,"diagnostic_codes":["SKILLS_ROOT_UNAVAILABLE"],"checked_count":null,"checked_count_status":"NOT_MEASURED"}'
+    else
+        echo "ERROR: skills/ not found under $ROOT" >&2
+    fi
     exit 2
 fi
 
@@ -73,26 +81,38 @@ for skill_dir in "$SKILLS_DIR"/*/; do
     checked=$((checked + 1))
 
     if ! [[ "$base" =~ $kebab_re ]]; then
-        echo "FAIL ($base): directory name violates kebab-case ^[a-z][a-z0-9-]{0,63}\$"
+        if [[ "$SUMMARY_JSON" -eq 0 ]]; then
+            echo "FAIL ($base): directory name violates kebab-case ^[a-z][a-z0-9-]{0,63}\$"
+        fi
         fail=1
         continue
     fi
 
     skill_md="$skill_dir/SKILL.md"
     if [[ ! -f "$skill_md" ]]; then
-        echo "FAIL ($base): missing SKILL.md at $skill_md"
+        if [[ "$SUMMARY_JSON" -eq 0 ]]; then
+            echo "FAIL ($base): missing SKILL.md at $skill_md"
+        fi
         fail=1
         continue
     fi
 
-    fm_name="$(extract_name_field "$skill_md" || true)"
+    if [[ "$SUMMARY_JSON" -eq 1 ]]; then
+        fm_name="$(extract_name_field "$skill_md" 2>/dev/null || true)"
+    else
+        fm_name="$(extract_name_field "$skill_md" || true)"
+    fi
     if [[ -z "$fm_name" ]]; then
-        echo "FAIL ($base): SKILL.md has no frontmatter name: field"
+        if [[ "$SUMMARY_JSON" -eq 0 ]]; then
+            echo "FAIL ($base): SKILL.md has no frontmatter name: field"
+        fi
         fail=1
         continue
     fi
     if [[ "$fm_name" != "$base" ]]; then
-        echo "FAIL ($base): name mismatch — frontmatter says '$fm_name', dir is '$base'"
+        if [[ "$SUMMARY_JSON" -eq 0 ]]; then
+            echo "FAIL ($base): name mismatch — frontmatter says '$fm_name', dir is '$base'"
+        fi
         fail=1
         continue
     fi
@@ -100,14 +120,27 @@ for skill_dir in "$SKILLS_DIR"/*/; do
     flat_md="$SKILLS_DIR/$base.md"
     if [[ -f "$flat_md" ]]; then
         if [[ "$ALLOW_FLAT" -eq 1 ]]; then
-            echo "OK-HYBRID ($base): flat .md coexists with directory ($flat_md) — tolerated under --allow-flat-coexistence"
+            if [[ "$SUMMARY_JSON" -eq 0 ]]; then
+                echo "OK-HYBRID ($base): flat .md coexists with directory ($flat_md) — tolerated under --allow-flat-coexistence"
+            fi
         else
-            echo "FAIL ($base): flat .md coexists with directory ($flat_md)"
+            if [[ "$SUMMARY_JSON" -eq 0 ]]; then
+                echo "FAIL ($base): flat .md coexists with directory ($flat_md)"
+            fi
             fail=1
             continue
         fi
     fi
 done
+
+if [[ "$SUMMARY_JSON" -eq 1 ]]; then
+    if [[ $fail -eq 0 ]]; then
+        printf '{"schema":"DatarimSkillLayoutValidationSummary/v1","result":"PASS","exit_code":0,"diagnostic_codes":[],"checked_count":%d,"checked_count_status":"MEASURED"}\n' "$checked"
+        exit 0
+    fi
+    printf '{"schema":"DatarimSkillLayoutValidationSummary/v1","result":"FAIL","exit_code":1,"diagnostic_codes":["SKILL_LAYOUT_INVALID"],"checked_count":%d,"checked_count_status":"MEASURED"}\n' "$checked"
+    exit 1
+fi
 
 echo ""
 echo "=== Summary ==="

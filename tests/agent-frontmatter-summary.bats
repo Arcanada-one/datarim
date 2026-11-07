@@ -4,7 +4,19 @@ setup() {
     umask 077
     CHECKER="$BATS_TEST_DIRNAME/../dev-tools/check-agent-frontmatter.sh"
     ROOT="$BATS_TEST_TMPDIR/root with spaces"$'\t'"and-tab"
-    : "${AGENT_SUMMARY_EVIDENCE_DIR:?set a private evidence directory for this run}"
+    if [[ -z "${AGENT_SUMMARY_EVIDENCE_DIR:-}" ]]; then
+        AGENT_SUMMARY_EVIDENCE_DIR="$BATS_TEST_TMPDIR/agent-frontmatter-summary-evidence"
+        SUMMARY_EVIDENCE_DIR_FALLBACK=1
+    else
+        SUMMARY_EVIDENCE_DIR_FALLBACK=0
+    fi
+    mkdir -m 700 -p "$AGENT_SUMMARY_EVIDENCE_DIR"
+    if [[ "$SUMMARY_EVIDENCE_DIR_FALLBACK" -eq 1 ]]; then
+        SUMMARY_EVIDENCE_DIR_MODE="$(stat -c '%a' "$AGENT_SUMMARY_EVIDENCE_DIR")"
+        [ "$SUMMARY_EVIDENCE_DIR_MODE" = 700 ]
+    else
+        SUMMARY_EVIDENCE_DIR_MODE="NOT_CHECKED_EXPLICIT_OVERRIDE"
+    fi
     mkdir -p "$ROOT/config" "$ROOT/agents"
     printf 'tiers:\n  custom_tier:\t\n    description: synthetic\n' >"$ROOT/config/model-tiers.yaml"
 }
@@ -54,8 +66,8 @@ run_cli() {
     fi
     ended="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     snapshot_inputs >"$after_file"
-    printf 'case_id=%s\nargv_nul=%s\ncwd=%s\npid=%s\nstart_utc=%s\nend_utc=%s\nnumeric_exit=%s\nfixture_file_count=%s\nsource_and_input_hashes_before=%s\nsource_and_input_hashes_after=%s\n' \
-        "$case_id" "$argv_file" "$cwd" "$pid" "$started" "$ended" "$rc" "$fixture_count" "$before_file" "$after_file" >"$metadata_file"
+    printf 'case_id=%s\nargv_nul=%s\ncwd=%s\npid=%s\nstart_utc=%s\nend_utc=%s\nnumeric_exit=%s\nfixture_file_count=%s\nsource_and_input_hashes_before=%s\nsource_and_input_hashes_after=%s\nevidence_dir=%s\nevidence_dir_fallback=%s\nevidence_dir_mode=%s\n' \
+        "$case_id" "$argv_file" "$cwd" "$pid" "$started" "$ended" "$rc" "$fixture_count" "$before_file" "$after_file" "$AGENT_SUMMARY_EVIDENCE_DIR" "$SUMMARY_EVIDENCE_DIR_FALLBACK" "$SUMMARY_EVIDENCE_DIR_MODE" >"$metadata_file"
 
     status="$rc"
     if [[ -s "$stdout_file" ]]; then

@@ -4,6 +4,32 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.11.0] — 2026-11-06
+
+### Added
+
+- Open-PR budget floor: `dev-tools/check-open-pr-budget.sh` PreToolUse guard (structural `gh … pr create` only; fail-closed when `gh` cannot measure; config `~/.claude/local/config/pr-budget.conf`, defaults feature=1 / total=2 / integration_prefixes=`integration/` `batch/`) with regression `dev-tools/tests/check-open-pr-budget.bats`.
+- Developer and architect agents now carry a PR-budget obligation; `finishing-a-development-branch` Option 2 gains Step 0 (PR budget gate) and a Quick Reference column for budget accounting. Documented as AGENTS.md **S10-pr-budget**.
+
+## [4.10.0] — 2026-11-02
+
+### Added
+
+- Bounded CLI input-manifest workflows now select, verify, hash, compare, merge, inspect conflicts, and format structured or readable diffs.
+- Summary tooling now resolves declared schemas, relays declared exit statuses, and aggregates summary rollups. These outputs report supplied data and do not establish that a producer ran or accepted its result.
+- QA helpers now report init-task presence and preserve diagnostics for append I/O failures.
+
+
+## [4.9.0] — 2026-10-29
+
+### Added
+
+- Google Antigravity (`antigravity`, short alias `agy`) is now a first-class supported client across Datarim project installation (`install.sh` / `update.sh` `--client antigravity` or `--client agy`), Jev project and host hooks (`.agents/hooks.json` and `~/.gemini/config/hooks.json` for `PreInvocation`, `PreToolUse` and `PostToolUse`), Jev launchers (`jevagy`, `jevantigravity`, `jev --agent=antigravity`), the Jev control-plane runtime (`AntigravityRuntime`), and standalone Human Outcome Reporting (`human_reporting_install.py --agents antigravity`).
+
+### Changed
+
+- `/dr-qa` and `/dr-compliance` now enforce an Exhaustive Single-Pass Audit and Single-Iteration Batch Remediation contract: neither stage short-circuits on the first failing layer, gate, expectation, or test/lint error (except Step 0 provenance failures), both aggregate 100% of findings across all layers and checklist steps into a single Consolidated Remediation Batch, and `/dr-do` (including under `/dr-auto`) resolves and locally re-verifies the entire batch in one rework iteration instead of looping one discrepancy at a time.
+
 ## [4.8.1] — 2026-10-26
 
 ### Fixed

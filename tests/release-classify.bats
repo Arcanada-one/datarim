@@ -27,6 +27,23 @@ teardown() {
 
 # Helper: commit a subject then classify HEAD..last-tag range and echo bump_level.
 _commit() { git -C "$REPO" commit -q --allow-empty -m "$1"; }
+_prepare_release_metadata() {
+    local version="$1" category="$2" subject="$3" date="${4:-2026-11-02}"
+    printf '%s\n' "$version" > "$REPO/VERSION"
+    cat > "$REPO/CHANGELOG.md" <<EOF
+# Changelog
+
+## [Unreleased]
+
+## [$version] — $date
+
+### $category
+
+- Synthetic declaration for classifier coverage.
+EOF
+    git -C "$REPO" add VERSION CHANGELOG.md
+    git -C "$REPO" commit -q -m "$subject"
+}
 _classify_field() {
     # $1 = key (bump_level|api_diff|zero_x|escalate)
     run "$SCRIPT" --repo "$REPO" --api-diff off
@@ -115,6 +132,258 @@ _classify_field() {
 @test "no commits since last tag yields bump_level=none" {
     # HEAD is exactly the tagged commit — empty range.
     [ "$(_classify_field bump_level)" = "none" ]
+}
+
+@test "exact VERSION and Added changelog declaration classify a squash release as minor" {
+    _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]] &&
+        [[ "$output" == *"api_diff=unavailable"* ]]
+}
+
+@test "release metadata accepts Gregorian leap dates and rejects impossible dates" {
+    _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0" 2024-02-29
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]] || return 1
+
+    for date in 2026-02-29 2026-04-31 2026-13-01; do
+        _prepare_release_metadata 0.7.0 Added "Datarim release with invalid date" "$date"
+        run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+        [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+            [[ "$output" == *"release_metadata=none"* ]] || return 1
+    done
+}
+
+@test "release metadata is read from the exact target tree" {
+    _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
+    printf '9.9.9\n' > "$REPO/VERSION"
+    printf '# Unrelated working-tree changelog state\n' > "$REPO/CHANGELOG.md"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]]
+}
+
+@test "Fixed changelog declaration is accepted only for the immediate patch version" {
+    _prepare_release_metadata 0.6.4 Fixed "Datarim release 0.6.4"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff auto
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=patch"* ]] &&
+        [[ "$output" == *"release_metadata=patch"* ]] &&
+        [[ "$output" == *"api_diff=unavailable"* ]]
+}
+
+@test "VERSION alone cannot classify a non-Conventional range" {
+    printf '0.7.0\n' > "$REPO/VERSION"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+- No versioned release declaration.
+EOF
+    git -C "$REPO" add VERSION CHANGELOG.md
+    git -C "$REPO" commit -q -m "Datarim release 0.7.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+        [[ "$output" == *"release_metadata=none"* ]]
+}
+
+@test "mismatched VERSION transition cannot use an Added declaration" {
+    _prepare_release_metadata 0.7.1 Added "Datarim release 0.7.1"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+        [[ "$output" == *"release_metadata=none"* ]]
+}
+
+@test "ambiguous Changed changelog content does not infer a metadata bump" {
+    _prepare_release_metadata 0.7.0 Changed "Datarim release 0.7.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+        [[ "$output" == *"release_metadata=none"* ]]
+}
+
+@test "CommonMark plus and ordered Changed items fail closed as ambiguous" {
+    for marker in '+' '1.'; do
+        _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
+        cat > "$REPO/CHANGELOG.md" <<EOF
+# Changelog
+
+## [Unreleased]
+
+## [0.7.0] — 2026-11-02
+
+### Added
+
+- Synthetic declared feature.
+
+### Changed
+
+$marker Synthetic ambiguous change.
+EOF
+        git -C "$REPO" add CHANGELOG.md
+        git -C "$REPO" commit -q --amend --no-edit
+        run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+        [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+            [[ "$output" == *"release_metadata=none"* ]] || return 1
+    done
+}
+
+@test "release metadata ignores fenced Changed examples" {
+    _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.7.0] — 2026-11-02
+
+### Added
+
+- Synthetic declared feature.
+
+```markdown
+### Changed
++ This is an example, not a declaration.
+```
+EOF
+    git -C "$REPO" add CHANGELOG.md
+    git -C "$REPO" commit -q --amend --no-edit
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]]
+}
+
+@test "release metadata ignores indented Changed examples" {
+    _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.7.0] — 2026-11-02
+
+### Added
+
+- Synthetic declared feature.
+
+### Changed
+
+    - This is an indented code example, not a declaration.
+EOF
+    git -C "$REPO" add CHANGELOG.md
+    git -C "$REPO" commit -q --amend --no-edit
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]]
+}
+
+@test "HTML-commented release section cannot supply a target heading or declaration" {
+    printf '0.7.0\n' > "$REPO/VERSION"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+<!--
+## [0.7.0] — 2026-11-02
+
+### Added
+
+- This declaration is not visible release metadata.
+-->
+EOF
+    git -C "$REPO" add VERSION CHANGELOG.md
+    git -C "$REPO" commit -q -m "Datarim release 0.7.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+        [[ "$output" == *"release_metadata=none"* ]] || return 1
+}
+
+@test "inline HTML comment cannot make a hidden Added item count" {
+    printf '0.7.0\n' > "$REPO/VERSION"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.7.0] — 2026-11-02
+
+### Added
+
+- <!-- Hidden declaration. -->
+EOF
+    git -C "$REPO" add VERSION CHANGELOG.md
+    git -C "$REPO" commit -q -m "Datarim release 0.7.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=none"* ]] &&
+        [[ "$output" == *"release_metadata=none"* ]] || return 1
+}
+
+@test "multiline HTML comment hides Changed content and preserves live Added content" {
+    printf '0.7.0\n' > "$REPO/VERSION"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.7.0] — 2026-11-02
+
+### Added <!-- visible category with an inline comment -->
+
+<!-- hidden changelog example starts
+### Changed
+- This hidden category must not make the section ambiguous.
+hidden changelog example ends -->
+
+### Added
+- Visible feature declaration.
+EOF
+    git -C "$REPO" add VERSION CHANGELOG.md
+    git -C "$REPO" commit -q -m "Datarim release 0.7.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]] || return 1
+}
+
+@test "ordered metadata markers accept zero and limit marker length to nine digits" {
+    _prepare_release_metadata 0.7.0 Added "Datarim release 0.7.0"
+    cat > "$REPO/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.7.0] — 2026-11-02
+
+### Added
+
+0. Synthetic declared feature.
+
+### Changed
+
+1234567890. This is not a CommonMark ordered marker.
+EOF
+    git -C "$REPO" add CHANGELOG.md
+    git -C "$REPO" commit -q --amend --no-edit
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=minor"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]]
+}
+
+@test "Conventional breaking marker remains major over a minor metadata declaration" {
+    _prepare_release_metadata 0.7.0 Added "feat!: synthetic breaking declaration"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff off
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=major"* ]] &&
+        [[ "$output" == *"release_metadata=minor"* ]] &&
+        [[ "$output" == *"escalate=true"* ]]
+}
+
+@test "Breaking Changes changelog declaration classifies matching major transition" {
+    _prepare_release_metadata 1.0.0 "Breaking Changes" "Datarim release 1.0.0"
+    run "$SCRIPT" --repo "$REPO" --from v0.6.3 --to HEAD --api-diff auto
+    [ "$status" -eq 0 ] && [[ "$output" == *"bump_level=major"* ]] &&
+        [[ "$output" == *"release_metadata=major"* ]] &&
+        [[ "$output" == *"escalate=true"* ]]
 }
 
 @test "usage error on missing --repo exits 2" {

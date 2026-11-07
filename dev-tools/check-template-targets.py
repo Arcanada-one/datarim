@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check literal shipped template targets, including qualified references."""
 import argparse
+import json
 from pathlib import Path
 import re
 
@@ -78,14 +79,38 @@ def check(root):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument(
+        '--summary-json', action='store_true',
+        help='emit a privacy-preserving JSON summary instead of text diagnostics',
+    )
     args = parser.parse_args()
     if not args.root.is_dir():
         parser.error('root must be a directory')
     count, failures = check(args.root)
+    exit_code = 1 if failures else (0 if count else 2)
+    if args.summary_json:
+        if failures:
+            result = 'MISSING_TARGETS'
+            diagnostic_codes = ['MISSING_TEMPLATE_TARGETS']
+        elif count:
+            result = 'VALID'
+            diagnostic_codes = []
+        else:
+            result = 'NO_TARGETS'
+            diagnostic_codes = ['NO_TEMPLATE_TARGETS']
+        print(json.dumps({
+            'schema': 'DatarimTemplateTargetValidationSummary/v1',
+            'result': result,
+            'exit_code': exit_code,
+            'checked_count': count,
+            'missing_count': len(failures),
+            'diagnostic_codes': diagnostic_codes,
+        }, separators=(',', ':')))
+        return exit_code
     for failure in failures:
         print(failure)
     print(f'template targets: checked={count} missing={len(failures)}')
-    return 1 if failures else (0 if count else 2)
+    return exit_code
 
 
 if __name__ == '__main__':

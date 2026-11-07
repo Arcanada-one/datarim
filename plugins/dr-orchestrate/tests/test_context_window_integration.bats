@@ -143,6 +143,30 @@ trust_generated_codex_profile() {
   [ "$status" -eq 0 ] && [ -f "$CODEX_HOME/datarim-orchestrate-context.config.toml" ]
 }
 
+@test "Codex mutable top-level TUI tables do not invalidate the managed profile" {
+  cfg="$BATS_TEST_TMPDIR/config.yaml"; profile="$CODEX_HOME/datarim-orchestrate-context.config.toml"
+  printf 'key_injection: true\ncontext_window:\n  enabled: true\n  trust_same_uid_runtime: true\n' >"$cfg"; chmod 600 "$cfg"
+  run env DR_ORCH_USER_CONFIG="$cfg" bash "$SETUP" render --runtime codex
+  [ "$status" -eq 0 ] || return 1
+  [ -f "$profile" ] || return 1
+  before="$(bash -c 'source "$1"; ctx_codex_profile_digest "$2"' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" "$profile")" || return 1
+  [ -n "$before" ] || return 1
+  awk '/^# DATARIM_MANAGED_END$/ {print "[tui]"; print "screen_reader_detection_done = true"; print ""; print "[tui.model_availability_nux]"; print "seen = true"; print ""; print "[projects.\"/synthetic/workspace\"]"; print "trust_level = \"trusted\""} {print}' "$profile" >"$profile.synthetic" || return 1
+  chmod 600 "$profile.synthetic" && mv "$profile.synthetic" "$profile" || return 1
+  after="$(bash -c 'source "$1"; ctx_codex_profile_digest "$2"' _ "$REPO_ROOT/plugins/dr-orchestrate/scripts/lib/context-window-state.sh" "$profile")" || return 1
+  [ -n "$after" ] || return 1
+  [ "$after" = "$before" ] || return 1
+  run env DR_ORCH_USER_CONFIG="$cfg" bash "$SETUP" render --runtime codex
+  [ "$status" -eq 0 ] || return 1
+  grep -q '^\[tui\]$' "$profile" || return 1
+  grep -q '^\[projects\."/synthetic/workspace"\]$' "$profile" || return 1
+
+  sed -i 's/^developer_instructions = "DATARIM_CONTEXT_PROFILE_CANARY"$/developer_instructions = "MANAGED_PREFIX_MUTATED"/' "$profile" || return 1
+  grep -q '^developer_instructions = "MANAGED_PREFIX_MUTATED"$' "$profile" || return 1
+  run env DR_ORCH_USER_CONFIG="$cfg" bash "$SETUP" render --runtime codex
+  [ "$status" -ne 0 ] || return 1
+}
+
 @test "installed Codex resolves the profile canary and strict TUI without a prompt" {
   command -v codex >/dev/null && command -v tmux >/dev/null || skip "installed Codex and tmux required"
   cfg="$BATS_TEST_TMPDIR/config.yaml"

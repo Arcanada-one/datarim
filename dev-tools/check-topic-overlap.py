@@ -187,6 +187,8 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="Comma-separated statuses to scan (default: pending).")
     p.add_argument("--format", choices=("text", "json"), default="text",
                    help="Output format. JSON is structured; text is operator-readable.")
+    p.add_argument("--summary-json", action="store_true",
+                   help="Emit a fixed privacy-safe summary for the advisory run.")
     p.add_argument("--stopwords-en", default=str(DATA_DIR / "stopwords-en.txt"))
     p.add_argument("--stopwords-ru", default=str(DATA_DIR / "stopwords-ru.txt"))
     return p
@@ -204,11 +206,28 @@ def _read_task_text(arg: str) -> str | None:
     return td_path.read_text(encoding="utf-8")
 
 
+def _print_summary(result: str, diagnostic_codes: list[str],
+                   selected_count: int | None, match_count: int | None) -> None:
+    summary = {
+        "schema": "DatarimTopicOverlapSummary/v1",
+        "result": result,
+        "exit_code": 0,
+        "diagnostic_codes": diagnostic_codes,
+        "selected_count": selected_count,
+        "selected_count_status": "MEASURED" if selected_count is not None else "NOT_MEASURED",
+        "match_count": match_count,
+        "match_count_status": "MEASURED" if match_count is not None else "NOT_MEASURED",
+    }
+    print(json.dumps(summary, ensure_ascii=False))
+
+
 def main() -> None:
     args = _build_parser().parse_args()
 
     task_text = _read_task_text(args.task_description)
     if task_text is None:
+        if args.summary_json:
+            _print_summary("INPUT_UNAVAILABLE", ["TASK_DESCRIPTION_UNAVAILABLE"], None, None)
         return  # missing description file — silent exit 0
 
     stopwords = load_stopwords(Path(args.stopwords_en)) | load_stopwords(
@@ -217,11 +236,16 @@ def main() -> None:
     statuses = tuple(s.strip() for s in args.include_status.split(",") if s.strip())
     backlog = parse_backlog(Path(args.backlog), allowed_statuses=statuses)
     if not backlog:
+        if args.summary_json:
+            _print_summary("NO_CANDIDATES", [], 0, 0)
         return  # silent exit 0
 
     matches = find_overlap(
         task_text, backlog, stopwords, args.top_n, args.min_overlap
     )
+    if args.summary_json:
+        _print_summary("ADVISORY", [], len(backlog), len(matches))
+        return
     if not matches:
         return  # silent exit 0
 

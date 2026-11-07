@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Skill Frontmatter Validation Summary",
+  "description": "Portable structural contract for the existing DatarimSkillFrontmatterValidationSummary/v1 output. The checker remains the source of validation behavior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "result",
+    "exit_code",
+    "diagnostic_codes",
+    "checked_count",
+    "checked_count_status",
+    "warning_count",
+    "warning_count_status"
+  ],
+  "properties": {
+    "schema": {
+      "const": "DatarimSkillFrontmatterValidationSummary/v1"
+    },
+    "result": {
+      "enum": ["PASS", "FAIL"]
+    },
+    "exit_code": {
+      "type": "integer",
+      "enum": [0, 1]
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": {
+        "const": "SKILL_FRONTMATTER_INVALID"
+      },
+      "uniqueItems": true
+    },
+    "checked_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "checked_count_status": {
+      "const": "MEASURED"
+    },
+    "warning_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "warning_count_status": {
+      "const": "MEASURED"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "result": { "const": "PASS" }
+        },
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": { "const": 0 },
+          "diagnostic_codes": { "const": [] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "result": { "const": "FAIL" }
+        },
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": { "const": 1 },
+          "diagnostic_codes": {
+            "const": ["SKILL_FRONTMATTER_INVALID"]
+          }
+        }
+      }
+    }
+  ]
+}

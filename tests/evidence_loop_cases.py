@@ -777,7 +777,8 @@ class EvidenceLoop(unittest.TestCase):
             task_binding="VERIFIED", revision=revision, input_binding="LEGACY_OMITTED",
             criteria=1, cases=1))
 
-        self.bundle["attempts"][-1]["cases"][0]["observed"] = "https://fixture.invalid/private /tmp/private-output"
+        private_output = str(self.root / "private-output")
+        self.bundle["attempts"][-1]["cases"][0]["observed"] = f"https://fixture.invalid/private {private_output}"
         self.bundle["attempts"][-1]["cases"][0]["command"] = "echo private fixture diagnostic"
         self.save()
 
@@ -788,7 +789,7 @@ class EvidenceLoop(unittest.TestCase):
             "STAGE_PASS", "evidence_stage_validated", 0, "compliance",
             task_binding="VERIFIED", revision=revision, input_binding="LEGACY_OMITTED",
             criteria=1, cases=1, due=1, validated=1, pending=0))
-        for private_value in ("https://fixture.invalid/private", "/tmp/private-output",
+        for private_value in ("https://fixture.invalid/private", private_output,
                               "private fixture diagnostic"):
             self.assertNotIn(private_value, pass_result.stdout.decode("utf-8"))
 

@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Self-Verification Findings Summary",
+  "description": "Portable structural contract for the normalized self-verification findings summary. The producer remains the source of validation behavior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "result",
+    "exit_code",
+    "diagnostic_codes",
+    "normalized_count",
+    "normalized_count_status",
+    "malformed_count",
+    "malformed_count_status"
+  ],
+  "properties": {
+    "schema": {
+      "const": "DatarimSelfVerificationFindingsSummary/v1"
+    },
+    "result": {
+      "enum": ["VALID", "INVALID", "INPUT_REFUSED"]
+    },
+    "exit_code": {
+      "type": "integer",
+      "enum": [0, 1]
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "maxItems": 1,
+      "items": {
+        "enum": [
+          "FINDINGS_INVALID",
+          "FINDINGS_JSON_INVALID",
+          "FINDINGS_SHAPE_INVALID"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "normalized_count": {
+      "anyOf": [
+        {"type": "integer", "minimum": 0},
+        {"type": "null"}
+      ]
+    },
+    "normalized_count_status": {
+      "enum": ["MEASURED", "NOT_MEASURED"]
+    },
+    "malformed_count": {
+      "anyOf": [
+        {"type": "integer", "minimum": 0},
+        {"type": "null"}
+      ]
+    },
+    "malformed_count_status": {
+      "enum": ["MEASURED", "NOT_MEASURED"]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"result": {"const": "VALID"}},
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {"const": 0},
+          "diagnostic_codes": {"const": []},
+          "normalized_count": {"type": "integer", "minimum": 0},
+          "normalized_count_status": {"const": "MEASURED"},
+          "malformed_count": {"const": 0},
+          "malformed_count_status": {"const": "MEASURED"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"result": {"const": "INVALID"}},
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {"const": 1},
+          "diagnostic_codes": {"const": ["FINDINGS_INVALID"]},
+          "normalized_count": {"type": "integer", "minimum": 0},
+          "normalized_count_status": {"const": "MEASURED"},
+          "malformed_count": {"type": "integer", "minimum": 1},
+          "malformed_count_status": {"const": "MEASURED"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"result": {"const": "INPUT_REFUSED"}},
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {"const": 1},
+          "diagnostic_codes": {
+            "oneOf": [
+              {"const": ["FINDINGS_JSON_INVALID"]},
+              {"const": ["FINDINGS_SHAPE_INVALID"]}
+            ]
+          },
+          "normalized_count": {"type": "null"},
+          "normalized_count_status": {"const": "NOT_MEASURED"},
+          "malformed_count": {"type": "null"},
+          "malformed_count_status": {"const": "NOT_MEASURED"}
+        }
+      }
+    }
+  ]
+}
