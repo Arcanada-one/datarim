@@ -39,13 +39,15 @@
 # Source: TUNE-0308 / TUNE-0309 Wave 1.
 
 set -euo pipefail
+IFS=$'\n\t'
 
 ROOT="$(pwd)"
 SCOPE_RAW="commands,skills,agents"
+SUMMARY_JSON=0
 
 usage() {
     cat <<'USAGE'
-Usage: check-body-english.sh [--root <repo-root>] [--scope <comma-list>] [--help]
+Usage: check-body-english.sh [--summary-json] [--root <repo-root>] [--scope <comma-list>] [--help]
 
 Scopes (comma-separated):
   commands  -> <root>/commands/*.md
@@ -62,6 +64,8 @@ USAGE
 
 while [ $# -gt 0 ]; do
     case "$1" in
+        --summary-json)
+            SUMMARY_JSON=1; shift ;;
         --root)
             [ $# -ge 2 ] || { echo "ERROR: --root requires an argument" >&2; exit 2; }
             ROOT="$2"; shift 2 ;;
@@ -74,6 +78,16 @@ while [ $# -gt 0 ]; do
             echo "ERROR: unknown argument: $1" >&2; usage >&2; exit 2 ;;
     esac
 done
+
+valid_path_argument() {
+    local LC_ALL=C
+    local without_tabs="${1//$'\t'/}"
+    [[ "$without_tabs" =~ ^[^[:cntrl:]]*$ ]]
+}
+if ! valid_path_argument "$ROOT"; then
+    echo "ERROR: --root contains a control character" >&2
+    exit 2
+fi
 
 if [ ! -d "$ROOT" ]; then
     echo "ERROR: --root '$ROOT' is not a directory" >&2; exit 2
@@ -205,7 +219,9 @@ scan_file() {
                 in_block_skip=1
                 continue
             else
-                echo "FAIL: $file:$lineno: allow-non-ascii-block reason too short (<10 non-whitespace chars): '$block_reason'" >&2
+                if [ "$SUMMARY_JSON" -eq 0 ]; then
+                    echo "FAIL: $file:$lineno: allow-non-ascii-block reason too short (<10 non-whitespace chars): '$block_reason'" >&2
+                fi
                 file_failed=1
                 continue
             fi
@@ -222,7 +238,9 @@ scan_file() {
             if [ "${#stripped}" -ge 10 ]; then
                 continue
             else
-                echo "FAIL: $file:$lineno: allow-non-ascii reason too short (<10 non-whitespace chars): '$reason'" >&2
+                if [ "$SUMMARY_JSON" -eq 0 ]; then
+                    echo "FAIL: $file:$lineno: allow-non-ascii reason too short (<10 non-whitespace chars): '$reason'" >&2
+                fi
                 file_failed=1
                 continue
             fi
@@ -232,7 +250,9 @@ scan_file() {
         if printf '%s' "$line" | LC_ALL=C grep -qE "$CYRILLIC_BYTES"; then
             local preview
             preview="$(printf '%s' "$line" | cut -c 1-80)"
-            echo "FAIL: $file:$lineno: $preview" >&2
+            if [ "$SUMMARY_JSON" -eq 0 ]; then
+                echo "FAIL: $file:$lineno: $preview" >&2
+            fi
             file_failed=1
         fi
     done < "$file"
@@ -249,6 +269,15 @@ for f in "${ALL_FILES[@]}"; do
         failures=$((failures + 1))
     fi
 done
+
+if [ "$SUMMARY_JSON" -eq 1 ]; then
+    if [ "$failures" -gt 0 ]; then
+        printf '{"schema":"DatarimBodyLanguageCheckSummary/v1","result":"FAIL","exit_code":1,"diagnostic_codes":["BODY_LANGUAGE_CHECK_FAILED"],"checked_count":%s,"checked_count_status":"MEASURED","failed_file_count":%s,"failed_file_count_status":"MEASURED"}\n' "$checked" "$failures"
+        exit 1
+    fi
+    printf '{"schema":"DatarimBodyLanguageCheckSummary/v1","result":"PASS","exit_code":0,"diagnostic_codes":[],"checked_count":%s,"checked_count_status":"MEASURED","failed_file_count":0,"failed_file_count_status":"MEASURED"}\n' "$checked"
+    exit 0
+fi
 
 echo "=== Summary ==="
 echo "checked=$checked file(s); scope=$SCOPE_RAW; root=$ROOT_ABS"

@@ -3,20 +3,52 @@
 > **Runtime-shipped since v2.15.0 (TUNE-0259).** `dev-tools/` is included
 > in the project install and copied into `.datarim-runtime/dev-tools/`
 > (Datarim 3.0 installs per project; the 2.x home-directory symlink install
-> is retired). However, the directory remains
-> **maintainer-stewarded** — it does NOT expose a user-facing CLI surface.
-> Scripts here are invoked exclusively by `/dr-*` commands at runtime (see
-> § Runtime consumers below). Treat any direct operator invocation as a
-> defect signal.
+> is retired). The directory remains **maintainer-stewarded**, not a general
+> user CLI. A small set of bounded saved-manifest and summary tools has direct
+> invocation guidance below; other scripts are internal unless their reference
+> explicitly documents a direct-use contract.
 
 ## Purpose
 
-Maintainer-side utilities for keeping the framework itself in shape, plus
-runtime helpers that `/dr-*` commands shell out to (input validation,
-schema checks, presence gates, network-exposure verifier, peer-provider
-resolver, etc.). Originally a doc-fanout linter only; expanded over
-v1.21+ to a broader set of orthogonal pure-shell tools (see § Validation
-Discipline in `code/datarim/AGENTS.md`).
+Maintainer-side utilities for keeping the framework itself in shape, explicitly
+documented saved-manifest and summary commands, plus runtime helpers that
+`/dr-*` commands shell out to (input validation, schema checks, presence gates,
+network-exposure verifier, peer-provider resolver, etc.). Tools have different
+implementation and dependency profiles; use each tool's reference for its
+supported direct interface and limits.
+
+## Saved CLI input manifests
+
+These commands support explicit saved-manifest workflows. Their reference pages
+cover accepted input, limits, output, and refusal behavior; the [workflow guide](../documentation/reference/cli-input-manifest.md) shows how to use them together.
+
+| Command | Purpose | Reference |
+|---------|---------|-----------|
+| `hash-cli-inputs.py` | Record bounded hashes for explicitly selected files. | [Manifest producer](../documentation/reference/cli-input-manifest.md) |
+| `select-cli-input-manifest.py` | Select declarations from a saved manifest without opening declared paths. | [Selection](../documentation/reference/cli-input-manifest-select.md) |
+| `merge-cli-input-manifests.py` | Combine saved declarations and refuse conflicting rows. | [Merge](../documentation/reference/cli-input-manifest-merge.md) |
+| `compare-cli-input-manifests.py` | Compare two saved declarations. | [Comparison](../documentation/reference/cli-input-manifest-diff.md) |
+| `verify-cli-input-manifest.py` | Check declared bytes against explicitly selected current files. | [Verification](../documentation/reference/cli-input-manifest-verify.md) |
+| `inspect-cli-input-manifest-conflicts.py` | Report conflicts between saved declarations without opening listed files. | [Conflict inspection](../documentation/reference/cli-input-manifest-conflicts.md) |
+| `format-input-verification.py` | Render a saved verification result as text. | [Verification text](../documentation/reference/input-verification-report-text.md) |
+| `format-cli-input-manifest-diff.py` | Render a saved comparison result as text. | [Difference text](../documentation/reference/cli-input-manifest-diff-text.md) |
+
+The versioned producer, comparison, and verification formats have portable
+schemas: [manifest](../documentation/reference/schemas/cli-input-manifest.v1.schema.json),
+[diff](../documentation/reference/schemas/cli-input-manifest-diff.v1.schema.json),
+and [verification](../documentation/reference/schemas/cli-input-manifest-verification.v1.schema.json).
+
+## Summary tools and formats
+
+| Tool | Purpose | Reference |
+|------|---------|-----------|
+| `aggregate-summary-exits.py` | Summarize declared exits in saved summary objects. | [Summary exit rollup](../documentation/reference/summary-exit-rollup.md) |
+| `relay-summary-exit.py` | Validate and relay one declared summary result. | [Summary exit relay](../documentation/reference/summary-exit-relay.md) |
+| `list-summary-schemas.py` | List schema files and bounded literal metadata from a repository checkout. | [Summary schema catalog](../documentation/reference/summary-schema-catalog.md) |
+| `resolve-summary-schema.py` | Resolve a summary's declared schema from an explicit saved catalog. | [Summary schema resolver](../documentation/reference/summary-schema-resolver.md) |
+
+Versioned checker summaries and their schemas are indexed in the
+[reference catalog](../documentation/reference/README.md#machine-readable-summaries).
 
 ## Runtime consumers (incomplete list)
 
@@ -84,27 +116,21 @@ The portable schema does not check arbitrary cross-field count arithmetic or equ
 
 This is one versioned interface for maintainers and CI. It does not make other `dev-tools/` scripts stable APIs and does not expose a general developer CLI.
 
-## Why runtime-shipped but no user CLI
+## Why runtime-shipped with scoped interfaces
 
-1. The scripts encode framework invariants — argument shapes, regex
-   schemas, exit-code contracts — that are co-versioned with the `/dr-*`
-   commands invoking them. Operator-direct invocation of a stale script
-   against a newer command (or vice versa) is a contract-breakage class
-   we do not want to expose.
-2. Each script self-documents its target scope in its header and is
-   pure shell (no runtime deps beyond bash + grep + dev-tools sibling
-   scripts). Per § Validation Discipline in `AGENTS.md`, orthogonal
-   concerns get orthogonal tools — no `dev-tools/` script is added as a
-   branch inside `datarim-doctor.sh`.
-3. Shipping the directory closes a defect class where consumer installs
-   via `curl | bash` or `./install.sh --copy` would lack scripts that
-   `/dr-*` commands cite as required (e.g. TUNE-0259: 7+ commands
-   referenced `dev-tools/check-*` but the directory was unreachable on
-   consumer disks).
-4. Schema stability is **still** maintainer-internal — relative paths,
-   directory layout, count regexes evolve under TUNE-* changes without
-   semver guarantees. Consumers MUST NOT script against these tools
-   directly.
+1. Runtime helpers encode framework invariants — argument shapes, validation
+   rules, and exit-code contracts — that are co-versioned with the `/dr-*`
+   commands invoking them. Use those helpers through their documented runtime
+   consumers unless a dedicated reference lists a direct-use interface.
+2. `dev-tools/` contains tools with different implementation and dependency
+   profiles. Keep orthogonal concerns in separate tools; do not assume a
+   directory-wide shell, dependency, or CLI contract.
+3. Shipping the directory makes runtime helpers available to installed
+   `/dr-*` commands. The saved-manifest and summary references above document
+   the bounded direct-use interfaces that are intended for those workflows.
+4. Directory layout and undocumented helper interfaces are implementation
+   details. Do not infer a general stable CLI from runtime installation; use
+   only the command and schema contracts explicitly documented for each tool.
 
 ## Files
 

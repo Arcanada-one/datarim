@@ -17,7 +17,7 @@ Use `${DATARIM_RUNTIME:-$HOME/.claude}/templates/test-value-card.md` before addi
 
 ## Attribute red before repair
 
-Run the native regression against the unrepaired source first. Record the command and the expected assertion failure. Confirm it fails because the target behavior is missing, not because fixture setup, imports, or services failed. A clear red result is the causal control; a test that passes before the repair does not establish the defect.
+Run the native regression against the unrepaired source first. Record the command and the expected assertion failure. Confirm it fails because the target behavior is missing, not because fixture setup, imports, or services failed. A clear red result is the causal control; card prose alone is not enough, and a test that passes before the repair does not establish the defect. After the repair, re-run the same command and keep the red-then-green pair with the card.
 
 ## Recheck after a repair
 

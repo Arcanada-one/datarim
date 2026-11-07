@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CLI Input Manifest Verification Result",
+  "description": "Portable structural contract for the fixed JSON result emitted by verify-cli-input-manifest.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "result",
+    "exit_code",
+    "diagnostic_codes",
+    "file_count",
+    "file_count_status",
+    "changed_paths"
+  ],
+  "properties": {
+    "schema": {
+      "const": "DatarimCliInputManifestVerification/v1"
+    },
+    "result": {
+      "enum": ["MATCHED", "CHANGED", "INPUT_REFUSED"]
+    },
+    "exit_code": {
+      "type": "integer",
+      "enum": [0, 1, 2]
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "maxItems": 1,
+      "items": {
+        "enum": [
+          "INPUT_MANIFEST_BYTES_CHANGED",
+          "INPUT_MANIFEST_VERIFICATION_REFUSED"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "file_count": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "file_count_status": {
+      "enum": ["MEASURED", "NOT_MEASURED"]
+    },
+    "changed_paths": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "pattern": "^(?!/)(?![\\s\\S]*\\\\)(?![\\s\\S]*\\x00)(?!(?:[^/]+/)*\\.{1,2}(?:/|(?![\\s\\S])))[^/]+(?:/[^/]+)*(?![\\s\\S])"
+      },
+      "uniqueItems": true
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "result": { "const": "MATCHED" },
+        "exit_code": { "const": 0 },
+        "diagnostic_codes": { "const": [] },
+        "file_count": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "file_count_status": { "const": "MEASURED" },
+        "changed_paths": { "const": [] }
+      },
+      "required": ["result", "exit_code", "diagnostic_codes", "file_count", "file_count_status", "changed_paths"]
+    },
+    {
+      "properties": {
+        "result": { "const": "CHANGED" },
+        "exit_code": { "const": 1 },
+        "diagnostic_codes": { "const": ["INPUT_MANIFEST_BYTES_CHANGED"] },
+        "file_count": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "file_count_status": { "const": "MEASURED" },
+        "changed_paths": { "type": "array", "minItems": 1, "maxItems": 64 }
+      },
+      "required": ["result", "exit_code", "diagnostic_codes", "file_count", "file_count_status", "changed_paths"]
+    },
+    {
+      "properties": {
+        "result": { "const": "INPUT_REFUSED" },
+        "exit_code": { "const": 2 },
+        "diagnostic_codes": { "const": ["INPUT_MANIFEST_VERIFICATION_REFUSED"] },
+        "file_count": { "type": "null" },
+        "file_count_status": { "const": "NOT_MEASURED" },
+        "changed_paths": { "const": [] }
+      },
+      "required": ["result", "exit_code", "diagnostic_codes", "file_count", "file_count_status", "changed_paths"]
+    }
+  ]
+}

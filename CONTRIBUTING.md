@@ -57,8 +57,10 @@ shellcheck -S warning $(find . -name '*.sh' -not -path './node_modules/*')
 bandit -r . -ll -ii -x ./_extracted,./.git,./tests/security/fixtures/sast-unsafe.py
 python3 tests/security/check-bandit-controls.py
 gitleaks detect --redact --no-banner
-actionlint
+actionlint -color -ignore 'label "ci-general" is unknown'
 ```
+
+The `ci-general` label is the organization’s self-hosted CI lane (`.github/workflows/bats.yml`); keep this one-label ignore aligned with the accepted CI caller and revisit it if that caller changes.
 
 ## Suppression Discipline
 

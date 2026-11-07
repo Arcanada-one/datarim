@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UIDXEvidenceValidationSummary/v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "result",
+    "exit_code",
+    "diagnostic_codes",
+    "source_revision",
+    "evidence_sha256",
+    "lowest_rubric_score",
+    "notes_count"
+  ],
+  "properties": {
+    "schema": {
+      "const": "UIDXEvidenceValidationSummary/v1"
+    },
+    "result": {
+      "enum": ["PASS", "NOT_APPLICABLE", "FAIL"]
+    },
+    "exit_code": {
+      "type": "integer",
+      "enum": [0, 1]
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "dirty_source_tree",
+          "duplicate_key",
+          "evidence_digest_mismatch",
+          "incomplete_journey",
+          "incomplete_persona",
+          "incomplete_review_passes",
+          "incomplete_storyboard",
+          "incomplete_ui_state",
+          "incomplete_ui_state_matrix",
+          "input_unavailable",
+          "invalid_applicability",
+          "invalid_attribution",
+          "invalid_evidence_digest",
+          "invalid_evidence_type",
+          "invalid_feature_id",
+          "invalid_input_kind",
+          "invalid_journey_status",
+          "invalid_json",
+          "invalid_plan_specification",
+          "invalid_review_mode",
+          "invalid_review_pass_status",
+          "invalid_schema",
+          "invalid_shape",
+          "invalid_source_revision",
+          "invalid_ui_state_score",
+          "invalid_ui_state_status",
+          "missing_acceptance_signal",
+          "missing_attribution_notice",
+          "missing_design_gap",
+          "missing_design_reference",
+          "missing_evidence",
+          "missing_evidence_artifact",
+          "missing_feature_name",
+          "missing_field",
+          "missing_input_reference",
+          "missing_journey_gap",
+          "missing_journey_stage_configure",
+          "missing_journey_stage_first-accepted-result",
+          "missing_journey_stage_install",
+          "missing_journey_stage_recover",
+          "missing_not_applicable_reason",
+          "missing_recovery_action",
+          "missing_storyboard",
+          "missing_ui_features",
+          "missing_ui_state_empty",
+          "missing_ui_state_error",
+          "missing_ui_state_loading",
+          "missing_ui_state_partial",
+          "missing_ui_state_reason",
+          "missing_ui_state_success",
+          "no_applicable_ui_states",
+          "prohibited_input",
+          "source_revision_unavailable",
+          "stale_source_revision",
+          "ui_rubric_below_floor",
+          "unattributed_retained_material",
+          "unexpected_applicability_reason",
+          "unexpected_ui_features",
+          "unknown_field",
+          "unreadable_evidence_artifact",
+          "unsafe_attribution_notice",
+          "unsafe_evidence_path",
+          "unsafe_evidence_reference",
+          "validation_error"
+        ]
+      }
+    },
+    "source_revision": {
+      "$ref": "#/$defs/measuredSourceRevision"
+    },
+    "evidence_sha256": {
+      "$ref": "#/$defs/measuredEvidenceDigest"
+    },
+    "lowest_rubric_score": {
+      "$ref": "#/$defs/rubricScore"
+    },
+    "notes_count": {
+      "$ref": "#/$defs/notesCount"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "availability": {
+      "type": "object",
+      "required": ["availability", "value"],
+      "properties": {
+        "availability": {
+          "enum": ["MEASURED", "NOT_MEASURED"]
+        },
+        "value": {}
+      },
+      "additionalProperties": false
+    },
+    "measuredSourceRevision": {
+      "allOf": [
+        {"$ref": "#/$defs/availability"},
+        {
+          "if": {
+            "properties": {"availability": {"const": "MEASURED"}},
+            "required": ["availability"]
+          },
+          "then": {
+            "properties": {
+              "value": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"}
+            }
+          },
+          "else": {
+            "properties": {"value": {"type": "null"}}
+          }
+        }
+      ]
+    },
+    "measuredEvidenceDigest": {
+      "allOf": [
+        {"$ref": "#/$defs/availability"},
+        {
+          "if": {
+            "properties": {"availability": {"const": "MEASURED"}},
+            "required": ["availability"]
+          },
+          "then": {
+            "properties": {
+              "value": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          },
+          "else": {
+            "properties": {"value": {"type": "null"}}
+          }
+        }
+      ]
+    },
+    "rubricScore": {
+      "allOf": [
+        {"$ref": "#/$defs/availability"},
+        {
+          "if": {
+            "properties": {"availability": {"const": "MEASURED"}},
+            "required": ["availability"]
+          },
+          "then": {
+            "properties": {"value": {"type": "integer", "const": 2}}
+          },
+          "else": {
+            "properties": {"value": {"type": "null"}}
+          }
+        }
+      ]
+    },
+    "notesCount": {
+      "allOf": [
+        {"$ref": "#/$defs/availability"},
+        {
+          "if": {
+            "properties": {"availability": {"const": "MEASURED"}},
+            "required": ["availability"]
+          },
+          "then": {
+            "properties": {"value": {"type": "integer", "minimum": 0}}
+          },
+          "else": {
+            "properties": {"value": {"type": "null"}}
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"result": {"const": "FAIL"}},
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {"const": 1},
+          "diagnostic_codes": {"minItems": 1, "maxItems": 1},
+          "evidence_sha256": {
+            "properties": {
+              "availability": {"const": "NOT_MEASURED"},
+              "value": {"type": "null"}
+            }
+          },
+          "notes_count": {
+            "properties": {
+              "availability": {"const": "NOT_MEASURED"},
+              "value": {"type": "null"}
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "exit_code": {"const": 0},
+          "diagnostic_codes": {"maxItems": 0},
+          "source_revision": {"properties": {"availability": {"const": "MEASURED"}}},
+          "evidence_sha256": {"properties": {"availability": {"const": "MEASURED"}}},
+          "notes_count": {"properties": {"availability": {"const": "MEASURED"}}}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"result": {"const": "NOT_APPLICABLE"}},
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "lowest_rubric_score": {
+            "properties": {
+              "availability": {"const": "NOT_MEASURED"},
+              "value": {"type": "null"}
+            }
+          },
+          "notes_count": {
+            "properties": {
+              "availability": {"const": "MEASURED"},
+              "value": {"const": 0}
+            }
+          }
+        }
+      }
+    }
+  ]
+}

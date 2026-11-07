@@ -26,7 +26,13 @@ set -euo pipefail
 # nosemgrep: bash.lang.security.ifs-tampering.ifs-tampering -- intentional strict-mode IFS scope is process-wide, single-script
 IFS=$'\n\t'
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DR_LIBRARY_MODE=0
+# The guard opts into library mode only when this file is actually sourced;
+# setting it for direct execution must not suppress the CLI or trigger return.
+if [ "${BASH_SOURCE[0]}" != "$0" ] && [ "${DATARIM_DOCTOR_NO_MAIN:-0}" = "1" ]; then
+    DR_LIBRARY_MODE=1
+fi
 # shellcheck source=lib/canonicalise.sh
 . "$SCRIPT_DIR/lib/canonicalise.sh"
 # shellcheck source=lib/resolve-datarim-root.sh
@@ -77,6 +83,11 @@ EXIT CODES:
 EOF
 }
 
+log() { if [ "$QUIET" -eq 0 ]; then echo "$@"; fi; }
+warn() { if [ "$QUIET" -eq 0 ]; then echo "WARN: $*" >&2; fi; }
+
+# --- CLI setup --------------------------------------------------------------
+if [ "$DR_LIBRARY_MODE" -eq 0 ]; then
 # --- arg parsing ------------------------------------------------------------
 for arg in "$@"; do
     case "$arg" in
@@ -102,11 +113,9 @@ if [ "$LOCAL_MODE" -eq 1 ] && [ "$SCOPE_EXPLICIT" -eq 0 ]; then
 fi
 
 # --- helpers (defined before root resolution so the shim can warn) ----------
-log() { if [ "$QUIET" -eq 0 ]; then echo "$@"; fi; }
 if [ "$LOCAL_MODE" -eq 1 ]; then
     log "INFO: --local mode (official local-repair invocation, TUNE-0472)"
 fi
-warn() { if [ "$QUIET" -eq 0 ]; then echo "WARN: $*" >&2; fi; }
 
 # --- root resolution --------------------------------------------------------
 # Contract: --root is the REPO-ROOT (the parent of datarim/), the
@@ -151,6 +160,7 @@ else
         ROOT_ABS="$ROOT_ABS_GIVEN"
     fi
 fi
+fi # DR_LIBRARY_MODE
 
 # --- helpers ----------------------------------------------------------------
 
@@ -252,6 +262,12 @@ prefix_to_area() {
     fi
     echo "general"
 }
+
+# The archive-prefix helpers above are the supported library surface. Returning
+# here keeps sourced callers away from doctor scanning, migration, locks and exit.
+if [ "$DR_LIBRARY_MODE" -eq 1 ]; then
+    return 0
+fi
 
 # Canonical schema regexes (ONELINER_RE, BACKLOG_ITEM_RE) are sourced from
 # lib/schema-regex.sh — the single source of truth shared with pre-archive-check.sh.

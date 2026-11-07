@@ -9,10 +9,12 @@ import json
 import os
 from pathlib import Path
 import re
+import selectors
 import shutil
 import signal
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 
 
@@ -104,6 +106,59 @@ class ContractError(ValueError):
     pass
 
 
+MAX_TIMEOUT_OUTPUT_BYTES = 64 * 1024
+RESULT_FIELDS = {"suite", "shard", "status", "exit_code", "phase"}
+
+
+class BoundedProcessTimeout(subprocess.TimeoutExpired):
+    def __init__(self, command, timeout, output_excerpt: str, output_truncated: bool):
+        super().__init__(command, timeout, output=output_excerpt)
+        self.output_truncated = output_truncated
+
+
+class BoundedProcessOutputExceeded(ContractError):
+    def __init__(self, output_excerpt: str):
+        super().__init__(f"Bats output exceeded {MAX_TIMEOUT_OUTPUT_BYTES} byte limit")
+        self.output_excerpt = output_excerpt
+
+
+def bounded_timeout_excerpt(
+    output: str | bytes | None,
+    *,
+    force_truncated: bool = False,
+    marker: str = "[timeout output truncated; showing final bytes]\n",
+) -> tuple[str, bool]:
+    if output is None:
+        text = ""
+    elif isinstance(output, bytes):
+        text = output.decode("utf-8", errors="replace")
+    else:
+        text = output
+    encoded = text.encode("utf-8")
+    if not force_truncated and len(encoded) <= MAX_TIMEOUT_OUTPUT_BYTES:
+        return text, False
+
+    available = MAX_TIMEOUT_OUTPUT_BYTES - len(marker.encode("utf-8"))
+    tail = encoded[-available:]
+    while True:
+        try:
+            tail_text = tail.decode("utf-8")
+            break
+        except UnicodeDecodeError as error:
+            tail = tail[error.end:]
+    return marker + tail_text, True
+
+
+def append_bounded_tail(buffer: bytearray, chunk: bytes) -> None:
+    if len(chunk) >= MAX_TIMEOUT_OUTPUT_BYTES:
+        buffer[:] = chunk[-MAX_TIMEOUT_OUTPUT_BYTES:]
+        return
+    excess = len(buffer) + len(chunk) - MAX_TIMEOUT_OUTPUT_BYTES
+    if excess > 0:
+        del buffer[:excess]
+    buffer.extend(chunk)
+
+
 @dataclass(frozen=True)
 class Row:
     suite: str
@@ -147,18 +202,105 @@ def run_bounded_process(
         start_new_session=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        text=True,
     )
-    try:
-        output, _ = process.communicate(timeout=timeout_seconds)
-    except subprocess.TimeoutExpired:
+    assert process.stdout is not None
+    selector = selectors.DefaultSelector()
+    selector.register(process.stdout, selectors.EVENT_READ)
+    captured = bytearray()
+    total_bytes = 0
+    deadline = time.monotonic() + timeout_seconds
+    timed_out = False
+    output_exceeded = False
+    group_stopped = False
+
+    def stop_process_group() -> None:
+        nonlocal group_stopped
+        if process.poll() is not None and not selector.get_map():
+            group_stopped = True
+            return
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except (ProcessLookupError, PermissionError):
             pass
-        process.communicate()
+        group_stopped = True
+
+    def drain_ready(wait_seconds: float) -> None:
+        nonlocal total_bytes, output_exceeded
+        for key, _ in selector.select(wait_seconds):
+            chunk = os.read(key.fd, 16 * 1024)
+            if not chunk:
+                selector.unregister(key.fileobj)
+                key.fileobj.close()
+                continue
+            total_bytes += len(chunk)
+            append_bounded_tail(captured, chunk)
+            output_exceeded = output_exceeded or total_bytes > MAX_TIMEOUT_OUTPUT_BYTES
+
+    def finish_stopped_group() -> None:
+        cleanup_deadline = time.monotonic() + 2.0
+        while selector.get_map() and time.monotonic() < cleanup_deadline:
+            drain_ready(min(cleanup_deadline - time.monotonic(), 0.1))
+        if selector.get_map():
+            for key in list(selector.get_map().values()):
+                selector.unregister(key.fileobj)
+                key.fileobj.close()
+        try:
+            process.wait(timeout=2.0)
+        except subprocess.TimeoutExpired:
+            stop_process_group()
+            process.kill()
+            process.wait()
+
+    try:
+        while process.poll() is None or selector.get_map():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                timed_out = True
+                break
+            drain_ready(min(remaining, 0.1))
+
+        if timed_out:
+            stop_process_group()
+            finish_stopped_group()
+            raw = bytes(captured)
+            excerpt, truncated = bounded_timeout_excerpt(
+                raw, force_truncated=total_bytes > MAX_TIMEOUT_OUTPUT_BYTES
+            )
+            raise BoundedProcessTimeout(
+                command, timeout_seconds, excerpt, truncated
+            )
+
+        if output_exceeded:
+            stop_process_group()
+            finish_stopped_group()
+            excerpt, _ = bounded_timeout_excerpt(
+                bytes(captured),
+                force_truncated=True,
+                marker="[process output exceeded capture limit; showing final bytes]\n",
+            )
+            raise BoundedProcessOutputExceeded(excerpt)
+
+        returncode = process.wait()
+        raw = bytes(captured)
+        output = raw.decode("utf-8", errors="replace")
+        if total_bytes > MAX_TIMEOUT_OUTPUT_BYTES or len(output.encode("utf-8")) > MAX_TIMEOUT_OUTPUT_BYTES:
+            excerpt, _ = bounded_timeout_excerpt(
+                raw,
+                force_truncated=True,
+                marker="[process output exceeded capture limit; showing final bytes]\n",
+            )
+            raise BoundedProcessOutputExceeded(excerpt)
+        return returncode, output
+    except BaseException:
+        if not group_stopped:
+            stop_process_group()
+            if process.poll() is None:
+                process.wait()
         raise
-    return process.returncode, output
+    finally:
+        selector.close()
+        if process.stdout and not process.stdout.closed:
+            process.stdout.close()
 
 
 def extract_security_arms(path: Path) -> list[str]:
@@ -343,21 +485,37 @@ def check_results(rows: list[Row], platform: str, directory: Path) -> int:
     if not directory.is_dir():
         raise ContractError("result inventory mismatch: missing directory")
     observed: Counter[tuple[str, str]] = Counter()
+    failed = 0
+    timed_out = 0
     for path in sorted(directory.glob("*.json")):
         try:
             item = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, UnicodeError) as error:
             raise ContractError(f"result inventory mismatch: changed {path.name}") from error
+        if not isinstance(item, dict) or set(item) != RESULT_FIELDS:
+            raise ContractError(f"result inventory mismatch: changed {path.name}")
         if (
-            not isinstance(item, dict)
-            or set(item) != {"suite", "shard"}
-            or not all(isinstance(item[field], str) for field in ("suite", "shard"))
+            not all(isinstance(item[field], str) for field in ("suite", "shard", "status", "phase"))
+            or isinstance(item["exit_code"], bool)
+            or not isinstance(item["exit_code"], int)
+            or item["status"] not in {"passed", "failed", "timed_out"}
+            or item["phase"] not in {"count", "shard"}
+        ):
+            raise ContractError(f"result inventory mismatch: changed {path.name}")
+        if (
+            (item["status"] == "passed" and (item["exit_code"] != 0 or item["phase"] != "shard"))
+            or (item["status"] == "failed" and (item["exit_code"] == 0 or item["phase"] != "shard"))
+            or (item["status"] == "timed_out" and item["exit_code"] != 124)
         ):
             raise ContractError(f"result inventory mismatch: changed {path.name}")
         key = (item["suite"], item["shard"])
         observed[key] += 1
         if observed[key] > 1:
             raise ContractError(f"result inventory mismatch: duplicate {key[0]} {key[1]}")
+        if item["status"] == "timed_out":
+            timed_out += 1
+        elif item["status"] == "failed":
+            failed += 1
     missing = expected - observed
     extra = observed - expected
     if missing:
@@ -366,8 +524,25 @@ def check_results(rows: list[Row], platform: str, directory: Path) -> int:
     if extra:
         key = next(iter(extra))
         raise ContractError(f"result inventory mismatch: extra {key[0]} {key[1]}")
-    print(f"customer_delivery_results=valid platform={platform} count={sum(observed.values())}")
-    return 0
+    print(
+        f"customer_delivery_results=complete platform={platform} count={sum(observed.values())} "
+        f"passed={sum(observed.values()) - failed - timed_out} failed={failed} timed_out={timed_out}"
+    )
+    return 1 if failed or timed_out else 0
+
+
+def write_result(path: Path, row: Row, status: str, exit_code: int, phase: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({
+            "suite": row.suite,
+            "shard": f"{row.shard}/{row.total}",
+            "status": status,
+            "exit_code": exit_code,
+            "phase": phase,
+        }) + "\n",
+        encoding="utf-8",
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -389,6 +564,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    row = None
+    timeout_phase = "count"
     try:
         rows = load_registry(args.registry)
         inventories, security_arms = validate_registry(rows)
@@ -464,6 +641,7 @@ def main() -> int:
                 f"expected {len(names)}, observed {authoritative_count}"
             )
         timeout_context = f"shard exceeded {args.timeout_seconds}s: {args.suite} {args.shard}"
+        timeout_phase = "shard"
         returncode, output = run_bounded_process(
             [bats, "--filter", filter_pattern, str(SUITE_PATHS[row.suite])],
             environment,
@@ -472,18 +650,46 @@ def main() -> int:
         print(output, end="")
         if returncode == 0:
             validate_bats_execution(output, len(names))
-        if returncode == 0 and args.result_file:
+        if args.result_file:
             if not args.platform:
                 raise ContractError("result-file requires platform")
-            args.result_file.parent.mkdir(parents=True, exist_ok=True)
-            args.result_file.write_text(
-                json.dumps({"suite": row.suite, "shard": f"{row.shard}/{row.total}"}) + "\n",
-                encoding="utf-8",
+            write_result(
+                args.result_file, row,
+                "passed" if returncode == 0 else "failed",
+                returncode,
+                "shard",
             )
         return returncode
-    except subprocess.TimeoutExpired:
+    except BoundedProcessTimeout as error:
+        if error.output:
+            print(error.output, end="" if error.output.endswith("\n") else "\n")
+        if error.output_truncated:
+            print(f"timeout output limit: {MAX_TIMEOUT_OUTPUT_BYTES} bytes", file=sys.stderr)
+        if args.result_file and row is not None:
+            if not args.platform:
+                print("ERROR: result-file requires platform", file=sys.stderr)
+                return 2
+            try:
+                write_result(args.result_file, row, "timed_out", 124, timeout_phase)
+            except OSError as write_error:
+                print(f"ERROR: could not record timed-out shard: {write_error}", file=sys.stderr)
+                return 2
         print(f"ERROR: {timeout_context}", file=sys.stderr)
         return 124
+    except BoundedProcessOutputExceeded as error:
+        if error.output_excerpt:
+            print(error.output_excerpt, end="" if error.output_excerpt.endswith("\n") else "\n")
+        print(f"ERROR: {error}", file=sys.stderr)
+        if args.result_file and row is not None and timeout_phase == "shard":
+            if not args.platform:
+                print("ERROR: result-file requires platform", file=sys.stderr)
+                return 2
+            try:
+                write_result(args.result_file, row, "failed", 2, "shard")
+            except OSError as write_error:
+                print(f"ERROR: could not record failed shard: {write_error}", file=sys.stderr)
+                return 2
+        return 2
     except (ContractError, OSError, UnicodeError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2

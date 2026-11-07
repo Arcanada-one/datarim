@@ -23,6 +23,20 @@ MAX_PATH_BYTES = 4096
 MAX_POINTER_BYTES = 512
 MAX_RATIONALE_BYTES = 512
 MAX_LIMITS_BYTES = 512
+SUMMARY_SCHEMA = "DatarimTestAuditBuildSummary/v1"
+SUMMARY_DIAGNOSTIC_CODES = frozenset({
+    "ROOT_INVALID", "SELECTION_PATH_INVALID", "SELECTION_READ_FAILED",
+    "SELECTION_TOO_LARGE", "SELECTION_INVALID", "SELECTION_COUNT_INVALID",
+    "SELECTION_DUPLICATE_TEST", "TEST_PATH_INVALID", "ACTION_UNKNOWN",
+    "OVERLAP_NOT_SELECTED", "EVIDENCE_INVALID", "EVIDENCE_PATH_INVALID",
+    "EVIDENCE_DIGEST_INVALID", "EVIDENCE_POINTER_INVALID",
+    "INPUT_PATH_ROLE_CONFLICT", "EVIDENCE_COUNT_LIMIT", "TEST_READ_FAILED",
+    "INPUT_SYMLINK", "INPUT_NOT_REGULAR", "INPUT_UNREADABLE", "TEST_TOO_LARGE",
+    "INPUT_CHANGED", "EVIDENCE_READ_FAILED", "EVIDENCE_TOO_LARGE",
+    "EVIDENCE_DIGEST_MISMATCH", "EVIDENCE_JSON_INVALID", "EVIDENCE_POINTER_DUPLICATE",
+    "EVIDENCE_VALUE_INVALID", "AGGREGATE_READ_LIMIT", "TEXT_INVALID", "CLI_USAGE",
+    "REPORT_FAILED",
+})
 CARD_FIELDS = ("protects", "fails_when", "why_new", "seam", "no_claim")
 COST_FIELDS = ("wall_time_ms", "flaky_attempts")
 ACTIONS = ("retain", "merge", "refactor", "retire")
@@ -454,22 +468,62 @@ def _parser() -> argparse.ArgumentParser:
     parser = FixedArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--root", required=True, help="owned project root")
     parser.add_argument("--selection", required=True, help="root-relative versioned JSON selection")
+    parser.add_argument("--summary-json", action="store_true", help="emit a fixed private result summary")
     return parser
+
+
+def _summary(report: dict[str, object]) -> dict[str, object]:
+    tests = report["tests"]
+    assert isinstance(tests, list)
+    linked = sum(len(test["evidence_refs"]) for test in tests)
+    return {
+        "schema": SUMMARY_SCHEMA,
+        "result": "PASS",
+        "exit_code": 0,
+        "diagnostic_codes": [],
+        "selected_test_count": len(tests),
+        "selected_test_count_status": "MEASURED",
+        "linked_evidence_count": linked,
+        "linked_evidence_count_status": "MEASURED",
+    }
+
+
+def _summary_refusal(code: str) -> dict[str, object]:
+    safe_code = code if code in SUMMARY_DIAGNOSTIC_CODES else "REPORT_FAILED"
+    return {
+        "schema": SUMMARY_SCHEMA,
+        "result": "FAIL",
+        "exit_code": 2,
+        "diagnostic_codes": [safe_code],
+        "selected_test_count": None,
+        "selected_test_count_status": "NOT_MEASURED",
+        "linked_evidence_count": None,
+        "linked_evidence_count_status": "NOT_MEASURED",
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
     try:
         args = _parser().parse_args(argv)
         report = build_report(args.root, args.selection)
+        if args.summary_json:
+            sys.stdout.write(json.dumps(_summary(report), separators=(",", ":")) + "\n")
+            return 0
         rendered = json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
         sys.stdout.write(rendered + "\n")
         return 0
     except AuditError as error:
+        if "args" in locals() and args.summary_json:
+            sys.stdout.write(json.dumps(_summary_refusal(error.code), separators=(",", ":")) + "\n")
+            return 2
         sys.stderr.write(f"ERROR {error.code}\n")
         return 2
     except BrokenPipeError:
         return 2
     except Exception:
+        if "args" in locals() and args.summary_json:
+            sys.stdout.write(json.dumps(_summary_refusal("REPORT_FAILED"), separators=(",", ":")) + "\n")
+            return 2
         sys.stderr.write("ERROR REPORT_FAILED\n")
         return 2
 

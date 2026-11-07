@@ -26,13 +26,15 @@
 #   1 — offences found (stdout: file:line:matched-text)
 #   2 — usage / IO error
 
-set -uo pipefail
+set -euo pipefail
+IFS=$'\n\t'
 
 usage() {
     cat >&2 <<'USAGE'
-usage: check-template-path-convention.sh [--root <runtime-path>] [--quiet]
+usage: check-template-path-convention.sh [--summary-json] [--root <runtime-path>] [--quiet]
   --root   scan root (default: script-dir/..)
   --quiet  exit code only, no offence lines
+  --summary-json emit one fixed JSON result (takes precedence over --quiet)
 exit codes: 0 clean | 1 offences | 2 usage/IO
 USAGE
     exit 2
@@ -40,9 +42,14 @@ USAGE
 
 ROOT=""
 QUIET=0
+SUMMARY_JSON=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
+        --summary-json)
+            SUMMARY_JSON=1
+            shift
+            ;;
         --root)
             [ $# -ge 2 ] || usage
             ROOT="$2"
@@ -61,6 +68,16 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
+
+valid_path_argument() {
+    local LC_ALL=C
+    local without_tabs="${1//$'\t'/}"
+    [[ "$without_tabs" =~ ^[^[:cntrl:]]*$ ]]
+}
+if [ -n "$ROOT" ] && ! valid_path_argument "$ROOT"; then
+    echo "[check-template-path-convention] root contains a control character" >&2
+    exit 2
+fi
 
 if [ -z "$ROOT" ]; then
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -83,6 +100,9 @@ for scope in commands skills agents; do
 done
 
 if [ "${#files[@]}" -eq 0 ]; then
+    if [ "$SUMMARY_JSON" -eq 1 ]; then
+        printf '{"schema":"DatarimTemplatePathConventionSummary/v1","result":"PASS","exit_code":0,"diagnostic_codes":[],"offences_present":false,"offences_present_status":"MEASURED"}\n'
+    fi
     exit 0
 fi
 
@@ -157,8 +177,17 @@ for f in "${files[@]}"; do
 done
 
 if [ -s "$tmp_out" ]; then
+    if [ "$SUMMARY_JSON" -eq 1 ]; then
+        printf '{"schema":"DatarimTemplatePathConventionSummary/v1","result":"FAIL","exit_code":1,"diagnostic_codes":["TEMPLATE_PATH_CONVENTION_INVALID"],"offences_present":true,"offences_present_status":"MEASURED"}\n'
+        exit 1
+    fi
     [ "$QUIET" -eq 0 ] && cat "$tmp_out"
     exit 1
+fi
+
+if [ "$SUMMARY_JSON" -eq 1 ]; then
+    printf '{"schema":"DatarimTemplatePathConventionSummary/v1","result":"PASS","exit_code":0,"diagnostic_codes":[],"offences_present":false,"offences_present_status":"MEASURED"}\n'
+    exit 0
 fi
 
 exit 0
