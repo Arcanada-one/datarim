@@ -389,7 +389,24 @@ write_stage_snapshot() {
 
     # Atomic rename. -T (no-target-directory) on GNU mv; macOS default mv is
     # safe-on-overwrite for regular files. Pre-unlink symlink already handled.
-    mv -f "$tmp_path" "$final_path"
+    # Hold the task lock across publish + forget-so-far: a prior $$ -based temp
+    # name could be recreated by the next writer the instant the lock drops, and
+    # a late EXIT/cleanup rm of the published path name would delete that peer's
+    # temp (CI resulting-main: stage-snapshot-flock-race.bats / cannot stat).
+    if [ ! -f "$tmp_path" ]; then
+        printf 'write_stage_snapshot: missing composed temp before publish: %s\n' \
+            "$tmp_path" >&2
+        _snapshot_writer_cleanup 0
+        return 1
+    fi
+    if ! mv -f "$tmp_path" "$final_path"; then
+        printf 'write_stage_snapshot: atomic publish failed: %s -> %s\n' \
+            "$tmp_path" "$final_path" >&2
+        _snapshot_writer_cleanup 0
+        return 1
+    fi
+    # Inode now lives at final_path; never rm the old basename from cleanup.
+    _snapshot_writer_cleanup_tmp_path=""
 
     # Harness journal hook — auto-detect ${TMPDIR:-/tmp}/datarim-test-{task_id}.
     # If the operator initialised the test harness for this TASK-ID
