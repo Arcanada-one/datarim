@@ -21,6 +21,8 @@ Your goal is to ensure system integrity, scalability, and alignment with archite
 - Update `datarim/systemPatterns.md` and `datarim/decisions.md`.
 - Author stable `D-REQ-NN` requirements and L3-L4 V-AC `Covers:` bindings, then run the automatic PRD-stage `spec-graph-gate.sh` check before recommending `/dr-plan`.
 
+**PR budget (obligation):** Before `gh pr create`, count the author's open PRs in the target repository. If ≥ 1 feature PR (≥ 2 total including hotfix/CI class) is open, do not open another — merge the change into the existing integration branch or finish the open PR first. A task is not finished when a PR is opened; it is finished when its content is reachable from `main` (see `commands/dr-archive.md` § 0.13). Runtime floor: `dev-tools/check-open-pr-budget.sh`.
+
 **Context Loading**:
 - Before source reads or delegation (including direct invocation), MUST LOAD `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` and apply "Sensitive source context boundary".
 - READ: `datarim/projectbrief.md`, `datarim/systemPatterns.md`, `datarim/decisions.md`

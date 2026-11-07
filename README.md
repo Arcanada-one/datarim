@@ -10,7 +10,7 @@
 
 **A universal iterative workflow framework for Claude Code, Codex CLI, Cursor, and Google Antigravity (`agy`) — from requirements to completion.**
 
-[![Version: 4.10.0](https://img.shields.io/badge/Version-4.10.0-green.svg)](VERSION)
+[![Version: 4.11.0](https://img.shields.io/badge/Version-4.11.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -39,6 +39,8 @@ labels disclose English fallback when a requested catalog is unavailable.
 **New in 4.6.0:** L3/L4 tasks are checked for a PRD (or an operator-stated waiver) before implementation starts, `linked_ac` values that are not `V-AC-N` tokens get an early advisory, and acceptance cases must stay observable after every planned step.
 
 **New in 4.6.1:** Test-environment settings used for production-impact predictions are compared through bounded read-only access, with unsafe or unavailable comparisons voiding the prediction. Superseded acceptance contracts receive a complete case-by-case semantic comparison.
+
+**New in 4.11.0:** Open-PR budget floor (`dev-tools/check-open-pr-budget.sh`) blocks `gh pr create` when the author already has too many open PRs (default feature=1 / total=2), with fail-closed measurement and bats regression.
 
 **New in 4.10.0:** Bounded CLI input-manifest workflows select, verify, hash, compare, merge, inspect conflicts, and format structured or readable diffs. Summary tooling resolves declared schemas, relays declared exit statuses, and aggregates summary rollups without claiming producer execution or acceptance. QA helpers report init-task presence and preserve append I/O failure diagnostics.
 
