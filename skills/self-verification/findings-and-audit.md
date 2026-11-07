@@ -59,11 +59,11 @@ so missing metadata cannot imply that a finding was resolved. Stored old audit
 records remain readable without this option.
 
 At the iteration cap, `unresolved` remains `unresolved`. The cap is not evidence
-of resolution: the validator never converts a finding to a fixed/closed state,
-and `fixed` is not an accepted resolution value. Findings marked `absent` are
-discarded before verdict calculation even if an emitter labels them advisory;
-they cannot be kept alive by adding a confidence value. `verified_absence` stays
-evidence-backed and cannot be discarded.
+of resolution: limit exhausted does not mean fixed. The validator never converts
+a finding to a fixed/closed state, and `fixed` is not an accepted resolution
+value. Findings marked `absent` are discarded before verdict calculation even if
+an emitter labels them advisory; they cannot be kept alive by adding a confidence
+value. `verified_absence` stays evidence-backed and cannot be discarded.
 
 ## Severity Anchors
 

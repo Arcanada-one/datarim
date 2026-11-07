@@ -31,17 +31,27 @@ setup() {
 }
 
 @test "unresolved findings remain unresolved at the iteration cap" {
+    # Positive control: a new-format finding with resolution=unresolved at the
+    # cap stays unresolved. Parse the normalized record so string presence alone
+    # cannot hide a silent rewrite.
     payload='[{"finding_id":"F-dispatch-1","severity":"high","category":"correctness","ac_criteria":[],"evidence":{"type":"test_output","source":"synthetic fixture","excerpt":"still failing"},"resolution":"unresolved","round":3}]'
     run python3 "$SCRIPT" --round 3 --max-iter 3 <<< "$payload"
     [ "$status" -eq 0 ]
-    [[ "$output" == *'"resolution": "unresolved"'* ]]
+    resolution="$(printf '%s' "$output" | python3 -c 'import json,sys; data=json.load(sys.stdin); print(data["findings"][0]["resolution"])')"
+    round_number="$(printf '%s' "$output" | python3 -c 'import json,sys; data=json.load(sys.stdin); print(data["findings"][0]["round"])')"
+    [ "$resolution" = "unresolved" ]
+    [ "$round_number" = "3" ]
+    printf '%s' "$output" | python3 -c 'import json,sys; data=json.load(sys.stdin); assert "fixed" not in json.dumps(data["findings"][0])'
 }
 
 @test "fixed is not an accepted resolution at the cap" {
+    # Negative control: unresolved relabelled fixed must fail. Cap exhaustion
+    # never authorizes a fixed/closed label.
     payload='[{"severity":"high","category":"correctness","ac_criteria":[],"evidence":{"type":"test_output","source":"synthetic fixture","excerpt":"still failing"},"resolution":"fixed","round":3}]'
     run python3 "$SCRIPT" --round 3 --max-iter 3 <<< "$payload"
     [ "$status" -eq 1 ]
     [[ "$output" == *'resolution must be actionable, advisory, or unresolved'* ]]
+    [[ "$output" == *'fixed is not an accepted resolution; iteration limit exhausted does not mean fixed'* ]]
 }
 
 @test "new records require resolution and round together and round must match" {
@@ -52,6 +62,8 @@ setup() {
 }
 
 @test "absent evidence is discarded and cannot be kept alive with confidence" {
+    # Negative control: an evidence-less finding kept alive by a lowered
+    # confidence field must fail. Confidence is not in the schema.
     payload='[{"severity":"low","category":"completeness","ac_criteria":[],"evidence":{"type":"absent"},"resolution":"advisory","round":1,"confidence":0.1}]'
     run python3 "$SCRIPT" --round 1 --max-iter 3 <<< "$payload"
     [ "$status" -eq 1 ]
@@ -60,8 +72,10 @@ setup() {
     payload='[{"severity":"low","category":"completeness","ac_criteria":[],"evidence":{"type":"absent"},"resolution":"advisory","round":1}]'
     run python3 "$SCRIPT" --round 1 --max-iter 3 <<< "$payload"
     [ "$status" -eq 0 ]
-    [[ "$output" == *'"discarded": true'* ]]
-    [[ "$output" == *'"discard_reason": "no_evidence_provided"'* ]]
+    discarded="$(printf '%s' "$output" | python3 -c 'import json,sys; data=json.load(sys.stdin); print(data["findings"][0]["discarded"])')"
+    reason="$(printf '%s' "$output" | python3 -c 'import json,sys; data=json.load(sys.stdin); print(data["findings"][0]["discard_reason"])')"
+    [ "$discarded" = "True" ]
+    [ "$reason" = "no_evidence_provided" ]
 }
 
 @test "verified_absence remains evidence and is never discarded" {
