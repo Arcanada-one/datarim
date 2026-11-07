@@ -12,24 +12,28 @@
 #   pure shell; --check mode; exit 0 = PASS, exit 1 = FAIL, exit 2 = usage/setup.
 #
 # The merge→tag window is legitimate: the tag is created by the operator or the
-# release gate minutes after the release PR merges. --wait-seconds N polls the
-# remote for up to N seconds before declaring FAIL, so a CI job on the main-push
-# event tolerates the normal window and still fails loudly when the tag never
-# arrives.
+# release gate minutes after the release PR merges. Prefer a durable release
+# intent (`.datarim/release-intent.json`) plus an off-runner reconcile job over
+# holding a CI runner in --wait-seconds sleep. --wait-seconds remains for local
+# debugging only; CI must not park on it.
 #
 # Usage:
-#   check-version-tag-parity.sh --check [--repo <path>] [--wait-seconds N] [--report]
+#   check-version-tag-parity.sh --check [--repo <path>] [--wait-seconds N]
+#       [--intent-file PATH] [--allow-pending-intent] [--report]
 set -euo pipefail
 
 repo="." ; wait_seconds=0 ; mode="" ; report=false
+intent_file="" ; allow_pending_intent=false
 while [ $# -gt 0 ]; do
     case "$1" in
         --check) mode=check; shift ;;
         --repo) repo="${2:-}"; shift 2 ;;
         --wait-seconds) wait_seconds="${2:-0}"; shift 2 ;;
+        --intent-file) intent_file="${2:-}"; shift 2 ;;
+        --allow-pending-intent) allow_pending_intent=true; shift ;;
         --report) report=true; shift ;;
         -h|--help)
-            sed -n '2,21p' "$0"; exit 0 ;;
+            sed -n '2,24p' "$0"; exit 0 ;;
         *) echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -41,6 +45,7 @@ git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "ERROR:
 version="$(tr -d ' \t\n' < "$repo/VERSION")"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "ERROR: VERSION content '$version' is not X.Y.Z" >&2; exit 2; }
 tag_ref="refs/tags/v${version}"
+[ -n "$intent_file" ] || intent_file="$repo/.datarim/release-intent.json"
 
 probe() {
     # ls-remote hits the authoritative remote — a locally created but unpushed
@@ -69,6 +74,33 @@ preparation() {
     echo "DEFERRED: VERSION ${version} is verified history-bootstrap preparation; v${version} is not shipped. The parentless cutover must publish its matching tag."
 }
 
+pending_intent() {
+    # Durable intent covers the merge→tag window without sleeping on a runner.
+    # Reconcile remains responsible for proving the tag, signature and source SHA.
+    [ "$allow_pending_intent" = true ] || return 1
+    [ -f "$intent_file" ] || return 1
+    python3 - "$intent_file" "$version" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+intent = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+version = sys.argv[2]
+if intent.get("schema") != "ReleaseIntent/v1":
+    raise SystemExit(1)
+if intent.get("version") != version:
+    raise SystemExit(1)
+source = intent.get("source_sha") or ""
+if not isinstance(source, str) or len(source) != 40:
+    raise SystemExit(1)
+print(
+    f"PENDING: VERSION {version} has durable release intent for source_sha={source}; "
+    "tag arrival is reconciled off-runner (event or schedule). "
+    "Note: tags created with GITHUB_TOKEN do not trigger workflow push/create events."
+)
+PY
+}
+
 deadline=$(( $(date +%s) + wait_seconds ))
 while :; do
     if probe; then
@@ -76,6 +108,9 @@ while :; do
         exit 0
     fi
     if preparation; then
+        exit 0
+    fi
+    if pending_intent; then
         exit 0
     fi
     [ "$(date +%s)" -lt "$deadline" ] || break
@@ -86,6 +121,6 @@ echo "FAIL: VERSION is ${version} but tag v${version} does not exist on origin �
 if [ "$report" = true ]; then
     echo "Newest remote tags:" >&2
     git -C "$repo" ls-remote --tags origin 'refs/tags/v*' 2>/dev/null | tail -5 >&2 || true
-    echo "Remedy: run dev-tools/release-gate.sh (tags + pushes on all-green), or create the annotated tag per documentation/how-to/ release procedure." >&2
+    echo "Remedy: record a durable intent with dev-tools/record-release-intent.sh, run the release-tag-reconcile workflow, or create the annotated tag per documentation/how-to/ release procedure." >&2
 fi
 exit 1

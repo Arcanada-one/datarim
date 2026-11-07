@@ -1,0 +1,50 @@
+name: release-tag-reconcile
+
+# Off-runner reconcile for VERSION ↔ tag parity (ARC-CI-05).
+#
+# Holding a framework-gates runner in `sleep 30` for up to 900 s burned ~490 s
+# of job time on the measured baseline. Release intent is recorded durably;
+# this workflow detects tag arrival by schedule (and optional workflow_dispatch)
+# because tags created with GITHUB_TOKEN do not trigger `push`/`create` events.
+#
+# Publication (tag + GitHub Release) remains separate from this verification.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-tag-reconcile
+  cancel-in-progress: false
+
+jobs:
+  verify-intent:
+    name: verify release intent against remote tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Skip when no durable intent is present
+        id: intent
+        run: |
+          set -euo pipefail
+          if [ -f .datarim/release-intent.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No .datarim/release-intent.json — nothing to reconcile."
+          fi
+
+      - name: Short verification (tag + source SHA; signature when available)
+        if: steps.intent.outputs.present == 'true'
+        run: bash dev-tools/verify-release-intent.sh --check --report

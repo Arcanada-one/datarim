@@ -1,0 +1,16 @@
+{
+  "schema": "CiSlotBaseline/v1",
+  "source_run_id": 42423807029,
+  "measured_at": "2026-11-07T23:31:00Z",
+  "workflow": "bats.yml",
+  "customer_delivery_linux_peak_concurrency": 18,
+  "all_jobs_peak_concurrency": 19,
+  "customer_delivery_linux_jobs": 100,
+  "customer_delivery_linux_run_p50_s": 35.5,
+  "proposed_microjob_group_size": 5,
+  "formula": "min(ceil(logical_jobs/slots), floor(180/median_run_s))",
+  "notes": [
+    "Group size is derived from measured peak concurrency on the named run, not a fixed constant.",
+    "Self-hosted ci-general capacity is a separate pool (~5 runners) and does not set the ubuntu-latest CD group size."
+  ]
+}

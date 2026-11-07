@@ -1,0 +1,89 @@
+{
+  "schema": "ChangeAdmissionReceipt/v1",
+  "task": "e794dbc9-7909-4618-82f0-48698647eb48",
+  "repository": "Arcanada-one/datarim",
+  "branch": "feature/arc-ci-batch1-e794dbc9",
+  "runtime_authorized": false,
+  "KC2": "NOT_MEASURED",
+  "automated_graph_admit": "NOT_MEASURED",
+  "automated_graph_admit_reason": "No admit_change/graph gate binary is present in this lane clone; impact and local verification are recorded below without claiming automated admission.",
+  "impact_set": [
+    ".github/workflows/bats.yml",
+    ".github/workflows/framework-gates.yml",
+    ".github/workflows/release-tag-reconcile.yml",
+    "dev-tools/check-version-tag-parity.sh",
+    "dev-tools/check-required-contexts.sh",
+    "dev-tools/measure-ci-feedback.py",
+    "dev-tools/record-release-intent.sh",
+    "dev-tools/verify-release-intent.sh",
+    "tests/run-bats-discovery.sh",
+    "tests/assign-bats-shards.py",
+    "tests/bats-suite-durations.tsv",
+    "tests/run-customer-delivery-shard.py",
+    "tests/ci-slot-baseline.json",
+    "tests/required-check-contexts.json",
+    "documentation/reference/ci-feedback-baseline-receipt.json",
+    "documentation/reference/ci-runner-routing.md"
+  ],
+  "verifications": [
+    {
+      "entity": "tests/run-customer-delivery-shard.py",
+      "edge": "unit-contract",
+      "instrument": "bats tests/customer-delivery-shard-runner.bats",
+      "verdict": "PASS",
+      "evidence": "78 targeted bats assertions green under heavy.sh (2026-11-07T23:45:44Z)"
+    },
+    {
+      "entity": "tests/run-bats-discovery.sh",
+      "edge": "unit-contract",
+      "instrument": "bats tests/bats-discovery-coverage.bats",
+      "verdict": "PASS",
+      "evidence": "same targeted bats run"
+    },
+    {
+      "entity": "dev-tools/check-version-tag-parity.sh",
+      "edge": "unit-contract",
+      "instrument": "bats tests/check-version-tag-parity.bats",
+      "verdict": "PASS",
+      "evidence": "V1-V8 including intent-aware wiring"
+    },
+    {
+      "entity": "required-check-contexts",
+      "edge": "contract",
+      "instrument": "dev-tools/check-required-contexts.sh local",
+      "verdict": "PASS",
+      "evidence": "required_check_contexts=ok local_contract=true count=19"
+    },
+    {
+      "entity": "bats suite inventory",
+      "edge": "inventory-diff",
+      "instrument": "run-bats-discovery.sh --list vs bats-suite-durations.tsv",
+      "verdict": "PASS",
+      "evidence": "inventory_diff_missing=0 extra=0; flat logical CD matrix remains 100"
+    },
+    {
+      "entity": "hosted CI on PR head",
+      "edge": "ci",
+      "instrument": "GitHub Actions on pull request",
+      "verdict": "NOT_MEASURED",
+      "evidence": "PR not yet created at receipt authoring time"
+    },
+    {
+      "entity": "independent reviewer APPROVE on exact head",
+      "edge": "review",
+      "instrument": "separate reviewer session",
+      "verdict": "NOT_MEASURED",
+      "evidence": "author lane cannot self-approve"
+    },
+    {
+      "entity": "gated-merge --receipt",
+      "edge": "merge",
+      "instrument": "gated-merge",
+      "verdict": "NOT_MEASURED",
+      "evidence": "no self-merge; awaiting review + CI"
+    }
+  ],
+  "claims": {
+    "percentage_speedup_from_single_run": false
+  }
+}

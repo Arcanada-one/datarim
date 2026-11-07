@@ -485,6 +485,21 @@ PY
         && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==94 and {r["suite"] for r in rows}=={"functional","schema","mutation"} and [r["shard"] for r in rows if r["suite"]=="functional"]==[f"{i}/38" for i in range(1,39)] and [r["shard"] for r in rows if r["suite"]=="schema"]==[f"{i}/12" for i in range(1,13)] and [r["shard"] for r in rows if r["suite"]=="mutation"]==[f"{i}/57" for i in range(14,58)]' "$output"
 }
 
+@test "customer-delivery matrix-jobs batches logical shards from measured slots" {
+    local baseline="$ROOT/tests/ci-slot-baseline.json"
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --slots-baseline "$baseline" --matrix-jobs linux
+    [ "$status" -eq 0 ] || return 1
+    "$PYTHON" -c '
+import json,sys
+jobs=json.loads(sys.argv[1])
+assert len(jobs)==20, len(jobs)
+members=[(m["suite"], m["shard"]) for job in jobs for m in job["members"]]
+assert len(members)==100 and len(set(members))==100
+assert all("group" in job and "members" in job for job in jobs)
+assert jobs[0]["group"]=="1/20"
+' "$output"
+}
+
 @test "macOS trusted-review registry work stays within a bounded shard" {
     run "$PYTHON" - "$REGISTRY" <<'PY'
 from pathlib import Path

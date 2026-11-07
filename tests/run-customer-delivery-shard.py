@@ -480,6 +480,175 @@ def matrix_for(rows: list[Row], platform: str) -> list[dict[str, str]]:
     ]
 
 
+def load_group_size(baseline_path: Path) -> int:
+    if not baseline_path.is_file():
+        raise ContractError(f"slot baseline unavailable: {baseline_path}")
+    try:
+        payload = json.loads(baseline_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeError) as error:
+        raise ContractError(f"slot baseline invalid: {baseline_path}") from error
+    group_size = payload.get("proposed_microjob_group_size")
+    if not isinstance(group_size, int) or group_size < 1:
+        raise ContractError("slot baseline missing proposed_microjob_group_size")
+    return group_size
+
+
+def matrix_jobs_for(
+    rows: list[Row], platform: str, group_size: int
+) -> list[dict[str, object]]:
+    """Batch compatible logical shards into runner jobs.
+
+    Each logical shard keeps its own identity in `members`. Group size comes
+    from the measured slot baseline, not a fixed workflow constant.
+    """
+    if group_size < 1:
+        raise ContractError("group size must be >= 1")
+    flat = matrix_for(rows, platform)
+    jobs: list[dict[str, object]] = []
+    total_groups = (len(flat) + group_size - 1) // group_size if flat else 0
+    for index in range(0, len(flat), group_size):
+        members = flat[index : index + group_size]
+        group_number = (index // group_size) + 1
+        jobs.append(
+            {
+                "group": f"{group_number}/{total_groups}",
+                "members": members,
+            }
+        )
+    return jobs
+
+
+def run_logical_shard(
+    *,
+    rows: list[Row],
+    inventories: dict[str, list[str]],
+    suite: str,
+    shard_token: str,
+    python_bin: Path,
+    test_python_bin: Path,
+    bats: str,
+    timeout_seconds: int,
+    platform: str | None,
+    result_file: Path | None,
+) -> int:
+    """Execute one logical shard and optionally write its result JSON.
+
+    Returns the shard exit code. Timeouts and failures still write a result so
+    siblings in a microjob group remain visible to the aggregate.
+    """
+    timeout_phase = "count"
+    row = None
+    try:
+        if not re.fullmatch(r"[1-9][0-9]*/[1-9][0-9]*", shard_token):
+            raise ContractError("suite and shard N/T are required")
+        if timeout_seconds < 1 or timeout_seconds >= 110:
+            raise ContractError("timeout-seconds must be between 1 and 109")
+        shard, total = (int(value) for value in shard_token.split("/"))
+        matching = [
+            candidate
+            for candidate in rows
+            if candidate.suite == suite
+            and candidate.shard == shard
+            and candidate.total == total
+        ]
+        if len(matching) != 1:
+            raise ContractError(f"unknown shard: {suite} {shard_token}")
+        row = matching[0]
+        if platform and platform not in row.platforms:
+            raise ContractError(f"shard not approved for platform: {platform}")
+        environment = os.environ.copy()
+        environment["CUSTOMER_DELIVERY_PYTHON"] = str(python_bin)
+        environment["CUSTOMER_DELIVERY_TEST_PYTHON"] = str(test_python_bin)
+        environment["CUSTOMER_SCHEMA_PYTHON"] = str(test_python_bin)
+        if row.mode == "security":
+            names = [inventories["mutation"][1]]
+            environment["CUSTOMER_DELIVERY_SECURITY_RANGE"] = f"{row.first}-{row.last}"
+        else:
+            names = selected_names(row, inventories[row.suite])
+        filter_pattern = "^(" + "|".join(ere_escape(name) for name in names) + ")$"
+        count_timeout = min(timeout_seconds, 10)
+        timeout_context = (
+            f"authoritative count exceeded {count_timeout}s: {suite} {shard_token}"
+        )
+        count_returncode, count_output = run_bounded_process(
+            [bats, "--count", "--filter", filter_pattern, str(SUITE_PATHS[row.suite])],
+            environment,
+            count_timeout,
+        )
+        if count_returncode != 0:
+            raise ContractError("Bats authoritative count failed")
+        try:
+            authoritative_count = int(count_output.strip())
+        except ValueError as error:
+            raise ContractError("Bats authoritative count is invalid") from error
+        if authoritative_count != len(names):
+            raise ContractError(
+                "Bats authoritative inventory mismatch: "
+                f"expected {len(names)}, observed {authoritative_count}"
+            )
+        timeout_context = f"shard exceeded {timeout_seconds}s: {suite} {shard_token}"
+        timeout_phase = "shard"
+        returncode, output = run_bounded_process(
+            [bats, "--filter", filter_pattern, str(SUITE_PATHS[row.suite])],
+            environment,
+            timeout_seconds,
+        )
+        print(output, end="")
+        if returncode == 0:
+            validate_bats_execution(output, len(names))
+        if result_file:
+            if not platform:
+                raise ContractError("result-file requires platform")
+            write_result(
+                result_file,
+                row,
+                "passed" if returncode == 0 else "failed",
+                returncode,
+                "shard",
+            )
+        return returncode
+    except BoundedProcessTimeout as error:
+        if error.output:
+            print(error.output, end="" if error.output.endswith("\n") else "\n")
+        if error.output_truncated:
+            print(f"timeout output limit: {MAX_TIMEOUT_OUTPUT_BYTES} bytes", file=sys.stderr)
+        if result_file and row is not None:
+            if not platform:
+                print("ERROR: result-file requires platform", file=sys.stderr)
+                return 2
+            try:
+                write_result(result_file, row, "timed_out", 124, timeout_phase)
+            except OSError as write_error:
+                print(f"ERROR: could not record timed-out shard: {write_error}", file=sys.stderr)
+                return 2
+        print(f"ERROR: {timeout_context}", file=sys.stderr)
+        return 124
+    except BoundedProcessOutputExceeded as error:
+        if error.output_excerpt:
+            print(error.output_excerpt, end="" if error.output_excerpt.endswith("\n") else "\n")
+        print(f"ERROR: {error}", file=sys.stderr)
+        if result_file and row is not None and timeout_phase == "shard":
+            if not platform:
+                print("ERROR: result-file requires platform", file=sys.stderr)
+                return 2
+            try:
+                write_result(result_file, row, "failed", 2, "shard")
+            except OSError as write_error:
+                print(f"ERROR: could not record failed shard: {write_error}", file=sys.stderr)
+                return 2
+        return 2
+    except (ContractError, OSError, UnicodeError) as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        if result_file and row is not None:
+            if not platform:
+                return 2
+            try:
+                write_result(result_file, row, "failed", 2, "shard")
+            except OSError:
+                pass
+        return 2
+
+
 def check_results(rows: list[Row], platform: str, directory: Path) -> int:
     expected = Counter((item["suite"], item["shard"]) for item in matrix_for(rows, platform))
     if not directory.is_dir():
@@ -550,32 +719,55 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--registry", type=Path, default=ROOT / "tests/customer-delivery-shards.tsv")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--matrix", choices=("linux", "macos"))
+    parser.add_argument(
+        "--matrix-jobs",
+        choices=("linux", "macos"),
+        help="Emit batched runner jobs sized from the measured slot baseline",
+    )
+    parser.add_argument(
+        "--slots-baseline",
+        type=Path,
+        default=ROOT / "tests/ci-slot-baseline.json",
+    )
     parser.add_argument("--check-results", nargs=2, metavar=("PLATFORM", "DIRECTORY"))
     parser.add_argument("--suite", choices=sorted(SUITE_PATHS))
     parser.add_argument("--shard")
+    parser.add_argument(
+        "--group-members",
+        help="JSON array of {suite,shard} logical members to run in one runner job",
+    )
     parser.add_argument("--python-bin", default="/usr/bin/python3")
     parser.add_argument("--test-python-bin")
     parser.add_argument("--bats-bin")
     parser.add_argument("--timeout-seconds", type=int, default=105)
     parser.add_argument("--platform", choices=("linux", "macos"))
     parser.add_argument("--result-file", type=Path)
+    parser.add_argument(
+        "--result-dir",
+        type=Path,
+        help="Directory for per-logical-shard result JSON when running --group-members",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    row = None
-    timeout_phase = "count"
     try:
         rows = load_registry(args.registry)
         inventories, security_arms = validate_registry(rows)
         if args.matrix:
             print(json.dumps(matrix_for(rows, args.matrix), separators=(",", ":")))
             return 0
+        if args.matrix_jobs:
+            group_size = load_group_size(args.slots_baseline)
+            jobs = matrix_jobs_for(rows, args.matrix_jobs, group_size)
+            print(json.dumps(jobs, separators=(",", ":")))
+            return 0
         if args.check_results:
             platform, directory = args.check_results
             if platform not in {"linux", "macos"}:
                 raise ContractError(f"unknown results platform: {platform}")
+            # Inventory expectations stay on the flat logical matrix.
             return check_results(rows, platform, Path(directory))
         if args.check:
             print(
@@ -586,110 +778,89 @@ def main() -> int:
                 f"mutation_security={len(security_arms)}"
             )
             return 0
-        if not args.suite or not args.shard or not re.fullmatch(r"[1-9][0-9]*/[1-9][0-9]*", args.shard):
-            raise ContractError("suite and shard N/T are required")
-        if args.timeout_seconds < 1 or args.timeout_seconds >= 110:
-            raise ContractError("timeout-seconds must be between 1 and 109")
-        shard, total = (int(value) for value in args.shard.split("/"))
-        matching = [
-            row for row in rows
-            if row.suite == args.suite and row.shard == shard and row.total == total
-        ]
-        if len(matching) != 1:
-            raise ContractError(f"unknown shard: {args.suite} {args.shard}")
+
         python_bin = Path(args.python_bin)
         if not python_bin.is_absolute() or not python_bin.is_file() or not os.access(python_bin, os.X_OK):
             raise ContractError("python-bin must be an absolute executable")
         test_python_bin = Path(args.test_python_bin) if args.test_python_bin else python_bin
-        if (not test_python_bin.is_absolute() or not test_python_bin.is_file()
-                or not os.access(test_python_bin, os.X_OK)):
+        if (
+            not test_python_bin.is_absolute()
+            or not test_python_bin.is_file()
+            or not os.access(test_python_bin, os.X_OK)
+        ):
             raise ContractError("test-python-bin must be an absolute executable")
         bats = args.bats_bin or shutil.which("bats")
         if not bats or not Path(bats).is_absolute() or not os.access(bats, os.X_OK):
             raise ContractError("bats executable unavailable")
-        row = matching[0]
-        if args.platform and args.platform not in row.platforms:
-            raise ContractError(f"shard not approved for platform: {args.platform}")
-        environment = os.environ.copy()
-        environment["CUSTOMER_DELIVERY_PYTHON"] = str(python_bin)
-        environment["CUSTOMER_DELIVERY_TEST_PYTHON"] = str(test_python_bin)
-        environment["CUSTOMER_SCHEMA_PYTHON"] = str(test_python_bin)
-        if row.mode == "security":
-            names = [inventories["mutation"][1]]
-            environment["CUSTOMER_DELIVERY_SECURITY_RANGE"] = f"{row.first}-{row.last}"
-        else:
-            names = selected_names(row, inventories[row.suite])
-        filter_pattern = "^(" + "|".join(ere_escape(name) for name in names) + ")$"
-        count_timeout = min(args.timeout_seconds, 10)
-        timeout_context = (
-            f"authoritative count exceeded {count_timeout}s: {args.suite} {args.shard}"
-        )
-        count_returncode, count_output = run_bounded_process(
-            [bats, "--count", "--filter", filter_pattern, str(SUITE_PATHS[row.suite])],
-            environment,
-            count_timeout,
-        )
-        if count_returncode != 0:
-            raise ContractError("Bats authoritative count failed")
-        try:
-            authoritative_count = int(count_output.strip())
-        except ValueError as error:
-            raise ContractError("Bats authoritative count is invalid") from error
-        if authoritative_count != len(names):
-            raise ContractError(
-                "Bats authoritative inventory mismatch: "
-                f"expected {len(names)}, observed {authoritative_count}"
-            )
-        timeout_context = f"shard exceeded {args.timeout_seconds}s: {args.suite} {args.shard}"
-        timeout_phase = "shard"
-        returncode, output = run_bounded_process(
-            [bats, "--filter", filter_pattern, str(SUITE_PATHS[row.suite])],
-            environment,
-            args.timeout_seconds,
-        )
-        print(output, end="")
-        if returncode == 0:
-            validate_bats_execution(output, len(names))
-        if args.result_file:
-            if not args.platform:
-                raise ContractError("result-file requires platform")
-            write_result(
-                args.result_file, row,
-                "passed" if returncode == 0 else "failed",
-                returncode,
-                "shard",
-            )
-        return returncode
-    except BoundedProcessTimeout as error:
-        if error.output:
-            print(error.output, end="" if error.output.endswith("\n") else "\n")
-        if error.output_truncated:
-            print(f"timeout output limit: {MAX_TIMEOUT_OUTPUT_BYTES} bytes", file=sys.stderr)
-        if args.result_file and row is not None:
-            if not args.platform:
-                print("ERROR: result-file requires platform", file=sys.stderr)
-                return 2
+
+        if args.group_members:
             try:
-                write_result(args.result_file, row, "timed_out", 124, timeout_phase)
-            except OSError as write_error:
-                print(f"ERROR: could not record timed-out shard: {write_error}", file=sys.stderr)
-                return 2
-        print(f"ERROR: {timeout_context}", file=sys.stderr)
-        return 124
-    except BoundedProcessOutputExceeded as error:
-        if error.output_excerpt:
-            print(error.output_excerpt, end="" if error.output_excerpt.endswith("\n") else "\n")
-        print(f"ERROR: {error}", file=sys.stderr)
-        if args.result_file and row is not None and timeout_phase == "shard":
-            if not args.platform:
-                print("ERROR: result-file requires platform", file=sys.stderr)
-                return 2
-            try:
-                write_result(args.result_file, row, "failed", 2, "shard")
-            except OSError as write_error:
-                print(f"ERROR: could not record failed shard: {write_error}", file=sys.stderr)
-                return 2
-        return 2
+                members = json.loads(args.group_members)
+            except json.JSONDecodeError as error:
+                raise ContractError("group-members must be JSON") from error
+            if not isinstance(members, list) or not members:
+                raise ContractError("group-members must be a non-empty JSON array")
+            if not args.result_dir or not args.platform:
+                raise ContractError("group-members requires --result-dir and --platform")
+            args.result_dir.mkdir(parents=True, exist_ok=True)
+            worst = 0
+            for member in members:
+                if (
+                    not isinstance(member, dict)
+                    or not isinstance(member.get("suite"), str)
+                    or not isinstance(member.get("shard"), str)
+                ):
+                    raise ContractError("group member must include suite and shard")
+                suite = member["suite"]
+                shard_token = member["shard"]
+                result_path = args.result_dir / f"{suite}-{shard_token.replace('/', '-')}.json"
+                print(f"=== logical shard {suite} {shard_token}")
+                code = run_logical_shard(
+                    rows=rows,
+                    inventories=inventories,
+                    suite=suite,
+                    shard_token=shard_token,
+                    python_bin=python_bin,
+                    test_python_bin=test_python_bin,
+                    bats=bats,
+                    timeout_seconds=args.timeout_seconds,
+                    platform=args.platform,
+                    result_file=result_path,
+                )
+                # Keep running siblings after a partial failure; aggregate decides.
+                if code != 0 and worst == 0:
+                    worst = code
+                elif code not in (0, 124) and worst in (0, 124):
+                    worst = code
+            expected = {(item["suite"], item["shard"]) for item in members}
+            observed = set()
+            for path in args.result_dir.glob("*.json"):
+                item = json.loads(path.read_text(encoding="utf-8"))
+                observed.add((item["suite"], item["shard"]))
+            missing = expected - observed
+            if missing:
+                key = next(iter(missing))
+                print(
+                    f"ERROR: missing required logical result after group run: {key[0]} {key[1]}",
+                    file=sys.stderr,
+                )
+                return 1
+            return worst
+
+        if not args.suite or not args.shard:
+            raise ContractError("suite and shard N/T are required")
+        return run_logical_shard(
+            rows=rows,
+            inventories=inventories,
+            suite=args.suite,
+            shard_token=args.shard,
+            python_bin=python_bin,
+            test_python_bin=test_python_bin,
+            bats=bats,
+            timeout_seconds=args.timeout_seconds,
+            platform=args.platform,
+            result_file=args.result_file,
+        )
     except (ContractError, OSError, UnicodeError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2

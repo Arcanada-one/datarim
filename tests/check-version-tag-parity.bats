@@ -65,9 +65,25 @@ teardown() { rm -rf "$WORK"; }
     [ "$status" -eq 2 ]
 }
 
-@test "V7 wiring: framework-gates workflow runs the gate on the main-push event only" {
+@test "V7 wiring: framework-gates runs intent-aware parity on main-push without runner wait" {
     wf="$REPO_ROOT/.github/workflows/framework-gates.yml"
+    reconcile="$REPO_ROOT/.github/workflows/release-tag-reconcile.yml"
     grep -q "check-version-tag-parity.sh --check" "$wf"
     # The job must be fenced off pull_request runs (release PRs bump VERSION pre-tag).
     awk '/version-tag-parity:/,/component-counts:/' "$wf" | grep -q "github.event_name == 'push'"
+    # ARC-CI-05: no 900s runner sleep; durable intent + off-runner reconcile.
+    awk '/version-tag-parity:/,/component-counts:/' "$wf" | grep -q -- "--allow-pending-intent"
+    ! awk '/version-tag-parity:/,/component-counts:/' "$wf" | grep -q -- "--wait-seconds"
+    [ -f "$reconcile" ]
+    grep -q "verify-release-intent.sh --check" "$reconcile"
+}
+
+@test "V8 durable release intent covers the merge→tag window without waiting" {
+    head_sha="$(cd "$WORK/clone" && git rev-parse HEAD)"
+    run bash "$REPO_ROOT/dev-tools/record-release-intent.sh" \
+        --repo "$WORK/clone" --version 3.5.7 --source-sha "$head_sha"
+    [ "$status" -eq 0 ]
+    run bash "$GATE" --check --repo "$WORK/clone" --allow-pending-intent
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"PENDING"*"3.5.7"* ]]
 }
