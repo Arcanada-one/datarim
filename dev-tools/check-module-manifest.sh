@@ -17,19 +17,67 @@
 # Read-only: no writes, no network.
 
 set -euo pipefail
+IFS=$'\n\t'
 
+# Optional machine summary: check-module-manifest.sh [--summary-json] [--] <path>
 usage() {
     sed -n '2,20p' "$0"
     exit "${1:-2}"
 }
 
-case "${1:-}" in
-    -h|--help) usage 0 ;;
-    "") echo "ERROR: no manifest path given" >&2; usage 2 ;;
-esac
+SUMMARY_JSON=0
+if [ "${1:-}" = "--summary-json" ]; then
+    SUMMARY_JSON=1
+    shift
+fi
+
+ARG_SEPARATOR=0
+if [ "${1:-}" = "--" ]; then
+    ARG_SEPARATOR=1
+    shift
+fi
+
+if [ "$ARG_SEPARATOR" -eq 0 ]; then
+    case "${1:-}" in
+        -h|--help) usage 0 ;;
+        "") echo "ERROR: no manifest path given" >&2; usage 2 ;;
+    esac
+fi
+
+if [ "$#" -eq 0 ] || [ -z "$1" ]; then
+    echo "ERROR: no manifest path given" >&2
+    usage 2
+fi
 
 MANIFEST="$1"
+has_disallowed_controls() {
+    local value="$1" control_free c1_control
+    local LC_ALL=C
+    # Allow printable Unicode, SPACE, and TAB. Reject other C0 controls, DEL,
+    # and UTF-8 C1 controls (U+0080..U+009F, including U+0085 NEL).
+    control_free=$'^[^\001-\010\012-\037\177]*$'
+    c1_control=$'(^|.*)\302[\200-\237].*$'
+    [[ ! "$value" =~ $control_free || "$value" =~ $c1_control ]]
+}
+
+if has_disallowed_controls "$MANIFEST"; then
+    echo "ERROR: manifest path contains a control character" >&2
+    exit 2
+fi
+
+# Many POSIX text tools treat a leading-dash filename as an option. Once the
+# argument parser has selected it as the positional path, prefix it with ./ so
+# the original path is addressed without changing the validated filesystem
+# target or requiring tool-specific -- support.
+case "$MANIFEST" in
+    -*) MANIFEST="./$MANIFEST" ;;
+esac
+
 if [ ! -f "$MANIFEST" ]; then
+    if [ "$SUMMARY_JSON" -eq 1 ]; then
+        printf '%s\n' '{"schema":"DatarimModuleManifestSummary/v1","result":"INPUT_UNAVAILABLE","exit_code":2,"diagnostic_codes":["MODULE_MANIFEST_UNAVAILABLE"],"skill_count":null,"skill_count_status":"NOT_MEASURED","warning_count":null,"warning_count_status":"NOT_MEASURED"}'
+        exit 2
+    fi
     echo "ERROR: manifest not found: $MANIFEST" >&2
     exit 2
 fi
@@ -38,8 +86,9 @@ KEBAB_RE='^[a-z][a-z0-9-]{0,63}$'
 SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+$'
 
 fail=0
-err() { echo "FAIL: $1" >&2; fail=1; }
-warn() { echo "WARN: $1" >&2; }
+warning_count=0
+err() { if [ "$SUMMARY_JSON" -eq 0 ]; then echo "FAIL: $1" >&2; fi; fail=1; }
+warn() { warning_count=$((warning_count + 1)); if [ "$SUMMARY_JSON" -eq 0 ]; then echo "WARN: $1" >&2; fi; }
 
 # ---- schema_version (top-level) ----
 schema_version="$(grep -E '^schema_version:' "$MANIFEST" | head -n1 \
@@ -155,8 +204,16 @@ $skill_report
 EOF
 
 if [ "$fail" -ne 0 ]; then
+    if [ "$SUMMARY_JSON" -eq 1 ]; then
+        printf '{"schema":"DatarimModuleManifestSummary/v1","result":"INVALID","exit_code":1,"diagnostic_codes":["MODULE_MANIFEST_INVALID"],"skill_count":%s,"skill_count_status":"MEASURED","warning_count":%s,"warning_count_status":"MEASURED"}\n' "$skill_count" "$warning_count"
+        exit 1
+    fi
     echo "RESULT: INVALID ($MANIFEST)" >&2
     exit 1
+fi
+if [ "$SUMMARY_JSON" -eq 1 ]; then
+    printf '{"schema":"DatarimModuleManifestSummary/v1","result":"VALID","exit_code":0,"diagnostic_codes":[],"skill_count":%s,"skill_count_status":"MEASURED","warning_count":%s,"warning_count_status":"MEASURED"}\n' "$skill_count" "$warning_count"
+    exit 0
 fi
 echo "RESULT: VALID ($MANIFEST) — schema_version=$schema_version, module=$module_id@$module_version, skills=$skill_count"
 exit 0

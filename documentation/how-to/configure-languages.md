@@ -84,6 +84,6 @@ code, filenames and machine enum values.
 The agent can generate prose in the requested language, but fixed report labels
 require an available renderer catalog. An unavailable catalog uses a
 disclosed English fallback. A passing configuration check does not prove model
-compliance in Claude Code, Codex or Cursor. See the
+compliance in Claude Code, Codex, Cursor or Antigravity. See the
 [reference](../reference/language-preferences.md) and
 [hands-on tutorial](../tutorials/language-preferences.md).

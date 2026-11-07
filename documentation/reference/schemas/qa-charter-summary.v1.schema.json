@@ -1,0 +1,522 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Datarim QA Charter Coverage Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "verdict",
+    "exit_code",
+    "exit_code_meaning",
+    "diagnostic_codes",
+    "counts",
+    "checkpoint_linkage"
+  ],
+  "properties": {
+    "schema": {
+      "const": "DatarimQaCharterCoverageSummary/v1"
+    },
+    "verdict": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "exit_code": {
+      "enum": [
+        0,
+        1
+      ]
+    },
+    "exit_code_meaning": {
+      "enum": [
+        "pass",
+        "refusal"
+      ]
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "artifact_digest_mismatch",
+          "checkpoint_cycle",
+          "checkpoint_probe_not_pass",
+          "dangling_checkpoint_probe",
+          "dirty_source_tree",
+          "duplicate_checkpoint",
+          "duplicate_key",
+          "duplicate_probe",
+          "invalid_charter",
+          "invalid_checkpoint_chain",
+          "invalid_checkpoint_hypothesis",
+          "invalid_checkpoint_relation",
+          "invalid_evidence",
+          "invalid_outcome",
+          "invalid_root",
+          "missing_artifact",
+          "missing_charter",
+          "missing_checkpoint_chain",
+          "missing_evidence",
+          "missing_required_probe",
+          "mutable_baseline_path",
+          "out_of_order_checkpoint",
+          "required_probe_not_pass",
+          "source_or_path_error",
+          "source_revision_unavailable",
+          "source_tree_unavailable",
+          "stale_charter",
+          "stale_checkpoint_artifact",
+          "stale_checkpoint_observation",
+          "stale_source_revision",
+          "unknown_probe",
+          "unsafe_artifact",
+          "unsafe_charter",
+          "unsafe_evidence"
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 1,
+      "uniqueItems": true
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "declared_probes",
+        "required_probes",
+        "recorded_probes",
+        "missing_required_probes",
+        "optional_unrecorded_probes",
+        "checkpoint_transitions"
+      ],
+      "properties": {
+        "declared_probes": {
+          "$ref": "#/$defs/count"
+        },
+        "required_probes": {
+          "$ref": "#/$defs/count"
+        },
+        "recorded_probes": {
+          "$ref": "#/$defs/count"
+        },
+        "missing_required_probes": {
+          "$ref": "#/$defs/count"
+        },
+        "optional_unrecorded_probes": {
+          "$ref": "#/$defs/count"
+        },
+        "checkpoint_transitions": {
+          "$ref": "#/$defs/count"
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "declared_probes": {
+                  "properties": {
+                    "available": {
+                      "const": true
+                    }
+                  }
+                },
+                "required_probes": {
+                  "properties": {
+                    "available": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "properties": {
+                "declared_probes": {
+                  "properties": {
+                    "available": {
+                      "const": false
+                    }
+                  }
+                },
+                "required_probes": {
+                  "properties": {
+                    "available": {
+                      "const": false
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "recorded_probes": {
+                  "properties": {
+                    "available": {
+                      "const": true
+                    }
+                  }
+                },
+                "missing_required_probes": {
+                  "properties": {
+                    "available": {
+                      "const": true
+                    }
+                  }
+                },
+                "optional_unrecorded_probes": {
+                  "properties": {
+                    "available": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "properties": {
+                "recorded_probes": {
+                  "properties": {
+                    "available": {
+                      "const": false
+                    }
+                  }
+                },
+                "missing_required_probes": {
+                  "properties": {
+                    "available": {
+                      "const": false
+                    }
+                  }
+                },
+                "optional_unrecorded_probes": {
+                  "properties": {
+                    "available": {
+                      "const": false
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "if": {
+            "properties": {
+              "declared_probes": {
+                "properties": {
+                  "available": {
+                    "const": true
+                  }
+                }
+              }
+            },
+            "required": [
+              "declared_probes"
+            ]
+          },
+          "then": {
+            "properties": {
+              "declared_probes": {
+                "properties": {
+                  "value": {
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "checkpoint_linkage": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_MEASURED"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "PASS"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {
+            "const": 0
+          },
+          "exit_code_meaning": {
+            "const": "pass"
+          },
+          "diagnostic_codes": {
+            "maxItems": 0
+          },
+          "counts": {
+            "properties": {
+              "declared_probes": {
+                "properties": {
+                  "available": {
+                    "const": true
+                  }
+                }
+              },
+              "required_probes": {
+                "properties": {
+                  "available": {
+                    "const": true
+                  }
+                }
+              },
+              "recorded_probes": {
+                "properties": {
+                  "available": {
+                    "const": true
+                  }
+                }
+              },
+              "missing_required_probes": {
+                "properties": {
+                  "available": {
+                    "const": true
+                  }
+                }
+              },
+              "optional_unrecorded_probes": {
+                "properties": {
+                  "available": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "FAIL"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {
+            "const": 1
+          },
+          "exit_code_meaning": {
+            "const": "refusal"
+          },
+          "diagnostic_codes": {
+            "minItems": 1,
+            "maxItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "checkpoint_linkage": {
+            "const": "PASS"
+          }
+        },
+        "required": [
+          "checkpoint_linkage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "counts": {
+            "properties": {
+              "checkpoint_transitions": {
+                "properties": {
+                  "available": {
+                    "const": true
+                  },
+                  "value": {
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "counts": {
+            "properties": {
+              "checkpoint_transitions": {
+                "properties": {
+                  "available": {
+                    "const": false
+                  },
+                  "value": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "checkpoint_linkage": {
+            "const": "FAIL"
+          }
+        },
+        "required": [
+          "checkpoint_linkage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "counts": {
+            "properties": {
+              "declared_probes": {
+                "properties": {
+                  "available": {
+                    "const": true
+                  }
+                }
+              },
+              "required_probes": {
+                "properties": {
+                  "available": {
+                    "const": true
+                  }
+                }
+              },
+              "recorded_probes": {
+                "properties": {
+                  "available": {
+                    "const": true
+                  }
+                }
+              },
+              "missing_required_probes": {
+                "properties": {
+                  "available": {
+                    "const": true
+                  }
+                }
+              },
+              "optional_unrecorded_probes": {
+                "properties": {
+                  "available": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "PASS"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "checkpoint_linkage": {
+            "enum": [
+              "PASS",
+              "NOT_MEASURED"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "FAIL"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "checkpoint_linkage": {
+            "enum": [
+              "FAIL",
+              "NOT_MEASURED"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "value"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "value": {}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "available": {
+              "const": true
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "properties": {
+            "available": {
+              "const": false
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

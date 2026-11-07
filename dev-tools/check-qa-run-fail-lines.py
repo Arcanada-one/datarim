@@ -9,6 +9,9 @@ import json
 from pathlib import Path
 import sys
 
+SUMMARY_SCHEMA = "DatarimQaRunFailLinesValidationSummary/v1"
+SUMMARY_FAILURE_CODE = "RUN_VALIDATION_FAILED"
+
 
 def inside(root: Path, value: str) -> Path:
     path = (root / value).resolve()
@@ -64,6 +67,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument(
+        "--summary-json",
+        action="store_true",
+        help=(
+            "emit a fixed JSON validation result "
+            "(see documentation/reference/qa-run-fail-lines-summary.md)"
+        ),
+    )
     args = parser.parse_args()
     root = args.run_dir.resolve()
     if not root.is_dir() or not args.manifest.is_file():
@@ -71,8 +82,34 @@ def main() -> int:
     try:
         check(root, args.manifest)
     except (OSError, UnicodeError, ValueError, json.JSONDecodeError) as exc:
+        if args.summary_json:
+            print(
+                json.dumps(
+                    {
+                        "schema": SUMMARY_SCHEMA,
+                        "result": "FAIL",
+                        "exit_code": 1,
+                        "diagnostic_codes": [SUMMARY_FAILURE_CODE],
+                    },
+                    separators=(",", ":"),
+                )
+            )
+            return 1
         print(f"QA_RUN_FAIL_LINES FAIL: {exc}")
         return 1
+    if args.summary_json:
+        print(
+            json.dumps(
+                {
+                    "schema": SUMMARY_SCHEMA,
+                    "result": "PASS",
+                    "exit_code": 0,
+                    "diagnostic_codes": [],
+                },
+                separators=(",", ":"),
+            )
+        )
+        return 0
     print("QA_RUN_FAIL_LINES PASS")
     return 0
 

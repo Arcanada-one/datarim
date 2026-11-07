@@ -669,7 +669,7 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertIn('AGENTS.md is not modified by the installer', block)
         self.assertIn('Codex: open `codex` once in this project and accept the hooks, or run `jev trust`', block)
         self.assertIn('.agents/skills/dr-* and .cursor/skills/dr-* are the /dr-* commands packaged for '
-                      'Codex/Cursor, not extra framework skills', block)
+                      'Codex/Antigravity/Cursor, not extra framework skills', block)
 
     def test_the_report_block_without_jev_or_codex(self):
         import contextlib, io
@@ -765,7 +765,9 @@ class InstallationLifecycleTests(unittest.TestCase):
 
     def test_client_option_parsing(self):
         self.assertEqual(project_install.parse_clients(['codex,claude', 'codex']), ('claude', 'codex'))
-        self.assertEqual(project_install.parse_clients(['all']), ('claude', 'codex', 'cursor'))
+        self.assertEqual(project_install.parse_clients(['agy']), ('antigravity',))
+        self.assertEqual(project_install.parse_clients(['antigravity,codex']), ('antigravity', 'codex'))
+        self.assertEqual(project_install.parse_clients(['all']), ('antigravity', 'claude', 'codex', 'cursor'))
         self.assertEqual(project_install.parse_clients(None), ())
         with self.assertRaises(ValueError):
             project_install.parse_clients(['vim'])
@@ -773,6 +775,26 @@ class InstallationLifecycleTests(unittest.TestCase):
                               str(self.project), '--client', 'vim', '--dry-run'], capture_output=True, text=True)
         self.assertEqual(run.returncode, 2)
         self.assertIn('Unknown client', run.stderr)
+
+    def test_antigravity_client_installs_agents_skills_and_hooks(self):
+        project_install.install(self.with_args(client=('antigravity',), with_jev=True))
+        self.assertTrue((self.project/'.agents/skills/dr-do/SKILL.md').is_file())
+        self.assertTrue((self.project/'.agents/hooks.json').is_file())
+        hooks = json.loads((self.project/'.agents/hooks.json').read_text())
+        self.assertIn('jev', hooks)
+        self.assertIn('PreInvocation', hooks['jev'])
+        self.assertIn('PreToolUse', hooks['jev'])
+        self.assertIn('PostToolUse', hooks['jev'])
+        for name in ('.claude/commands/dr-do.md', '.cursor/skills/dr-do/SKILL.md',
+                     '.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json'):
+            self.assertFalse((self.project/name).exists(), name)
+        manifest = json.loads((self.project/'.datarim-runtime/installation.json').read_text())
+        self.assertEqual(manifest['clients'], ['antigravity'])
+        # Switching from antigravity to codex keeps .agents/skills/dr-do/SKILL.md and drops .agents/hooks.json
+        project_install.install(self.with_args(client=('codex',), with_jev=True))
+        self.assertTrue((self.project/'.agents/skills/dr-do/SKILL.md').is_file())
+        self.assertFalse((self.project/'.agents/hooks.json').exists())
+        self.assertTrue((self.project/'.codex/hooks.json').is_file())
 
     # -- Claude Code and AGENTS.md --------------------------------------------
     # Claude Code reads AGENTS.md natively, so the installer never creates
@@ -1251,6 +1273,44 @@ class JevTransportTests(unittest.TestCase):
             ok, detail = runtime.apply_tier('opus')
         self.assertFalse(ok)
         self.assertEqual(detail['reason'], 'cursor_model_refused')
+
+    def test_qa_and_compliance_mandate_exhaustive_single_pass_collection_and_batch_rework(self):
+        surfaces = {
+            'commands/dr-qa.md': (
+                'Exhaustive Single-Pass Audit — No Short-Circuiting',
+                'Consolidated Remediation Batch',
+                'Single-Iteration Batch Remediation Rule',
+            ),
+            'commands/dr-compliance.md': (
+                'EXHAUSTIVE SINGLE-PASS AUDIT (NO SHORT-CIRCUITING)',
+                'Consolidated Remediation Batch',
+                'Single-Iteration Batch Remediation Rule',
+            ),
+            'commands/dr-do.md': (
+                'Single-Iteration Batch Remediation on QA/Compliance Re-entry',
+                'Consolidated Remediation Batch',
+            ),
+            'commands/dr-auto.md': (
+                'Exhaustive Single-Pass Audit & Single-Iteration Batch Rework',
+                'Consolidated Remediation Batch',
+            ),
+            'agents/reviewer.md': ('Consolidated Remediation Batch',),
+            'agents/compliance.md': ('Consolidated Remediation Batch',),
+            'agents/developer.md': ('Consolidated Remediation Batch',),
+            'skills/compliance/SKILL.md': (
+                'Exhaustive Single-Pass Audit & Single-Iteration Batch Remediation',
+                'Consolidated Remediation Batch',
+            ),
+            'skills/cta-format/SKILL.md': (
+                'Exhaustive Single-Pass Collection & Batch Rework Rule',
+                'Consolidated Remediation Batch',
+            ),
+            'templates/compliance-report-template.md': ('Consolidated Remediation Batch',),
+        }
+        for rel_path, markers in surfaces.items():
+            text = (ROOT / rel_path).read_text()
+            for marker in markers:
+                self.assertIn(marker, text, f'{rel_path} missing {marker!r}')
 
 
 if __name__ == '__main__':

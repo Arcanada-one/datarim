@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CLI Input Manifest Difference",
+  "description": "Structural contract for saved DatarimCliInputManifestDiff/v1 comparison reports.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "result",
+    "exit_code",
+    "diagnostic_codes",
+    "added_count",
+    "removed_count",
+    "modified_count",
+    "counts_status",
+    "changes"
+  ],
+  "properties": {
+    "schema": {
+      "const": "DatarimCliInputManifestDiff/v1"
+    },
+    "result": {
+      "enum": ["UNCHANGED", "CHANGED", "INPUT_REFUSED"]
+    },
+    "exit_code": {
+      "type": "integer",
+      "enum": [0, 1, 2]
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": {
+        "enum": ["INPUT_MANIFEST_CHANGED", "INPUT_MANIFEST_DIFF_REFUSED"]
+      },
+      "uniqueItems": true,
+      "maxItems": 1
+    },
+    "added_count": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 64
+    },
+    "removed_count": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 64
+    },
+    "modified_count": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 64
+    },
+    "counts_status": {
+      "enum": ["MEASURED", "NOT_MEASURED"]
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/change"
+      },
+      "maxItems": 128
+    }
+  },
+  "$defs": {
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 64
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "byteCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1048576
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![\\s\\S]*//)(?![\\s\\S]*/(?![\\s\\S]))(?![\\s\\S]*\\u0000)(?!\\.{1,2}(?:/|(?![\\s\\S])))(?![\\s\\S]*/\\.{1,2}(?:/|(?![\\s\\S])))[\\s\\S]+(?![\\s\\S])"
+    },
+    "change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relative_path",
+        "change",
+        "before_sha256",
+        "after_sha256",
+        "before_byte_count",
+        "after_byte_count"
+      ],
+      "properties": {
+        "relative_path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "change": {
+          "enum": ["ADDED", "REMOVED", "MODIFIED"]
+        },
+        "before_sha256": {
+          "anyOf": [
+            {"$ref": "#/$defs/sha256"},
+            {"type": "null"}
+          ]
+        },
+        "after_sha256": {
+          "anyOf": [
+            {"$ref": "#/$defs/sha256"},
+            {"type": "null"}
+          ]
+        },
+        "before_byte_count": {
+          "anyOf": [
+            {"$ref": "#/$defs/byteCount"},
+            {"type": "null"}
+          ]
+        },
+        "after_byte_count": {
+          "anyOf": [
+            {"$ref": "#/$defs/byteCount"},
+            {"type": "null"}
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"change": {"const": "ADDED"}},
+            "required": ["change"]
+          },
+          "then": {
+            "properties": {
+              "before_sha256": {"type": "null"},
+              "before_byte_count": {"type": "null"},
+              "after_sha256": {"$ref": "#/$defs/sha256"},
+              "after_byte_count": {"$ref": "#/$defs/byteCount"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"change": {"const": "REMOVED"}},
+            "required": ["change"]
+          },
+          "then": {
+            "properties": {
+              "before_sha256": {"$ref": "#/$defs/sha256"},
+              "before_byte_count": {"$ref": "#/$defs/byteCount"},
+              "after_sha256": {"type": "null"},
+              "after_byte_count": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"change": {"const": "MODIFIED"}},
+            "required": ["change"]
+          },
+          "then": {
+            "properties": {
+              "before_sha256": {"$ref": "#/$defs/sha256"},
+              "before_byte_count": {"$ref": "#/$defs/byteCount"},
+              "after_sha256": {"$ref": "#/$defs/sha256"},
+              "after_byte_count": {"$ref": "#/$defs/byteCount"}
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"result": {"const": "UNCHANGED"}},
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {"const": 0},
+          "diagnostic_codes": {"const": []},
+          "added_count": {"const": 0},
+          "removed_count": {"const": 0},
+          "modified_count": {"const": 0},
+          "counts_status": {"const": "MEASURED"},
+          "changes": {"const": []}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"result": {"const": "CHANGED"}},
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {"const": 1},
+          "diagnostic_codes": {"const": ["INPUT_MANIFEST_CHANGED"]},
+          "added_count": {"$ref": "#/$defs/count"},
+          "removed_count": {"$ref": "#/$defs/count"},
+          "modified_count": {"$ref": "#/$defs/count"},
+          "counts_status": {"const": "MEASURED"},
+          "changes": {"minItems": 1}
+        },
+        "allOf": [
+          {
+            "anyOf": [
+              {"properties": {"added_count": {"minimum": 1}}, "required": ["added_count"]},
+              {"properties": {"removed_count": {"minimum": 1}}, "required": ["removed_count"]},
+              {"properties": {"modified_count": {"minimum": 1}}, "required": ["modified_count"]}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {"result": {"const": "INPUT_REFUSED"}},
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {"const": 2},
+          "diagnostic_codes": {"const": ["INPUT_MANIFEST_DIFF_REFUSED"]},
+          "added_count": {"type": "null"},
+          "removed_count": {"type": "null"},
+          "modified_count": {"type": "null"},
+          "counts_status": {"const": "NOT_MEASURED"},
+          "changes": {"const": []}
+        }
+      }
+    }
+  ]
+}

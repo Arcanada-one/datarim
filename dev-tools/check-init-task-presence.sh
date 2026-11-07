@@ -25,7 +25,8 @@
 #   1 — single-task validation failed (--task mode only)
 #   2 — usage error / internal error
 #
-set -uo pipefail
+set -euo pipefail
+IFS=$'\n\t'
 
 VERSION="1.0.0"
 SCRIPT_NAME="check-init-task-presence.sh"
@@ -34,6 +35,7 @@ usage() {
     cat <<EOF
 Usage:
   $SCRIPT_NAME --task <TASK-ID> [--root <path>] [--report]
+  $SCRIPT_NAME --task <TASK-ID> [--root <path>] --summary-json
   $SCRIPT_NAME --all            [--root <path>] [--today YYYY-MM-DD]
 
 Options:
@@ -41,6 +43,7 @@ Options:
   --all                Scan all task-descriptions, advisory findings (exit 0).
   --root <path>        Repository root containing datarim/ (default: pwd).
   --report             Human-readable detail output (single-task mode).
+  --summary-json       Emit a fixed JSON summary (single-task mode only).
   --today YYYY-MM-DD   Override today's date for soft-window tests.
   --help               Show this help and exit 0.
   --version            Print version and exit 0.
@@ -59,29 +62,51 @@ MODE=""
 TASK_ID=""
 ROOT=""
 REPORT=0
+SUMMARY_JSON=0
 TODAY=""
+VALIDATION_ERROR_COUNT=0
+VALIDATION_FILE_MISSING=0
+VALIDATION_INTERNAL_ERROR=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --task)
+            if [ "$#" -lt 2 ] || [ -z "$2" ]; then
+                echo "ERROR: --task requires a TASK-ID" >&2
+                exit 2
+            fi
+            if [[ ! "$2" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]]; then
+                echo "ERROR: --task requires a valid TASK-ID" >&2
+                exit 2
+            fi
             MODE="task"
             shift
-            TASK_ID="${1:-}"
-            [ -z "$TASK_ID" ] && { echo "ERROR: --task requires a TASK-ID" >&2; exit 2; }
+            TASK_ID="$1"
             ;;
         --all)
             MODE="all"
             ;;
         --root)
+            if [ "$#" -lt 2 ] || [ -z "$2" ]; then
+                echo "ERROR: --root requires a non-empty path" >&2
+                exit 2
+            fi
             shift
-            ROOT="${1:-}"
+            ROOT="$1"
             ;;
         --report)
             REPORT=1
             ;;
+        --summary-json)
+            SUMMARY_JSON=1
+            ;;
         --today)
+            if [ "$#" -lt 2 ] || [[ ! "$2" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+                echo "ERROR: --today requires YYYY-MM-DD" >&2
+                exit 2
+            fi
             shift
-            TODAY="${1:-}"
+            TODAY="$1"
             ;;
         --help|-h)
             usage
@@ -105,10 +130,12 @@ done
 # repo-root (the datarim/datarim/ + wrong-folder bug class). Fail-soft: fall
 # back to $PWD if the resolver is absent or finds no KB.
 if [ -z "$ROOT" ]; then
-    _itp_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib" 2>/dev/null && pwd)"
+    _itp_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib" 2>/dev/null && pwd)" || _itp_lib=""
     if [ -n "$_itp_lib" ] && [ -f "$_itp_lib/resolve-datarim-root.sh" ]; then
         # shellcheck source=../scripts/lib/resolve-datarim-root.sh
-        . "$_itp_lib/resolve-datarim-root.sh"
+        if ! . "$_itp_lib/resolve-datarim-root.sh"; then
+            ROOT=""
+        fi
         ROOT="$(resolve_datarim_root 2>/dev/null || true)"
     fi
     [ -z "$ROOT" ] && ROOT="$(pwd)"
@@ -176,8 +203,12 @@ days_between() {
 validate_single_task() {
     local id="$1"
     local file="$TASKS_DIR/${id}-init-task.md"
+    VALIDATION_ERROR_COUNT=0
+    VALIDATION_FILE_MISSING=0
+    VALIDATION_INTERNAL_ERROR=0
 
     if [ ! -f "$file" ]; then
+        VALIDATION_FILE_MISSING=1
         echo "ERROR: init-task file missing for $id (expected $file)" >&2
         if [ "$REPORT" -eq 1 ]; then
             echo "  Run /dr-init {DESCRIPTION} to create the task properly, or backfill"
@@ -192,8 +223,12 @@ validate_single_task() {
 
     # --- Required frontmatter fields ---------------------------------------
     local field val
-    for field in task_id artifact schema_version captured_at captured_by operator status; do
-        val=$(extract_frontmatter_field "$file" "$field")
+    local required_fields=(task_id artifact schema_version captured_at captured_by operator status)
+    for field in "${required_fields[@]}"; do
+        if ! val=$(extract_frontmatter_field "$file" "$field"); then
+            VALIDATION_INTERNAL_ERROR=1
+            return 2
+        fi
         if [ -z "$val" ]; then
             echo "ERROR: $file: frontmatter missing required field '$field'" >&2
             errors=$(( errors + 1 ))
@@ -201,54 +236,98 @@ validate_single_task() {
     done
 
     # `artifact:` MUST be literal `init-task`.
-    val=$(extract_frontmatter_field "$file" "artifact")
+    if ! val=$(extract_frontmatter_field "$file" "artifact"); then
+        VALIDATION_INTERNAL_ERROR=1
+        return 2
+    fi
     if [ -n "$val" ] && [ "$val" != "init-task" ]; then
         echo "ERROR: $file: frontmatter artifact must be 'init-task', got '$val'" >&2
         errors=$(( errors + 1 ))
     fi
 
     # `schema_version:` MUST be literal `1`.
-    val=$(extract_frontmatter_field "$file" "schema_version")
+    if ! val=$(extract_frontmatter_field "$file" "schema_version"); then
+        VALIDATION_INTERNAL_ERROR=1
+        return 2
+    fi
     if [ -n "$val" ] && [ "$val" != "1" ]; then
         echo "ERROR: $file: frontmatter schema_version must be '1', got '$val'" >&2
         errors=$(( errors + 1 ))
     fi
 
     # task_id MUST match {PREFIX-NNNN} or compound {PREFIX-NNNN-suffix...} pattern.
-    val=$(extract_frontmatter_field "$file" "task_id")
+    if ! val=$(extract_frontmatter_field "$file" "task_id"); then
+        VALIDATION_INTERNAL_ERROR=1
+        return 2
+    fi
     if [ -n "$val" ] && ! [[ "$val" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]]; then
         echo "ERROR: $file: frontmatter task_id '$val' does not match {PREFIX-NNNN} or {PREFIX-NNNN-suffix...}" >&2
         errors=$(( errors + 1 ))
     fi
 
     # --- Required headings -------------------------------------------------
-    if ! grep -q '^## Operator brief (verbatim)' "$file"; then
-        echo "ERROR: $file: missing required heading '## Operator brief (verbatim)'" >&2
-        errors=$(( errors + 1 ))
+    local grep_status
+    if grep -q '^## Operator brief (verbatim)' "$file"; then
+        :
+    else
+        grep_status=$?
+        if [ "$grep_status" -eq 1 ]; then
+            echo "ERROR: $file: missing required heading '## Operator brief (verbatim)'" >&2
+            errors=$(( errors + 1 ))
+        else
+            VALIDATION_INTERNAL_ERROR=1
+            return 2
+        fi
     fi
-    if ! grep -q '^## Append-log' "$file"; then
-        echo "ERROR: $file: missing required heading '## Append-log (operator amendments)'" >&2
-        errors=$(( errors + 1 ))
+    if grep -q '^## Append-log' "$file"; then
+        :
+    else
+        grep_status=$?
+        if [ "$grep_status" -eq 1 ]; then
+            echo "ERROR: $file: missing required heading '## Append-log (operator amendments)'" >&2
+            errors=$(( errors + 1 ))
+        else
+            VALIDATION_INTERNAL_ERROR=1
+            return 2
+        fi
     fi
 
     # --- Q&A round-trip blocks (TUNE-0216) ---------------------------------
     # Contract: skills/init-task-persistence/SKILL.md § Q&A round-trip contract.
     local qa_errors
-    qa_errors=$(validate_qa_blocks "$file") || true
+    if ! qa_errors=$(validate_qa_blocks "$file"); then
+        VALIDATION_INTERNAL_ERROR=1
+        return 2
+    fi
     if [ -n "$qa_errors" ]; then
         printf '%s\n' "$qa_errors" >&2
         # Each line in qa_errors is one finding.
-        errors=$(( errors + $(printf '%s\n' "$qa_errors" | grep -c .) ))
+        local qa_error_count
+        if ! qa_error_count=$(printf '%s\n' "$qa_errors" | grep -c .); then
+            VALIDATION_INTERNAL_ERROR=1
+            return 2
+        fi
+        errors=$(( errors + qa_error_count ))
     fi
 
     if [ "$errors" -gt 0 ]; then
+        VALIDATION_ERROR_COUNT="$errors"
         if [ "$REPORT" -eq 1 ]; then
             echo "  $errors validation error(s) — see canonical contract in"
             echo "  skills/init-task-persistence/SKILL.md § Artifact Schema."
         fi
         return 1
     fi
+    VALIDATION_ERROR_COUNT="$errors"
     return 0
+}
+
+# Emit only fixed strings and the existing numeric validation error count.
+# Caller invokes this only after the existing single-task validator completes.
+emit_summary_json() {
+    local result="$1" exit_code="$2" diagnostic_codes="$3" error_count="$4" error_count_status="$5"
+    printf '{"schema":"DatarimInitTaskValidationSummary/v1","result":"%s","exit_code":%d,"diagnostic_codes":%s,"error_count":%s,"error_count_status":"%s"}\n' \
+        "$result" "$exit_code" "$diagnostic_codes" "$error_count" "$error_count_status"
 }
 
 # ---------------------------------------------------------------------------
@@ -452,10 +531,32 @@ scan_all_tasks() {
 
 case "$MODE" in
     task)
+        if [ "$SUMMARY_JSON" -eq 1 ]; then
+            if validate_single_task "$TASK_ID" >/dev/null 2>&1; then
+                emit_summary_json "VALID" 0 '[]' 0 "MEASURED"
+                exit 0
+            else
+                :
+            fi
+            if [ "$VALIDATION_FILE_MISSING" -eq 1 ]; then
+                emit_summary_json "INPUT_UNAVAILABLE" 1 '["INIT_TASK_FILE_UNAVAILABLE"]' "null" "NOT_MEASURED"
+                exit 1
+            fi
+            if [ "$VALIDATION_INTERNAL_ERROR" -eq 1 ]; then
+                exit 2
+            fi
+            emit_summary_json "INVALID" 1 '["INIT_TASK_INVALID"]' "$VALIDATION_ERROR_COUNT" "MEASURED"
+            exit 1
+        fi
         validate_single_task "$TASK_ID"
         exit $?
         ;;
     all)
+        if [ "$SUMMARY_JSON" -eq 1 ]; then
+            echo "ERROR: --summary-json is available only with --task" >&2
+            usage >&2
+            exit 2
+        fi
         scan_all_tasks
         exit 0
         ;;

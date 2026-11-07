@@ -27,6 +27,8 @@ The schema checks structure only. It cannot establish that a revision or digest 
 
 ## Schema
 
+The portable JSON Schema is [`schemas/ui-dx-evidence-summary.v1.schema.json`](schemas/ui-dx-evidence-summary.v1.schema.json) (Draft 2020-12). It validates the emitted structure and source-defined status correlations; it cannot establish evidence authenticity or arbitrary arithmetic beyond the serialized contract.
+
 The JSON line has exactly these top-level fields:
 
 | Field | Meaning |

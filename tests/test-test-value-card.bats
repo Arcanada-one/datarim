@@ -13,18 +13,51 @@ write_card() {
 }
 
 @test "accepts a card whose causal regression is demonstrated red before repair" {
+    # Synthetic subject: empty tokens must be rejected. The unrepaired body accepts them.
+    subject="$BATS_TEST_TMPDIR/token_gate.py"
+    regression="$BATS_TEST_TMPDIR/assert_empty_rejected.py"
+    cat >"$subject" <<'PY'
+def accept(token: str) -> bool:
+    return True
+PY
+    cat >"$regression" <<'PY'
+import importlib.util
+from pathlib import Path
+import sys
+
+subject = Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location("token_gate", subject)
+module = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+spec.loader.exec_module(module)
+assert module.accept("") is False, "empty token must be rejected"
+PY
+
+    # RED against unrepaired HEAD of the synthetic subject.
+    run python3 "$regression" "$subject"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"empty token must be rejected"* ]]
+
     write_card <<'EOF'
 ---
-protects: "Invalid test-value cards are rejected before they justify coverage."
-fails_when: "Removing the causal check makes this fixture test fail at its assertion."
-why_new: "Existing gates check template links, not test-value meaning."
+protects: "Empty tokens are rejected at the synthetic token gate."
+fails_when: "Omitting the empty-token check makes assert_empty_rejected.py fail."
+why_new: "Existing coverage exercises non-empty tokens only."
 seam: "none"
-no_claim: "Structural card validation does not prove a production test ran."
+no_claim: "Synthetic fixture only; no production service or admission claim."
 ---
 EOF
     run python3 "$VALIDATOR" --card "$CARD"
     [ "$status" -eq 0 ]
     [[ "$output" == *"test value card: PASS"* ]]
+
+    # Repair, then GREEN at the same regression command.
+    cat >"$subject" <<'PY'
+def accept(token: str) -> bool:
+    return bool(token)
+PY
+    run python3 "$regression" "$subject"
+    [ "$status" -eq 0 ]
 }
 
 @test "rejects a card without a specific causal failure" {

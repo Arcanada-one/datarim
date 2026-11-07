@@ -56,6 +56,7 @@ The following are equivalent entrypoints for their selected clients:
 jevcodex "Review the current task and propose its next implementation step"
 jevclaude "Review the current task and propose its next implementation step"
 jevcursor "Review the current task and propose its next implementation step"
+jevagy "Review the current task and propose its next implementation step"
 jev --agent=codex "Review the current task and propose its next implementation step"
 ```
 
@@ -73,7 +74,7 @@ shows `codex` as `live`, from `hook_delivery` records in
 [control-plane guide](../how-to/claude-code-jev-control-plane.md) has the
 detail, including the flag for automation that cannot answer a prompt.
 
-Use `--agent=claude` or `--agent=cursor` to select either other client. The alias
+Use `--agent=claude`, `--agent=cursor`, or `--agent=antigravity` (`--agent=agy`) to select any other client. The alias
 and dispatcher share one implementation. Select supported Codex account models
 before expecting model changes; [model mapping](../how-to/configure-and-use-jev.md)
 explains Codex effort. Leave `DATARIM_CURSOR_MODEL_*` unset (policy 22.10 = Auto); Jev still reads them as an override and otherwise passes `--model auto`.

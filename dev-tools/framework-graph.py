@@ -65,6 +65,11 @@ def plugin_packages():
             for path in sorted(category_root.rglob('*')):
                 if path.is_symlink():
                     raise ValueError(f'plugin asset is a symlink: {path.relative_to(ROOT)}')
+                # Python tests/imports can create bytecode beside shipped
+                # scripts. Runtime caches are not declared plugin assets.
+                relative_path = path.relative_to(category_root)
+                if '__pycache__' in relative_path.parts or path.suffix in {'.pyc', '.pyo'}:
+                    continue
                 if not path.is_file():
                     continue
                 resolved=path.resolve()
