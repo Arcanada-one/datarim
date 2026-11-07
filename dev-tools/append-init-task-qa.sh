@@ -10,10 +10,12 @@
 # expand at shell layer. Summary stays literal (single one-line slug used
 # verbatim with `printf '%s'`, no eval).
 #
-# Atomic write: mkdir-based per-task lock (macOS-portable, no flock
-# assumption) + temp-file + `mv` into place. Parallel callers on the same
-# task ID serialize on the lock; their blocks land in the order they
-# acquired it, never half-written.
+# Atomic write: per-task lock + temp-file + `mv` into place. Prefer
+# flock on `datarim/tasks/.{TASK-ID}.qa-lock` (skill contract; Linux CI).
+# Fall back to mkdir on the same `.{TASK-ID}.qa-lock` path when flock is
+# absent (macOS). Parallel callers on the same task ID serialize on the
+# lock; their blocks land in the order they acquired it, never
+# half-written / lost-updated.
 #
 # Exit codes:
 #   0 — Q&A block appended successfully
@@ -44,12 +46,19 @@ MAX_INPUT_BYTES="${DATARIM_QA_MAX_INPUT_BYTES:-102400}"
 LOCK_TIMEOUT_SECONDS="${DATARIM_QA_LOCK_TIMEOUT:-5}"
 
 LOCK_DIR=""
+LOCK_FILE=""
 TMP_FILE=""
 
 cleanup() {
+    # Command-substitution subshells must not release a parent-held lock.
+    if [ "${BASH_SUBSHELL:-0}" -ne 0 ]; then
+        return 0
+    fi
     if [ -n "$TMP_FILE" ] && [ -e "$TMP_FILE" ]; then
         rm -f "$TMP_FILE" || true
     fi
+    # mkdir-fallback only. flock unlocks when FD 9 closes; keep the lockfile
+    # inode (do not rm) so a waiter that already opened the path cannot race.
     if [ -n "$LOCK_DIR" ] && [ -d "$LOCK_DIR" ]; then
         rmdir "$LOCK_DIR" 2>/dev/null || true
     fi
@@ -264,21 +273,45 @@ if [ "$DECIDED_BY" = "process-rule-artefact" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Lock acquisition (mkdir-based, macOS-portable)
+# Lock acquisition — flock first (skill contract), mkdir fallback otherwise
 # ---------------------------------------------------------------------------
-LOCK_DIR="$TASKS_DIR_ABS/.${TASK_ID}.qa-lock"
-deadline=$(( $(date +%s) + LOCK_TIMEOUT_SECONDS ))
+# IMPORTANT: never point LOCK_DIR at a path until THIS process owns it.
+# A waiter that sets LOCK_DIR before mkdir can rmdir another holder's lock
+# from EXIT cleanup (lost-update under parallel P2.5).
+LOCK_FILE="$TASKS_DIR_ABS/.${TASK_ID}.qa-lock"
 acquired=0
-while [ "$(date +%s)" -lt "$deadline" ]; do
-    if mkdir "$LOCK_DIR" 2>/dev/null; then
-        acquired=1
-        break
+
+if command -v flock >/dev/null 2>&1; then
+    # Stale mkdir-style directory from older builds must not block flock open.
+    if [ -d "$LOCK_FILE" ]; then
+        rmdir "$LOCK_FILE" 2>/dev/null \
+            || fail_io "stale directory lock blocks $LOCK_FILE (remove empty .qa-lock dir)"
     fi
-    sleep 0.1
-done
-if [ "$acquired" -ne 1 ]; then
-    LOCK_DIR=""
-    fail_io "failed to acquire lock for $TASK_ID within ${LOCK_TIMEOUT_SECONDS}s"
+    exec 9>"$LOCK_FILE" || fail_io "cannot open lock file: $LOCK_FILE"
+    if flock -w "$LOCK_TIMEOUT_SECONDS" 9; then
+        acquired=1
+    else
+        exec 9>&- 2>/dev/null || true
+        fail_io "failed to acquire lock for $TASK_ID within ${LOCK_TIMEOUT_SECONDS}s"
+    fi
+else
+    # mkdir fallback: assign LOCK_DIR only AFTER this process owns the dir.
+    if [ -f "$LOCK_FILE" ] && [ ! -d "$LOCK_FILE" ]; then
+        fail_io "stale flock lockfile blocks mkdir fallback at $LOCK_FILE"
+    fi
+    lock_dir_path="$LOCK_FILE"
+    deadline=$(( $(date +%s) + LOCK_TIMEOUT_SECONDS ))
+    while [ "$(date +%s)" -lt "$deadline" ]; do
+        if mkdir "$lock_dir_path" 2>/dev/null; then
+            LOCK_DIR="$lock_dir_path"
+            acquired=1
+            break
+        fi
+        sleep 0.1
+    done
+    if [ "$acquired" -ne 1 ]; then
+        fail_io "failed to acquire lock for $TASK_ID within ${LOCK_TIMEOUT_SECONDS}s"
+    fi
 fi
 
 # ---------------------------------------------------------------------------
