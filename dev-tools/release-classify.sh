@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # release-classify.sh — deterministic SemVer bump classifier for autonomous releases.
 #
-# Reads the Conventional-Commits subjects between the last tag and a target ref,
-# maps them to a SemVer bump (patch / minor / major / none) and prints a
-# parseable verdict. Major bumps and 0.x breaking changes set escalate=true
-# (operator gate). No structural API-diff adapter is implemented: both auto and
-# off truthfully report api_diff=unavailable, even when a tool is installed.
+# Reads Conventional-Commits subjects between the last tag and a target ref,
+# then uses exact target VERSION/CHANGELOG declarations only when those subjects
+# provide no higher bump. Metadata must agree with both tagged versions and the
+# immediate SemVer transition; it is a reviewed declaration, not semantic proof.
+# Major bumps and 0.x breaking changes set escalate=true (operator gate). No
+# structural API-diff adapter is implemented: auto and off report unavailable.
 # A future computed API-diff override may only RAISE a bump, never lower it.
 #
-# Conventional Commits -> SemVer (the highest bump across the range wins):
+# Conventional Commit subjects -> SemVer (highest conventional bump wins):
 #   fix: / perf:                              -> patch
 #   feat:                                     -> minor
 #   <type>!: (bang) OR `BREAKING CHANGE:` footer -> major
@@ -33,6 +34,7 @@
 # compromised-contributor scenario); they are only pattern-matched, never executed.
 
 set -euo pipefail
+IFS=$'\n\t'
 
 readonly TYPE_RE='^[a-z]+(\([^)]*\))?(!)?:'
 readonly BREAKING_FOOTER_RE='^BREAKING[ -]CHANGE:'
@@ -94,6 +96,206 @@ resolve_version() {
 
 is_zero_x() { case "$1" in 0.*) echo true ;; *) echo false ;; esac; }
 
+# Derive a declared bump from exactly one valid-dated target-version CHANGELOG
+# section. Only top-level list items outside fenced/indented code count; unknown
+# populated categories are ambiguous and therefore fail closed.
+release_section_bump() {
+    local changelog="$1" version="$2"
+    printf '%s\n' "$changelog" | awk -v version="$version" '
+        BEGIN { prefix = "## [" version "] — "; in_target = 0; headings = 0; max = 0; ambiguous = 0; fence_marker = ""; fence_size = 0; in_html_comment = 0 }
+        function valid_date(date, year, month, day, last_day) {
+            if (date !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) return 0
+            year = substr(date, 1, 4) + 0
+            month = substr(date, 6, 2) + 0
+            day = substr(date, 9, 2) + 0
+            if (year < 1 || month < 1 || month > 12 || day < 1) return 0
+            if (month == 2) {
+                last_day = 28
+                if (year % 400 == 0 || (year % 4 == 0 && year % 100 != 0)) last_day = 29
+            } else if (month == 4 || month == 6 || month == 9 || month == 11) {
+                last_day = 30
+            } else {
+                last_day = 31
+            }
+            return day <= last_day
+        }
+        function leading_spaces(line, spaces) {
+            spaces = line
+            sub(/[^ ].*$/, "", spaces)
+            return length(spaces)
+        }
+        function opens_fence(line, indent, rest, marker, count, info) {
+            indent = leading_spaces(line)
+            if (indent > 3) return 0
+            rest = substr(line, indent + 1)
+            marker = substr(rest, 1, 1)
+            if (marker != "`" && marker != "~") return 0
+            count = 0
+            while (substr(rest, count + 1, 1) == marker) count++
+            if (count < 3) return 0
+            info = substr(rest, count + 1)
+            if (marker == "`" && index(info, "`") > 0) return 0
+            fence_marker = marker
+            fence_size = count
+            return 1
+        }
+        function closes_fence(line, indent, rest, count, tail) {
+            indent = leading_spaces(line)
+            if (indent > 3) return 0
+            rest = substr(line, indent + 1)
+            if (substr(rest, 1, 1) != fence_marker) return 0
+            count = 0
+            while (substr(rest, count + 1, 1) == fence_marker) count++
+            if (count < fence_size) return 0
+            tail = substr(rest, count + 1)
+            return tail !~ /[^[:space:]]/
+        }
+        function strip_html_comments(line, result, rest, open_at, close_at) {
+            result = ""
+            rest = line
+            while (length(rest) > 0) {
+                if (in_html_comment) {
+                    close_at = index(rest, "-->")
+                    if (!close_at) return result
+                    rest = substr(rest, close_at + 3)
+                    in_html_comment = 0
+                    result = result " "
+                    continue
+                }
+                open_at = index(rest, "<!--")
+                if (!open_at) {
+                    result = result rest
+                    break
+                }
+                result = result substr(rest, 1, open_at - 1) " "
+                rest = substr(rest, open_at + 4)
+                in_html_comment = 1
+            }
+            return result
+        }
+        function is_indented_code(line) {
+            return substr(line, 1, 4) == "    " || substr(line, 1, 1) == "\t"
+        }
+        function is_list_item(line, indent, rest, digits, marker, content) {
+            indent = leading_spaces(line)
+            if (indent > 3) return 0
+            rest = substr(line, indent + 1)
+            if (rest ~ /^[-+*][[:space:]]+[^[:space:]]/) return 1
+            digits = rest
+            sub(/[^0-9].*$/, "", digits)
+            if (length(digits) < 1 || length(digits) > 9) return 0
+            marker = substr(rest, length(digits) + 1, 1)
+            if (marker != "." && marker != ")") return 0
+            content = substr(rest, length(digits) + 2)
+            return content ~ /^[[:space:]]+[^[:space:]]/
+        }
+        {
+            if (fence_marker != "") {
+                if (closes_fence($0)) { fence_marker = ""; fence_size = 0 }
+                next
+            }
+            if (!in_html_comment && is_indented_code($0)) next
+            if (!in_html_comment && opens_fence($0)) next
+            $0 = strip_html_comments($0)
+            if (opens_fence($0)) next
+            if (is_indented_code($0)) next
+        }
+        /^## / {
+            in_target = 0
+            category = ""
+            if (index($0, prefix) == 1) {
+                date = substr($0, length(prefix) + 1)
+                if (valid_date(date)) {
+                    headings++
+                    in_target = 1
+                }
+            }
+            next
+        }
+        in_target && /^### / {
+            category = substr($0, 5)
+            sub(/^[[:space:]]+/, "", category)
+            sub(/[[:space:]]+$/, "", category)
+            next
+        }
+        in_target && is_list_item($0) {
+            if (category == "Added") rank = 2
+            else if (category == "Fixed") rank = 1
+            else if (category == "Breaking" || category == "Breaking Changes") rank = 3
+            else { ambiguous = 1; next }
+            if (rank > max) max = rank
+        }
+        END {
+            if (headings != 1 || ambiguous || max == 0) print "none"
+            else if (max == 1) print "patch"
+            else if (max == 2) print "minor"
+            else print "major"
+        }
+    '
+}
+
+# Increment a validated nonnegative decimal component without shell integer
+# overflow, so large (but valid) SemVer components still fail/compare safely.
+increment_component() {
+    local digits="$1" result="" digit carry=1 i
+    for ((i=${#digits}-1; i>=0; i--)); do
+        digit="${digits:i:1}"
+        if [ "$carry" -eq 1 ] && [ "$digit" = 9 ]; then
+            result="0${result}"
+        else
+            result="$((digit + carry))${result}"
+            carry=0
+        fi
+    done
+    [ "$carry" -eq 0 ] || result="1${result}"
+    printf '%s\n' "$result"
+}
+
+# A metadata declaration is usable only when both refs' VERSION files agree
+# with their stable tag/version and the exact target changelog declares the
+# immediate version transition. No command-line bump override exists.
+release_metadata_bump() {
+    local repo="$1" from_tag="$2" from_sha="$3" target_sha="$4"
+    local from_version from_major from_minor from_patch target_version
+    local target_major target_minor target_patch changelog declared expected
+    if [[ "$from_tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+        from_major="${BASH_REMATCH[1]}"
+        from_minor="${BASH_REMATCH[2]}"
+        from_patch="${BASH_REMATCH[3]}"
+    else
+        echo none; return 0
+    fi
+    from_version="$(git -C "$repo" show "${from_sha}:VERSION" 2>/dev/null)" || { echo none; return 0; }
+    [ "$from_version" = "${from_major}.${from_minor}.${from_patch}" ] || { echo none; return 0; }
+
+    target_version="$(git -C "$repo" show "${target_sha}:VERSION" 2>/dev/null)" || { echo none; return 0; }
+    if [[ "$target_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+        target_major="${BASH_REMATCH[1]}"
+        target_minor="${BASH_REMATCH[2]}"
+        target_patch="${BASH_REMATCH[3]}"
+    else
+        echo none; return 0
+    fi
+    changelog="$(git -C "$repo" show "${target_sha}:CHANGELOG.md" 2>/dev/null)" || { echo none; return 0; }
+    declared="$(release_section_bump "$changelog" "$target_version")"
+    case "$declared" in
+        patch)
+            expected="$(increment_component "$from_patch")"
+            [[ "$target_major" = "$from_major" && "$target_minor" = "$from_minor" && "$target_patch" = "$expected" ]] || declared=none
+            ;;
+        minor)
+            expected="$(increment_component "$from_minor")"
+            [[ "$target_major" = "$from_major" && "$target_minor" = "$expected" && "$target_patch" = 0 ]] || declared=none
+            ;;
+        major)
+            expected="$(increment_component "$from_major")"
+            [[ "$target_major" = "$expected" && "$target_minor" = 0 && "$target_patch" = 0 ]] || declared=none
+            ;;
+        *) declared=none ;;
+    esac
+    echo "$declared"
+}
+
 # --- embedded fixtures (V-AC-2 --test mode) -------------------------------------
 run_self_test() {
     local fail=0 got
@@ -142,8 +344,17 @@ main() {
     fi
     if [ -n "$from" ]; then range="${from}..${to}"; else range="$to"; fi
 
-    local bump version zero_x api_diff escalate rationale
+    local bump conventional_bump metadata_bump version zero_x api_diff escalate rationale
     bump="$(aggregate_bump "$repo" "$range")" || exit 3
+    conventional_bump="$bump"
+    metadata_bump=none
+    if [ -n "$from" ]; then
+        local from_sha target_sha
+        from_sha="$(git -C "$repo" rev-parse --verify "${from}^{commit}")"
+        target_sha="$(git -C "$repo" rev-parse --verify "${to}^{commit}")"
+        metadata_bump="$(release_metadata_bump "$repo" "$from" "$from_sha" "$target_sha")"
+        [ "$(rank "$metadata_bump")" -le "$(rank "$bump")" ] || bump="$metadata_bump"
+    fi
     version="$(resolve_version "$repo")"
     zero_x="$(is_zero_x "${version:-1.0.0}")"
 
@@ -165,7 +376,7 @@ main() {
     elif [ "$zero_x" = true ] && [ "$api_diff" = break ]; then
         escalate=true
     fi
-    rationale="range ${range}: highest Conventional-Commits bump=${bump}, api_diff=${api_diff}, zero_x=${zero_x}"
+    rationale="range ${range}: highest Conventional-Commits bump=${conventional_bump}, release_metadata=${metadata_bump}, api_diff=${api_diff}, zero_x=${zero_x}"
 
     if [ "$stamp" = true ]; then
         printf 'bump_level=%s\nescalate=%s\nrationale=%s\n' "$bump" "$escalate" "$rationale"

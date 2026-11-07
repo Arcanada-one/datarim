@@ -61,4 +61,6 @@ Every refusal uses a fixed code without echoing a path, exception text or user a
 
 ## Review boundary
 
+For an opt-in fixed outcome without selection paths, card text, cited values, or report content, pass `--summary-json`. The versioned `DatarimTestAuditBuildSummary/v1` object reports selected-test and linked-evidence counts from the same built report; counts are `NOT_MEASURED` on refusal. The summary is structural and does not establish evidence authenticity or authorize a gate decision.
+
 Use the report to support human review, not to make it. Running, removing or rewriting tests, changing gate thresholds, and publishing a report are separate authorized reviewed actions. A structural report does not establish runtime compliance or acceptance.

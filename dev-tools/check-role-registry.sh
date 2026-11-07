@@ -18,18 +18,20 @@
 #   1  validation failure
 #   2  usage error
 
-set -eu
+set -euo pipefail
+IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 FILE=""
+SUMMARY_JSON=0
 
 usage() {
     cat <<'EOF'
 check-role-registry.sh — validate the fleet role registry (config/roles.yaml).
 
 Usage:
-  check-role-registry.sh [--file PATH] [--root PATH] [--help]
+  check-role-registry.sh [--summary-json] [--file PATH] [--root PATH] [--help]
 
 Exit codes: 0 OK | 1 validation failure | 2 usage error.
 EOF
@@ -37,26 +39,58 @@ EOF
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --file) FILE="${2:-}"; shift 2 ;;
-        --root) ROOT="${2:-}"; shift 2 ;;
+        --summary-json) SUMMARY_JSON=1; shift ;;
+        --file)
+            [ "$#" -ge 2 ] || { echo "ERROR: --file requires an argument" >&2; usage >&2; exit 2; }
+            FILE="$2"; shift 2 ;;
+        --root)
+            [ "$#" -ge 2 ] || { echo "ERROR: --root requires an argument" >&2; usage >&2; exit 2; }
+            ROOT="$2"; shift 2 ;;
         --help) usage; exit 0 ;;
         *) echo "ERROR: unknown argument: $1" >&2; usage >&2; exit 2 ;;
     esac
 done
 
+if [ -z "$ROOT" ]; then ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"; fi
 [ -n "$FILE" ] || FILE="$ROOT/config/roles.yaml"
 SCHEMA="$ROOT/config/role-registry.schema.json"
 
-[ -f "$FILE" ]   || { echo "ERROR: roles file not found: $FILE" >&2; exit 1; }
-[ -f "$SCHEMA" ] || { echo "ERROR: schema not found: $SCHEMA" >&2; exit 1; }
+valid_path_argument() {
+    local LC_ALL=C
+    local without_tabs="${1//$'\t'/}"
+    [[ "$without_tabs" =~ ^[^[:cntrl:]]*$ ]]
+}
+if ! valid_path_argument "$ROOT" || ! valid_path_argument "$FILE"; then
+    echo "ERROR: path argument contains a control character" >&2
+    exit 2
+fi
+
+summary_unavailable() {
+    local code="$1"
+    printf '{"schema":"DatarimRoleRegistrySummary/v1","result":"INPUT_UNAVAILABLE","exit_code":1,"diagnostic_codes":["%s"],"validation_error_count":null,"validation_error_count_status":"NOT_MEASURED"}\n' "$code"
+    exit 1
+}
+
+if [ ! -f "$FILE" ]; then
+    if [ "$SUMMARY_JSON" -eq 1 ]; then summary_unavailable ROLE_INPUT_UNAVAILABLE; fi
+    echo "ERROR: roles file not found: $FILE" >&2; exit 1
+fi
+if [ ! -f "$SCHEMA" ]; then
+    if [ "$SUMMARY_JSON" -eq 1 ]; then summary_unavailable ROLE_INPUT_UNAVAILABLE; fi
+    echo "ERROR: schema not found: $SCHEMA" >&2; exit 1
+fi
 
 # All structural + cross-field checks in one Python pass (pyyaml + jsonschema).
-python3 - "$FILE" "$SCHEMA" "$ROOT" <<'PY'
+SUMMARY_JSON="$SUMMARY_JSON" python3 - "$FILE" "$SCHEMA" "$ROOT" <<'PY'
 import sys, os
 import yaml, json
+summary_json = os.environ.get("SUMMARY_JSON") == "1"
 try:
     import jsonschema
 except ImportError:
+    if summary_json:
+        print('{"schema":"DatarimRoleRegistrySummary/v1","result":"INPUT_UNAVAILABLE","exit_code":1,"diagnostic_codes":["ROLE_VALIDATOR_UNAVAILABLE"],"validation_error_count":null,"validation_error_count_status":"NOT_MEASURED"}')
+        sys.exit(1)
     print("ERROR: python jsonschema module not available", file=sys.stderr)
     sys.exit(1)
 
@@ -123,9 +157,16 @@ for r in roles:
                 errors.append(f"role '{rid}': starter_skill '{skill}' SKILL.md frontmatter missing integer metadata.context_budget_tokens")
 
 if errors:
+    if summary_json:
+        print('{"schema":"DatarimRoleRegistrySummary/v1","result":"INVALID","exit_code":1,"diagnostic_codes":["ROLE_REGISTRY_INVALID"],"validation_error_count":%d,"validation_error_count_status":"MEASURED"}' % len(errors))
+        sys.exit(1)
     for e in errors:
         print(f"FAIL: {e}", file=sys.stderr)
     sys.exit(1)
+
+if summary_json:
+    print('{"schema":"DatarimRoleRegistrySummary/v1","result":"VALID","exit_code":0,"diagnostic_codes":[],"validation_error_count":0,"validation_error_count_status":"MEASURED"}')
+    sys.exit(0)
 
 print(f"OK: {len(roles)} roles valid ({roles_path})")
 sys.exit(0)

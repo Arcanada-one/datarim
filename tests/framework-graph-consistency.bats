@@ -227,6 +227,39 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "Python runtime caches in plugin script directories do not stale the generated graph" {
+  make_fixture
+  python3 - "$FIXTURE/plugins/optional/plugin.yaml" <<'PY' || return 1
+import pathlib,sys
+path=pathlib.Path(sys.argv[1])
+text=path.read_text()
+assert 'categories: [skills, templates]' in text
+path.write_text(text.replace('categories: [skills, templates]', 'categories: [skills, templates, scripts]'))
+PY
+  mkdir -p "$FIXTURE/plugins/optional/scripts"
+  printf '# shipped script\n' >"$FIXTURE/plugins/optional/scripts/entry.py"
+  # The real repository already tracks these generated maps before --write.
+  : >"$FIXTURE/skills/visual-maps/framework-architecture.md"
+  : >"$FIXTURE/skills/visual-maps/command-dependencies.md"
+  run python3 "$FIXTURE/dev-tools/framework-graph.py" --write
+  [ "$status" -eq 0 ] || return 1
+
+  mkdir -p "$FIXTURE/plugins/optional/scripts/__pycache__"
+  printf 'synthetic bytecode\n' \
+    >"$FIXTURE/plugins/optional/scripts/__pycache__/entry.cpython-312.pyc"
+  run python3 "$FIXTURE/dev-tools/framework-graph.py" --check
+  [ "$status" -eq 0 ] || return 1
+  run python3 - "$FIXTURE/dev-tools/framework-graph.yaml" <<'PY'
+import pathlib,sys,yaml
+plugins=yaml.safe_load(pathlib.Path(sys.argv[1]).read_text())['inventory']['plugins']
+assets={asset['path'] for package in plugins for asset in package['assets']}
+assert 'plugins/optional/scripts/entry.py' in assets
+assert not any('__pycache__' in path or path.endswith(('.pyc','.pyo')) for path in assets)
+print('plugin runtime caches excluded from generated assets')
+PY
+  [ "$status" -eq 0 ]
+}
+
 @test "plugin reference extraction and manifest guards reject invalid inputs" {
   make_fixture
   run python3 - "$FIXTURE" <<'PY'

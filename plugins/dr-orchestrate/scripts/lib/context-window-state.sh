@@ -84,7 +84,7 @@ ctx_codex_profile_digest() {
   local path="$1" prefix
   ctx_secure_regular "$path" 600 || return 1; prefix="$(mktemp)"
   [ "$(grep -c '^# DATARIM_MANAGED_END$' "$path")" -eq 1 ] || { rm -f "$prefix"; return 1; }
-  awk '/^# DATARIM_MANAGED_END$/ || /^\[projects\./ || /^\[tui\./ || /^\[hooks\.state\./ {exit} {print}' "$path" >"$prefix" || { rm -f "$prefix"; return 1; }
+  awk '/^# DATARIM_MANAGED_END$/ || /^\[projects\./ || /^\[tui\]$/ || /^\[tui\./ || /^\[hooks\.state\./ {exit} {print}' "$path" >"$prefix" || { rm -f "$prefix"; return 1; }
   ctx_sha256 "$prefix"; rm -f "$prefix"
 }
 

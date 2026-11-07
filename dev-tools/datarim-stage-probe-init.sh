@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # datarim-stage-probe-init.sh — initialise the Datarim stage-probe harness.
 #
-# Creates /tmp/datarim-test-{TASK-ID}/ with mode 0700 and seeds payload.txt +
-# empty journal.md. While this directory exists, every write_stage_snapshot
-# call for the same TASK-ID will append a journal line documenting whether the
-# operator-visible response carried the Stage Header and CTA footer.
+# Creates ${TMPDIR:-/tmp}/datarim-test-{TASK-ID}/ with mode 0700 and seeds
+# payload.txt + empty journal.md. While this directory exists, every
+# write_stage_snapshot call for the same TASK-ID will append a journal line
+# documenting whether the operator-visible response carried the Stage Header
+# and CTA footer.
 #
 # Idempotent: re-running on an existing harness directory leaves it intact and
 # appends a fresh init line to journal.md.
@@ -31,7 +32,7 @@ if ! printf '%s' "$TASK_ID" | grep -qE "$TASK_ID_BASE_RE"; then
     exit 2
 fi
 
-DIR="/tmp/datarim-test-${TASK_ID}"
+DIR="${TMPDIR:-/tmp}/datarim-test-${TASK_ID}"
 
 if [ -L "$DIR" ]; then
     printf 'init: refuse symlink %s (T2 mitigation)\n' "$DIR" >&2
