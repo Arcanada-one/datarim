@@ -140,12 +140,32 @@ git branch -d <feature-branch>
 
 #### Option 2: Push and Create PR
 
+##### Step 0: PR budget gate
+
+Before `gh pr create`, measure the author's open PRs in the target repository and apply the PR budget (default: feature=1, total=2 including hotfix/CI class; config `~/.claude/local/config/pr-budget.conf`). Integration-branch prefixes default to `integration/` and `batch/`.
+
+```bash
+# nosec-extract
+# Structural PreToolUse floor (when registered):
+#   ${DATARIM_RUNTIME:?}/dev-tools/check-open-pr-budget.sh
+# Fail-closed: if `gh` cannot measure open PRs, treat as deny (not measured ≠ pass).
+
+repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+open_json=$(gh pr list --repo "$repo" --author "@me" --state open --limit 100 --json headRefName)
+# Classify heads: integration_prefixes → skip; hotfix/ci/fix → total only; else feature+total.
+# If feature_open >= feature_limit OR total_open >= total_limit:
+#   do NOT run `gh pr create`. Merge this change into the existing integration
+#   branch (or finish the open PR) instead.
+```
+
+A task is not finished when a PR is opened; it is finished when its content is reachable from `main` (see `commands/dr-archive.md` § 0.13). Where `check-open-pr-budget` is registered as a PreToolUse hook it enforces this at runtime — no flag, env var, or in-band text disables it.
+
 ```bash
 # nosec-extract
 # Push branch
 git push -u origin <feature-branch>
 
-# Create PR
+# Create PR (only after Step 0 passes)
 gh pr create --title "<title>" --body "$(cat <<'EOF'
 ## Summary
 <2-3 bullets of what changed>
@@ -235,12 +255,12 @@ git worktree prune  # Self-healing: clean up any stale registrations
 
 ## Quick Reference
 
-| Option | Merge | Push | Keep Worktree | Cleanup Branch |
-|--------|-------|------|---------------|----------------|
-| 1. Merge locally | yes | - | - | yes |
-| 2. Create PR | - | yes | yes | - |
-| 3. Keep as-is | - | - | yes | - |
-| 4. Discard | - | - | - | yes (force) |
+| Option | Merge | Push | Keep Worktree | Cleanup Branch | Counts against budget |
+|--------|-------|------|---------------|----------------|-----------------------|
+| 1. Merge locally | yes | - | - | yes | no |
+| 2. Create PR | - | yes | yes | - | yes (feature/hotfix class; Step 0 gate) |
+| 3. Keep as-is | - | - | yes | - | no |
+| 4. Discard | - | - | - | yes (force) | no |
 
 ## Common Mistakes
 
