@@ -828,7 +828,7 @@ EOF
         && [ -z "$(find "$tasks_dir" -maxdepth 1 -name '.TEST-0206.qa.append.*' -print)" ]
 }
 
-@test "P2.7 cleanup removes the lock after temp cleanup itself fails" {
+@test "P2.7 cleanup releases the lock after temp cleanup itself fails" {
     write_base_init_task "TEST-0207"
     local tasks_dir="$TMPROOT/datarim/tasks"
     local init_file="$tasks_dir/TEST-0207-init-task.md"
@@ -877,13 +877,26 @@ EOF
         --decided-by operator \
         --summary "Cleanup must continue after a failed temp removal."
 
+    # flock path: lock releases on FD close (may leave empty .qa-lock file).
+    # mkdir fallback: cleanup must still rmdir the directory lock after rm fails.
     [ "$status" -ne 0 ] \
         && [[ "$output" == *"simulated init-task read failure"* ]] \
         && [[ "$output" == *"simulated temp cleanup failure"* ]] \
         && grep -qF "$tasks_dir/.TEST-0207.qa.append." "$rm_log" \
-        && grep -qF "$tasks_dir/.TEST-0207.qa-lock" "$rmdir_log" \
         && cmp -s "$original" "$init_file" \
-        && [ ! -d "$tasks_dir/.TEST-0207.qa-lock" ]
+        && [ ! -d "$tasks_dir/.TEST-0207.qa-lock" ] \
+        && {
+            if command -v flock >/dev/null 2>&1; then
+                # Subsequent acquire must succeed — proves flock was released.
+                "$APPEND" --root "$TMPROOT" --task TEST-0207 --stage do --round 1 \
+                    --question-file "$q" --answer-file "$a" \
+                    --decided-by operator \
+                    --summary "Lock must be free after failed cleanup." \
+                    >/dev/null 2>&1
+            else
+                grep -qF "$tasks_dir/.TEST-0207.qa-lock" "$rmdir_log"
+            fi
+        }
 }
 
 # ---------------------------------------------------------------------------

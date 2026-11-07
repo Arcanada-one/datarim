@@ -23,6 +23,7 @@
 # Exit 0 PASS, 1 FAIL, 2 usage error.
 
 set -euo pipefail
+IFS=$'\n\t'
 
 ROOT=""
 SUMMARY_JSON=0
