@@ -4,6 +4,13 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.11.0] — 2026-11-06
+
+### Added
+
+- Open-PR budget floor: `dev-tools/check-open-pr-budget.sh` PreToolUse guard (structural `gh … pr create` only; fail-closed when `gh` cannot measure; config `~/.claude/local/config/pr-budget.conf`, defaults feature=1 / total=2 / integration_prefixes=`integration/` `batch/`) with regression `dev-tools/tests/check-open-pr-budget.bats`.
+- Developer and architect agents now carry a PR-budget obligation; `finishing-a-development-branch` Option 2 gains Step 0 (PR budget gate) and a Quick Reference column for budget accounting. Documented as AGENTS.md **S10-pr-budget**.
+
 ## [4.10.0] — 2026-11-02
 
 ### Added
