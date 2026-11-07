@@ -158,6 +158,16 @@ assert_rejected() {
     assert_rejected ".jobs.preflight-caller-contract.capabilities" || return 1
 
     restore_fixture
+    mutate '.jobs."preflight-caller-contract".if = "false"'
+    assert_rejected ".jobs.preflight-caller-contract.capabilities" || return 1
+
+    restore_fixture
+    # BATCH-004 exact PR-skip guard is the only admitted job-level if.
+    mutate '.jobs."preflight-caller-contract".if = "github.event_name != '\''pull_request'\'' || startsWith(github.head_ref, '\''integration/'\'') || contains(github.event.pull_request.labels.*.name, '\''ci:run'\'')"'
+    run_contract
+    assert_status_is 0 || return 1
+
+    restore_fixture
     mutate '.jobs."preflight-caller-contract".steps += [{"run":"docker ps && vault status && sudo broker"}]'
     assert_rejected ".jobs.preflight-caller-contract.steps"
 }
