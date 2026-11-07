@@ -19,9 +19,9 @@ setup() {
 import sys
 path = sys.argv[1]
 source = open(path, encoding="utf-8").read()
-old = "return returncode"
+old = "        return returncode\n"
 assert source.count(old) == 1
-open(path, "w", encoding="utf-8").write(source.replace(old, "return 0"))
+open(path, "w", encoding="utf-8").write(source.replace(old, "        return 0\n"))
 PY
         elif [ "$kind" = timeout_status ]; then
             filter='customer-delivery shard timeout kills the child group and returns 124'

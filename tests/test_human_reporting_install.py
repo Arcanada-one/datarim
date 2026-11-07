@@ -40,13 +40,37 @@ class InstallerTests(unittest.TestCase):
 
     def test_install_native_scopes_and_idempotence(self):
         self.run_cli()
-        for agent in ('claude', 'codex', 'cursor'):
-            self.assertEqual((self.home / ('.agents' if agent=='codex' else '.'+agent) / 'skills' / installer.NAME / 'SKILL.md').read_bytes(), (self.source/'SKILL.md').read_bytes())
+        for agent, scope in (('antigravity', '.gemini/config'), ('claude', '.claude'),
+                             ('codex', '.agents'), ('cursor', '.cursor')):
+            self.assertEqual((self.home / scope / 'skills' / installer.NAME / 'SKILL.md').read_bytes(), (self.source/'SKILL.md').read_bytes())
         self.assertFalse((self.home/'.claude/CLAUDE.md').exists())
         self.assertFalse((self.home/'.claude/commands').exists())
         self.assertIn('keep-coding-instructions: true', (self.home/'.claude/output-styles/human-outcome-reporting.md').read_text())
         self.assertEqual(self.run_cli()['operations'], [])
         self.assertEqual(self.run_cli('check')['verdict'], 'verified')
+
+    def test_antigravity_hook_emits_inject_steps_and_preserves_foreign_groups(self):
+        self.with_language_helper()
+        hooks = self.write('.gemini/config/hooks.json', json.dumps({'jev': {'PreInvocation': [{'type': 'command', 'command': 'jev-hook'}]}}))
+        self.run_cli('install', '--agents', 'agy')
+        cfg = json.loads(hooks.read_text())
+        self.assertIn('jev', cfg)
+        self.assertIn('datarim-human-outcome-reporting', cfg)
+        script = self.home / '.gemini/config/hooks/human-outcome-reporting.py'
+        env = dict(os.environ, HOME=str(self.home))
+        for key in ('XDG_CONFIG_HOME', 'DATARIM_REPLY_LANG', 'DATARIM_ARTIFACT_LANG'):
+            env.pop(key, None)
+        out = subprocess.run([sys.executable, str(script)],
+                             input=json.dumps({'workspacePaths': [str(self.home)], 'lastUserInput': 'secret input'}).encode(),
+                             capture_output=True, env=env, check=True)
+        payload = json.loads(out.stdout)
+        self.assertIn('injectSteps', payload)
+        context = payload['injectSteps'][0]['systemMessage']['systemMessage']
+        self.assertIn('Human Outcome Reporting', context)
+        self.assertNotIn('secret input', context)
+        self.assertIn(str(self.home / '.gemini/config/skills/human-outcome-reporting/SKILL.md'), context)
+        self.run_cli('uninstall')
+        self.assertEqual(json.loads(hooks.read_text()), {'jev': {'PreInvocation': [{'type': 'command', 'command': 'jev-hook'}]}})
 
     def test_dry_run_changes_nothing(self):
         self.run_cli('install', '--dry-run')

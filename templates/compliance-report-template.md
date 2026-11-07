@@ -79,7 +79,10 @@ does not authenticate evidence references or execute security checks.
 ## Next steps <!-- datarim:next-steps -->
 
 {State that all authorized work is complete only when supported; otherwise
-list specific remaining conditions and authorized next actions.}
+list the complete Consolidated Remediation Batch of all failed checks and
+discrepancies across every compliance gate and checklist step so `/dr-do`
+resolves 100% of them in a single rework iteration, followed by authorized
+next actions.}
 
 ---
 

@@ -40,6 +40,7 @@ Native client invocation remains available without Jev:
 jevcodex --no-route "Inspect the project and summarize its next task"
 jevclaude --no-route "Inspect the project and summarize its next task"
 jevcursor --no-route "Inspect the project and summarize its next task"
+jevagy --no-route "Inspect the project and summarize its next task"
 ```
 
 Nested independent repositories require explicit `--context relative/path`

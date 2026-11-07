@@ -35,7 +35,7 @@
 # Dependency floor: pure bash + find + grep + wc. No yq, no python.
 #
 # Usage:
-#   check-component-counts.sh [--check | --report] [--root <dir>]
+#   check-component-counts.sh [--summary-json] [--check | --report] [--root <dir>]
 #
 # Exit codes:
 #   0  clean (all claims match actual counts, or no claims found)
@@ -45,19 +45,22 @@
 #
 # Read-only: no writes, no network.
 
-set -uo pipefail
+set -euo pipefail
+IFS=$'\n\t'
 
 SCRIPT_NAME="check-component-counts.sh"
 MODE="check"            # check | report
 ROOT=""
+SUMMARY_JSON=0
 
 print_usage() {
     cat <<EOF
-Usage: $SCRIPT_NAME [--check | --report] [--root <dir>]
+Usage: $SCRIPT_NAME [--summary-json] [--check | --report] [--root <dir>]
 
   --check        exit 0 = all counts match, 1 = drift found (default)
   --report       human-readable per-category findings
   --root <dir>   repo root (default: walk up from cwd to find AGENTS.md)
+  --summary-json emit one fixed JSON result instead of human-readable output
   --help         this message
 
 Exit: 0 clean | 1 drift | 2 usage error | 3 root not found
@@ -65,15 +68,30 @@ EOF
 }
 
 # ---- arg parse ----
+ROOT_SUPPLIED=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --check)  MODE="check"; shift ;;
         --report) MODE="report"; shift ;;
-        --root)   ROOT="${2:-}"; shift 2 ;;
+        --summary-json) SUMMARY_JSON=1; shift ;;
+        --root)
+            [ "$#" -ge 2 ] || { echo "ERROR: --root requires an argument" >&2; exit 2; }
+            ROOT="$2"; ROOT_SUPPLIED=1; shift 2 ;;
         -h|--help) print_usage; exit 0 ;;
         *) echo "ERROR: unknown argument: $1" >&2; print_usage >&2; exit 2 ;;
     esac
 done
+
+valid_path_argument() {
+    local LC_ALL=C
+    local without_tabs="${1//$'\t'/}"
+    [[ "$without_tabs" =~ ^[^[:cntrl:]]*$ ]]
+}
+# Reject non-tab control bytes before using an explicit root as a path.
+if [ "$ROOT_SUPPLIED" -eq 1 ] && ! valid_path_argument "$ROOT"; then
+    echo "ERROR: --root contains a control character" >&2
+    exit 2
+fi
 
 # ---- resolve repo root ----
 if [ -z "$ROOT" ]; then
@@ -84,11 +102,15 @@ if [ -z "$ROOT" ]; then
     done
 fi
 if [ -z "$ROOT" ] || [ ! -f "$ROOT/AGENTS.md" ]; then
+    if [ "$SUMMARY_JSON" -eq 1 ]; then
+        printf '{"schema":"DatarimComponentCountSummary/v1","result":"INPUT_UNAVAILABLE","exit_code":3,"diagnostic_codes":["COMPONENT_ROOT_UNAVAILABLE"],"drift_count":null,"drift_count_status":"NOT_MEASURED"}\n'
+        exit 3
+    fi
     echo "ERROR: repo root not found (no AGENTS.md)" >&2
     exit 3
 fi
 
-CATEGORIES="commands agents skills templates"
+CATEGORIES=(commands agents skills templates)
 
 # Actual on-disk count for a category. Echoes an integer (0 if dir absent).
 actual_count() {  # $1=category
@@ -140,7 +162,7 @@ add_finding() { FINDINGS="${FINDINGS}${1}|${2}|${3}|${4}"$'\n'; }
 for doc in "$ROOT/AGENTS.md" "$ROOT/README.md"; do
     [ -f "$doc" ] || continue
     doc_name="$(basename "$doc")"
-    for cat in $CATEGORIES; do
+    for cat in "${CATEGORIES[@]}"; do
         actual="$(actual_count "$cat")"
         while IFS= read -r claim; do
             [ -n "$claim" ] || continue
@@ -152,6 +174,15 @@ for doc in "$ROOT/AGENTS.md" "$ROOT/README.md"; do
 done
 
 DRIFT="$(printf '%s' "$FINDINGS" | awk -F'|' 'NF>=4 {c++} END{print c+0}')"
+
+if [ "$SUMMARY_JSON" -eq 1 ]; then
+    if [ "$DRIFT" -gt 0 ]; then
+        printf '{"schema":"DatarimComponentCountSummary/v1","result":"FAIL","exit_code":1,"diagnostic_codes":["COMPONENT_COUNT_DRIFT"],"drift_count":%s,"drift_count_status":"MEASURED"}\n' "$DRIFT"
+        exit 1
+    fi
+    printf '{"schema":"DatarimComponentCountSummary/v1","result":"PASS","exit_code":0,"diagnostic_codes":[],"drift_count":0,"drift_count_status":"MEASURED"}\n'
+    exit 0
+fi
 
 if [ "$MODE" = "report" ]; then
     if [ -z "$FINDINGS" ]; then

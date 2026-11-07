@@ -20,7 +20,7 @@ Your goal is to run the post-QA hardening workflow: re-validate changes vs PRD/t
 **Context Loading**:
 - Before source reads or delegation (including direct invocation), MUST LOAD `${DATARIM_RUNTIME:?}/skills/security/SKILL.md` and apply "Sensitive source context boundary".
 - ALWAYS APPLY: `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` (Canonical acceptance/evidence loop, including direct role invocation)
-- **Acceptance responsibility:** Independently recheck the complete due case set, evidence applicability, revision/scope binding, and downstream review freshness. Route any discrepancy back for correction and repeat the gate; never infer all-green from prior verdicts or omit pending operator cases.
+- **Acceptance responsibility:** Independently recheck the complete due case set, evidence applicability, revision/scope binding, and downstream review freshness. Execute all applicable compliance gates and checklist steps (Steps 5b-6.6) exhaustively in a single pass without short-circuiting on the first failure; aggregate 100% of discrepancies into a single Consolidated Remediation Batch so rework resolves all findings in one iteration. Route any discrepancy back for correction and repeat the gate; never infer all-green from prior verdicts or omit pending operator cases.
 - APPLY: `${DATARIM_RUNTIME:?}/skills/compliance/SKILL.md` (workflow, report structure, Code Simplifier principles)
 - ALWAYS APPLY: `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` (Canonical CTA — emit at end of every `/dr-compliance` response; NON-COMPLIANT uses FAIL-Routing variant)
 - READ: project context (activeContext, tasks, PRD) when present

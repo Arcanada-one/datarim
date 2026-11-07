@@ -29,7 +29,7 @@ questions, the flag for each answer and a one-time answers token. Answer them,
 then rerun with those flags and the token
 ([INSTALL.md, Answers and flags](../../INSTALL.md#answers-and-flags)).
 
-Then, in Claude Code, run `/dr-help`. In Codex and Cursor the commands arrive
+Then, in Claude Code, run `/dr-help`. In Codex, Cursor, and Antigravity the commands arrive
 as skills named `dr-*`: ask the agent to run the `dr-help` skill.
 
 ---

@@ -32,14 +32,14 @@ Kebab-case `.md` filenames named after the task, for example
 | [`codex-cli-coworker-hooks.md`](codex-cli-coworker-hooks.md) | Wire the coworker delegation hooks into Codex CLI. |
 | [`cross-kb-evolution-digest.md`](cross-kb-evolution-digest.md) | Produce a cross-knowledge-base evolution digest. |
 | [`consume-validation-json-in-ci.md`](consume-validation-json-in-ci.md) | Consume validator JSON summaries in CI while preserving each validator's exit status. |
-| [`validate-structured-live-evidence.md`](validate-structured-live-evidence.md) | Run the structured live-evidence checker and interpret its receipts and refusals. |
+| [`validate-structured-live-evidence.md`](validate-structured-live-evidence.md) | Run the structured live-evidence checker, interpret receipts and refusals, or capture its optional maintainer/CI JSON summary. |
 | [`datarim-harness.md`](datarim-harness.md) | Run the framework's own test harness. |
 | [`dr-output-hook.md`](dr-output-hook.md) | Install and configure the `/dr-*` output hook. |
 | [`evolution-log.md`](evolution-log.md) | The append-only ledger of accepted framework evolutions. |
 | [`fleet-hook-sync.md`](fleet-hook-sync.md) | Keep fleet hooks in sync across machines. |
 | [`migrate-to-skill-md-layout.md`](migrate-to-skill-md-layout.md) | Migrate flat skills to the directory-per-skill `SKILL.md` layout. |
 | [`quick-task-evidence-and-learning.md`](quick-task-evidence-and-learning.md) | Keep quick lookups informational, establish evidence before quick-task writes, and report conditional learning and handoff states accurately. |
-| [`multi-runtime.md`](multi-runtime.md) | Run Datarim under Claude Code, Codex CLI, and Cursor. |
+| [`multi-runtime.md`](multi-runtime.md) | Run Datarim under Claude Code, Codex CLI, Cursor, and Antigravity. |
 | [`provision-release-environment.md`](provision-release-environment.md) | Prepare the environment a release is cut from. |
 | [`pypi-first-publish.md`](pypi-first-publish.md) | Publish a package to PyPI for the first time. |
 | [`recover-datarim-files.md`](recover-datarim-files.md) | Recover damaged or deleted `datarim/` state files. |

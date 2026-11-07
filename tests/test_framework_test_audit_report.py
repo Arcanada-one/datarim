@@ -108,6 +108,40 @@ class TestAuditReportTests(unittest.TestCase):
         }
         self.assertEqual(before, after)
 
+    def test_opt_in_summary_counts_selected_tests_and_linked_evidence_without_report_content(self) -> None:
+        self.write_selection(self.selection([self.entry()]))
+        result = subprocess.run(
+            [sys.executable, str(BUILDER), "--root", str(self.root), "--selection",
+             self.selection_path, "--summary-json"],
+            cwd=ROOT, capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        summary = json.loads(result.stdout)
+        self.assertEqual(summary, {
+            "schema": "DatarimTestAuditBuildSummary/v1", "result": "PASS",
+            "exit_code": 0, "diagnostic_codes": [], "selected_test_count": 1,
+            "selected_test_count_status": "MEASURED", "linked_evidence_count": 0,
+            "linked_evidence_count_status": "MEASURED",
+        })
+        self.assertNotIn(str(self.root), result.stdout)
+        self.assertEqual(result.stderr, "")
+
+    def test_opt_in_summary_refusal_is_fixed_and_counts_are_unmeasured(self) -> None:
+        self.write_selection(b"{")
+        result = subprocess.run(
+            [sys.executable, str(BUILDER), "--root", str(self.root), "--selection",
+             self.selection_path, "--summary-json"],
+            cwd=ROOT, capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(json.loads(result.stdout), {
+            "schema": "DatarimTestAuditBuildSummary/v1", "result": "FAIL",
+            "exit_code": 2, "diagnostic_codes": ["SELECTION_INVALID"],
+            "selected_test_count": None, "selected_test_count_status": "NOT_MEASURED",
+            "linked_evidence_count": None, "linked_evidence_count_status": "NOT_MEASURED",
+        })
+        self.assertEqual(result.stderr, "")
+
     def test_cited_costs_are_resolved_by_exact_json_pointer_and_raw_receipt_is_not_copied(self) -> None:
         receipt = {"runs": [{"wall_time_ms": 12.5, "flaky_attempts": 0, "private_note": "raw receipt text"}]}
         receipt_path = self.root / "audit/run.json"

@@ -3,7 +3,7 @@
 Datarim helps you turn a request into work you can check. You might ask for a
 website change, a research summary or a document. Datarim helps an AI assistant
 clarify the outcome, plan the work, carry it out and explain the evidence. It
-works inside selected projects with Claude Code, Codex and Cursor.
+works inside selected projects with Claude Code, Codex, Cursor and Antigravity.
 
 **Orchestration means coordinating the work.** Different agents take roles such
 as planning, writing and reviewing. Datarim passes context between them and

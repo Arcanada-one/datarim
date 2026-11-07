@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Prose banlist validation summary",
+  "description": "Structural contract for the fixed DatarimProseBanlistSummary/v1 result; the producer remains the source of scan behavior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "result",
+    "exit_code",
+    "diagnostic_codes",
+    "offence_count",
+    "offence_count_status"
+  ],
+  "properties": {
+    "schema": { "const": "DatarimProseBanlistSummary/v1" },
+    "result": { "enum": ["CLEAN", "OFFENCES", "NOT_APPLICABLE", "INPUT_UNAVAILABLE"] },
+    "exit_code": { "type": "integer", "enum": [0, 1] },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "PROSE_BANLIST_MATCH",
+          "LANGUAGE_NOT_APPLICABLE",
+          "PROSE_BANLIST_UNAVAILABLE",
+          "PROSE_WHITELIST_UNAVAILABLE"
+        ]
+      },
+      "maxItems": 1,
+      "uniqueItems": true
+    },
+    "offence_count": { "type": ["integer", "null"], "minimum": 0 },
+    "offence_count_status": { "enum": ["MEASURED", "NOT_MEASURED"] }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "result": { "const": "CLEAN" },
+        "exit_code": { "const": 0 },
+        "diagnostic_codes": { "const": [] },
+        "offence_count": { "const": 0 },
+        "offence_count_status": { "const": "MEASURED" }
+      }
+    },
+    {
+      "properties": {
+        "result": { "const": "OFFENCES" },
+        "exit_code": { "const": 1 },
+        "diagnostic_codes": { "const": ["PROSE_BANLIST_MATCH"] },
+        "offence_count": { "type": "integer", "minimum": 1 },
+        "offence_count_status": { "const": "MEASURED" }
+      }
+    },
+    {
+      "properties": {
+        "result": { "const": "NOT_APPLICABLE" },
+        "exit_code": { "const": 0 },
+        "diagnostic_codes": { "const": ["LANGUAGE_NOT_APPLICABLE"] },
+        "offence_count": { "const": null },
+        "offence_count_status": { "const": "NOT_MEASURED" }
+      }
+    },
+    {
+      "properties": {
+        "result": { "const": "INPUT_UNAVAILABLE" },
+        "exit_code": { "const": 1 },
+        "diagnostic_codes": {
+          "oneOf": [
+            { "const": ["PROSE_BANLIST_UNAVAILABLE"] },
+            { "const": ["PROSE_WHITELIST_UNAVAILABLE"] }
+          ]
+        },
+        "offence_count": { "const": null },
+        "offence_count_status": { "const": "NOT_MEASURED" }
+      }
+    }
+  ]
+}
