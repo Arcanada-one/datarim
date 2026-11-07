@@ -8,6 +8,6 @@ no_claim: "<what a green result does not prove>"
 
 # Test value card
 
-Write one card before adding or proposing a regression test. Keep each field at or below 160 UTF-8 bytes. `fails_when` must name a concrete causal trigger and the failing test, assertion, fixture, or command. Use `seam: none` unless an existing production seam is necessary; a named seam must include its production caller and why the test needs it. A seam introduced only to make a test possible is not allowed.
+Write one card before adding or proposing a regression test. Keep each field at or below 160 UTF-8 bytes. `fails_when` must name a concrete causal trigger and the failing test, assertion, fixture, or command, and that failure must be demonstrable as red against the unrepaired source before the repair. Use `seam: none` unless an existing production seam is necessary; a named seam must include its production caller and why the test needs it. A seam introduced only to make a test possible is not allowed. If reproduction finds no defect, or existing coverage already catches the case, do not open a new card.
 
-The card explains test value; it does not prove that a test was run or that its behavior is accepted in production. Record red-before-fix and recheck evidence separately under the applicable testing workflow.
+The card explains test value; it does not prove that a test was run or that its behavior is accepted in production. Record red-before-fix and recheck evidence separately under the applicable testing workflow. Removing a test remains a separate reviewed PR with a rollback path; cards and validators never remove tests automatically.
