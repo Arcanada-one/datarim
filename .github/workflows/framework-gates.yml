@@ -182,8 +182,13 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
+          # ARC-CI-09: pip cache keyed by the pinned requirements file. Trust
+          # scope remains GitHub's branch/PR cache isolation; do not add
+          # restore-keys that pull default-branch caches into fork PRs.
+          cache: pip
+          cache-dependency-path: tests/ci-requirements/framework-gates-human-reporting.txt
       - name: Install pinned test dependencies
-        run: python3 -m pip install pytest==8.3.5 pyyaml==6.0.2 jsonschema==4.23.0
+        run: python3 -m pip install -r tests/ci-requirements/framework-gates-human-reporting.txt
       - name: Verify reporting and host installer contracts
         run: |
           python3 -m pytest -q tests/test_human_reporting*.py tests/test_language_preferences.py tests/test_language_framework.py
@@ -202,8 +207,10 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tests/ci-requirements/framework-gates-test-value-card.txt
       - name: Install validator dependency
-        run: python3 -m pip install pyyaml==6.0.2
+        run: python3 -m pip install -r tests/ci-requirements/framework-gates-test-value-card.txt
       - name: Install bats-core
         run: |
           sudo apt-get update -qq

@@ -1,0 +1,343 @@
+{
+  "schema": "CiFeedbackReceipt/v1",
+  "measured_at": "2026-11-08T01:00:30Z",
+  "sample_size": 10,
+  "min_sample": 10,
+  "feedback_time_s": {
+    "p50": 430.5,
+    "p95": 570.0
+  },
+  "queue_time_s": {
+    "p50": 173.0,
+    "p95": 326.5,
+    "note": "created_at->started_at across jobs; capacity vs needs vs scheduling are not separated further here"
+  },
+  "run_time_s": {
+    "p50": 36.0,
+    "p95": 235.0
+  },
+  "runner_seconds_per_successful_check": {
+    "p50": 5589.0,
+    "p95": 5802.0
+  },
+  "setup_python_job_seconds": {
+    "p50": 0.0,
+    "p95": 1.0
+  },
+  "customer_delivery_linux": {
+    "jobs_p50": 100.0,
+    "queue_p50_s": 198.5,
+    "run_p50_s": 36.0,
+    "peak_concurrency_p50": 17.0
+  },
+  "bats_shards": {
+    "count": 8,
+    "longest_median_ratio_p50": 1.634,
+    "experiment_target_longest_median_ratio": 1.5
+  },
+  "measured_slots": {
+    "customer_delivery_linux_peak_concurrency_p50": 17.0,
+    "all_jobs_peak_concurrency_p50": 19.0,
+    "proposed_microjob_group_size": 5,
+    "formula": "min(ceil(logical_jobs/slots), floor(180/median_run_s))"
+  },
+  "runs": [
+    {
+      "run_id": 42430450816,
+      "job_count": 33,
+      "feedback_s": 331.0,
+      "queue_p50_s": 31.0,
+      "queue_p95_s": 160.0,
+      "run_p50_s": 87.0,
+      "run_p95_s": 210.0,
+      "runner_seconds": 3663.0,
+      "setup_python_job_seconds": 0.0,
+      "setup_python_steps": 2,
+      "customer_delivery_linux_n": 20,
+      "customer_delivery_linux_queue_p50_s": 66.5,
+      "customer_delivery_linux_run_p50_s": 81.0,
+      "shard_runs_s": [
+        181.0,
+        210.0,
+        189.0,
+        160.0,
+        204.0,
+        180.0,
+        212.0,
+        201.0
+      ],
+      "shard_longest_median_ratio": 1.087,
+      "peak_concurrency": 19,
+      "customer_delivery_linux_peak_concurrency": 12
+    },
+    {
+      "run_id": 42429415706,
+      "job_count": 113,
+      "feedback_s": 434.0,
+      "queue_p50_s": 211.0,
+      "queue_p95_s": 341.0,
+      "run_p50_s": 35.0,
+      "run_p95_s": 149.0,
+      "runner_seconds": 5621.0,
+      "setup_python_job_seconds": 0.0,
+      "setup_python_steps": 2,
+      "customer_delivery_linux_n": 100,
+      "customer_delivery_linux_queue_p50_s": 217.5,
+      "customer_delivery_linux_run_p50_s": 34.0,
+      "shard_runs_s": [
+        119.0,
+        162.0,
+        149.0,
+        338.0,
+        251.0,
+        190.0,
+        188.0,
+        178.0
+      ],
+      "shard_longest_median_ratio": 1.847,
+      "peak_concurrency": 17,
+      "customer_delivery_linux_peak_concurrency": 16
+    },
+    {
+      "run_id": 42428323275,
+      "job_count": 33,
+      "feedback_s": 425.0,
+      "queue_p50_s": 29.0,
+      "queue_p95_s": 125.0,
+      "run_p50_s": 97.0,
+      "run_p95_s": 212.0,
+      "runner_seconds": 3755.0,
+      "setup_python_job_seconds": 0.0,
+      "setup_python_steps": 2,
+      "customer_delivery_linux_n": 20,
+      "customer_delivery_linux_queue_p50_s": 45.0,
+      "customer_delivery_linux_run_p50_s": 85.5,
+      "shard_runs_s": [
+        185.0,
+        205.0,
+        166.0,
+        209.0,
+        205.0,
+        204.0,
+        220.0,
+        201.0
+      ],
+      "shard_longest_median_ratio": 1.076,
+      "peak_concurrency": 19,
+      "customer_delivery_linux_peak_concurrency": 12
+    },
+    {
+      "run_id": 42427763990,
+      "job_count": 113,
+      "feedback_s": 427.0,
+      "queue_p50_s": 218.0,
+      "queue_p95_s": 346.0,
+      "run_p50_s": 36.0,
+      "run_p95_s": 143.0,
+      "runner_seconds": 5797.0,
+      "setup_python_job_seconds": 0.0,
+      "setup_python_steps": 2,
+      "customer_delivery_linux_n": 100,
+      "customer_delivery_linux_queue_p50_s": 230.0,
+      "customer_delivery_linux_run_p50_s": 36.0,
+      "shard_runs_s": [
+        193.0,
+        160.0,
+        175.0,
+        143.0,
+        117.0,
+        192.0,
+        264.0,
+        290.0
+      ],
+      "shard_longest_median_ratio": 1.58,
+      "peak_concurrency": 19,
+      "customer_delivery_linux_peak_concurrency": 18
+    },
+    {
+      "run_id": 42426870708,
+      "job_count": 33,
+      "feedback_s": 436.0,
+      "queue_p50_s": 19.0,
+      "queue_p95_s": 101.0,
+      "run_p50_s": 93.0,
+      "run_p95_s": 235.0,
+      "runner_seconds": 3947.0,
+      "setup_python_job_seconds": 0.0,
+      "setup_python_steps": 2,
+      "customer_delivery_linux_n": 20,
+      "customer_delivery_linux_queue_p50_s": 31.0,
+      "customer_delivery_linux_run_p50_s": 89.0,
+      "shard_runs_s": [
+        235.0,
+        188.0,
+        174.0,
+        205.0,
+        200.0,
+        200.0,
+        214.0,
+        151.0
+      ],
+      "shard_longest_median_ratio": 1.175,
+      "peak_concurrency": 20,
+      "customer_delivery_linux_peak_concurrency": 14
+    },
+    {
+      "run_id": 42423807029,
+      "job_count": 113,
+      "feedback_s": 423.0,
+      "queue_p50_s": 177.0,
+      "queue_p95_s": 334.0,
+      "run_p50_s": 36.0,
+      "run_p95_s": 138.0,
+      "runner_seconds": 5797.0,
+      "setup_python_job_seconds": 0.0,
+      "setup_python_steps": 2,
+      "customer_delivery_linux_n": 100,
+      "customer_delivery_linux_queue_p50_s": 201.0,
+      "customer_delivery_linux_run_p50_s": 35.5,
+      "shard_runs_s": [
+        223.0,
+        145.0,
+        196.0,
+        186.0,
+        237.0,
+        138.0,
+        299.0,
+        133.0
+      ],
+      "shard_longest_median_ratio": 1.565,
+      "peak_concurrency": 19,
+      "customer_delivery_linux_peak_concurrency": 18
+    },
+    {
+      "run_id": 42422008124,
+      "job_count": 113,
+      "feedback_s": 452.0,
+      "queue_p50_s": 178.0,
+      "queue_p95_s": 319.0,
+      "run_p50_s": 34.0,
+      "run_p95_s": 138.0,
+      "runner_seconds": 5802.0,
+      "setup_python_job_seconds": 0.0,
+      "setup_python_steps": 2,
+      "customer_delivery_linux_n": 100,
+      "customer_delivery_linux_queue_p50_s": 196.0,
+      "customer_delivery_linux_run_p50_s": 34.0,
+      "shard_runs_s": [
+        138.0,
+        239.0,
+        265.0,
+        164.0,
+        161.0,
+        393.0,
+        126.0,
+        183.0
+      ],
+      "shard_longest_median_ratio": 2.265,
+      "peak_concurrency": 19,
+      "customer_delivery_linux_peak_concurrency": 18
+    },
+    {
+      "run_id": 42421626963,
+      "job_count": 113,
+      "feedback_s": 413.0,
+      "queue_p50_s": 167.0,
+      "queue_p95_s": 287.0,
+      "run_p50_s": 35.0,
+      "run_p95_s": 139.0,
+      "runner_seconds": 5397.0,
+      "setup_python_job_seconds": 0.0,
+      "setup_python_steps": 2,
+      "customer_delivery_linux_n": 100,
+      "customer_delivery_linux_queue_p50_s": 178.0,
+      "customer_delivery_linux_run_p50_s": 34.0,
+      "shard_runs_s": [
+        187.0,
+        154.0,
+        115.0,
+        251.0,
+        139.0,
+        143.0,
+        285.0,
+        159.0
+      ],
+      "shard_longest_median_ratio": 1.821,
+      "peak_concurrency": 19,
+      "customer_delivery_linux_peak_concurrency": 18
+    },
+    {
+      "run_id": 42412876929,
+      "job_count": 113,
+      "feedback_s": 540.0,
+      "queue_p50_s": 303.0,
+      "queue_p95_s": 449.0,
+      "run_p50_s": 36.0,
+      "run_p95_s": 159.0,
+      "runner_seconds": 5719.0,
+      "setup_python_job_seconds": 1.0,
+      "setup_python_steps": 2,
+      "customer_delivery_linux_n": 100,
+      "customer_delivery_linux_queue_p50_s": 350.0,
+      "customer_delivery_linux_run_p50_s": 36.0,
+      "shard_runs_s": [
+        264.0,
+        337.0,
+        169.0,
+        160.0,
+        135.0,
+        186.0,
+        159.0,
+        159.0
+      ],
+      "shard_longest_median_ratio": 2.049,
+      "peak_concurrency": 20,
+      "customer_delivery_linux_peak_concurrency": 20
+    },
+    {
+      "run_id": 42412706731,
+      "job_count": 113,
+      "feedback_s": 570.0,
+      "queue_p50_s": 169.0,
+      "queue_p95_s": 481.0,
+      "run_p50_s": 36.0,
+      "run_p95_s": 130.0,
+      "runner_seconds": 5557.0,
+      "setup_python_job_seconds": 0.0,
+      "setup_python_steps": 2,
+      "customer_delivery_linux_n": 100,
+      "customer_delivery_linux_queue_p50_s": 211.5,
+      "customer_delivery_linux_run_p50_s": 36.0,
+      "shard_runs_s": [
+        242.0,
+        275.0,
+        129.0,
+        203.0,
+        170.0,
+        141.0,
+        130.0,
+        156.0
+      ],
+      "shard_longest_median_ratio": 1.687,
+      "peak_concurrency": 20,
+      "customer_delivery_linux_peak_concurrency": 12
+    }
+  ],
+  "claims": {
+    "percentage_speedup_from_single_run": false,
+    "runtime_authorized": false,
+    "KC2": "NOT_MEASURED"
+  },
+  "pilot": {
+    "task": "229fbc45-3112-4899-b150-894ec9644c59",
+    "cards": [
+      "ARC-CI-07",
+      "ARC-CI-09",
+      "ARC-CI-10",
+      "ARC-CI-11",
+      "ARC-CI-12"
+    ],
+    "phase": "before",
+    "note": "Remeasured on tip after ARC-CI batch1 merge (#606 / 22371f7f) with the same measure-ci-feedback.py script."
+  }
+}

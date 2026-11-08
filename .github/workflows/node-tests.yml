@@ -18,7 +18,25 @@ name: node-tests
 on:
   push:
     branches: [main]
+    # ARC-CI-07: path filter on a non-required workflow only. Required contexts
+    # (bats shards, security jobs, version consistency) keep unfiltered triggers.
+    paths:
+      - '**/*.mjs'
+      - '**/*.js'
+      - '**/*.cjs'
+      - '**/package.json'
+      - '**/package-lock.json'
+      - '**/pnpm-lock.yaml'
+      - '.github/workflows/node-tests.yml'
   pull_request:
+    paths:
+      - '**/*.mjs'
+      - '**/*.js'
+      - '**/*.cjs'
+      - '**/package.json'
+      - '**/package-lock.json'
+      - '**/pnpm-lock.yaml'
+      - '.github/workflows/node-tests.yml'
   workflow_dispatch:
 
 permissions:
@@ -47,6 +65,9 @@ jobs:
           # Same major as reusable-security-audit.yml. The suites use
           # node:module registerHooks, which needs Node >= 22.15.
           node-version: '24'
+          # ARC-CI-09: Node tool cache only (no package manager install here).
+          # Trust scope: Actions cache is branch/PR-scoped; forks cannot write
+          # the default-branch cache used by privileged main runs.
 
       - name: Run every discovered node test suite
         env:
