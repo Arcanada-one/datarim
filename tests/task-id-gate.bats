@@ -382,8 +382,13 @@ assert_hatch_fails() {
 
 @test "C1: security workflow invokes every governed target" {
     local target
+    local workflow="$REPO_ROOT/.github/workflows/security.yml"
+    local helper="$REPO_ROOT/.github/scripts/workflow/security-task-id-gate-02-self-dogfood-gate-against-governed-scopes-full-t.sh"
+    run grep -F "bash .github/scripts/workflow/security-task-id-gate-02-self-dogfood-gate-against-governed-scopes-full-t.sh" "$workflow"
+    [ "$status" -eq 0 ]
+    [ -f "$helper" ]
     for target in skills agents commands templates documentation/how-to documentation/reference documentation/explanation documentation/tutorials AGENTS.md README.md; do
-        run grep -F "$target" "$REPO_ROOT/.github/workflows/security.yml"
+        run grep -F "$target" "$helper"
         [ "$status" -eq 0 ]
     done
 }

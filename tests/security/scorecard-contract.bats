@@ -45,7 +45,9 @@ PY
   run python3 - <<'PY'
 from pathlib import Path
 bad = []
-for path in Path('.github/workflows').glob('*.yml'):
+paths = list(Path('.github/workflows').glob('*.yml'))
+paths += list(Path('.github/scripts/workflow').glob('*.sh'))
+for path in paths:
     for number, line in enumerate(path.read_text().splitlines(), 1):
         if ('pip install' in line or 'pipx install' in line) and '==' not in line and '--require-hashes' not in line:
             bad.append(f'{path}:{number}:{line.strip()}')
@@ -80,6 +82,10 @@ PY
 @test "release authority is trusted main plus one SSH-signed annotated tag" {
   cd "$REPO_ROOT"
   workflow=.github/workflows/release.yml
+  classify_helper=.github/scripts/workflow/release-classify-01-authenticate-signed-tag-on-protected-main-and-cl.sh
+  validate_helper=.github/scripts/workflow/release-release-01-validate-tag-format.sh
+  surface="$BATS_TEST_TMPDIR/release-surface.txt"
+  cat "$workflow" .github/scripts/workflow/release-*.sh >"$surface"
   verifier=dev-tools/verify-release-tag.sh
   grep -F 'workflow_dispatch:' "$workflow"
   grep -F 'release_tag:' "$workflow"
@@ -89,14 +95,15 @@ PY
   grep -F 'verify-tag "$ref"' "$verifier"
   grep -F '[[ "$(git -C "$repo" cat-file -t "$ref")" == tag ]]' "$verifier"
   grep -F 'merge-base --is-ancestor "$fetched_sha" "$main_sha"' "$verifier"
-  grep -F 'dev-tools/verify-release-tag.sh classify' "$workflow"
-  grep -F 'git tag --merged "${release_sha}^" --list' "$workflow"
-  grep -F 'classification_sha="$release_sha"' "$workflow"
-  grep -F -- '--from "$previous_tag" --to "$classification_sha"' "$workflow"
-  grep -F 'python3 dev-tools/check-history-bootstrap.py --repo . --mode release' "$workflow"
-  grep -F -- '--source-sha "$source_sha" --release-sha "$release_sha" --tree-sha "$tree_sha"' "$workflow"
-  grep -F 'classification_sha="$source_sha"' "$workflow"
-  ! grep -F -- '--from v2.67.1' "$workflow"
+  grep -F 'bash .github/scripts/workflow/release-classify-01-authenticate-signed-tag-on-protected-main-and-cl.sh' "$workflow"
+  grep -F 'dev-tools/verify-release-tag.sh classify' "$classify_helper"
+  grep -F 'git tag --merged "${release_sha}^" --list' "$classify_helper"
+  grep -F 'classification_sha="$release_sha"' "$classify_helper"
+  grep -F -- '--from "$previous_tag" --to "$classification_sha"' "$classify_helper"
+  grep -F 'python3 dev-tools/check-history-bootstrap.py --repo . --mode release' "$classify_helper"
+  grep -F -- '--source-sha "$source_sha" --release-sha "$release_sha" --tree-sha "$tree_sha"' "$classify_helper"
+  grep -F 'classification_sha="$source_sha"' "$classify_helper"
+  ! grep -F -- '--from v2.67.1' "$surface"
   grep -F 'ref: ${{ needs.classify.outputs.release_sha }}' "$workflow"
   [ "$(wc -l < .github/ssh-signing-allowed-signers)" -eq 1 ]
   grep -E '^Arcanada ssh-ed25519 [A-Za-z0-9+/=]+$' .github/ssh-signing-allowed-signers
@@ -104,16 +111,20 @@ PY
 from pathlib import Path
 import yaml
 workflow = yaml.safe_load(Path('.github/workflows/release.yml').read_text())
+classify_helper = Path('.github/scripts/workflow/release-classify-01-authenticate-signed-tag-on-protected-main-and-cl.sh').read_text()
+validate_helper = Path('.github/scripts/workflow/release-release-01-validate-tag-format.sh').read_text()
 classify = workflow['jobs']['classify']
 assert classify['outputs']['root_release'] == '${{ steps.read.outputs.root_release }}'
 read = next(step for step in classify['steps'] if step.get('id') == 'read')
-assert 'root_release=false' in read['run'] and 'root_release=true' in read['run']
-assert 'echo "root_release=${root_release}"' in read['run']
+assert 'release-classify-01-authenticate-signed-tag-on-protected-main-and-cl.sh' in read['run']
+assert 'root_release=false' in classify_helper and 'root_release=true' in classify_helper
+assert 'echo "root_release=${root_release}"' in classify_helper
 release = workflow['jobs']['release']
 validate = next(step for step in release['steps'] if step.get('name') == 'Validate tag format')
 assert validate['env']['RELEASE_TAG'] == '${{ needs.classify.outputs.release_tag }}'
-assert 'tag="$RELEASE_TAG"' in validate['run']
-assert 'echo "TAG=$tag"' in validate['run'] and '"$GITHUB_ENV"' in validate['run']
+assert 'release-release-01-validate-tag-format.sh' in validate['run']
+assert 'tag="$RELEASE_TAG"' in validate_helper
+assert 'echo "TAG=$tag"' in validate_helper and '"$GITHUB_ENV"' in validate_helper
 publish = next(step for step in release['steps'] if step.get('name') == 'Publish GitHub Release')['with']
 assert publish['tag_name'] == '${{ env.TAG }}'
 assert publish['generate_release_notes'] == "${{ needs.classify.outputs.root_release != 'true' }}"
