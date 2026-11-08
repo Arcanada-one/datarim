@@ -35,7 +35,12 @@ jobs:
     # repo advertising a version with no tag, no release workflow, no artefacts.
     # Runs ONLY on the main-push event — on a release PR the bumped VERSION
     # legitimately precedes the tag, so a pull_request run would always fail.
-    # --wait-seconds tolerates the normal merge→tag window before going red.
+    #
+    # ARC-CI-05: do NOT sleep on the runner for tag arrival. A durable release
+    # intent (.datarim/release-intent.json) covers the merge→tag window; the
+    # release-tag-reconcile workflow verifies the tag off-runner (schedule /
+    # tag push / workflow_dispatch). GITHUB_TOKEN-created tags do not trigger
+    # workflows, so schedule remains required.
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
@@ -44,8 +49,8 @@ jobs:
           fetch-depth: 0 # prove pinned preparation ancestry; roots never defer
           persist-credentials: false
 
-      - name: VERSION ↔ remote tag parity (waits up to 15 min for the tag)
-        run: bash dev-tools/check-version-tag-parity.sh --check --wait-seconds 900 --report
+      - name: VERSION ↔ remote tag parity (intent-aware; no runner wait)
+        run: bash dev-tools/check-version-tag-parity.sh --check --allow-pending-intent --report
 
   component-counts:
     name: component counts vs disk (blocking)

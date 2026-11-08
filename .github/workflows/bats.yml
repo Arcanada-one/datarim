@@ -121,8 +121,11 @@ jobs:
         id: customer_delivery_matrix
         run: |
           set -euo pipefail
-          echo "linux=$(/usr/bin/python3 tests/run-customer-delivery-shard.py --matrix linux)" >> "$GITHUB_OUTPUT"
-          echo "macos=$(/usr/bin/python3 tests/run-customer-delivery-shard.py --matrix macos)" >> "$GITHUB_OUTPUT"
+          # Batched runner jobs: group size comes from tests/ci-slot-baseline.json
+          # (measured peak concurrency), not a fixed workflow constant. Flat
+          # logical inventory for --check-results is unchanged.
+          echo "linux=$(/usr/bin/python3 tests/run-customer-delivery-shard.py --matrix-jobs linux)" >> "$GITHUB_OUTPUT"
+          echo "macos=$(/usr/bin/python3 tests/run-customer-delivery-shard.py --matrix-jobs macos)" >> "$GITHUB_OUTPUT"
 
       - name: Publish suite inventory
         run: |
@@ -176,7 +179,7 @@ jobs:
         run: CUSTOMER_CI_PYTHON="$RUNNER_TEMP/discovery-venv/bin/python" bash tests/run-bats-discovery.sh --shard ${{ matrix.shard }}/8
 
   customer-delivery-linux:
-    name: customer delivery ${{ matrix.suite }} ${{ matrix.shard }} (Linux)
+    name: customer delivery group ${{ matrix.group }} (Linux)
     needs: registry
     runs-on: ubuntu-latest
     strategy:
@@ -207,18 +210,22 @@ jobs:
       - name: Verify trusted Python launcher runtime and dependencies
         run: bash tests/check-customer-delivery-python-runtime.sh "$RUNNER_TEMP/customer-delivery-venv/bin/python"
 
-      - name: Run bounded exact shard
-        timeout-minutes: 2
+      - name: Run bounded exact shard group
+        timeout-minutes: 12
+        env:
+          GROUP_MEMBERS: ${{ toJSON(matrix.members) }}
         run: |
           set -euo pipefail
           result_dir="$RUNNER_TEMP/customer-delivery-result"
-          shard="${{ matrix.shard }}"
           mkdir -p "$result_dir"
+          # Each logical shard keeps its own timeout and result JSON. A partial
+          # failure still records siblings; the aggregate fails on any missing
+          # required logical result.
           /usr/bin/python3 tests/run-customer-delivery-shard.py \
-            --suite "${{ matrix.suite }}" --shard "${{ matrix.shard }}" \
+            --group-members "$GROUP_MEMBERS" \
             --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python" \
             --platform linux \
-            --result-file "$result_dir/${{ matrix.suite }}-${shard//\//-}.json"
+            --result-dir "$result_dir"
 
       - name: Upload exact shard result
         if: always()
@@ -313,7 +320,7 @@ jobs:
 
   customer-delivery-macos:
     if: github.event_name == 'workflow_dispatch' && inputs.run_hosted_macos
-    name: customer delivery ${{ matrix.suite }} ${{ matrix.shard }} (macOS)
+    name: customer delivery group ${{ matrix.group }} (macOS)
     needs: registry
     runs-on: macos-latest
     strategy:
@@ -351,21 +358,21 @@ jobs:
       - name: Verify trusted Python launcher runtime and dependencies
         run: bash tests/check-customer-delivery-python-runtime.sh "$RUNNER_TEMP/customer-delivery-venv/bin/python"
 
-      - name: Run bounded exact shard
-        timeout-minutes: 2
+      - name: Run bounded exact shard group
+        timeout-minutes: 12
         env:
           DEVELOPER_DIR: /Library/Developer/CommandLineTools
+          GROUP_MEMBERS: ${{ toJSON(matrix.members) }}
         run: |
           set -euo pipefail
           result_dir="$RUNNER_TEMP/customer-delivery-result"
-          shard="${{ matrix.shard }}"
           mkdir -p "$result_dir"
           /usr/bin/python3 tests/run-customer-delivery-shard.py \
-            --suite "${{ matrix.suite }}" --shard "${{ matrix.shard }}" \
+            --group-members "$GROUP_MEMBERS" \
             --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python" \
             --test-python-bin "$GITHUB_WORKSPACE/tests/customer-delivery-test-python.sh" \
             --platform macos \
-            --result-file "$result_dir/${{ matrix.suite }}-${shard//\//-}.json"
+            --result-dir "$result_dir"
 
       - name: Upload exact shard result
         if: always()

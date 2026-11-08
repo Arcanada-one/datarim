@@ -21,9 +21,12 @@
 #
 #   --list             print the discovered (non-excluded) suite paths, one per
 #                      line, sorted; exit 0.
-#   --shard N/M        run only shard N of M (1-based). Round-robin over the
-#                      sorted suite list, so shards stay balanced as suites are
-#                      added.
+#   --shard N/M        run only shard N of M (1-based). When
+#                      tests/bats-suite-durations.tsv is present, suites are
+#                      packed by measured duration (LPT) so longest/median stays
+#                      near 1.0 while M remains 8 for the required-check names.
+#                      Without durations, assignment falls back to round-robin
+#                      over the sorted suite list.
 #   --check-registry   validate the exclusion registry: every entry must have a
 #                      path that exists on disk, plus non-empty reason / owner /
 #                      follow_up / added fields. Exits 1 on drift (a stale
@@ -267,14 +270,32 @@ if [ "${#ALL_SUITES[@]}" -eq 0 ]; then
     exit 2
 fi
 
+DURATIONS_FILE="${ROOT}/tests/bats-suite-durations.tsv"
+ASSIGNER="${ROOT}/tests/assign-bats-shards.py"
+ASSIGNMENT_MODE="round-robin"
 SUITES=()
-for i in "${!ALL_SUITES[@]}"; do
-    if [ $(( i % SHARD_M + 1 )) -eq "$SHARD_N" ]; then
-        SUITES+=("${ALL_SUITES[$i]}")
-    fi
-done
+if [ -f "$DURATIONS_FILE" ] && [ -f "$ASSIGNER" ]; then
+    ASSIGNMENT_MODE="duration-lpt"
+    list_file="$(mktemp "${TMPDIR:-/tmp}/bats-discover.XXXXXX")"
+    printf '%s\n' "${ALL_SUITES[@]}" >"$list_file"
+    # shellcheck disable=SC2064
+    trap 'rm -f "$list_file"' EXIT
+    mapfile -t SUITES < <(
+        /usr/bin/python3 "$ASSIGNER" \
+            --shard "${SHARD_N}/${SHARD_M}" \
+            --durations "$DURATIONS_FILE" \
+            --list-file "$list_file" \
+            --report
+    )
+else
+    for i in "${!ALL_SUITES[@]}"; do
+        if [ $(( i % SHARD_M + 1 )) -eq "$SHARD_N" ]; then
+            SUITES+=("${ALL_SUITES[$i]}")
+        fi
+    done
+fi
 
-echo "discovery: ${#ALL_SUITES[@]} suite(s) total, ${#SUITES[@]} in shard ${SHARD_N}/${SHARD_M}"
+echo "discovery: ${#ALL_SUITES[@]} suite(s) total, ${#SUITES[@]} in shard ${SHARD_N}/${SHARD_M} (assignment=${ASSIGNMENT_MODE})"
 echo "excluded : ${#EXCLUDED_PATHS[@]} suite(s) per ${REGISTRY#"${ROOT}"/}"
 echo "managed  : 3 suite(s) via tests/customer-delivery-shards.tsv"
 echo

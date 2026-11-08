@@ -1,0 +1,35 @@
+{
+  "schema": "RequiredCheckContexts/v1",
+  "repository": "Arcanada-one/datarim",
+  "branch": "main",
+  "measured_at": "2026-11-07T23:31:00Z",
+  "source": "GET /repos/Arcanada-one/datarim/branches/main/protection/required_status_checks",
+  "strict": true,
+  "contexts": [
+    "shellcheck",
+    "gitleaks",
+    "bandit",
+    "osv-scanner",
+    "trufflehog",
+    "diff-mirrored-scopes",
+    "Semgrep OSS",
+    "CodeQL",
+    "regression-bats",
+    "shard 1/8",
+    "shard 2/8",
+    "shard 3/8",
+    "shard 4/8",
+    "shard 5/8",
+    "shard 6/8",
+    "shard 7/8",
+    "shard 8/8",
+    "task-id-gate",
+    "version consistency (blocking)"
+  ],
+  "rules": [
+    "Every required context must still report a conclusion for every pull_request event on this repository.",
+    "A skipped job must never mask a missing required result.",
+    "Jobs whose suites inspect git ancestry keep fetch-depth: 0.",
+    "ARC-CI changes must not rename or remove these 19 contexts without an explicit protection update."
+  ]
+}
