@@ -1554,14 +1554,25 @@ assert_post_popen_signal_cleanup() {
     elapsed="$(<"$elapsed_marker")"
     marker_hex="$("$PYTHON" -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_bytes().hex())' "$elapsed_marker")" \
         || return 1
-    "$PYTHON" -c 'import re,sys; raw=sys.argv[1]; assert re.fullmatch(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?", raw, re.ASCII); assert 0 < float(raw) < 4' "$elapsed" \
+    # Attribute missed deadline/signal outcome before the alarm-path elapsed
+    # ceiling. A skipped-SIGALRM mutant can finish a full validation whose
+    # elapsed exceeds 4s; emitting elapsed_invalid first made mutation shard
+    # 48/49 flake on macOS (job 107237379973) because the outer harness only
+    # accepts post_popen_signal_failure=<callsite> as the kill marker.
+    if ! { [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
+        && [ -s "$pid_file" ]; }; then
+        printf 'post_popen_signal_failure=%s status=%s elapsed=%s output=%s\n' \
+            "$callsite" "$status" "$elapsed" "$output"
+        return 1
+    fi
+    # Elapsed is wall time from validator import to terminal write, not from the
+    # post-Popen SIGALRM injection. source_history does substantial pre-popen
+    # work, so a 4s ceiling raced on loaded macOS/Linux hosts even when the
+    # deadline kill itself was correct. Keep a tight but load-tolerant bound.
+    "$PYTHON" -c 'import re,sys; raw=sys.argv[1]; assert re.fullmatch(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?", raw, re.ASCII); assert 0 < float(raw) < 12' "$elapsed" \
         || { printf 'post_popen_elapsed_invalid=%s marker_hex=%s status=%s output=%s\n' \
             "$callsite" "$marker_hex" "$status" "$output"; return 1; }
-    [ "$status" -eq 2 ] \
-        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
-        && [ -s "$pid_file" ] \
-        || { printf 'post_popen_signal_failure=%s status=%s elapsed=%s output=%s\n' \
-            "$callsite" "$status" "$elapsed" "$output"; return 1; }
     child_pid="$(<"$pid_file")"
     for attempt in {1..10}; do
         if ! kill -0 "$child_pid" 2>/dev/null; then
