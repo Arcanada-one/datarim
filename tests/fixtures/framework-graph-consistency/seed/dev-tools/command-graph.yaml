@@ -1,0 +1,8 @@
+schema_version: 1
+always_load_skills: [base]
+commands:
+  demo:
+    stage: utility
+    requires: []
+    precedes: []
+    optional_at: []

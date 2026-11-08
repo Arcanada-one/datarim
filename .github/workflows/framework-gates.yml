@@ -151,22 +151,12 @@ jobs:
       # to catch. Direction A over the workspace archives runs in the workspace,
       # and as a pre-archive step in /dr-archive.
       - name: Run the archive-landing verifier's own regression suite
-        run: |
-          if ! command -v bats >/dev/null 2>&1; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq bats
-          fi
-          bats dev-tools/tests/check-archive-landing.bats
-
+        run: bash .github/scripts/workflow/framework-gates-archive-landing-01-run-the-archive-landing-verifier-s-own-regressio.sh
       - name: Verifier is self-consistent (usage + refusal paths)
         # `shell: bash -e` aborts on the first non-zero command, and these probes
         # EXPECT non-zero — so the exit code must be captured inside a construct
         # that -e tolerates, or the step dies before asserting anything.
-        run: |
-          rc=0; bash dev-tools/check-archive-landing.sh --direction sideways || rc=$?
-          [ "$rc" -eq 2 ] || { echo "expected usage error 2, got $rc"; exit 1; }
-          rc=0; bash dev-tools/check-archive-landing.sh --ref no/such/ref --direction a || rc=$?
-          [ "$rc" -eq 3 ] || { echo "expected refusal 3, got $rc"; exit 1; }
-
+        run: bash .github/scripts/workflow/framework-gates-archive-landing-02-verifier-is-self-consistent-usage-refusal-paths.sh
   human-reporting:
     name: Human reporting contracts and portable installation
     runs-on: ubuntu-latest
@@ -178,15 +168,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install pinned test dependencies
-        run: python3 -m pip install pytest==8.3.5 pyyaml==6.0.2 jsonschema==4.23.0
+        run: bash .github/scripts/workflow/framework-gates-human-reporting-01-install-pinned-test-dependencies.sh
       - name: Verify reporting and host installer contracts
-        run: |
-          python3 -m pytest -q tests/test_human_reporting*.py tests/test_language_preferences.py tests/test_language_framework.py
-          python3 -m unittest discover -s skills/human-outcome-reporting/tests -v
-          python3 -m unittest discover -s tests -p 'test_framework_*.py' -v
-          python3 dev-tools/framework-graph.py --check
-          python3 dev-tools/check-template-targets.py
-
+        run: bash .github/scripts/workflow/framework-gates-human-reporting-02-verify-reporting-and-host-installer-contracts.sh
   test-value-card:
     name: Test value card validator and controls
     runs-on: ubuntu-latest
@@ -198,10 +182,8 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install validator dependency
-        run: python3 -m pip install pyyaml==6.0.2
+        run: bash .github/scripts/workflow/framework-gates-test-value-card-01-install-validator-dependency.sh
       - name: Install bats-core
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq bats
+        run: bash .github/scripts/workflow/framework-gates-test-value-card-02-install-bats-core.sh
       - name: Run synthetic card controls and fragment wiring
         run: bats tests/test-test-value-card.bats tests/tdd-discipline-wiring.bats

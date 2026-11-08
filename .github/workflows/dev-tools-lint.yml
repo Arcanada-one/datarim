@@ -39,7 +39,7 @@ jobs:
           persist-credentials: false
 
       - name: Install bats
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bats
+        run: bash .github/scripts/workflow/install-bats-apt.sh
 
       # DO NOT replace this explicit list with a glob.
       #
