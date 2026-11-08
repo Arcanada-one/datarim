@@ -13,6 +13,11 @@ on:
 permissions:
   contents: read
 
+# ARC-CI-07: cancel superseded runs on the same ref (path-filtered workflow).
+concurrency:
+  group: dr-orchestrate-contract-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   schemathesis:
     name: Schemathesis contract tests

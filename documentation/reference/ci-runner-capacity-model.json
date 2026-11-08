@@ -1,0 +1,43 @@
+{
+  "schema": "CiRunnerCapacityModel/v1",
+  "task": "229fbc45-3112-4899-b150-894ec9644c59",
+  "card": "ARC-CI-10",
+  "measured_at": "2026-11-08T01:00:30Z",
+  "repository": "Arcanada-one/datarim",
+  "purchases": "forbidden",
+  "live_runner_enumeration": {
+    "verdict": "NOT_MEASURED",
+    "repo_actions_runners_total_count": 0,
+    "org_actions_runners_total_count": 0,
+    "note": "Authenticated gh api returned empty runner lists for both repo and org endpoints. Pool size is not asserted from this credential; prior research/text and job timing remain the measured inputs."
+  },
+  "prior_text_estimate": {
+    "ci_general_runners_approx": 5,
+    "hosts_approx": 2,
+    "source": "ARC-CI parent Muneral description + batch1 notes; not re-verified by live runner list"
+  },
+  "needs_from_ci_feedback_before": {
+    "receipt": "documentation/reference/ci-runner-load-before-receipt.json",
+    "sample_size": 10,
+    "feedback_time_s_p50": 430.5,
+    "feedback_time_s_p95": 570.0,
+    "queue_time_s_p50": 173.0,
+    "queue_time_s_p95": 326.5,
+    "run_time_s_p50": 36.0,
+    "runner_seconds_per_successful_check_p50": 5589.0,
+    "runner_seconds_per_successful_check_p95": 5802.0,
+    "customer_delivery_linux_peak_concurrency_p50": 17.0,
+    "all_jobs_peak_concurrency_p50": 19.0
+  },
+  "decomposition": {
+    "capacity": "NOT_MEASURED as live registered runner count (empty API). Text estimate ~5 ci-general remains unverified here.",
+    "needs": "Measured: CD Linux peak concurrency p50≈17 per successful bats run; queue_p50≈173s vs run_p50≈36s shows wait dominates wall feedback.",
+    "scheduling": "Superseded-run cancellation and agent WIP limit are the reversible controls in this pilot; no scheduler purchase or host change."
+  },
+  "claims": {
+    "percentage_speedup_from_single_run": false,
+    "runner_shortage_asserted": false,
+    "runtime_authorized": false,
+    "KC2": "NOT_MEASURED"
+  }
+}

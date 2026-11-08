@@ -1,0 +1,2 @@
+# Pinned deps for framework-gates test-value-card job (ARC-CI-09 cache key).
+pyyaml==6.0.2

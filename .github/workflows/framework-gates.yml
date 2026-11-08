@@ -172,7 +172,15 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
+          # ARC-CI-09: pip cache keyed by the pinned requirements file. Trust
+          # scope remains GitHub's branch/PR cache isolation; do not add
+          # restore-keys that pull default-branch caches into fork PRs.
+          cache: pip
+          cache-dependency-path: tests/ci-requirements/framework-gates-human-reporting.txt
       - name: Install pinned test dependencies
+        # Pins stay in the static helper (scorecard-contract.bats scans
+        # .github/scripts/workflow/*.sh for pkg==ver). Keep versions identical
+        # to cache-dependency-path file.
         run: bash .github/scripts/workflow/framework-gates-human-reporting-01-install-pinned-test-dependencies.sh
       - name: Verify reporting and host installer contracts
         run: bash .github/scripts/workflow/framework-gates-human-reporting-02-verify-reporting-and-host-installer-contracts.sh
@@ -186,7 +194,12 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tests/ci-requirements/framework-gates-test-value-card.txt
       - name: Install validator dependency
+        # Pins stay in the static helper (scorecard-contract.bats scans
+        # .github/scripts/workflow/*.sh for pkg==ver). Keep versions identical
+        # to cache-dependency-path file.
         run: bash .github/scripts/workflow/framework-gates-test-value-card-01-install-validator-dependency.sh
       - name: Install bats-core
         run: bash .github/scripts/workflow/framework-gates-test-value-card-02-install-bats-core.sh
