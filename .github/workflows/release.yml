@@ -62,73 +62,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
           EXPECTED_REF: ${{ github.ref }}
-        run: |
-          set -euo pipefail
-          tag="$RELEASE_TAG"
-          identity="$(dev-tools/verify-release-tag.sh classify --repo . --tag "$tag" \
-            --workflow-ref "$EXPECTED_REF" --allowed-signers .github/ssh-signing-allowed-signers)"
-          release_sha="$(printf '%s\n' "$identity" | sed -n 's/^release_sha=//p')"
-          release_tag_object="$(printf '%s\n' "$identity" | sed -n 's/^release_tag_object=//p')"
-          workflow_sha="$(printf '%s\n' "$identity" | sed -n 's/^workflow_sha=//p')"
-          stamped="$(printf '%s\n' "$identity" | sed -n 's/^stamped_bump_level=//p')"
-          case "$stamped" in patch|minor|major) ;; *) echo "::error::missing/invalid bump_level stamp" >&2; exit 1 ;; esac
-          previous_tag=""
-          classification_sha="$release_sha"
-          root_release=false
-          if git rev-parse --verify "${release_sha}^" >/dev/null 2>&1; then
-            # Ordinary releases retain the existing ancestor-tag path.
-            while IFS= read -r candidate; do
-              if [[ "$candidate" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|alpha|beta|test)[0-9]+)?$ ]]; then
-                previous_tag="$candidate"
-                break
-              fi
-            done < <(git tag --merged "${release_sha}^" --list 'v*' --sort=-v:refname)
-          else
-            # An authorized history cutover must preserve the tree of a source
-            # prepared through the ordinary PR path. Its signed tag pins that
-            # source; classify the genuine commit range, not a rewritten message.
-            root_release=true
-            source_sha="$(printf '%s\n' "$identity" | sed -n 's/^history_bootstrap_source=//p')"
-            tree_sha="$(printf '%s\n' "$identity" | sed -n 's/^history_bootstrap_tree=//p')"
-            [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
-            [[ "$tree_sha" =~ ^[0-9a-f]{40}$ ]]
-            git fetch --no-tags origin "$source_sha"
-            bootstrap="$(python3 dev-tools/check-history-bootstrap.py --repo . --mode release \
-              --source-sha "$source_sha" --release-sha "$release_sha" --tree-sha "$tree_sha")"
-            previous_tag="$(printf '%s\n' "$bootstrap" | sed -n 's/^baseline_tag=//p')"
-            classification_sha="$source_sha"
-            test "$tag" = "v$(printf '%s\n' "$bootstrap" | sed -n 's/^version=//p')"
-          fi
-          test -n "$previous_tag"
-          ci_output="$(dev-tools/release-classify.sh --repo . --from "$previous_tag" --to "$classification_sha" --api-diff auto)"
-          ci="$(printf '%s\n' "$ci_output" | sed -n 's/^bump_level=//p' | head -1)"
-          api_diff="$(printf '%s\n' "$ci_output" | sed -n 's/^api_diff=//p' | head -1)"
-          rationale="$(printf '%s\n' "$ci_output" | sed -n 's/^rationale=//p' | head -1)"
-          case "$ci" in patch|minor|major) ;; *) echo "::error::invalid classifier bump" >&2; exit 1 ;; esac
-          if [ "$root_release" = true ]; then
-            # The explicit bootstrap contract permits only its next patch.
-            if [ "$ci" != patch ] || [ "$stamped" != patch ]; then
-              echo "::error::bootstrap source range and signed tag must both classify as patch" >&2
-              exit 1
-            fi
-          fi
-          case "$api_diff" in clean|unavailable) ;; *) echo "::error::invalid API-diff result" >&2; exit 1 ;; esac
-          test -n "$rationale"
-          rank() { case "$1" in patch) echo 1;; minor) echo 2;; major) echo 3;; *) echo 0;; esac; }
-          if [ "$(rank "$ci")" -ge "$(rank "$stamped")" ]; then final="$ci"; else final="$stamped"; fi
-          {
-            echo "bump_level=${final}"
-            echo "release_sha=${release_sha}"
-            echo "release_tag_object=${release_tag_object}"
-            echo "workflow_sha=${workflow_sha}"
-            echo "release_tag=${tag}"
-            echo "root_release=${root_release}"
-          } >> "$GITHUB_OUTPUT"
-          if [ "$ci" = "major" ] && [ "$stamped" != "major" ]; then
-            echo "::error::CI classified MAJOR but the tag stamped '${stamped}' — aborting" >&2
-            exit 1
-          fi
-
+        run: bash .github/scripts/workflow/release-classify-01-authenticate-signed-tag-on-protected-main-and-cl.sh
       # Advisory drift check on the declared release environment policy
       # (.github/environments-policy.yml). Fail-soft by design: the script
       # exits 0 on missing token/API access and on drift (advisory), so this
@@ -138,9 +72,7 @@ jobs:
       - name: Release environment policy drift check (advisory)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          bash dev-tools/check-release-env-policy.sh --check --live \
-            --repo "$GITHUB_REPOSITORY"
+        run: bash .github/scripts/workflow/release-check-env-policy.sh
 
   release:
     name: build-sign-attest-publish
@@ -168,26 +100,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ needs.classify.outputs.release_tag }}
           RELEASE_SHA: ${{ needs.classify.outputs.release_sha }}
-        run: |
-          set -euo pipefail
-          tag="$RELEASE_TAG"
-          target_sha="$RELEASE_SHA"
-          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|alpha|beta|test)[0-9]+)?$ ]]; then
-            echo "::error::tag '$tag' does not match release format ^v\\d+\\.\\d+\\.\\d+(-(rc|alpha|beta|test)\\d+)?$"
-            exit 1
-          fi
-          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
-          {
-            echo "TAG=$tag"
-            echo "VERSION=${tag#v}"
-            echo "RELEASE_SHA=$target_sha"
-          } >> "$GITHUB_ENV"
-          if [[ "$tag" =~ -(rc|alpha|beta|test)[0-9]+$ ]]; then
-            echo "IS_PRERELEASE=true" >> "$GITHUB_ENV"
-          else
-            echo "IS_PRERELEASE=false" >> "$GITHUB_ENV"
-          fi
-
+        run: bash .github/scripts/workflow/release-release-01-validate-tag-format.sh
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.classify.outputs.release_sha }}
@@ -195,83 +108,29 @@ jobs:
           persist-credentials: false
 
       - name: Confirm release tree identity
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-
+        run: bash .github/scripts/workflow/release-release-02-confirm-release-tree-identity.sh
       - name: Load verifier from the classified protected-main commit
         env:
           WORKFLOW_SHA: ${{ needs.classify.outputs.workflow_sha }}
-        run: |
-          set -euo pipefail
-          [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
-          git cat-file -e "${WORKFLOW_SHA}^{commit}"
-          git show "${WORKFLOW_SHA}:dev-tools/verify-release-tag.sh" > "$RUNNER_TEMP/verify-release-tag.sh"
-          chmod 0755 "$RUNNER_TEMP/verify-release-tag.sh"
-
+        run: bash .github/scripts/workflow/release-release-03-load-verifier-from-the-classified-protected-main.sh
       - name: Recheck classified signed tag identity
         env:
           RELEASE_TAG: ${{ needs.classify.outputs.release_tag }}
           RELEASE_SHA: ${{ needs.classify.outputs.release_sha }}
           RELEASE_TAG_OBJECT: ${{ needs.classify.outputs.release_tag_object }}
-        run: |
-          set -euo pipefail
-          "$RUNNER_TEMP/verify-release-tag.sh" recheck --repo . --tag "$RELEASE_TAG" \
-            --release-sha "$RELEASE_SHA" --tag-object "$RELEASE_TAG_OBJECT"
-
+        run: bash .github/scripts/workflow/release-release-04-recheck-classified-signed-tag-identity.sh
       - name: Install cosign (verified binary)
-        run: |
-          set -euo pipefail
-          curl -fsSL "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64" -o /tmp/cosign
-          echo "${COSIGN_SHA256}  /tmp/cosign" | sha256sum -c -
-          sudo install -m 0755 /tmp/cosign /usr/local/bin/cosign
-          cosign version
-
+        run: bash .github/scripts/workflow/release-release-05-install-cosign-verified-binary.sh
       - name: Install syft (verified binary)
-        run: |
-          set -euo pipefail
-          asset="syft_${SYFT_VERSION#v}_linux_amd64.tar.gz"
-          curl -fsSL "https://github.com/anchore/syft/releases/download/${SYFT_VERSION}/${asset}" -o "/tmp/${asset}"
-          echo "${SYFT_SHA256}  /tmp/${asset}" | sha256sum -c -
-          tar -xzf "/tmp/${asset}" -C /tmp syft
-          sudo install -m 0755 /tmp/syft /usr/local/bin/syft
-          syft version
-
+        run: bash .github/scripts/workflow/release-release-06-install-syft-verified-binary.sh
       - name: Build source tarball (deterministic)
-        run: |
-          set -euo pipefail
-          tarball="datarim-${TAG}-source.tar.gz"
-          # --no-name on gzip strips embedded timestamp; git archive uses commit date for mtimes.
-          git archive --format=tar --prefix="datarim-${TAG}/" HEAD | gzip --no-name -6 > "$tarball"
-          sha256sum "$tarball" > "${tarball}.sha256"
-          ls -la "$tarball"*
-          echo "TARBALL=$tarball" >> "$GITHUB_ENV"
-
+        run: bash .github/scripts/workflow/release-release-07-build-source-tarball-deterministic.sh
       - name: Build portable reporting archives
-        run: |
-          set -euo pipefail
-          python3 dev-tools/package-human-reporting.py --output human-outcome-reporting.zip
-          python3 dev-tools/package-human-reporting.py --kind integration --output datarim-human-reporting-integration.zip
-          sha256sum human-outcome-reporting.zip > human-outcome-reporting.zip.sha256
-          sha256sum datarim-human-reporting-integration.zip > datarim-human-reporting-integration.zip.sha256
-
+        run: bash .github/scripts/workflow/release-release-08-build-portable-reporting-archives.sh
       - name: Generate SBOM (CycloneDX)
-        run: |
-          set -euo pipefail
-          sbom="datarim-${TAG}-sbom.cdx.json"
-          syft scan dir:. -o "cyclonedx-json=${sbom}"
-          # Sanity: bomFormat must be CycloneDX, components array non-empty.
-          jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' "$sbom" > /dev/null
-          echo "SBOM=$sbom" >> "$GITHUB_ENV"
-
+        run: bash .github/scripts/workflow/release-release-09-generate-sbom-cyclonedx.sh
       - name: Cosign sign-blob (tarball + SBOM)
-        run: |
-          set -euo pipefail
-          for f in "$TARBALL" "$SBOM" human-outcome-reporting.zip datarim-human-reporting-integration.zip; do
-            cosign sign-blob --bundle "${f}.cosign.bundle" --yes "$f"
-            test -s "${f}.cosign.bundle"
-          done
-
+        run: bash .github/scripts/workflow/release-release-10-cosign-sign-blob-tarball-sbom.sh
       # Re-scan the exact assets built by this job, including decoded archive
       # members and signing bundles, before any Release asset is published.
       - name: Release asset privacy gate
@@ -279,32 +138,7 @@ jobs:
           PERSONAL_ID_OVERLAY_B64: ${{ secrets.PERSONAL_ID_OVERLAY_B64 }}
           DATARIM_PERSONAL_ID_REVISION_ID: ${{ secrets.PERSONAL_ID_OVERLAY_REVISION }}
           DATARIM_PERSONAL_ID_OVERLAY_SHA256: ${{ secrets.PERSONAL_ID_OVERLAY_SHA256 }}
-        run: |
-          set -euo pipefail
-          test -n "${PERSONAL_ID_OVERLAY_B64:-}"
-          overlay="$(mktemp)"
-          trap 'rm -f "$overlay"' EXIT
-          printf '%s' "$PERSONAL_ID_OVERLAY_B64" | base64 --decode > "$overlay"
-          export DATARIM_PERSONAL_ID_OVERLAY="$overlay"
-          python3 scripts/verify-personal-id-overlay-revision.py --overlay "$overlay"
-          assets=(
-            "$TARBALL" "${TARBALL}.sha256" "$SBOM"
-            human-outcome-reporting.zip human-outcome-reporting.zip.sha256
-            datarim-human-reporting-integration.zip
-            datarim-human-reporting-integration.zip.sha256
-            "${TARBALL}.cosign.bundle" "${SBOM}.cosign.bundle"
-            human-outcome-reporting.zip.cosign.bundle
-            datarim-human-reporting-integration.zip.cosign.bundle
-          )
-          for asset in "${assets[@]}"; do
-            test -s "$asset" && test -f "$asset" && test ! -L "$asset"
-          done
-          scan_args=()
-          for asset in "${assets[@]}"; do scan_args+=(--asset "$asset"); done
-          python3 scripts/release_privacy_scan.py --overlay "$overlay" \
-            --expected-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@refs/heads/main" \
-            "${scan_args[@]}"
-
+        run: bash .github/scripts/workflow/release-release-11-release-asset-privacy-gate.sh
       - name: Attest build provenance (SLSA L2)
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
@@ -314,10 +148,9 @@ jobs:
             datarim-human-reporting-integration.zip
 
       - name: Recheck classified tag immediately before publication
-        run: |
-          set -euo pipefail
-          "$RUNNER_TEMP/verify-release-tag.sh" recheck --repo . --tag "$TAG" \
-            --release-sha "$RELEASE_SHA" --tag-object "${{ needs.classify.outputs.release_tag_object }}"
+        env:
+          RELEASE_TAG_OBJECT: ${{ needs.classify.outputs.release_tag_object }}
+        run: bash .github/scripts/workflow/release-release-12-recheck-classified-tag-immediately-before-public.sh
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:

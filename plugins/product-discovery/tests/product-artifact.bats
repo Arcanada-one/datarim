@@ -186,8 +186,7 @@ DECISION_V2="$FIXTURES/decision-record-v2"
 @test "summary JSON reports a measured known-zero bundle without changing validation exit" {
   run python3 "$CHECKER" --root "$FIXTURES/positive/complete" --bundle . --summary-json
   [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | wc -l)" -eq 1 ]
-  python3 -c 'import json,sys; x=json.loads(sys.argv[1]); assert x == {"schema":"DatarimProductArtifactValidationSummary/v1","selection_mode":"bundle","result":"PASS","exit_code":0,"diagnostics":{"availability":"MEASURED","value":{"count":0,"counts_by_code":{}}}}' "$output"
+  python3 -c 'import json,sys; raw=sys.argv[1]; assert "\n" not in raw.rstrip("\n"); x=json.loads(raw); assert x == {"schema":"DatarimProductArtifactValidationSummary/v1","selection_mode":"bundle","result":"PASS","exit_code":0,"diagnostics":{"availability":"MEASURED","value":{"count":0,"counts_by_code":{}}}}' "$output"
 }
 
 @test "summary JSON reports fixed structural codes and withholds artifact paths" {
@@ -205,32 +204,20 @@ DECISION_V2="$FIXTURES/decision-record-v2"
 }
 
 @test "summary JSON selector modes reflect the selected existing input" {
-  run python3 "$CHECKER" --root "$FIXTURES/positive/complete" --artifact opportunity.md --summary-json
-  artifact_json_status="$status"
-  python3 -c 'import json,sys; x=json.loads(sys.argv[1].splitlines()[-1]); assert x["selection_mode"] == "artifact" and x["exit_code"] in (0,1)' "$output"
-  run python3 "$CHECKER" --root "$FIXTURES/positive/complete" --artifact opportunity.md
-  [ "$status" -eq "$artifact_json_status" ]
-  run python3 "$CHECKER" --root "$DECISION_V2" --files decision.md ledger.md --summary-json
+  run python3 "$BATS_TEST_DIRNAME/helpers/summary_selector_modes.py"
   [ "$status" -eq 0 ]
-  python3 -c 'import json,sys; x=json.loads(sys.argv[1].splitlines()[-1]); assert x["selection_mode"] == "files" and x["result"] == "PASS"' "$output"
 }
 
 @test "shell entrypoint forwards the opt-in summary flag" {
-  run "$BATS_TEST_DIRNAME/../../../dev-tools/check-product-artifact.sh" --root "$FIXTURES/positive/complete" --bundle . --summary-json
+  run bash "$BATS_TEST_DIRNAME/../../../dev-tools/check-product-artifact.sh" --root "$FIXTURES/positive/complete" --bundle . --summary-json
   [ "$status" -eq 0 ]
   python3 -c 'import json,sys; x=json.loads(sys.argv[1]); assert x["schema"] == "DatarimProductArtifactValidationSummary/v1" and x["result"] == "PASS"' "$output"
 }
 
 @test "summary JSON measures malformed and non-mapping YAML without returning input content" {
   tmp="$(mktemp -d)"
-  python3 - "$FIXTURES/positive/complete/opportunity.md" "$tmp" <<'PY'
-import pathlib,sys
-source=pathlib.Path(sys.argv[1]).read_text()
-target=pathlib.Path(sys.argv[2])
-front,tail=source.split('---\n',1)[1].split('\n---\n',1)
-(target/'malformed.md').write_text(source.replace('schema_version: product-artifact/1','schema_version: [',1))
-(target/'scalar.md').write_text('---\nnot-a-mapping\n---\n'+tail)
-PY
+  run python3 "$BATS_TEST_DIRNAME/helpers/make_malformed_artifacts.py" "$FIXTURES/positive/complete/opportunity.md" "$tmp"
+  [ "$status" -eq 0 ]
   run python3 "$CHECKER" --root "$tmp" --artifact malformed.md --summary-json
   [ "$status" -eq 1 ]
   [[ "$output" != *"schema_version"* ]]

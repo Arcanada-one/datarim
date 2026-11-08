@@ -69,78 +69,21 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
     steps:
       - name: Validate token is non-empty
-        run: |
-          set -uo pipefail
-          if [ -z "${TOKEN:-}" ]; then
-            echo "::error::Token secret is empty — repository SECRET 'token' is missing or unset"
-            exit 89
-          fi
-
+        run: bash .github/scripts/workflow/token-health-probe-probe-01-validate-token-is-non-empty.sh
       - name: npm whoami probe
         if: ${{ inputs.provider == 'npm' }}
-        run: |
-          set -uo pipefail
-          url="${REGISTRY_URL:-https://registry.npmjs.org}"
-          # curl -H Bearer against /-/whoami: returns {"username":"..."} on valid,
-          # empty {} or error on expired/invalid.
-          body=$(curl -fsS -H "Authorization: Bearer ${TOKEN}" "${url}/-/whoami" || true)
-          echo "Response body: ${body}"
-          case "$body" in
-            *'"username"'*) echo "npm token live"; exit 0 ;;
-            *) echo "::error::npm token expired or invalid (whoami returned no username)"; exit 89 ;;
-          esac
-
+        run: bash .github/scripts/workflow/token-health-probe-probe-02-npm-whoami-probe.sh
       - name: pypi token probe
         if: ${{ inputs.provider == 'pypi' }}
-        run: |
-          set -uo pipefail
-          url="${REGISTRY_URL:-https://upload.pypi.org/legacy/}"
-          code=$(curl -s -o /dev/null -w '%{http_code}' \
-            -H "Authorization: Bearer ${TOKEN}" "$url")
-          echo "HTTP status: $code"
-          case "$code" in
-            200|405) echo "pypi token accepted by upload endpoint"; exit 0 ;;
-            401|403) echo "::error::pypi token expired or invalid (HTTP $code)"; exit 89 ;;
-            *) echo "::error::pypi probe unexpected HTTP $code (treat as expired)"; exit 89 ;;
-          esac
-
+        run: bash .github/scripts/workflow/token-health-probe-probe-03-pypi-token-probe.sh
       - name: cloudflare token verify probe
         if: ${{ inputs.provider == 'cloudflare' }}
-        run: |
-          set -uo pipefail
-          url="${REGISTRY_URL:-https://api.cloudflare.com/client/v4/user/tokens/verify}"
-          [ -n "$CF_EXTRA" ] && url="${url}?${CF_EXTRA}"
-          body=$(curl -fsS -H "Authorization: Bearer ${TOKEN}" "$url" || true)
-          echo "Response body: ${body}"
-          case "$body" in
-            *'"success":true'*) echo "cloudflare token live"; exit 0 ;;
-            *) echo "::error::cloudflare token expired or invalid"; exit 89 ;;
-          esac
-
+        run: bash .github/scripts/workflow/token-health-probe-probe-04-cloudflare-token-verify-probe.sh
       - name: dockerhub auth probe
         if: ${{ inputs.provider == 'dockerhub' }}
         env:
           DH_USER: ${{ env.DOCKERHUB_USERNAME }}
-        run: |
-          set -uo pipefail
-          if [ -z "${DH_USER:-}" ]; then
-            echo "::error::dockerhub provider requires secrets.dockerhub_username"
-            exit 89
-          fi
-          url="${REGISTRY_URL:-https://hub.docker.com/v2/users/login}"
-          code=$(curl -s -o /dev/null -w '%{http_code}' \
-            -H "Content-Type: application/json" \
-            -d "{\"username\":\"${DH_USER}\",\"password\":\"${TOKEN}\"}" \
-            "$url")
-          echo "HTTP status: $code"
-          case "$code" in
-            200) echo "dockerhub creds live"; exit 0 ;;
-            401) echo "::error::dockerhub creds expired or invalid (HTTP 401)"; exit 89 ;;
-            *) echo "::error::dockerhub probe unexpected HTTP $code (treat as expired)"; exit 89 ;;
-          esac
-
+        run: bash .github/scripts/workflow/token-health-probe-probe-05-dockerhub-auth-probe.sh
       - name: unknown provider
         if: ${{ inputs.provider != 'npm' && inputs.provider != 'pypi' && inputs.provider != 'cloudflare' && inputs.provider != 'dockerhub' }}
-        run: |
-          echo "::error::unknown provider: ${PROVIDER} — supported: npm, pypi, cloudflare, dockerhub"
-          exit 2
+        run: bash .github/scripts/workflow/token-health-probe-probe-06-unknown-provider.sh

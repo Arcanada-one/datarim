@@ -6,7 +6,6 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
-import textwrap
 import unittest
 
 
@@ -100,15 +99,15 @@ class HistoryBootstrapTests(unittest.TestCase):
     def workflow(self, tag="v4.2.2", consumer="consumer"):
         clone = self.work / consumer
         self.run_command("git", "clone", "-q", "--no-local", str(self.origin), str(clone))
-        # Execute the actual workflow's authentication and classification shell,
+        # Execute the actual classify helper extracted from release.yml,
         # including the exact-SHA network fetch through the local real origin.
-        workflow = (ROOT / ".github/workflows/release.yml").read_text()
-        shell = workflow.split("- name: Authenticate signed tag on protected main and classify bump", 1)[1]
-        shell = shell.split("run: |\n", 1)[1].split("\n      # Advisory drift check", 1)[0]
-        shell = textwrap.dedent(shell)
+        helper = ROOT / (
+            ".github/scripts/workflow/"
+            "release-classify-01-authenticate-signed-tag-on-protected-main-and-cl.sh"
+        )
         env = dict(self.env, RELEASE_TAG=tag, EXPECTED_REF="refs/heads/main",
                    GITHUB_OUTPUT=str(self.work / "workflow-output"))
-        return self.run_command("bash", "-c", shell, cwd=clone, env=env, check=False)
+        return self.run_command("bash", str(helper), cwd=clone, env=env, check=False)
 
     def test_preparation_is_deferred_and_never_reported_shipped(self):
         self.assertEqual(self.helper().returncode, 0)

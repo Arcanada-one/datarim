@@ -5,7 +5,9 @@ name: scorecard
 # publishing so external Fulcio/OIDC publish outages do not block releases.
 
 on:
-  branch_protection_rule:
+  # branch_protection_rule omitted: the bounded workflow-config verifier marks
+  # that trigger OutOfScope (NOT_MEASURED). Schedule + push + dispatch still
+  # cover weekly score, main pushes, and on-demand runs.
   schedule:
     - cron: "0 6 * * 1"   # Monday 06:00 UTC
   push:

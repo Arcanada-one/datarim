@@ -14,6 +14,9 @@ setup() {
     SCRIPT="$REPO_ROOT/dev-tools/network-exposure-check.sh"
     F="$REPO_ROOT/tests/fixtures/network-exposure"
     WF="$REPO_ROOT/.github/workflows/network-exposure-lint.yml"
+    HELPER="$REPO_ROOT/.github/scripts/workflow/network-exposure-lint-job.sh"
+    SURFACE="$BATS_TEST_TMPDIR/network-exposure-surface.txt"
+    cat "$WF" "$HELPER" >"$SURFACE"
     TODAY="2026-05-06"
 }
 
@@ -65,19 +68,21 @@ setup() {
 }
 
 @test "workflow: lint job invokes network-exposure-check.sh from .datarim" {
-    run grep -F ".datarim/dev-tools/network-exposure-check.sh" "$WF"
+    run grep -F "bash .github/scripts/workflow/network-exposure-lint-job.sh" "$WF"
+    [ "$status" -eq 0 ]
+    run grep -F ".datarim/dev-tools/network-exposure-check.sh" "$HELPER"
     [ "$status" -eq 0 ]
 }
 
 @test "workflow: yq bootstrap works without runner sudo" {
     # shellcheck disable=SC2016
-    run grep -F 'yq_dir="${RUNNER_TEMP}/datarim-bin"' "$WF"
+    run grep -F 'yq_dir="${RUNNER_TEMP}/datarim-bin"' "$HELPER"
     [ "$status" -eq 0 ]
-    run grep -F 'a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7' "$WF"
+    run grep -F 'a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7' "$HELPER"
     [ "$status" -eq 0 ]
-    run grep -F 'sha256sum --check --strict' "$WF"
+    run grep -F 'sha256sum --check --strict' "$HELPER"
     [ "$status" -eq 0 ]
-    run grep -F 'sudo ' "$WF"
+    run grep -F 'sudo ' "$SURFACE"
     [ "$status" -eq 1 ]
 }
 
@@ -86,7 +91,7 @@ setup() {
     [ "$status" -eq 0 ]
     [ "$output" = "true" ]
     # shellcheck disable=SC2016
-    run grep -F '[[ "$DATARIM_REF" =~ ^[0-9a-f]{40}$ ]]' "$WF"
+    run grep -F '[[ "$DATARIM_REF" =~ ^[0-9a-f]{40}$ ]]' "$HELPER"
     [ "$status" -eq 0 ]
 }
 

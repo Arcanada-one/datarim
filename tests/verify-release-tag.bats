@@ -88,8 +88,21 @@ teardown() { rm -rf -- "${TEST_ROOT:?}"; }
 
 @test 'release job uses the pinned main verifier and preserves tagged checkout' {
   workflow="${BATS_TEST_DIRNAME}/../.github/workflows/release.yml"
+  load_helper="${BATS_TEST_DIRNAME}/../.github/scripts/workflow/release-release-03-load-verifier-from-the-classified-protected-main.sh"
+  identity_helper="${BATS_TEST_DIRNAME}/../.github/scripts/workflow/release-release-02-confirm-release-tree-identity.sh"
+  recheck_identity="${BATS_TEST_DIRNAME}/../.github/scripts/workflow/release-release-04-recheck-classified-signed-tag-identity.sh"
+  recheck_publish="${BATS_TEST_DIRNAME}/../.github/scripts/workflow/release-release-12-recheck-classified-tag-immediately-before-public.sh"
+
+  # Static helper extraction moved the pin/recheck bodies out of release.yml;
+  # keep the checkout pin on the workflow and the verifier bodies on helpers.
   grep -Fq 'ref: ${{ needs.classify.outputs.release_sha }}' "$workflow"
-  grep -Fq 'git show "${WORKFLOW_SHA}:dev-tools/verify-release-tag.sh"' "$workflow"
-  grep -Fq 'test "$(git rev-parse HEAD)" = "$RELEASE_SHA"' "$workflow"
-  [ "$(grep -Fc '"$RUNNER_TEMP/verify-release-tag.sh" recheck' "$workflow")" -eq 2 ]
+  grep -Fq 'bash .github/scripts/workflow/release-release-03-load-verifier-from-the-classified-protected-main.sh' "$workflow"
+  grep -Fq 'bash .github/scripts/workflow/release-release-02-confirm-release-tree-identity.sh' "$workflow"
+  grep -Fq 'bash .github/scripts/workflow/release-release-04-recheck-classified-signed-tag-identity.sh' "$workflow"
+  grep -Fq 'bash .github/scripts/workflow/release-release-12-recheck-classified-tag-immediately-before-public.sh' "$workflow"
+  grep -Fq 'git show "${WORKFLOW_SHA}:dev-tools/verify-release-tag.sh"' "$load_helper"
+  grep -Fq 'test "$(git rev-parse HEAD)" = "$RELEASE_SHA"' "$identity_helper"
+  # Two recheck call sites remain (identity + pre-publish), now in helpers.
+  grep -Fq '"$RUNNER_TEMP/verify-release-tag.sh" recheck' "$recheck_identity"
+  grep -Fq '"$RUNNER_TEMP/verify-release-tag.sh" recheck' "$recheck_publish"
 }

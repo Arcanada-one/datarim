@@ -43,9 +43,15 @@ for path in ['tests/security/fixtures/sast-clean.py', 'scripts/example.py',
 ci = yaml.safe_load((root / '.github/workflows/security.yml').read_text())
 steps = ci['jobs']['bandit']['steps']
 run = next(step['run'] for step in steps if step.get('name') == 'Run bandit on .py files')
-assert '-x ./_extracted,./.git,./tests/security/fixtures/sast-unsafe.py\n' in run
-assert "-not -path './tests/security/fixtures/sast-unsafe.py'" in run
-assert any(step.get('run') == 'python3 tests/security/check-bandit-controls.py' for step in steps)
+assert 'bash .github/scripts/workflow/security-bandit-03-run-bandit-on-py-files.sh' in run
+helper = (root / '.github/scripts/workflow/security-bandit-03-run-bandit-on-py-files.sh').read_text()
+assert '-x ./_extracted,./.git,./tests/security/fixtures/sast-unsafe.py\n' in helper
+assert "-not -path './tests/security/fixtures/sast-unsafe.py'" in helper
+verify = next(step['run'] for step in steps if step.get('name') == 'Verify Bandit unsafe and clean controls')
+assert 'bash .github/scripts/workflow/security-bandit-02-verify-bandit-unsafe-and-clean-controls.sh' in verify
+assert 'python3 tests/security/check-bandit-controls.py' in (
+    root / '.github/scripts/workflow/security-bandit-02-verify-bandit-unsafe-and-clean-controls.sh'
+).read_text()
 PY_CONFIG
 }
 

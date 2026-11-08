@@ -51,7 +51,7 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Assert exact triggering head
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+        run: bash .github/scripts/workflow/bats-jev-and-project-runtime-01-assert-exact-triggering-head.sh
 
       # `runs-on: [self-hosted, linux, X64]` matches nearly every runner in the
       # fleet and they are NOT interchangeable -- the same point INFRA-0365
@@ -71,28 +71,11 @@ jobs:
           python-version: '3.12'
 
       - name: Install pinned test dependencies
-        run: |
-          set -euo pipefail
-          python3 -m venv "$RUNNER_TEMP/jev-venv"
-          # --python-only: this job runs unittest and nothing else. The apt
-          # fixtures (jq, shellcheck, socat) and the bats/yq toolchain belong to
-          # the bats shards, and pulling them in here made the job fail on a
-          # runner that has no socat and no passwordless sudo -- over tools it
-          # never invokes. Measured by running the full contract set with jq,
-          # socat and bats hidden from PATH: all suites OK.
-          bash tests/ci-install-bats-deps.sh --python-only \
-            --python-bin "$RUNNER_TEMP/jev-venv/bin/python"
+        run: bash .github/scripts/workflow/bats-jev-and-project-runtime-02-install-pinned-test-dependencies.sh
       - name: Verify Jev source manifest
-        run: sha256sum -c JEV-MANIFEST.sha256
+        run: bash .github/scripts/workflow/bats-jev-and-project-runtime-03-verify-jev-source-manifest.sh
       - name: Run offline engine and lifecycle contracts
-        run: |
-          set -euo pipefail
-          python_bin="$RUNNER_TEMP/jev-venv/bin/python"
-          "$python_bin" -m unittest discover -s plugins/dr-jev-control/tests -v
-          for pattern in 'test_jev_*.py' 'test_project_*.py' 'test_framework_*.py'; do
-            "$python_bin" -m unittest discover -s tests -p "$pattern" -v
-          done
-
+        run: bash .github/scripts/workflow/bats-jev-and-project-runtime-04-run-offline-engine-and-lifecycle-contracts.sh
   registry:
     name: exclusion registry + inventory
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -107,7 +90,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Assert exact triggering head
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+        run: bash .github/scripts/workflow/bats-registry-01-assert-exact-triggering-head.sh
 
       - name: Validate the bats exclusion registry
         # Fail-closed: a stale entry (suite renamed or deleted) would silently
@@ -115,36 +98,13 @@ jobs:
         run: bash tests/run-bats-discovery.sh --check-registry
 
       - name: Validate exact customer-delivery shard coverage
-        run: /usr/bin/python3 tests/run-customer-delivery-shard.py --check
+        run: bash .github/scripts/workflow/bats-registry-02-validate-exact-customer-delivery-shard-coverage.sh
 
       - name: Generate customer-delivery matrices from the canonical registry
         id: customer_delivery_matrix
-        run: |
-          set -euo pipefail
-          # Batched runner jobs: group size comes from tests/ci-slot-baseline.json
-          # (measured peak concurrency), not a fixed workflow constant. Flat
-          # logical inventory for --check-results is unchanged.
-          echo "linux=$(/usr/bin/python3 tests/run-customer-delivery-shard.py --matrix-jobs linux)" >> "$GITHUB_OUTPUT"
-          echo "macos=$(/usr/bin/python3 tests/run-customer-delivery-shard.py --matrix-jobs macos)" >> "$GITHUB_OUTPUT"
-
+        run: bash .github/scripts/workflow/bats-registry-03-generate-customer-delivery-matrices-from-the-can.sh
       - name: Publish suite inventory
-        run: |
-          set -euo pipefail
-          total=$(find . -type f -name '*.bats' ! -path './.git/*' | wc -l)
-          running=$(bash tests/run-bats-discovery.sh --list | wc -l)
-          managed=3
-          {
-            echo "### bats inventory"
-            echo
-            echo "| metric | count |"
-            echo "| --- | --- |"
-            echo "| suites on disk | ${total} |"
-            echo "| suites executed monolithically | ${running} |"
-            echo "| suites executed by exact shards | ${managed} |"
-            echo "| excluded (registry) | $(( total - running )) |"
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "on disk: ${total}, monolithic: ${running}, exact-sharded: ${managed}"
-
+        run: bash .github/scripts/workflow/bats-registry-04-publish-suite-inventory.sh
   suites:
     name: shard ${{ matrix.shard }}/8
     needs: registry
@@ -165,18 +125,11 @@ jobs:
           fetch-depth: 0
 
       - name: Install pinned toolchain
-        run: |
-          set -euo pipefail
-          /usr/bin/python3 -m venv "$RUNNER_TEMP/discovery-venv"
-          /bin/ln -sf /usr/bin/python3 "$RUNNER_TEMP/discovery-venv/bin/python"
-          tool_prefix="$(mktemp -d "$RUNNER_TEMP/discovery-tools.XXXXXX")"
-          bash tests/ci-install-bats-deps.sh \
-            --prefix "$tool_prefix" --no-sudo \
-            --python-bin "$RUNNER_TEMP/discovery-venv/bin/python"
-          echo "$tool_prefix/bin" >> "$GITHUB_PATH"
-
+        run: bash .github/scripts/workflow/bats-suites-01-install-pinned-toolchain.sh
       - name: Run shard ${{ matrix.shard }} of 8
-        run: CUSTOMER_CI_PYTHON="$RUNNER_TEMP/discovery-venv/bin/python" bash tests/run-bats-discovery.sh --shard ${{ matrix.shard }}/8
+        env:
+          BATS_SHARD: ${{ matrix.shard }}
+        run: bash .github/scripts/workflow/bats-suites-02-run-shard-matrix-shard-of-8.sh
 
   customer-delivery-linux:
     name: customer delivery group ${{ matrix.group }} (Linux)
@@ -194,19 +147,10 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Assert exact triggering head
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+        run: bash .github/scripts/workflow/bats-customer-delivery-linux-01-assert-exact-triggering-head.sh
 
       - name: Create trusted absolute Python environment
-        run: |
-          set -euo pipefail
-          /usr/bin/python3 -m venv "$RUNNER_TEMP/customer-delivery-venv"
-          /bin/ln -sf /usr/bin/python3 "$RUNNER_TEMP/customer-delivery-venv/bin/python"
-          tool_prefix="$(mktemp -d "$RUNNER_TEMP/customer-delivery-tools.XXXXXX")"
-          bash tests/ci-install-bats-deps.sh \
-            --prefix "$tool_prefix" --no-sudo \
-            --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python"
-          echo "$tool_prefix/bin" >> "$GITHUB_PATH"
-
+        run: bash .github/scripts/workflow/bats-customer-delivery-linux-02-create-trusted-absolute-python-environment.sh
       - name: Verify trusted Python launcher runtime and dependencies
         run: bash tests/check-customer-delivery-python-runtime.sh "$RUNNER_TEMP/customer-delivery-venv/bin/python"
 
@@ -214,19 +158,7 @@ jobs:
         timeout-minutes: 12
         env:
           GROUP_MEMBERS: ${{ toJSON(matrix.members) }}
-        run: |
-          set -euo pipefail
-          result_dir="$RUNNER_TEMP/customer-delivery-result"
-          mkdir -p "$result_dir"
-          # Each logical shard keeps its own timeout and result JSON. A partial
-          # failure still records siblings; the aggregate fails on any missing
-          # required logical result.
-          /usr/bin/python3 tests/run-customer-delivery-shard.py \
-            --group-members "$GROUP_MEMBERS" \
-            --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python" \
-            --platform linux \
-            --result-dir "$result_dir"
-
+        run: bash .github/scripts/workflow/bats-customer-delivery-linux-03-run-bounded-exact-shard.sh
       - name: Upload exact shard result
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -268,53 +200,19 @@ jobs:
       # readlink -f, grep -P, find -newermt), which is where the divergence
       # actually bites. Full parity on paid macOS minutes buys little beyond it.
       - name: Install bats and A2 platform dependencies
-        run: brew install bats-core yq openssl@3
+        run: bash .github/scripts/workflow/install-bats-brew.sh bats-core yq openssl@3
 
       - name: Create pinned portability Python environment
-        run: |
-          set -euo pipefail
-          /usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \
-            DEVELOPER_DIR=/Library/Developer/CommandLineTools \
-            /usr/bin/python3 -m venv "$RUNNER_TEMP/portability-venv"
-          clt_python=/Library/Developer/CommandLineTools/usr/bin/python3
-          clt_version="$("$clt_python" -I -S -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-          dependency_site="$RUNNER_TEMP/portability-venv/lib/python${clt_version}/site-packages"
-          bash tests/ci-install-bats-deps.sh --python-only \
-            --python-bin "$clt_python" --python-site "$dependency_site"
-          /bin/ln -sf /usr/bin/python3 "$RUNNER_TEMP/portability-venv/bin/python"
-
+        run: bash .github/scripts/workflow/bats-macos-portability-01-create-pinned-portability-python-environment.sh
       - name: Verify portability Python through trusted bootstrap
         run: bash tests/check-customer-delivery-python-runtime.sh "$RUNNER_TEMP/portability-venv/bin/python"
 
       - name: Confirm this really is a BSD userland
         # Fail loudly if the runner image ever ships GNU coreutils first on PATH:
         # the job would then pass while testing nothing it was created to test.
-        run: |
-          set -euo pipefail
-          if head -c 0 /dev/null 2>/dev/null; then
-            echo "::error::head -c 0 succeeded — this is GNU coreutils, not BSD."
-            echo "This job's whole purpose is BSD coverage; passing here would be false assurance."
-            exit 1
-          fi
-          echo "BSD userland confirmed (head -c 0 rejected, as expected)."
-
+        run: bash .github/scripts/workflow/bats-macos-portability-02-confirm-this-really-is-a-bsd-userland.sh
       - name: Run portability-sensitive suites
-        run: |
-          set -euo pipefail
-          # Keep this list in step with the constructs named above. A suite that
-          # covers newly-added portability-sensitive code belongs here too.
-          bats \
-            tests/stage-snapshot-size-cap.bats \
-            tests/stage-snapshot-e2e.bats \
-            tests/stage-snapshot-id-regex.bats \
-            tests/stage-snapshot-flock-race.bats \
-            tests/session-handoff-writer.bats \
-            tests/session-sensitive-source-cap.bats \
-            tests/customer-requirement-expectations-binding.bats \
-            dev-tools/tests/check-archive-landing.bats \
-            cli/tests/backlog.bats \
-            cli/tests/backlog-add-collision.bats
-
+        run: bash .github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh
       - name: Run CI dependency and portability contracts
         run: bats tests/bats-discovery-coverage.bats
 
@@ -335,26 +233,13 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Assert exact triggering head
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+        run: bash .github/scripts/workflow/bats-customer-delivery-macos-01-assert-exact-triggering-head.sh
 
       - name: Install pinned A2 dependencies
-        run: brew install bats-core yq openssl@3
+        run: bash .github/scripts/workflow/install-bats-brew.sh bats-core yq openssl@3
 
       - name: Create trusted absolute Python environment
-        run: |
-          set -euo pipefail
-          /usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \
-            DEVELOPER_DIR=/Library/Developer/CommandLineTools \
-            /usr/bin/python3 -m venv "$RUNNER_TEMP/customer-delivery-venv"
-          clt_python=/Library/Developer/CommandLineTools/usr/bin/python3
-          clt_version="$("$clt_python" -I -S -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-          dependency_site="$RUNNER_TEMP/customer-delivery-venv/lib/python${clt_version}/site-packages"
-          bash tests/ci-install-bats-deps.sh --python-only \
-            --python-bin "$clt_python" --python-site "$dependency_site"
-          /bin/ln -sf /usr/bin/python3 "$RUNNER_TEMP/customer-delivery-venv/bin/python"
-          printf 'CUSTOMER_TEST_PYTHON_RUNTIME=%s\n' "$clt_python" >>"$GITHUB_ENV"
-          printf 'CUSTOMER_TEST_PYTHON_SITE=%s\n' "$dependency_site" >>"$GITHUB_ENV"
-
+        run: bash .github/scripts/workflow/bats-customer-delivery-macos-02-create-trusted-absolute-python-environment.sh
       - name: Verify trusted Python launcher runtime and dependencies
         run: bash tests/check-customer-delivery-python-runtime.sh "$RUNNER_TEMP/customer-delivery-venv/bin/python"
 
@@ -363,17 +248,7 @@ jobs:
         env:
           DEVELOPER_DIR: /Library/Developer/CommandLineTools
           GROUP_MEMBERS: ${{ toJSON(matrix.members) }}
-        run: |
-          set -euo pipefail
-          result_dir="$RUNNER_TEMP/customer-delivery-result"
-          mkdir -p "$result_dir"
-          /usr/bin/python3 tests/run-customer-delivery-shard.py \
-            --group-members "$GROUP_MEMBERS" \
-            --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python" \
-            --test-python-bin "$GITHUB_WORKSPACE/tests/customer-delivery-test-python.sh" \
-            --platform macos \
-            --result-dir "$result_dir"
-
+        run: bash .github/scripts/workflow/bats-customer-delivery-macos-03-run-bounded-exact-shard.sh
       - name: Upload exact shard result
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -395,7 +270,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Assert exact triggering head
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+        run: bash .github/scripts/workflow/bats-customer-delivery-aggregate-01-assert-exact-triggering-head.sh
 
       - name: Download Linux shard results
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -415,13 +290,4 @@ jobs:
       - name: Verify exact generated result inventories
         env:
           RUN_HOSTED_MACOS: ${{ github.event_name == 'workflow_dispatch' && inputs.run_hosted_macos }}
-        run: |
-          set -euo pipefail
-          /usr/bin/python3 tests/run-customer-delivery-shard.py \
-            --check-results linux "$RUNNER_TEMP/customer-delivery-results/linux"
-          if [[ "$RUN_HOSTED_MACOS" == true ]]; then
-            /usr/bin/python3 tests/run-customer-delivery-shard.py \
-              --check-results macos "$RUNNER_TEMP/customer-delivery-results/macos"
-          else
-            echo "macOS coverage: NOT_MEASURED (hosted lane disabled; see documentation/reference/ci-runner-routing.md)" >> "$GITHUB_STEP_SUMMARY"
-          fi
+        run: bash .github/scripts/workflow/bats-customer-delivery-aggregate-02-verify-exact-generated-result-inventories.sh

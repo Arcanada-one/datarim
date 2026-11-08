@@ -21,7 +21,8 @@ setup() {
     ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     GATE="$ROOT/scripts/personal-id-gate.sh"
     WF="$ROOT/.github/workflows/personal-id-lint.yml"
-    export ROOT GATE WF
+    HELPER="$ROOT/.github/scripts/workflow/personal-id-lint-run.sh"
+    export ROOT GATE WF HELPER
 }
 
 # Extract DEFAULT_PATHS entries from the gate script.
@@ -81,14 +82,15 @@ PY
 }
 
 @test "the workflow verifies the private revision without logging overlay size" {
-    grep -q 'verify-personal-id-overlay-revision.py' "$WF"
+    grep -q 'bash .github/scripts/workflow/personal-id-lint-run.sh' "$WF"
+    grep -q 'verify-personal-id-overlay-revision.py' "$HELPER"
     # Text secret transport may drop a terminal newline; decode the protected
     # byte-exact representation before checking the custodian commitment.
     grep -q 'secrets.PERSONAL_ID_OVERLAY_B64' "$WF"
-    grep -q 'base64 --decode' "$WF"
-    run grep -nE 'grep -[[:alpha:]]*c|pattern\(s\)|wc -l.*overlay' "$WF"
+    grep -q 'base64 --decode' "$HELPER"
+    run grep -nE 'grep -[[:alpha:]]*c|pattern\(s\)|wc -l.*overlay' "$WF" "$HELPER"
     [ "$status" -eq 1 ]
-    python3 - "$WF" <<'PY'
+    python3 - "$HELPER" <<'PY'
 from pathlib import Path
 import sys
 text = Path(sys.argv[1]).read_text()
