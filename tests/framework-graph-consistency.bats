@@ -7,6 +7,9 @@ make_fixture() {
   FIXTURE="$BATS_TEST_TMPDIR/graph-fixture"
   rm -rf "$FIXTURE"
   cp -a "$ROOT/tests/fixtures/framework-graph-consistency/seed" "$FIXTURE"
+  # Git does not track empty directories; CI checkouts omit seed/skills/visual-maps
+  # unless a tracked placeholder exists. Create the write target before --write.
+  mkdir -p "$FIXTURE/skills/visual-maps"
   cp "$ROOT/dev-tools/framework-graph.py" "$FIXTURE/dev-tools/framework-graph.py"
 }
 

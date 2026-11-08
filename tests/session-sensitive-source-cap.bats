@@ -114,7 +114,10 @@ write_fixture() {
 }
 
 @test "session capacity regression suite runs in the macOS portability job" {
+  local workflow="$FRAMEWORK_ROOT/.github/workflows/bats.yml"
+  local helper="$FRAMEWORK_ROOT/.github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh"
   local suites
-  suites="$(sed -n '/name: Run portability-sensitive suites/,/name: Run CI dependency and portability contracts/p' "$FRAMEWORK_ROOT/.github/workflows/bats.yml")"
+  grep -q 'bash .github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh' "$workflow"
+  suites="$(cat "$helper")"
   [[ "$suites" == *'tests/session-sensitive-source-cap.bats'* ]]
 }

@@ -140,20 +140,17 @@ assert_no_direct_in_place_sed() {
 workflow_run_block_has_suite() {
     local workflow="$1"
     local suite="$2"
+    local helper="${REPO_ROOT}/.github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh"
+
+    # Static helper extraction moved the bats suite list out of bats.yml; the
+    # workflow must still invoke the helper, and the helper must list the suite.
+    grep -q 'bash .github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh' "$workflow" \
+        || return 1
+    [ -f "$helper" ] || return 1
 
     awk -v suite="$suite" '
-        /^      - name: Run portability-sensitive suites[[:space:]]*$/ {
-            in_step = 1
-            next
-        }
-        in_step && /^      - name:/ {
-            exit
-        }
-        in_step && /^        run:[[:space:]]*\|[[:space:]]*$/ {
-            in_run = 1
-            next
-        }
-        in_run {
+        BEGIN { found = 0 }
+        {
             text = $0
             sub(/^[[:space:]]+/, "", text)
             if (text == "" || text ~ /^#/) {
@@ -178,6 +175,14 @@ workflow_run_block_has_suite() {
                 }
                 next
             }
+            if (!command_seen && text ~ /^bats[[:space:]]+/) {
+                # single-line bats invocation fallback
+                if (index(text, suite)) {
+                    found = 1
+                }
+                command_seen = 1
+                next
+            }
             if (!command_seen) {
                 exit 1
             }
@@ -185,7 +190,7 @@ workflow_run_block_has_suite() {
         END {
             exit(found ? 0 : 1)
         }
-    ' "$workflow"
+    ' "$helper"
 }
 
 template_has_exact_binding_bullets() {
