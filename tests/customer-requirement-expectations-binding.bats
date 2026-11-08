@@ -140,10 +140,11 @@ assert_no_direct_in_place_sed() {
 workflow_run_block_has_suite() {
     local workflow="$1"
     local suite="$2"
-    local helper="${REPO_ROOT}/.github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh"
+    local helper="${3:-${REPO_ROOT}/.github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh}"
 
     # Static helper extraction moved the bats suite list out of bats.yml; the
     # workflow must still invoke the helper, and the helper must list the suite.
+    # Callers may pass a mutant helper path as $3 for anti-decay fixtures.
     grep -q 'bash .github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh' "$workflow" \
         || return 1
     [ -f "$helper" ] || return 1
@@ -1801,6 +1802,7 @@ EOF
 @test "portability anti-decay rejects in-place option variants and commented macOS wiring" {
     local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-mutant.bats"
     local mutant_workflow="${BATS_TEST_TMPDIR}/bats-mutant.yml"
+    local mutant_helper="${BATS_TEST_TMPDIR}/bats-macos-portability-03-mutant.sh"
     local command_token
     local short_option="-""i.bak"
     local combined_option="-E""i"
@@ -1811,8 +1813,12 @@ EOF
     tick="$(printf '\140')"
 
     cp "${REPO_ROOT}/.github/workflows/bats.yml" "$mutant_workflow"
+    cp "${REPO_ROOT}/.github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh" \
+        "$mutant_helper"
+    # Suite list lives in the static helper; comment it there and keep heredoc
+    # decoys in the workflow so decoys cannot revive active wiring.
     portable_sed_in_place '/^[[:space:]]*tests\/customer-requirement-expectations-binding\.bats/c\
-            # tests/customer-requirement-expectations-binding.bats' "$mutant_workflow"
+  # tests/customer-requirement-expectations-binding.bats' "$mutant_helper"
     portable_sed_in_place '/^      - name: Run CI dependency and portability contracts/i\
           cat <<'\''PORTABILITY_DECOY'\''\
           bats \\\
@@ -1882,6 +1888,7 @@ EOF
 
     run workflow_run_block_has_suite \
         "$mutant_workflow" \
-        'tests/customer-requirement-expectations-binding.bats'
+        'tests/customer-requirement-expectations-binding.bats' \
+        "$mutant_helper"
     [ "$status" -eq 1 ]
 }
