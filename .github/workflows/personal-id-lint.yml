@@ -25,6 +25,12 @@ on:
 permissions:
   contents: read
 
+# ARC-CI-07: cancel superseded runs on the same ref. No `paths:` filter — see
+# the trigger comment above and tests/personal-id-lint-scope.bats.
+concurrency:
+  group: personal-id-lint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   personal-id-lint:
     name: personal-id-lint

@@ -89,3 +89,34 @@ Duration-aware Bats discovery assignment (ARC-CI-04) packs suites using
 `tests/bats-suite-durations.tsv` while keeping the eight required check names
 `shard 1/8` … `shard 8/8`.
 
+## Runner load pilot (ARC-CI-07/09/10/11/12)
+
+Public pilot controls live in this repository only (one PR per repo). Required
+check contexts stay unfiltered: a skipped required job must never mask a missing
+result. Path filters are limited to non-required workflows (for example
+`node-tests.yml`). Cancel-in-progress concurrency cancels superseded runs on the
+same ref.
+
+Setup reuse (ARC-CI-09) enables `actions/setup-python` pip caches keyed by
+`tests/ci-requirements/*.txt`. Trust scopes stay on GitHub Actions branch/PR
+cache isolation; do not add restore-keys that pull default-branch caches into
+fork pull requests. Net cache savings remain `NOT_MEASURED` until an after
+sample of ≥10 successful hosted runs is collected with
+`dev-tools/measure-ci-feedback.py`.
+
+Capacity (ARC-CI-10) is recorded in
+`documentation/reference/ci-runner-capacity-model.json`. Live runner
+enumeration may be `NOT_MEASURED` when the Actions runners API returns an empty
+list for the available credential. Queue vs run decomposition comes from the
+same measurement script. Runner purchases stay out of scope.
+
+Agent WIP (ARC-CI-11) is the advisory script
+`dev-tools/check-agent-ci-wip.sh` documented in
+`documentation/reference/ci-agent-wip-limit.md` (default two open PRs with
+pending checks). It does not replace cancel-in-progress.
+
+Card 12 before/after receipts:
+`documentation/reference/ci-runner-load-before-receipt.json` and
+`documentation/reference/ci-runner-load-pilot-receipt.json`. Experiment targets
+(-30% p95 feedback, -25% runner-seconds p95) are aims, not single-run claims.
+

@@ -1,0 +1,95 @@
+{
+  "schema": "ChangeAdmissionReceipt/v1",
+  "task": "229fbc45-3112-4899-b150-894ec9644c59",
+  "repository": "Arcanada-one/datarim",
+  "branch": "feature/arc-ci-runner-load-229fbc45",
+  "runtime_authorized": false,
+  "KC2": "NOT_MEASURED",
+  "automated_graph_admit": "NOT_MEASURED",
+  "automated_graph_admit_reason": "No admit_change/graph gate binary is present in this lane clone; impact and local verification are recorded below without claiming automated admission.",
+  "impact_set": [
+    ".github/workflows/personal-id-lint.yml",
+    ".github/workflows/dr-orchestrate-contract.yml",
+    ".github/workflows/node-tests.yml",
+    ".github/workflows/framework-gates.yml",
+    "tests/ci-requirements/framework-gates-human-reporting.txt",
+    "tests/ci-requirements/framework-gates-test-value-card.txt",
+    "dev-tools/check-agent-ci-wip.sh",
+    "documentation/reference/ci-agent-wip-limit.md",
+    "documentation/reference/ci-runner-capacity-model.json",
+    "documentation/reference/ci-runner-load-before-receipt.json",
+    "documentation/reference/ci-runner-load-pilot-receipt.json",
+    "documentation/reference/ci-runner-routing.md",
+    "documentation/reference/arc-ci-runner-load-change-admission-receipt.json"
+  ],
+  "verifications": [
+    {
+      "entity": "required-check-contexts",
+      "edge": "contract",
+      "instrument": "dev-tools/check-required-contexts.sh local + tests/required-check-contexts.json",
+      "verdict": "PASS",
+      "evidence": "required_check_contexts=ok local_contract=true count=19 (2026-11-08T01:06Z)"
+    },
+    {
+      "entity": "personal-id on new reference artefacts",
+      "edge": "hygiene",
+      "instrument": "scripts/personal-id-gate.sh --paths <new docs>",
+      "verdict": "PASS",
+      "evidence": "PASS: clean (5 path(s) scanned); sixteen_digit_hits=0"
+    },
+    {
+      "entity": "check-agent-ci-wip.sh",
+      "edge": "unit-contract",
+      "instrument": "shellcheck --severity=warning + smoke --limit 50",
+      "verdict": "PASS",
+      "evidence": "shellcheck exit 0; smoke listed 1 open pending PR under limit=50"
+    },
+    {
+      "entity": "personal-id-lint scope (no paths filter)",
+      "edge": "unit-contract",
+      "instrument": "bats tests/personal-id-lint-scope.bats via heavy.sh",
+      "verdict": "PASS",
+      "evidence": "ok 1-6 including 'workflow runs on every change (no paths filter)'; heavy_exit=0 2026-11-08T01:15:03Z"
+    },
+    {
+      "entity": "bats discovery paths guard",
+      "edge": "unit-contract",
+      "instrument": "bats tests/bats-discovery-coverage.bats via heavy.sh",
+      "verdict": "PASS",
+      "evidence": "ok 7-42 including 'bats.yml has no paths filter'; 42 ok / 0 not ok; heavy_exit=0"
+    },
+    {
+      "entity": "hosted CI on PR head",
+      "edge": "ci",
+      "instrument": "GitHub Actions on pull request",
+      "verdict": "NOT_MEASURED",
+      "evidence": "PR not yet created at receipt authoring time"
+    },
+    {
+      "entity": "independent reviewer APPROVE on exact head",
+      "edge": "review",
+      "instrument": "separate reviewer session",
+      "verdict": "NOT_MEASURED",
+      "evidence": "author lane cannot self-approve"
+    },
+    {
+      "entity": "gated-merge --receipt",
+      "edge": "merge",
+      "instrument": "owner gated-merge",
+      "verdict": "NOT_MEASURED",
+      "evidence": "no self-merge"
+    },
+    {
+      "entity": "card12 after sample",
+      "edge": "measurement",
+      "instrument": "dev-tools/measure-ci-feedback.py sample_size>=10 post-change",
+      "verdict": "NOT_MEASURED",
+      "evidence": "after sample deferred; targets recorded as experiment aims only"
+    }
+  ],
+  "claims": {
+    "percentage_speedup_from_single_run": false,
+    "runtime_authorized": false,
+    "KC2": "NOT_MEASURED"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "schema": "CiRunnerLoadPilotReceipt/v1",
+  "task": "229fbc45-3112-4899-b150-894ec9644c59",
+  "card": "ARC-CI-12",
+  "measured_at": "2026-11-08T01:05:00Z",
+  "measurement_script": "dev-tools/measure-ci-feedback.py",
+  "before_receipt": "documentation/reference/ci-runner-load-before-receipt.json",
+  "before": {
+    "sample_size": 10,
+    "feedback_time_s_p50": 430.5,
+    "feedback_time_s_p95": 570.0,
+    "runner_seconds_per_successful_check_p50": 5589.0,
+    "runner_seconds_per_successful_check_p95": 5802.0,
+    "queue_time_s_p50": 173.0
+  },
+  "experiment_targets": {
+    "note": "Targets are experiment aims, not claims from a single run.",
+    "feedback_time_s_p95_delta_pct": -30,
+    "feedback_time_s_p95_target": 399.0,
+    "runner_seconds_per_successful_check_p95_delta_pct": -25,
+    "runner_seconds_per_successful_check_p95_target": 4351.5
+  },
+  "after": {
+    "sample_size": 0,
+    "verdict": "NOT_MEASURED",
+    "reason": "Requires >=10 successful hosted bats runs on tip that includes this pilot head, measured with the same script."
+  },
+  "pilot_controls": {
+    "ARC-CI-07": "cancel-in-progress on personal-id-lint + dr-orchestrate-contract; path filter on non-required node-tests only",
+    "ARC-CI-09": "setup-python pip cache with per-job requirements files; Actions branch/PR cache trust isolation documented",
+    "ARC-CI-10": "ci-runner-capacity-model.json (live runner list NOT_MEASURED; needs from before receipt)",
+    "ARC-CI-11": "check-agent-ci-wip.sh default limit=2 + ci-agent-wip-limit.md"
+  },
+  "claims": {
+    "percentage_speedup_from_single_run": false,
+    "runtime_authorized": false,
+    "KC2": "NOT_MEASURED"
+  }
+}
