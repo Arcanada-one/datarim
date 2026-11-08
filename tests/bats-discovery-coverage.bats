@@ -463,10 +463,11 @@ YAML
 @test "customer-delivery CI matrices come only from the canonical shard registry" {
     grep -q 'linux_matrix:.*steps.customer_delivery_matrix.outputs.linux' "$WF" \
         && grep -q 'macos_matrix:.*steps.customer_delivery_matrix.outputs.macos' "$WF" \
-        && grep -q 'linux=.*run-customer-delivery-shard.py --matrix linux' "$SURFACE" \
-        && grep -q 'macos=.*run-customer-delivery-shard.py --matrix macos' "$SURFACE" \
+        && grep -q 'linux=.*run-customer-delivery-shard.py --matrix-jobs linux' "$SURFACE" \
+        && grep -q 'macos=.*run-customer-delivery-shard.py --matrix-jobs macos' "$SURFACE" \
         && grep -q 'include:.*fromJSON(needs.registry.outputs.linux_matrix)' "$WF" \
         && grep -q 'include:.*fromJSON(needs.registry.outputs.macos_matrix)' "$WF" \
+        && grep -q 'GROUP_MEMBERS: ${{ toJSON(matrix.members) }}' "$WF" \
         && ! grep -qE '^\s+- \{ suite: (functional|schema|mutation),' "$SURFACE"
 }
 
@@ -477,7 +478,7 @@ YAML
         && grep -q -- '--check-results macos' "$SURFACE" \
         && [ "$(grep -c 'actions/upload-artifact@' "$WF")" -eq 2 ] \
         && [ "$(grep -c 'actions/download-artifact@' "$WF")" -eq 2 ] \
-        && [ "$(grep -c -- '--result-file' "$SURFACE")" -eq 2 ]
+        && [ "$(grep -c -- '--result-dir' "$SURFACE")" -eq 2 ]
 }
 
 @test "every customer-delivery checkout is pinned to and verifies the triggering PR head" {

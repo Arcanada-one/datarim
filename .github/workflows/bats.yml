@@ -132,7 +132,7 @@ jobs:
         run: bash .github/scripts/workflow/bats-suites-02-run-shard-matrix-shard-of-8.sh
 
   customer-delivery-linux:
-    name: customer delivery ${{ matrix.suite }} ${{ matrix.shard }} (Linux)
+    name: customer delivery group ${{ matrix.group }} (Linux)
     needs: registry
     runs-on: ubuntu-latest
     strategy:
@@ -154,11 +154,10 @@ jobs:
       - name: Verify trusted Python launcher runtime and dependencies
         run: bash tests/check-customer-delivery-python-runtime.sh "$RUNNER_TEMP/customer-delivery-venv/bin/python"
 
-      - name: Run bounded exact shard
-        timeout-minutes: 2
+      - name: Run bounded exact shard group
+        timeout-minutes: 12
         env:
-          SUITE: ${{ matrix.suite }}
-          SHARD: ${{ matrix.shard }}
+          GROUP_MEMBERS: ${{ toJSON(matrix.members) }}
         run: bash .github/scripts/workflow/bats-customer-delivery-linux-03-run-bounded-exact-shard.sh
       - name: Upload exact shard result
         if: always()
@@ -219,7 +218,7 @@ jobs:
 
   customer-delivery-macos:
     if: github.event_name == 'workflow_dispatch' && inputs.run_hosted_macos
-    name: customer delivery ${{ matrix.suite }} ${{ matrix.shard }} (macOS)
+    name: customer delivery group ${{ matrix.group }} (macOS)
     needs: registry
     runs-on: macos-latest
     strategy:
@@ -244,12 +243,11 @@ jobs:
       - name: Verify trusted Python launcher runtime and dependencies
         run: bash tests/check-customer-delivery-python-runtime.sh "$RUNNER_TEMP/customer-delivery-venv/bin/python"
 
-      - name: Run bounded exact shard
-        timeout-minutes: 2
+      - name: Run bounded exact shard group
+        timeout-minutes: 12
         env:
           DEVELOPER_DIR: /Library/Developer/CommandLineTools
-          SUITE: ${{ matrix.suite }}
-          SHARD: ${{ matrix.shard }}
+          GROUP_MEMBERS: ${{ toJSON(matrix.members) }}
         run: bash .github/scripts/workflow/bats-customer-delivery-macos-03-run-bounded-exact-shard.sh
       - name: Upload exact shard result
         if: always()

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
-: "${SUITE:?SUITE required}"
-: "${SHARD:?SHARD required}"
+: "${GROUP_MEMBERS:?GROUP_MEMBERS required}"
 result_dir="$RUNNER_TEMP/customer-delivery-result"
-shard="$SHARD"
 mkdir -p "$result_dir"
+# Each logical shard keeps its own timeout and result JSON. A partial
+# failure still records siblings; the aggregate fails on any missing
+# required logical result.
 /usr/bin/python3 tests/run-customer-delivery-shard.py \
-  --suite "$SUITE" --shard "$SHARD" \
+  --group-members "$GROUP_MEMBERS" \
   --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python" \
   --platform linux \
-  --result-file "$result_dir/${SUITE}-${shard//\//-}.json"
+  --result-dir "$result_dir"

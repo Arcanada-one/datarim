@@ -75,3 +75,17 @@ system package install run. Unsupported distro/architecture, unavailable
 metadata tooling, a bad digest, or a binary that still cannot load remain
 failures. The receiving CI must still prove the actual runner UID/runtime
 behavior. Tool prefixes are unique kernel-created directories within RUNNER_TEMP.
+
+## Customer-delivery microjob batching (ARC-CI-03)
+
+Linux and macOS customer-delivery runner jobs are sized from
+`tests/ci-slot-baseline.json` (`proposed_microjob_group_size`), not a fixed
+workflow constant. Each runner job executes several compatible logical shards;
+every logical shard keeps its own timeout and result JSON. The aggregate still
+checks the flat logical inventory (`--matrix` / `--check-results`). A skipped or
+partial runner job cannot mask a missing required logical result.
+
+Duration-aware Bats discovery assignment (ARC-CI-04) packs suites using
+`tests/bats-suite-durations.tsv` while keeping the eight required check names
+`shard 1/8` … `shard 8/8`.
+
