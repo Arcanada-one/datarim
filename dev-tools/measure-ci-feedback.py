@@ -159,7 +159,9 @@ def summarize_run(run_id: int, jobs: list[dict[str, Any]]) -> dict[str, Any]:
 
     shard_ratio = None
     if len(shard_runs) >= 8:
-        shard_ratio = max(shard_runs) / statistics.median(shard_runs)
+        # Round to 3 decimals so JSON does not emit 16 consecutive digits
+        # (personal-id-gate shape \b[0-9]{16}\b).
+        shard_ratio = round(max(shard_runs) / statistics.median(shard_runs), 3)
 
     return {
         "run_id": run_id,

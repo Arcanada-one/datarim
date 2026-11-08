@@ -29,20 +29,22 @@ git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
     exit 1
 }
 
-eval "$(python3 - "$intent_file" <<'PY'
+# Assign via mapfile/command substitution so shellcheck sees the bindings (SC2154).
+mapfile -t _intent_fields < <(python3 - "$intent_file" <<'PY'
 import json
 import sys
 from pathlib import Path
 intent = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 if intent.get("schema") != "ReleaseIntent/v1":
     raise SystemExit("ERROR: unsupported intent schema")
-version = intent["version"]
-source = intent["source_sha"]
-print(f"version={version}")
-print(f"source_sha={source}")
-print(f"tag=v{version}")
+print(intent["version"])
+print(intent["source_sha"])
 PY
-)"
+)
+version="${_intent_fields[0]:-}"
+source_sha="${_intent_fields[1]:-}"
+[ -n "$version" ] || { echo "ERROR: intent missing version" >&2; exit 2; }
+[ -n "$source_sha" ] || { echo "ERROR: intent missing source_sha" >&2; exit 2; }
 
 tag_ref="refs/tags/v${version}"
 remote="$(git -C "$repo" ls-remote --tags origin "$tag_ref" "${tag_ref}^{}" 2>/dev/null || true)"
