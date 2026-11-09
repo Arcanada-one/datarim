@@ -35,6 +35,15 @@ Leave `DATARIM_CURSOR_MODEL_*` unset (policy 22.10 = Auto). Jev still reads
 those env vars as an override; otherwise it passes `--model auto`
 (`scripts/jev.py`, `plugins/dr-jev-control/scripts/runtimes.py`).
 
+MiniMax reads a `hooks.json` command output in its own native format. A
+refused or review-requested tool call is printed as a top-level
+`{"decision": "block", "reason": "..."}` payload and the hook exits with status
+`2`. Advisory context is delivered through `hookSpecificOutput.additionalContext`,
+which the runtime passes to the model on `PreToolUse`, `UserPromptSubmit` and
+`PostToolUse`. The Claude-style `hookSpecificOutput.permissionDecision` is
+parsed but not enforced by the runtime, so Jev does not depend on it for
+MiniMax.
+
 Activate only in the current shell:
 
 ```bash

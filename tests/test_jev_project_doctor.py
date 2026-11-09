@@ -213,15 +213,19 @@ class ProjectDoctor(unittest.TestCase):
         self.assertEqual((code, report['findings']), (0, []))
         self.assertEqual(report['hook_clients'], ['minimax'])
         self.assertEqual(report['native_agents_live']['minimax']['state'], 'not_measured')
-        # Deny path must emit Claude-shaped JSON even when advisory context fails.
+        # Deny path must emit the runtime's native block payload and a blocking
+        # exit status: mcode parses but does not enforce the Claude-shaped
+        # permissionDecision, so that shape alone left the floor advisory.
         deny_payload = json.dumps({'cwd': str(self.project), 'session_id': 'probe-mm-deny',
                                    'tool_name': 'bash', 'tool_input': {'command': 'rm -rf /'}})
         command = json.loads((self.project/'.minimax/hooks.json').read_text())['hooks']['PreToolUse'][0]['hooks'][0]
         import shlex
         deny = subprocess.run(shlex.split(command['command']), input=deny_payload, cwd=self.project,
                               env=self.env, capture_output=True, text=True, timeout=60)
-        self.assertEqual(deny.returncode, 0, deny.stderr)
-        self.assertEqual(json.loads(deny.stdout)['hookSpecificOutput']['permissionDecision'], 'deny')
+        self.assertEqual(deny.returncode, 2, deny.stderr)
+        blocked = json.loads(deny.stdout)
+        self.assertEqual(blocked['decision'], 'block')
+        self.assertIn('safety floor', blocked['reason'])
         allow_payload = json.dumps({'cwd': str(self.project), 'session_id': 'probe-mm',
                                     'tool_name': 'bash', 'tool_input': {'command': 'ls'}})
         allow = subprocess.run(shlex.split(command['command']), input=allow_payload, cwd=self.project,

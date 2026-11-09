@@ -47,6 +47,13 @@ which refuses destructive shell commands without a key or network. Codex runs
 them only after you trust them in its TUI. MiniMax requires top-level
 `enabled: true` in its hook config.
 
+MiniMax parses a hook command output in its own native format. A refused or
+review-requested tool call is printed as a top-level `{"decision": "block",
+"reason": "..."}` payload and the hook exits with status `2`; advisory context
+travels through `hookSpecificOutput.additionalContext`. The Claude-style
+`hookSpecificOutput.permissionDecision` is parsed but not enforced by the
+runtime, so the wrapper never relies on it for MiniMax.
+
 `jev off` disables Jev advice for the current project. The deterministic safety
 floor remains active while the registered project hooks are installed.
 `DATARIM_JEV_DISABLE=1` disables advice for the invoking shell. Neither switch
