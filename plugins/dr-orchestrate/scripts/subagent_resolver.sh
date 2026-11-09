@@ -15,6 +15,11 @@
 #   STATE_DIR                  — dedup dir for "backend missing" warnings.
 #   DR_FLEET_VERSION_HINTS     - set to 1 for best-effort CLI version advice.
 #   DR_FLEET_VERSION_TIMEOUT_S - version-probe budget in seconds (default 2).
+#
+# MiniMax (`mcode`) is intentionally absent from the default chains: unknown-
+# prompt resolution needs a measured non-interactive JSON print contract, and
+# mcode's verified surface is `exec` + hooks rather than a print/JSON backend.
+# Operators can still append `minimax` explicitly once that contract is wired.
 set -euo pipefail
 
 : "${DR_ORCH_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"

@@ -1,6 +1,6 @@
 # Jev control plane
 
-Optional project-local routing for Datarim with Codex, Claude Code, Cursor, and Antigravity.
+Optional project-local routing for Datarim with Codex, Claude Code, Cursor, Antigravity, and MiniMax.
 Jev recommends a capability tier and relevant catalog components; the selected
 native agent performs the work. An API outage leaves the native client available.
 Speed, quality, and cost improvements require measurement on real tasks.
@@ -18,9 +18,10 @@ instructions, or launchers); "host" uses host-wide Jev from
 - [Five entrypoints and CLI flags](../../documentation/reference/jev-cli.md)
 
 Activate the project's `.datarim-runtime/activate.sh`, then use `jevcodex`,
-`jevclaude`, `jevcursor`, `jevagy` (`jevantigravity`), or `jev --agent=codex`. `jev doctor` checks local
-prerequisites; `jev doctor --api` explicitly tests API connectivity. Native AGENTS
-loading and session continuity need separate live checks.
+`jevclaude`, `jevcursor`, `jevagy` (`jevantigravity`), `jevminimax`, or
+`jev --agent=codex`. `jev doctor` checks local prerequisites; `jev doctor --api`
+explicitly tests API connectivity. Native AGENTS loading and session continuity
+need separate live checks.
 
 ## Routing and continuity
 
@@ -30,6 +31,7 @@ loading and session continuity need separate live checks.
 | Codex | Reasoning effort; optional explicitly configured model | Resume the exact thread on the next turn |
 | Cursor | env `DATARIM_CURSOR_MODEL_*` (leave unset; policy 22.10 = Auto) → default `--model auto`. No common effort flag | Resume the exact session on the next turn |
 | Antigravity (`agy`) | Model tier (`flash_lite`, `flash`, `pro`) via `DATARIM_ANTIGRAVITY_MODEL_*` or `--model` | Resume the exact conversation on the next turn |
+| MiniMax (`mcode`) | Optional `DATARIM_MINIMAX_MODEL_*` / `--model`; unattended form is `exec --permission full` | Resume the exact session on the next turn |
 
 The supervisor refuses missing or changed continuation IDs. A failed client turn
 is not a completed turn.
@@ -37,11 +39,20 @@ is not a completed turn.
 ## Project hooks and state
 
 `--with-jev` registers native hooks in the project for the clients selected with
-`--client` (all four by default):
-`.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json` and `.agents/hooks.json`. They
-provide prompt routing, pre-tool risk advice, post-tool validation and the
-deterministic safety floor, which refuses destructive shell commands without a
-key or network. Codex runs them only after you trust them in its TUI.
+`--client` (all five by default):
+`.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json`,
+`.agents/hooks.json` and `.minimax/hooks.json`. They provide prompt routing,
+pre-tool risk advice, post-tool validation and the deterministic safety floor,
+which refuses destructive shell commands without a key or network. Codex runs
+them only after you trust them in its TUI. MiniMax requires top-level
+`enabled: true` in its hook config.
+
+MiniMax parses a hook command output in its own native format. A refused or
+review-requested tool call is printed as a top-level `{"decision": "block",
+"reason": "..."}` payload and the hook exits with status `2`; advisory context
+travels through `hookSpecificOutput.additionalContext`. The Claude-style
+`hookSpecificOutput.permissionDecision` is parsed but not enforced by the
+runtime, so the wrapper never relies on it for MiniMax.
 
 `jev off` disables Jev advice for the current project. The deterministic safety
 floor remains active while the registered project hooks are installed.

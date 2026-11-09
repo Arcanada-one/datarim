@@ -4,6 +4,20 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.12.0] — 2026-11-09
+
+### Added
+
+- MiniMax Code (`minimax`, binary `mcode`, alias `mcode`→`minimax`) is now a first-class supported client across Datarim project installation (`install.sh` / `update.sh` `--client minimax` or `--client mcode`), Jev project and host hooks (`.minimax/hooks.json` and `~/.minimax/hooks.json` for `UserPromptSubmit`, `PreToolUse` and `PostToolUse`, Claude nested shape with top-level `enabled: true`), Jev launchers (`jevminimax`, `jev --agent=minimax`), the Jev control-plane runtime (`MiniMaxRuntime`), and standalone Human Outcome Reporting (`human_reporting_install.py --agents minimax`). MiniMax has no markdown commands loader, so `/dr-*` commands are delivered as skills under `.minimax/skills/`.
+
+### Fixed
+
+- The MiniMax hook wrapper now emits the runtime's native refusal contract: a denied or review-requested tool call is printed as `{"decision": "block", "reason": "..."}` and the hook exits with status `2`. MiniMax Code parses but does not enforce the Claude-style `hookSpecificOutput.permissionDecision`, so the previous payload left the deterministic safety floor advisory on MiniMax. Advisory context keeps travelling through `hookSpecificOutput.additionalContext`, which the runtime delivers to the model on `PreToolUse`, `UserPromptSubmit` and `PostToolUse`.
+
+### Changed
+
+- Client surface prose and install defaults now describe five clients (Claude Code, Codex, Cursor, Antigravity, MiniMax) instead of four.
+
 ## [4.11.0] — 2026-11-06
 
 ### Added

@@ -41,3 +41,9 @@ setup() { setup_project_fixture; }
     run cat "$PROJECT/CLAUDE.md"
     [ "$output" = 'Operator rules' ]
 }
+
+@test "minimax client alias is accepted in dry-run" {
+    install_answered --dry-run --client mcode --permissions ask --without-jev
+    [ "$status" -eq 0 ]
+    [ ! -e "$PROJECT/.minimax" ]
+}

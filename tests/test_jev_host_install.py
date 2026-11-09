@@ -274,6 +274,52 @@ class HostInstallTests(unittest.TestCase):
             self.assertIn("--agent=antigravity", launcher.read_text())
 
 
+
+    def test_minimax_host_install_registers_hooks_and_launcher(self):
+        self.args.client = ['minimax']
+        self.install()
+        target = self.home/'.minimax/hooks.json'
+        self.assertTrue(target.is_file())
+        data = json.loads(target.read_text())
+        self.assertTrue(data.get('enabled'))
+        self.assertIn('hooks', data)
+        self.assertEqual(len(data['hooks']['UserPromptSubmit']), 1)
+        self.assertEqual(len(data['hooks']['PreToolUse']), 1)
+        self.assertEqual(len(data['hooks']['PostToolUse']), 1)
+        self.assertEqual(data['hooks']['PreToolUse'][0]['matcher'], 'bash|write|edit')
+        self.assertIn('jev-hook minimax UserPromptSubmit', data['hooks']['UserPromptSubmit'][0]['hooks'][0]['command'])
+        self.assertIn('jev-hook minimax PreToolUse', data['hooks']['PreToolUse'][0]['hooks'][0]['command'])
+        launcher = self.home/'.local/bin'/'jevminimax'
+        self.assertTrue(launcher.is_file())
+        self.assertIn('--agent=minimax', launcher.read_text())
+
+    def test_minimax_project_hook_state_merges_and_preserves_neighbors(self):
+        import jev_host_install as jhi
+        data_dir = self.home / 'mm-data'
+        runtime = self.home / 'runtime'
+        (runtime / 'scripts').mkdir(parents=True)
+        (runtime / 'scripts' / 'jev_hook.py').write_text('# stub\n')
+        foreign = {'version': 1, 'projects': {'/other': {'enabled': True, 'hooks': {'h_deadbeefdeadbeef': True}}}}
+        state_path = data_dir / 'hook-settings' / 'state.json'
+        state_path.parent.mkdir(parents=True)
+        state_path.write_text(json.dumps(foreign))
+        config = jhi.merge_hooks({}, 'minimax', runtime, [runtime])
+        jhi.sync_minimax_project_hook_state(self.home / 'proj', config, data_dir=data_dir, enable=True)
+        state = json.loads(state_path.read_text())
+        self.assertEqual(state['projects']['/other'], foreign['projects']['/other'])
+        project_key = str((self.home / 'proj').resolve())
+        self.assertTrue(state['projects'][project_key]['enabled'])
+        self.assertEqual(len(state['projects'][project_key]['hooks']), 3)
+        # Compact JSON id form: no spaces after commas/colons.
+        sample_id = next(iter(state['projects'][project_key]['hooks']))
+        self.assertTrue(sample_id.startswith('h_'))
+        self.assertEqual(len(sample_id), 18)
+        jhi.sync_minimax_project_hook_state(self.home / 'proj', {}, data_dir=data_dir, enable=False)
+        state = json.loads(state_path.read_text())
+        self.assertNotIn(project_key, state['projects'])
+        self.assertIn('/other', state['projects'])
+
+
 class StableInterpreter(unittest.TestCase):
     """Hook commands must survive an interpreter upgrade: a versioned path
     (`.../python@3.14/bin/python3.14`) breaks every hook at the next one."""

@@ -67,10 +67,14 @@ EVENTS = {
               ('PostToolUse', 'Bash|exec_command|shell|apply_patch')],
     'cursor': [('beforeSubmitPrompt', None), ('beforeShellExecution', None),
                ('postToolUse', None)],
+    # Measured on mcode 0.7.6: lowercase tool names; Claude nested hook shape.
+    'minimax': [('UserPromptSubmit', None), ('PreToolUse', 'bash|write|edit'),
+                ('PostToolUse', 'bash|write|edit')],
 }
-CLIENT_ALIASES = {'agy': 'antigravity'}
+CLIENT_ALIASES = {'agy': 'antigravity', 'mcode': 'minimax'}
 HOOK_PATHS = {'antigravity': '.gemini/config/hooks.json', 'claude': '.claude/settings.json',
-              'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json'}
+              'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json',
+              'minimax': '.minimax/hooks.json'}
 LAUNCHERS = (
     ('jev', None),
     ('jevcodex', 'codex'),
@@ -78,6 +82,7 @@ LAUNCHERS = (
     ('jevcursor', 'cursor'),
     ('jevagy', 'antigravity'),
     ('jevantigravity', 'antigravity'),
+    ('jevminimax', 'minimax'),
 )
 
 
@@ -205,6 +210,108 @@ def hook_interpreter(executable=None, search_path=None):
     return executable
 
 
+def minimax_data_dir(home=None):
+    """MiniMax user data directory (`~/.minimax`), overridable via MINIMAX_DATA_DIR."""
+    override = os.environ.get('MINIMAX_DATA_DIR')
+    if override:
+        return Path(override).expanduser().resolve()
+    return Path(home or Path.home()).expanduser().resolve() / '.minimax'
+
+
+def minimax_hook_id(event, matcher, command, timeout, command_windows=None):
+    """Stable MiniMax project hook id (measured on mcode 0.7.6).
+
+    `h_` + first 16 hex chars of sha256(JSON.stringify(
+      [event, matcher ?? null, command ?? null, commandWindows ?? null, timeout ?? null]
+    )) with no spaces after commas/colons.
+    """
+    payload = [event, matcher, command, command_windows, timeout]
+    digest = hashlib.sha256(
+        json.dumps(payload, separators=(',', ':'), ensure_ascii=False).encode()
+    ).hexdigest()
+    return 'h_' + digest[:16]
+
+
+def _minimax_hook_ids_from_config(hook_config):
+    """Collect MiniMax hook ids from a Claude-nested hooks.json object."""
+    hooks = hook_config.get('hooks') if isinstance(hook_config, dict) else None
+    if not isinstance(hooks, dict):
+        return {}
+    ids = {}
+    for event, entries in hooks.items():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            matcher = entry.get('matcher')
+            nested = entry.get('hooks') or []
+            if not isinstance(nested, list):
+                continue
+            for item in nested:
+                if not isinstance(item, dict):
+                    continue
+                command = item.get('command')
+                timeout = item.get('timeout')
+                command_windows = item.get('commandWindows', item.get('command_windows'))
+                ids[minimax_hook_id(event, matcher, command, timeout, command_windows)] = True
+    return ids
+
+
+def sync_minimax_project_hook_state(project_root, hook_config, *, data_dir=None, enable=True):
+    """Merge project-scope MiniMax hook enablement into hook-settings/state.json.
+
+    Measured on mcode 0.7.6: a project `.minimax/hooks.json` alone does not fire
+    unless `<dataDir>/hook-settings/state.json` marks the canonical project path
+    enabled with each hook id. Other projects' entries must survive (merge, not
+    overwrite). Host-scope hooks do not need this file.
+    """
+    data_dir = Path(data_dir) if data_dir is not None else minimax_data_dir()
+    state_path = data_dir / 'hook-settings' / 'state.json'
+    canonical = str(Path(project_root).resolve())
+    current = {}
+    if state_path.is_file() and not state_path.is_symlink():
+        try:
+            loaded = json.loads(state_path.read_text())
+            if isinstance(loaded, dict):
+                current = loaded
+        except (OSError, ValueError):
+            current = {}
+    projects = current.get('projects')
+    if not isinstance(projects, dict):
+        projects = {}
+    if not enable or not hook_config:
+        projects.pop(canonical, None)
+    else:
+        hook_ids = _minimax_hook_ids_from_config(hook_config)
+        if not hook_ids:
+            projects.pop(canonical, None)
+        else:
+            projects[canonical] = {'enabled': True, 'hooks': hook_ids}
+    out = dict(current)
+    out['version'] = 1
+    if projects:
+        out['projects'] = projects
+    else:
+        out.pop('projects', None)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        fd, temporary = tempfile.mkstemp(prefix='.minimax-state-', dir=state_path.parent)
+        with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+            handle.write(json.dumps(out, indent=2, ensure_ascii=False) + '\n')
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, state_path)
+        temporary = None
+    finally:
+        if temporary is not None:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
+    return state_path
+
+
 def merge_hooks(original, client, runtime, owned_roots, *, register=True, entry_point=None, interpreter=None):
     """Replace only Jev commands; preserve foreign commands in mixed entries.
 
@@ -222,6 +329,9 @@ def merge_hooks(original, client, runtime, owned_roots, *, register=True, entry_
         if out.get('version', 1) != 1:
             raise ValueError('Unsupported Cursor hook config version')
         out['version'] = 1
+    if client == 'minimax':
+        # Measured on mcode 0.7.6: hooks do not run unless top-level enabled is true.
+        out['enabled'] = True
     hooks = out.setdefault(hook_key, {})
     # Remove legacy Jev entries even when their event is no longer registered.
     for event, entries in list(hooks.items()):

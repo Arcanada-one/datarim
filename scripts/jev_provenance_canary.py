@@ -70,7 +70,7 @@ def main():
         hook_cfg['api']['retries'] = 0
         hook_cfg['api']['base_url'] = 'invalid:offline-canary'
         settings.write_text(json.dumps(hook_cfg))
-        for index, client in enumerate(('antigravity', 'claude', 'codex', 'cursor')):
+        for index, client in enumerate(('antigravity', 'claude', 'codex', 'cursor', 'minimax')):
             delivery_id = f'{index + 1:032x}'
             context = json.dumps({'delivery_id': delivery_id, 'client': client})
             with mock.patch.dict(os.environ, env):
@@ -92,7 +92,7 @@ def main():
         print(json.dumps({'schema': 'JevProvenanceCanary/v1', 'result': 'PASS',
                           'provider_calls': 0, 'real_model_calls': 0, 'runtime': 'synthetic CLI subprocess',
                           'deferred_then_dispatched': True, 'applied_switches': counts['applied'],
-                          'hook_clients': 4, 'cached_request_identity_preserved': True,
+                          'hook_clients': 5, 'cached_request_identity_preserved': True,
                           'cursor_unsupported_advice_not_counted': True}))
     return 0
 

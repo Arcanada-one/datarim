@@ -12,7 +12,7 @@ Configuration is local to the installed project (host Jev uses the paths in
 | `.datarim-runtime/state/jev/DISABLED` | Project off switch |
 | `.datarim-runtime/state/jev/FULL_PERMISSIONS` | Written by `jev permissions full`, removed by `jev permissions ask`: `jev*` launchers start clients without permission prompts. `JEV_PERMISSIONS=full\|ask` overrides it for one launch |
 | `config/credentials/jev/api-key` | Jev API key, one per computer and shared by every client on it; mode 0600. An exported `TYPESAFE_API_KEY` is ignored |
-| `.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json`, `.agents/hooks.json` | Project-local Jev hook registrations, written for the selected clients (`--client`; all four by default); unrelated settings preserved |
+| `.claude/settings.local.json`, `.codex/hooks.json`, `.cursor/hooks.json`, `.agents/hooks.json`, `.minimax/hooks.json` | Project-local Jev hook registrations, written for the selected clients (`--client`; all five by default); unrelated settings preserved |
 
 The default API is TypeSafe systemone with model `jev-latest`. Configure its
 endpoint, timeout and retries in `jev-config.json`; do not send a real key to an
@@ -34,6 +34,15 @@ actually supports.
 Leave `DATARIM_CURSOR_MODEL_*` unset (policy 22.10 = Auto). Jev still reads
 those env vars as an override; otherwise it passes `--model auto`
 (`scripts/jev.py`, `plugins/dr-jev-control/scripts/runtimes.py`).
+
+MiniMax reads a `hooks.json` command output in its own native format. A
+refused or review-requested tool call is printed as a top-level
+`{"decision": "block", "reason": "..."}` payload and the hook exits with status
+`2`. Advisory context is delivered through `hookSpecificOutput.additionalContext`,
+which the runtime passes to the model on `PreToolUse`, `UserPromptSubmit` and
+`PostToolUse`. The Claude-style `hookSpecificOutput.permissionDecision` is
+parsed but not enforced by the runtime, so Jev does not depend on it for
+MiniMax.
 
 Activate only in the current shell:
 

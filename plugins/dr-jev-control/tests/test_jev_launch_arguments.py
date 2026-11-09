@@ -96,6 +96,7 @@ class FullPermissions(unittest.TestCase):
         self.assertEqual(jev.permission_flags('codex', []), ['--dangerously-bypass-approvals-and-sandbox'])
         self.assertEqual(jev.permission_flags('cursor', []), ['--force', '--approve-mcps'])
         self.assertEqual(jev.permission_flags('antigravity', []), ['--dangerously-skip-permissions'])
+        self.assertEqual(jev.permission_flags('minimax', []), ['exec', '--permission', 'full'])
 
     def test_an_explicit_policy_from_the_operator_wins(self):
         self.assertEqual(jev.permission_flags('claude', ['--permission-mode', 'plan']), [])
@@ -103,6 +104,7 @@ class FullPermissions(unittest.TestCase):
         self.assertEqual(jev.permission_flags('codex', ['--sandbox=read-only']), [])
         self.assertEqual(jev.permission_flags('cursor', ['--yolo']), [])
         self.assertEqual(jev.permission_flags('antigravity', ['--permission-mode', 'plan']), [])
+        self.assertEqual(jev.permission_flags('minimax', ['--permission', 'smart']), [])
 
     def test_antigravity_launchers_and_options_resolve_to_antigravity(self):
         for launcher in ('jevagy', 'jevantigravity'):
@@ -115,6 +117,15 @@ class FullPermissions(unittest.TestCase):
         self.assertEqual(a.agent, 'antigravity')
         self.assertEqual(a.task, 'inspect the module')
 
+
+    def test_minimax_launcher_and_alias_resolve(self):
+        a, extra = parse('jevminimax', '--model', 'provider/model', 'inspect the module')
+        self.assertEqual(a.agent, 'minimax')
+        self.assertEqual(a.task, 'inspect the module')
+        self.assertEqual(extra, ['--model', 'provider/model'])
+        a, extra = parse('jev', '--agent=mcode', 'inspect the module')
+        self.assertEqual(a.agent, 'minimax')
+
     def test_a_flag_already_given_is_not_repeated(self):
         self.assertEqual(jev.permission_flags('claude', ['--dangerously-skip-permissions']), [])
 
@@ -123,7 +134,7 @@ class FullPermissions(unittest.TestCase):
 class LiveWallClockCaps(unittest.TestCase):
     def launches(self):
         return [('jev', ['--agent=codex']), ('jevclaude', []),
-                ('jevcodex', []), ('jevcursor', []), ('jevagy', [])]
+                ('jevcodex', []), ('jevcursor', []), ('jevagy', []), ('jevminimax', [])]
 
     def test_all_entrypoints_refuse_nonfinite_explicit_caps(self):
         import contextlib
@@ -232,9 +243,9 @@ class DoctorVersionProbeFailures(unittest.TestCase):
             ['/fake/claude', '--version'], 15, output='SYNTHETIC_SECRET'))
         self.assertEqual(code, 1)
         self.assertIn('claude: version probe timed out', report['findings'])
-        self.assertEqual(set(report['versions']), {'antigravity', 'codex', 'cursor'})
+        self.assertEqual(set(report['versions']), {'antigravity', 'codex', 'cursor', 'minimax'})
         self.assertNotIn('SYNTHETIC_SECRET', json.dumps(report))
-        self.assertEqual(len(calls), 4)
+        self.assertEqual(len(calls), 5)
         self.assertTrue(all(args[1] == '--version' and opts['timeout'] == 15
                             for args, opts in calls))
         self.assertEqual(report['api'], 'not_measured')
@@ -243,9 +254,9 @@ class DoctorVersionProbeFailures(unittest.TestCase):
         code, report, calls = self.doctor(PermissionError('SYNTHETIC_SECRET'))
         self.assertEqual(code, 1)
         self.assertIn('claude: version probe could not execute', report['findings'])
-        self.assertEqual(set(report['versions']), {'antigravity', 'codex', 'cursor'})
+        self.assertEqual(set(report['versions']), {'antigravity', 'codex', 'cursor', 'minimax'})
         self.assertNotIn('SYNTHETIC_SECRET', json.dumps(report))
-        self.assertEqual(len(calls), 4)
+        self.assertEqual(len(calls), 5)
         self.assertEqual(report['api'], 'not_measured')
 
 if __name__ == '__main__':

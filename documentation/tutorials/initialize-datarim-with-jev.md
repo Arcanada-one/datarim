@@ -57,6 +57,7 @@ jevcodex "Review the current task and propose its next implementation step"
 jevclaude "Review the current task and propose its next implementation step"
 jevcursor "Review the current task and propose its next implementation step"
 jevagy "Review the current task and propose its next implementation step"
+jevminimax "Review the current task and propose its next implementation step"
 jev --agent=codex "Review the current task and propose its next implementation step"
 ```
 

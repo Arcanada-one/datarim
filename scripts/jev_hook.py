@@ -28,6 +28,9 @@ EVENTS = {
               'PostToolUse': 'PostToolUse'},
     'cursor': {'beforeSubmitPrompt': 'UserPromptSubmit', 'beforeShellExecution': 'PreToolUse',
                'postToolUse': 'PostToolUse', 'afterFileEdit': 'PostToolUse'},
+    # Measured on mcode 0.7.6: native event names already match the canonical set.
+    'minimax': {'UserPromptSubmit': 'UserPromptSubmit', 'PreToolUse': 'PreToolUse',
+                'PostToolUse': 'PostToolUse'},
 }
 
 
@@ -92,6 +95,16 @@ def normalize(client, event, payload):
                 out.setdefault('tool_input', args)
         if 'toolOutput' in payload:
             out['tool_response'] = payload['toolOutput']
+    elif client == 'minimax':
+        # Measured on mcode 0.7.6: tool_name is lowercase (`bash`, `write`, `edit`).
+        # The Jev floor reasons over Claude-style names (`Bash`, `Write`, `Edit`).
+        raw_name = str(out.get('tool_name', ''))
+        lower_name = raw_name.lower()
+        mapped = {'bash': 'Bash', 'write': 'Write', 'edit': 'Edit'}.get(lower_name)
+        if mapped:
+            out['tool_name'] = mapped
+        elif raw_name and raw_name[:1].islower():
+            out['tool_name'] = raw_name[:1].upper() + raw_name[1:]
     return canonical, out
 
 
@@ -187,6 +200,30 @@ def native_output(client, event, result):
             if reason or advice:
                 out['reason'] = reason or advice
             return out
+        return {}
+    if client == 'minimax':
+        # Measured on mcode 0.7.6: a `hooks.json` command is parsed in the native
+        # MINIMAX output format. A tool call is blocked by a top-level
+        # `{"decision": "block", "reason": ...}` payload; the Claude-style
+        # `hookSpecificOutput.permissionDecision` is accepted but not enforced,
+        # and one unknown top-level key voids the whole payload. Advisory context
+        # travels through `hookSpecificOutput.additionalContext` and reaches the
+        # model on PreToolUse, UserPromptSubmit and PostToolUse.
+        body = result.get('hookSpecificOutput', {})
+        advice = body.get('additionalContext', '')
+        decision = body.get('permissionDecision')
+        reason = body.get('permissionDecisionReason', '')
+        if event == 'PreToolUse':
+            if decision in ('deny', 'ask'):
+                # MiniMax has no `ask` decision: the call would continue
+                # unreviewed. Require an explicitly reviewed invocation.
+                return {'decision': 'block', 'reason': reason or 'Jev requested review'}
+            if advice:
+                return {'hookSpecificOutput': {'hookEventName': 'PreToolUse',
+                                               'additionalContext': advice}}
+            return {}
+        if advice:
+            return {'hookSpecificOutput': {'hookEventName': event, 'additionalContext': advice}}
         return {}
     if client != 'cursor':
         return result
@@ -292,7 +329,7 @@ def receipt(env, client, event, output, *, unavailable):
         data.update(advice_emitted=bool(body.get('additionalContext') or output.get('additional_context')
                                        or output.get('agent_message') or output.get('injectSteps')),
                     blocked=(body.get('permissionDecision') == 'deny' or output.get('permission') == 'deny'
-                             or output.get('decision') == 'deny'),
+                             or output.get('decision') in ('deny', 'block')),
                     unavailable=unavailable, applied='not_measured')
         log_event({'telemetry': {'path': str(Path(env['JEV_STATE_DIR'])/'ledger.jsonl'),
                                 'store_prompt_text': False}}, 'hook_delivery', '', data)
@@ -309,6 +346,11 @@ def main():
         result = run(client, event, payload)
         if result or client == 'antigravity':
             print(json.dumps(result))
+        if client == 'minimax' and result.get('decision') == 'block':
+            # Measured on mcode 0.7.6: the JSON payload alone blocks the call,
+            # and a non-zero exit status blocks it independently. Both channels
+            # are emitted so one broken channel cannot reopen the floor.
+            return 2
     except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired):
         return 0
     return 0

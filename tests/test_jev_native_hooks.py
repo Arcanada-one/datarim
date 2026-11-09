@@ -94,21 +94,88 @@ class NativeHookTests(unittest.TestCase):
         self.assertEqual(len(received), 6)
 
     def test_floor_survives_missing_context_for_every_vendor(self):
-        for client in ('antigravity', 'claude', 'codex', 'cursor'):
+        for client in ('antigravity', 'claude', 'codex', 'cursor', 'minimax'):
             event = 'beforeShellExecution' if client == 'cursor' else 'PreToolUse'
             if client == 'cursor':
                 payload = {'command': 'rm -rf /'}
             elif client == 'antigravity':
                 payload = {'toolCall': {'name': 'run_command', 'arguments': {'CommandLine': 'rm -rf /'}}}
+            elif client == 'minimax':
+                payload = {'tool_name': 'bash', 'tool_input': {'command': 'rm -rf /'}}
             else:
                 payload = {'tool_name': 'Bash', 'tool_input': {'command': 'rm -rf /'}}
             with self.subTest(client=client), patch.object(jev_hook, 'environment', side_effect=AssertionError):
                 output = jev_hook.run(client, event, payload)
-            decision = (output['permission'] if client == 'cursor' else
-                        output['decision'] if client == 'antigravity' else
-                        output['hookSpecificOutput']['permissionDecision'])
-            self.assertEqual(decision, 'deny')
+            if client == 'cursor':
+                decision = output['permission']
+            elif client in ('antigravity', 'minimax'):
+                decision = output['decision']
+            else:
+                decision = output['hookSpecificOutput']['permissionDecision']
+            self.assertEqual(decision, 'block' if client == 'minimax' else 'deny')
 
+    def test_minimax_normalization_maps_lowercase_tools(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            name, value = jev_hook.normalize('minimax', 'PreToolUse', {
+                'tool_name': 'bash', 'tool_input': {'command': 'ls'}, 'cwd': workspace,
+                'session_id': 's1', 'turn_id': 't1'})
+            self.assertEqual(name, 'PreToolUse')
+            self.assertEqual(value['tool_name'], 'Bash')
+            self.assertEqual(jev_hook.workdir(value), Path(workspace).resolve())
+            name, value = jev_hook.normalize('minimax', 'PreToolUse', {
+                'tool_name': 'write', 'tool_input': {'file_path': 'a.txt'}, 'cwd': workspace})
+            self.assertEqual(value['tool_name'], 'Write')
+            name, value = jev_hook.normalize('minimax', 'PreToolUse', {
+                'tool_name': 'edit', 'tool_input': {'file_path': 'a.txt'}, 'cwd': workspace})
+            self.assertEqual(value['tool_name'], 'Edit')
+        with patch.object(jev_hook, 'environment', side_effect=ValueError('no context')):
+            out = jev_hook.run('minimax', 'PreToolUse', {
+                'tool_name': 'bash', 'tool_input': {'command': 'rm -rf /'}})
+        self.assertEqual(out['decision'], 'block')
+        self.assertIn('safety floor', out['reason'])
+
+    def test_minimax_native_output_uses_the_measured_native_contract(self):
+        denied = jev_hook.native_output('minimax', 'PreToolUse', {'hookSpecificOutput': {
+            'hookEventName': 'PreToolUse', 'permissionDecision': 'deny',
+            'permissionDecisionReason': 'Jev deterministic safety floor: rm -rf /'}})
+        self.assertEqual(denied, {'decision': 'block',
+                                  'reason': 'Jev deterministic safety floor: rm -rf /'})
+        asked = jev_hook.native_output('minimax', 'PreToolUse', {'hookSpecificOutput': {
+            'hookEventName': 'PreToolUse', 'permissionDecision': 'ask',
+            'permissionDecisionReason': 'Jev risk gate=0.970'}})
+        self.assertEqual(asked, {'decision': 'block', 'reason': 'Jev risk gate=0.970'})
+        advisory = jev_hook.native_output('minimax', 'PreToolUse', {'hookSpecificOutput': {
+            'hookEventName': 'PreToolUse', 'additionalContext': 'Jev risk advisory: 0.800'}})
+        self.assertEqual(advisory, {'hookSpecificOutput': {
+            'hookEventName': 'PreToolUse', 'additionalContext': 'Jev risk advisory: 0.800'}})
+        self.assertEqual(jev_hook.native_output('minimax', 'PreToolUse', {}), {})
+        prompt = jev_hook.native_output('minimax', 'UserPromptSubmit', {'hookSpecificOutput': {
+            'hookEventName': 'UserPromptSubmit', 'additionalContext': 'JEV ROUTING ADVICE'}})
+        self.assertEqual(prompt, {'hookSpecificOutput': {
+            'hookEventName': 'UserPromptSubmit', 'additionalContext': 'JEV ROUTING ADVICE'}})
+        post = jev_hook.native_output('minimax', 'PostToolUse', {'hookSpecificOutput': {
+            'hookEventName': 'PostToolUse', 'additionalContext': 'A file-changing tool ran.'}})
+        self.assertEqual(post['hookSpecificOutput']['additionalContext'], 'A file-changing tool ran.')
+
+    def test_minimax_block_prints_the_native_payload_and_exits_non_zero(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            payload = {'tool_name': 'bash', 'tool_input': {'command': 'rm -rf /'}, 'cwd': workspace}
+            out = io.StringIO()
+            with patch.object(sys, 'argv', ['jev_hook.py', 'minimax', 'PreToolUse']), \
+                 patch('sys.stdin', io.StringIO(json.dumps(payload))), patch('sys.stdout', out):
+                code = jev_hook.main()
+        self.assertEqual(code, 2)
+        self.assertEqual(json.loads(out.getvalue())['decision'], 'block')
+
+    def test_minimax_advisory_exits_zero(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            payload = {'tool_name': 'bash', 'tool_input': {'command': 'ls'}, 'cwd': workspace}
+            out = io.StringIO()
+            with patch.object(sys, 'argv', ['jev_hook.py', 'minimax', 'PreToolUse']), \
+                 patch('sys.stdin', io.StringIO(json.dumps(payload))), patch('sys.stdout', out), \
+                 patch.object(jev_hook, 'environment', side_effect=ValueError('no context')):
+                code = jev_hook.main()
+        self.assertEqual(code, 0)
     def test_antigravity_normalization_and_native_output(self):
         with tempfile.TemporaryDirectory() as workspace:
             name, value = jev_hook.normalize('antigravity', 'PreInvocation', {

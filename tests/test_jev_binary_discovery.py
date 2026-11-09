@@ -21,7 +21,7 @@ class BinaryDiscovery(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.home = Path(self.tmp.name).resolve()
-        for key in ('CLAUDE_BIN', 'CODEX_BIN', 'CURSOR_BIN'):
+        for key in ('CLAUDE_BIN', 'CODEX_BIN', 'CURSOR_BIN', 'MINIMAX_BIN', 'AGY_BIN'):
             os.environ.pop(key, None)
 
     def _plant(self, relative, name='codex'):
@@ -61,6 +61,25 @@ class BinaryDiscovery(unittest.TestCase):
             with mock.patch.dict(os.environ, {'PATH': '/no-such-bin-dir'}):
                 found = jev.binary('cursor')
         self.assertEqual(found, str(planted))
+
+
+    def test_finds_mcode_under_local_bin(self):
+        planted = self._plant('.local/bin', 'mcode')
+        with mock.patch.object(Path, 'home', return_value=self.home):
+            with mock.patch.dict(os.environ, {'PATH': '/no-such-bin-dir'}):
+                found = jev.binary('minimax')
+        self.assertEqual(found, str(planted))
+
+    def test_minimax_bin_override_wins(self):
+        self._plant('.local/bin', 'mcode')
+        override = self._plant('.override', 'my-mcode')
+        with mock.patch.object(Path, 'home', return_value=self.home):
+            with mock.patch.dict(os.environ, {'PATH': '/no-such-bin-dir', 'MINIMAX_BIN': str(override)}):
+                found = jev.binary('minimax')
+        self.assertEqual(found, str(override))
+        with mock.patch.object(Path, 'home', return_value=self.home):
+            with mock.patch.dict(os.environ, {'PATH': '/no-such-bin-dir', 'MINIMAX_BIN': str(override)}):
+                self.assertEqual(runtimes.resolve_client_binary('minimax'), str(override))
 
     def test_prepend_puts_well_known_dirs_ahead_of_path(self):
         (self.home / '.npm-global' / 'bin').mkdir(parents=True)

@@ -10,7 +10,7 @@
 
 **A universal iterative workflow framework for Claude Code, Codex CLI, Cursor, and Google Antigravity (`agy`) — from requirements to completion.**
 
-[![Version: 4.11.0](https://img.shields.io/badge/Version-4.11.0-green.svg)](VERSION)
+[![Version: 4.12.0](https://img.shields.io/badge/Version-4.12.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -18,18 +18,20 @@
 
 **Identity:** use the approved [Datarim logos and usage guidance](assets/brand/README.md) for project pages and communications.
 
-Datarim coordinates AI agents, takes tasks through their required stages autonomously, offers a fast lane for small tasks, and uses JEV classification to advise the model and reasoning effort. It works with Claude Code, Codex, Cursor and Antigravity.
+Datarim coordinates AI agents, takes tasks through their required stages autonomously, offers a fast lane for small tasks, and uses JEV classification to advise the model and reasoning effort. It works with Claude Code, Codex, Cursor, Antigravity and MiniMax.
 
 | Main capability | What it does for you | Start here |
 |-----------------|----------------------|------------|
 | **Agent orchestration** | Coordinates stage specialists, checkpoints and feedback instead of requiring you to run each step. The optional transport plugin also drives terminal sessions and keeps an audit trail. | [`/dr-orchestrate`](commands/dr-orchestrate.md) and [orchestration setup](plugins/dr-orchestrate/README.md) |
 | **Autonomous execution** | `/dr-auto` starts from your brief or resumes a task, selects the next stage, delegates work, checks results and continues through passing compliance and reflection. Finalization is available when `autonomy.finalize` enables it. | [`/dr-auto "Describe the outcome you need"`](commands/dr-auto.md) |
 | **Quick task execution** | `/dr-quick` handles tiny edits and lookups without the full requirements, planning, design, QA and compliance cycle. Changes still require acceptance evidence and confirmation that they reached the shared main branch; larger work returns to the full workflow. | [`/dr-quick "Describe the small task"`](commands/dr-quick.md) |
-| **JEV model classification** | Classifies the task and advises a model tier and reasoning effort; its separate deterministic safety floor checks commands. Routing advice needs a JEV key, while the safety floor works without one. | [`jevcodex`, `jevclaude`, `jevcursor`, `jevagy`](documentation/tutorials/initialize-datarim-with-jev.md) |
+| **JEV model classification** | Classifies the task and advises a model tier and reasoning effort; its separate deterministic safety floor checks commands. Routing advice needs a JEV key, while the safety floor works without one. | [`jevcodex`, `jevclaude`, `jevcursor`, `jevagy`, `jevminimax`](documentation/tutorials/initialize-datarim-with-jev.md) |
 
 New to Datarim? Read [Datarim for everyone](documentation/explanation/datarim-for-everyone.md) for a short introduction.
 
 Autonomous execution keeps permission and irreversible-action boundaries. JEV advice is not permission or verification. Install Datarim in the projects where you want the workflow; JEV and the reporting skill can also operate independently.
+
+**New in 4.12.0:** MiniMax Code (`minimax` / `mcode`) is a first-class client: project hooks at `.minimax/hooks.json`, skills at `.minimax/skills/` (including `/dr-*` command stems), launchers `jevminimax`, and `MiniMaxRuntime` in the Jev control plane.
 
 **New in 4.3.0:** choose your reply language independently from generated document
 language, with English defaults and shared settings for standalone reporting.
@@ -39,8 +41,6 @@ labels disclose English fallback when a requested catalog is unavailable.
 **New in 4.6.0:** L3/L4 tasks are checked for a PRD (or an operator-stated waiver) before implementation starts, `linked_ac` values that are not `V-AC-N` tokens get an early advisory, and acceptance cases must stay observable after every planned step.
 
 **New in 4.6.1:** Test-environment settings used for production-impact predictions are compared through bounded read-only access, with unsafe or unavailable comparisons voiding the prediction. Superseded acceptance contracts receive a complete case-by-case semantic comparison.
-
-**New in 4.11.0:** Open-PR budget floor (`dev-tools/check-open-pr-budget.sh`) blocks `gh pr create` when the author already has too many open PRs (default feature=1 / total=2), with fail-closed measurement and bats regression.
 
 **New in 4.10.0:** Bounded CLI input-manifest workflows select, verify, hash, compare, merge, inspect conflicts, and format structured or readable diffs. Summary tooling resolves declared schemas, relays declared exit statuses, and aggregates summary rollups without claiming producer execution or acceptance. QA helpers report init-task presence and preserve append I/O failure diagnostics.
 
@@ -75,7 +75,7 @@ signal only for a verified correction to a concrete mistake or logic mismatch.
 
 **Step 1: run `./install.sh --project <path>` with no answer flags. Ask the user nothing before that run; the installer prints the questions.**
 
-Needs Python 3.10+, git, and a signed-in Claude Code, Codex, Cursor or Antigravity client.
+Needs Python 3.10+, git, and a signed-in Claude Code, Codex, Cursor, Antigravity or MiniMax client.
 
 What the installer will ask (defaults in brackets; [INSTALL.md](INSTALL.md) explains each). An agent
 relays the installer's own wording, all six setup choices, without recommending an answer:

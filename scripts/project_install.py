@@ -222,21 +222,24 @@ def team_neutral_preflight(root, previous=None):
                     raise ValueError('Project Git ignore rules hide team-neutral path: '+relative)
 
 
-HOOK_CONFIGS = ('.agents/hooks.json', '.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json')
-CLIENTS = ('antigravity', 'claude', 'codex', 'cursor')
-CLIENT_ALIASES = {'agy': 'antigravity'}
+HOOK_CONFIGS = ('.agents/hooks.json', '.claude/settings.local.json', '.codex/hooks.json',
+                '.cursor/hooks.json', '.minimax/hooks.json')
+CLIENTS = ('antigravity', 'claude', 'codex', 'cursor', 'minimax')
+CLIENT_ALIASES = {'agy': 'antigravity', 'mcode': 'minimax'}
 CLIENT_HOOK_CONFIG = dict(zip(CLIENTS, HOOK_CONFIGS))
 #: The top-level directory through which each client discovers commands and
-#: skills. Codex and Antigravity both read `.agents/skills/`.
-CLIENT_DIRECTORY = {'.claude': 'claude', '.agents': 'codex', '.cursor': 'cursor'}
-CLIENT_DIRECTORY_OWNERS = {'.claude': ('claude',), '.agents': ('antigravity', 'codex'), '.cursor': ('cursor',)}
+#: skills. Codex and Antigravity both read `.agents/skills/`. MiniMax reads
+#: `.minimax/skills/` (including command stems; MiniMax has no commands loader).
+CLIENT_DIRECTORY = {'.claude': 'claude', '.agents': 'codex', '.cursor': 'cursor', '.minimax': 'minimax'}
+CLIENT_DIRECTORY_OWNERS = {'.claude': ('claude',), '.agents': ('antigravity', 'codex'),
+                           '.cursor': ('cursor',), '.minimax': ('minimax',)}
 CLAUDE_MD = 'CLAUDE.md'  # only to retire a symlink an older release recorded
 CLAUDE_IMPORT_DEPRECATED = ('Deprecated: --claude-import and --no-claude-import are ignored. Claude Code reads '
                             'AGENTS.md natively; the installer never creates CLAUDE.md.')
 
 
 #: Top-level directories the install may create for the clients.
-CLIENT_TOP_DIRECTORIES = ('.agents', '.claude', '.codex', '.cursor')
+CLIENT_TOP_DIRECTORIES = ('.agents', '.claude', '.codex', '.cursor', '.minimax')
 
 
 def created_client_directories(root, files, previous):
@@ -301,7 +304,9 @@ def _hooks_empty(config):
         jev = config.get('jev') or {}
         return isinstance(jev, dict) and not any(jev.values())
     hooks = config.get('hooks') or {}
-    return set(config) <= {'hooks', 'version'} and not any(hooks.values())
+    # MiniMax requires top-level `enabled: true` for hooks to run; an otherwise
+    # empty config that only keeps that flag (and optional version) is empty.
+    return set(config) <= {'hooks', 'version', 'enabled'} and not any(hooks.values())
 
 
 def is_our_claude_link(root):
@@ -560,7 +565,8 @@ def consume_answers_token(root):
 
 
 def installed_clients():
-    names = {'antigravity': ('agy',), 'claude': ('claude',), 'codex': ('codex',), 'cursor': ('cursor-agent', 'agent')}
+    names = {'antigravity': ('agy',), 'claude': ('claude',), 'codex': ('codex',),
+             'cursor': ('cursor-agent', 'agent'), 'minimax': ('mcode',)}
     return tuple(c for c in CLIENTS if any(shutil.which(n) for n in names[c]))
 
 
@@ -592,7 +598,7 @@ def ask_answers(args, root, *, ask, say):
         default = ','.join(found) if found else None
         while True:
             try:
-                text = ask('2. Clients: claude, codex, cursor, antigravity (comma list)'
+                text = ask('2. Clients: claude, codex, cursor, antigravity, minimax (comma list)'
                            + (f' (default: {default}): ' if default else ': ')).strip()
             except EOFError:
                 raise ChoiceRequired('Installation cancelled; nothing was installed.') from None
@@ -634,7 +640,7 @@ _D = QUESTION_DEFAULTS
 CHOICE_QUESTIONS = f"""1. Jev: none, project (this project only) or host (every project of this user)?
    Default: {_D['jev']}. Jev's safety floor refuses destructive shell commands and
    works WITHOUT any key. A key only adds routing advice, so "no key" is not a reason to skip Jev.
-2. Clients: which of Claude Code, Codex, Cursor, Antigravity? Default: {_D['clients']};
+2. Clients: which of Claude Code, Codex, Cursor, Antigravity, MiniMax? Default: {_D['clients']};
    still name them explicitly in --client.
 3. Permission mode for the jev* launchers: ask or full (no prompts)? Default: {_D['permission']}.
 4. Create empty task files datarim/tasks.md and datarim/backlog.md now? Default: {_D['init']}.
@@ -646,7 +652,7 @@ FLAG_TABLE = """  Answer                            Flag
   Jev project                       --with-jev
   Jev host                          first: python3 scripts/jev_host_install.py --client <each client>
                                     --datarim-project <path>; then --with-jev --host-jev
-  Clients                           --client claude,codex,cursor,antigravity (the ones chosen)
+  Clients                           --client claude,codex,cursor,antigravity,minimax (the ones chosen)
   Permission mode                   --permissions ask  or  --permissions full
   Task files now                    --init
   Expose every skill                --expose-skills
@@ -762,6 +768,7 @@ def report_block(root, host_jev, with_jev, mode, clients):
         lines.append('Codex: open `codex` once in this project and accept the hooks, or run `jev trust`')
     agents_names = [name for name, client in (('Codex', 'codex'), ('Antigravity', 'antigravity')) if client in clients]
     packaged = ([('.agents', '/'.join(agents_names))] if agents_names else []) + (
+        [('.minimax', 'MiniMax')] if 'minimax' in clients else []) + (
         [('.cursor', 'Cursor')] if 'cursor' in clients else [])
     if packaged:
         # An agent listed these as framework skills the user never asked for.
@@ -1002,7 +1009,9 @@ def _install(args):
     command_stems = {Path(name).stem for name in command_paths}
     for name, data in list(files.items()):
         if name.startswith('.agents/skills/'):
-            for vendor in ('.claude', '.cursor'):
+            # MiniMax has no commands/ loader; slash commands arrive only as
+            # skills, so command stems are copied into `.minimax/skills/` too.
+            for vendor in ('.claude', '.cursor', '.minimax'):
                 if vendor == '.claude' and name.split('/')[2] in command_stems:
                     continue
                 files[name.replace('.agents/', vendor+'/', 1)] = data
@@ -1087,7 +1096,8 @@ def _install(args):
         for name in ('AGENTS.md', 'VERSION'):
             shutil.copy2(SOURCE / name, stage / name)
         (stage / 'bin').mkdir()
-        for name in ('jev', 'jevcodex', 'jevclaude', 'jevcursor', 'jevagy', 'jevantigravity'):
+        for name in ('jev', 'jevcodex', 'jevclaude', 'jevcursor', 'jevagy', 'jevantigravity',
+                     'jevminimax'):
             (stage / 'bin' / name).symlink_to('../scripts/jev.py')
         # The activation affects only the current shell. Every entrypoint
         # independently checks cwd, including after leaving this directory.
@@ -1211,6 +1221,22 @@ def _install(args):
             manifest['created_dirs'] = [d for d in manifest['created_dirs'] if d not in removed]
             (runtime/'installation.json').write_text(json.dumps(manifest, indent=2)+'\n')
         mode = apply_permissions(root, args.host_jev, getattr(args, 'permissions', None))
+        # Measured on mcode 0.7.6: project-scope MiniMax hooks also need
+        # ~/.minimax/hook-settings/state.json (merge; other projects survive).
+        try:
+            from jev_host_install import sync_minimax_project_hook_state
+            relative = CLIENT_HOOK_CONFIG.get('minimax')
+            host_jev = bool(getattr(args, 'host_jev', False))
+            if ('minimax' in clients and args.with_jev and not host_jev
+                    and relative in published and published[relative] is not None):
+                sync_minimax_project_hook_state(root, json.loads(published[relative].decode()), enable=True)
+            elif relative and (
+                    'minimax' not in clients or not args.with_jev or relative in retired_hooks
+                    or published.get(relative) is None):
+                sync_minimax_project_hook_state(root, {}, enable=False)
+        except (OSError, ValueError, TypeError, KeyError):
+            # Advisory: a state-file miss must not roll back a successful install.
+            pass
         print(json.dumps({'status': 'installed', **manifest}))
         if overlay_drift:
             print(json.dumps({'overlay_upstream_base_changed': overlay_drift}), file=sys.stderr)
@@ -1337,9 +1363,10 @@ def main():
                         help='Also expose every framework skill to native discovery (loaded into every '
                              'session); by default only the /dr-* commands are exposed')
     parser.add_argument('--client', action='append', default=None, metavar='CLIENT',
-                        help='Install for this client only: claude, codex, cursor, antigravity (alias: agy) or all; '
-                             'repeat the option or give a comma list. Required on a fresh install; an update keeps '
-                             'the recorded list. A client left out on update loses its managed files and hooks.')
+                        help='Install for this client only: claude, codex, cursor, antigravity (alias: agy), '
+                             'minimax (alias: mcode) or all; repeat the option or give a comma list. Required on a '
+                             'fresh install; an update keeps the recorded list. A client left out on update loses '
+                             'its managed files and hooks.')
     parser.add_argument('--claude-import', action=argparse.BooleanOptionalAction, default=None,
                         help='DEPRECATED, accepted and ignored: Claude Code reads AGENTS.md natively and the '
                              'installer never creates CLAUDE.md')

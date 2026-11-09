@@ -41,7 +41,7 @@ class InstallerTests(unittest.TestCase):
     def test_install_native_scopes_and_idempotence(self):
         self.run_cli()
         for agent, scope in (('antigravity', '.gemini/config'), ('claude', '.claude'),
-                             ('codex', '.agents'), ('cursor', '.cursor')):
+                             ('codex', '.agents'), ('cursor', '.cursor'), ('minimax', '.minimax')):
             self.assertEqual((self.home / scope / 'skills' / installer.NAME / 'SKILL.md').read_bytes(), (self.source/'SKILL.md').read_bytes())
         self.assertFalse((self.home/'.claude/CLAUDE.md').exists())
         self.assertFalse((self.home/'.claude/commands').exists())
@@ -71,6 +71,26 @@ class InstallerTests(unittest.TestCase):
         self.assertIn(str(self.home / '.gemini/config/skills/human-outcome-reporting/SKILL.md'), context)
         self.run_cli('uninstall')
         self.assertEqual(json.loads(hooks.read_text()), {'jev': {'PreInvocation': [{'type': 'command', 'command': 'jev-hook'}]}})
+
+
+    def test_minimax_hook_sets_enabled_and_preserves_foreign_hooks(self):
+        self.with_language_helper()
+        hooks = self.write('.minimax/hooks.json', json.dumps({
+            'enabled': False,
+            'hooks': {'SessionStart': [{'hooks': [{'type': 'command', 'command': 'foreign-hook'}]}]},
+        }))
+        self.run_cli('install', '--agents', 'minimax')
+        cfg = json.loads(hooks.read_text())
+        self.assertTrue(cfg.get('enabled'))
+        self.assertEqual(cfg['hooks']['SessionStart'][0]['hooks'][0]['command'], 'foreign-hook')
+        self.assertEqual(len(cfg['hooks']['SessionStart']), 2)
+        skill = self.home / '.minimax/skills' / installer.NAME / 'SKILL.md'
+        self.assertTrue(skill.is_file())
+        self.run_cli('uninstall')
+        restored = json.loads(hooks.read_text())
+        self.assertEqual(restored.get('enabled'), False)
+        self.assertEqual(restored['hooks']['SessionStart'][0]['hooks'][0]['command'], 'foreign-hook')
+        self.assertEqual(len(restored['hooks']['SessionStart']), 1)
 
     def test_dry_run_changes_nothing(self):
         self.run_cli('install', '--dry-run')

@@ -143,7 +143,10 @@ PY
     SOURCE_FIX="$BATS_TEST_TMPDIR/source"
     mkdir -p "$SOURCE_FIX/scripts"
     cp "$PRODUCT_ROOT/install.sh" "$PRODUCT_ROOT/update.sh" "$PRODUCT_ROOT/AGENTS.md" "$PRODUCT_ROOT/VERSION" "$SOURCE_FIX/"
-    cp "$PRODUCT_ROOT/scripts/project_install.py" "$PRODUCT_ROOT/scripts/local_overlay.py" "$SOURCE_FIX/scripts/"
+    # The installer imports the host-install module for the MiniMax project
+    # hook-state merge, so the simulated newer source must carry it.
+    cp "$PRODUCT_ROOT/scripts/project_install.py" "$PRODUCT_ROOT/scripts/local_overlay.py" \
+       "$PRODUCT_ROOT/scripts/jev_host_install.py" "$SOURCE_FIX/scripts/"
     for scope in agents skills commands templates dev-tools plugins config cli; do
         cp -R "$PRODUCT_ROOT/$scope" "$SOURCE_FIX/"
     done
