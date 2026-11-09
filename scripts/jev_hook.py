@@ -28,6 +28,9 @@ EVENTS = {
               'PostToolUse': 'PostToolUse'},
     'cursor': {'beforeSubmitPrompt': 'UserPromptSubmit', 'beforeShellExecution': 'PreToolUse',
                'postToolUse': 'PostToolUse', 'afterFileEdit': 'PostToolUse'},
+    # Measured on mcode 0.7.6: native event names already match the canonical set.
+    'minimax': {'UserPromptSubmit': 'UserPromptSubmit', 'PreToolUse': 'PreToolUse',
+                'PostToolUse': 'PostToolUse'},
 }
 
 
@@ -92,6 +95,16 @@ def normalize(client, event, payload):
                 out.setdefault('tool_input', args)
         if 'toolOutput' in payload:
             out['tool_response'] = payload['toolOutput']
+    elif client == 'minimax':
+        # Measured on mcode 0.7.6: tool_name is lowercase (`bash`, `write`, `edit`).
+        # The Jev floor reasons over Claude-style names (`Bash`, `Write`, `Edit`).
+        raw_name = str(out.get('tool_name', ''))
+        lower_name = raw_name.lower()
+        mapped = {'bash': 'Bash', 'write': 'Write', 'edit': 'Edit'}.get(lower_name)
+        if mapped:
+            out['tool_name'] = mapped
+        elif raw_name and raw_name[:1].islower():
+            out['tool_name'] = raw_name[:1].upper() + raw_name[1:]
     return canonical, out
 
 

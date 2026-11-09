@@ -8,6 +8,7 @@ jevclaude [options] [task] [-- client-arguments...]
 jevcursor [options] [task] [-- client-arguments...]
 jevagy [options] [task] [-- client-arguments...]
 jevantigravity [options] [task] [-- client-arguments...]
+jevminimax [options] [task] [-- client-arguments...]
 jev --agent={codex,claude,cursor,antigravity} [options] [task] [-- client-arguments...]
 jev doctor [--agent=...] [--api]
 jev stats
@@ -50,7 +51,7 @@ context instead. Permission-bypass flags are added only after `jev permissions
 full` (or with `JEV_PERMISSIONS=full` for one launch), and never when you pass
 your own permission option: `--dangerously-skip-permissions` for Claude Code,
 `--dangerously-bypass-approvals-and-sandbox` for Codex, `--force --approve-mcps`
-for Cursor, and `--yolo` for Antigravity (`agy`). `jev permissions ask` removes them; `jev permissions` shows the
+for Cursor, `--yolo` for Antigravity (`agy`), and `exec --permission full` for MiniMax (`mcode`). `jev permissions ask` removes them; `jev permissions` shows the
 stored choice. The choice is stored per project, or per host for host Jev.
 
 `jev trust` re-grants Codex trust to Jev's own hooks: the host hooks in

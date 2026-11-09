@@ -245,7 +245,8 @@ class InstallationLifecycleTests(unittest.TestCase):
         (self.project/'AGENTS.md').write_text('# Original project rules\n')
         (self.project/'.gitignore').write_text('/build/\n')
         self.args = Namespace(project=str(self.project), with_jev=False, permissions='ask',
-                              client=project_install.CLIENTS, context=[], dry_run=False, init=True)
+                              client=project_install.CLIENTS, context=[], dry_run=False, init=True,
+                              host_jev=False)
         self.source_patch = patch.object(project_install, 'SOURCE', self.source)
         self.source_patch.start()
         self.addCleanup(self.source_patch.stop)
@@ -253,6 +254,12 @@ class InstallationLifecycleTests(unittest.TestCase):
         patcher = patch.object(project_install, 'is_interactive', return_value=False)
         patcher.start()
         self.addCleanup(patcher.stop)
+        # Keep MiniMax project hook-state writes inside the temp tree.
+        self.minimax_data = base / 'minimax-data'
+        self.minimax_data.mkdir()
+        env_patch = patch.dict(os.environ, {'MINIMAX_DATA_DIR': str(self.minimax_data)})
+        env_patch.start()
+        self.addCleanup(env_patch.stop)
         issue_token_for_fresh_installs(self)
 
     def test_install_update_uninstall_leaves_shared_files_alone(self):
@@ -668,8 +675,8 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertIn('never in .zshrc/.bashrc: JEV_* or DATARIM_* variables (e.g. JEV_PERMISSIONS) or the key; set them per shell or per launch', block)
         self.assertIn('AGENTS.md is not modified by the installer', block)
         self.assertIn('Codex: open `codex` once in this project and accept the hooks, or run `jev trust`', block)
-        self.assertIn('.agents/skills/dr-* and .cursor/skills/dr-* are the /dr-* commands packaged for '
-                      'Codex/Antigravity/Cursor, not extra framework skills', block)
+        self.assertIn('.agents/skills/dr-* and .minimax/skills/dr-* and .cursor/skills/dr-* are the /dr-* commands packaged for '
+                      'Codex/Antigravity/MiniMax/Cursor, not extra framework skills', block)
 
     def test_the_report_block_without_jev_or_codex(self):
         import contextlib, io
@@ -725,10 +732,11 @@ class InstallationLifecycleTests(unittest.TestCase):
 
     def test_dropping_a_client_removes_its_directory_when_the_install_created_it(self):
         project_install.install(self.args)
-        self.assertEqual(self.manifest()['created_dirs'], ['.agents', '.claude', '.cursor'])
+        self.assertEqual(self.manifest()['created_dirs'], ['.agents', '.claude', '.cursor', '.minimax'])
         project_install.install(self.with_args(client=('codex',)))
         self.assertFalse((self.project/'.cursor').exists())
         self.assertFalse((self.project/'.claude').exists())
+        self.assertFalse((self.project/'.minimax').exists())
         self.assertTrue((self.project/'.agents').is_dir())
         self.assertEqual(self.manifest()['created_dirs'], ['.agents'])
 
@@ -767,7 +775,8 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertEqual(project_install.parse_clients(['codex,claude', 'codex']), ('claude', 'codex'))
         self.assertEqual(project_install.parse_clients(['agy']), ('antigravity',))
         self.assertEqual(project_install.parse_clients(['antigravity,codex']), ('antigravity', 'codex'))
-        self.assertEqual(project_install.parse_clients(['all']), ('antigravity', 'claude', 'codex', 'cursor'))
+        self.assertEqual(project_install.parse_clients(['all']), ('antigravity', 'claude', 'codex', 'cursor', 'minimax'))
+        self.assertEqual(project_install.parse_clients(['mcode']), ('minimax',))
         self.assertEqual(project_install.parse_clients(None), ())
         with self.assertRaises(ValueError):
             project_install.parse_clients(['vim'])
@@ -795,6 +804,40 @@ class InstallationLifecycleTests(unittest.TestCase):
         self.assertTrue((self.project/'.agents/skills/dr-do/SKILL.md').is_file())
         self.assertFalse((self.project/'.agents/hooks.json').exists())
         self.assertTrue((self.project/'.codex/hooks.json').is_file())
+
+    def test_minimax_client_installs_skills_and_hooks(self):
+        project_install.install(self.with_args(client=('minimax',), with_jev=True))
+        self.assertTrue((self.project/'.minimax/skills/dr-do/SKILL.md').is_file())
+        self.assertTrue((self.project/'.minimax/hooks.json').is_file())
+        hooks = json.loads((self.project/'.minimax/hooks.json').read_text())
+        self.assertTrue(hooks.get('enabled'))
+        self.assertIn('hooks', hooks)
+        self.assertIn('UserPromptSubmit', hooks['hooks'])
+        self.assertIn('PreToolUse', hooks['hooks'])
+        self.assertIn('PostToolUse', hooks['hooks'])
+        matcher = hooks['hooks']['PreToolUse'][0].get('matcher')
+        self.assertEqual(matcher, 'bash|write|edit')
+        for name in ('.agents/skills/dr-do/SKILL.md', '.claude/commands/dr-do.md',
+                     '.cursor/skills/dr-do/SKILL.md', '.agents/hooks.json',
+                     '.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json',
+                     '.minimax/commands'):
+            self.assertFalse((self.project/name).exists(), name)
+        manifest = json.loads((self.project/'.datarim-runtime/installation.json').read_text())
+        self.assertEqual(manifest['clients'], ['minimax'])
+        # Project-scope MiniMax hooks also need the enablement state file.
+        state_path = self.minimax_data / 'hook-settings' / 'state.json'
+        self.assertTrue(state_path.is_file())
+        state = json.loads(state_path.read_text())
+        project_key = str(self.project.resolve())
+        self.assertTrue(state['projects'][project_key]['enabled'])
+        self.assertTrue(state['projects'][project_key]['hooks'])
+        # Switching from minimax to cursor drops .minimax managed files.
+        project_install.install(self.with_args(client=('cursor',), with_jev=True))
+        self.assertFalse((self.project/'.minimax/hooks.json').exists())
+        self.assertFalse((self.project/'.minimax/skills/dr-do/SKILL.md').exists())
+        self.assertTrue((self.project/'.cursor/hooks.json').is_file())
+        state = json.loads(state_path.read_text())
+        self.assertNotIn(project_key, state.get('projects', {}))
 
     # -- Claude Code and AGENTS.md --------------------------------------------
     # Claude Code reads AGENTS.md natively, so the installer never creates

@@ -444,6 +444,26 @@ def plan_install(home, source, agents, state):
             plan[hook] = (script.encode(), 'hook-script', 0o644)
             plan[path] = ((json.dumps(cfg, indent=2, ensure_ascii=False) + '\n').encode(), 'cursor-hooks', 0o600)
             configuration[str(path.relative_to(home))] = {'command': command, 'had_hooks': 'hooks' in load_json(path), 'had_sessionStart': 'sessionStart' in load_json(path).get('hooks', {}), 'had_version': 'version' in load_json(path)}
+        if agent == 'minimax':
+            # Measured on mcode 0.7.6: user-scope skills at ~/.minimax/skills,
+            # hooks at ~/.minimax/hooks.json with Claude nested shape and
+            # top-level enabled: true required.
+            path = scope / 'hooks.json'
+            safe_path(home, path)
+            cfg = load_json(path)
+            initial = load_json(path)
+            cfg['enabled'] = True
+            hook = scope / 'hooks' / (NAME + '.py')
+            command = 'python3 ' + shlex.quote(str(hook))
+            previous = state.get('configuration', {}).get(str(path.relative_to(home)), {}).get('startup_hook')
+            meta = merge_startup(cfg, command, previous)
+            plan[hook] = (native_context_script(body, helper).encode(), 'hook-script', 0o644)
+            plan[path] = ((json.dumps(cfg, indent=2, ensure_ascii=False) + '\n').encode(), 'minimax-hooks', 0o600)
+            configuration[str(path.relative_to(home))] = {
+                'startup_hook': meta,
+                'had_enabled': 'enabled' in initial,
+                'original_enabled': initial.get('enabled'),
+            }
     for path in plan:
         safe_path(home, path)
         if path.exists() and not path.is_file():
@@ -596,6 +616,14 @@ def uninstall(home, state_path, state, dry_run):
                 if not group and not meta.get('had_group'):
                     cfg.pop('datarim-human-outcome-reporting', None)
             data = shared_json_result(cfg, initial)
+        elif kind == 'minimax-hooks':
+            cfg = load_json(path); meta = state['configuration'][rel]
+            remove_startup(cfg, meta['startup_hook'])
+            if meta.get('had_enabled'):
+                cfg['enabled'] = meta.get('original_enabled')
+            else:
+                cfg.pop('enabled', None)
+            data = shared_json_result(cfg, initial)
         else:
             if current is not None and digest(current) != item['installed_sha256']:
                 raise ValueError('owned file modified; uninstall refused: ' + str(path))
@@ -616,17 +644,17 @@ def main(argv=None):
     parser.add_argument('action', choices=['install', 'check', 'uninstall'])
     parser.add_argument('--source', type=Path, default=source_default())
     parser.add_argument('--home', type=Path, default=Path.home())
-    parser.add_argument('--agents', default='antigravity,claude,codex,cursor')
+    parser.add_argument('--agents', default='antigravity,claude,codex,cursor,minimax')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--receipt', type=Path)
     args = parser.parse_args(argv)
     home = args.home.expanduser().absolute()
-    aliases = {'agy': 'antigravity'}
-    valid_agents = {'antigravity', 'claude', 'codex', 'cursor'}
+    aliases = {'agy': 'antigravity', 'mcode': 'minimax'}
+    valid_agents = {'antigravity', 'claude', 'codex', 'cursor', 'minimax'}
     raw_agents = [x.strip() for x in args.agents.split(',') if x.strip()]
     agents = sorted(valid_agents if 'all' in raw_agents else {aliases.get(a, a) for a in raw_agents})
     if not agents or set(agents) - valid_agents:
-        parser.error('--agents must be a comma-separated subset of antigravity,claude,codex,cursor')
+        parser.error('--agents must be a comma-separated subset of antigravity,claude,codex,cursor,minimax')
     lock_fd = None
     try:
         safe_path(home, home)

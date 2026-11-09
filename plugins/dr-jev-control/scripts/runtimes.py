@@ -870,11 +870,137 @@ class AntigravityRuntime(CodexRuntime):
             q.put({'kind': 'turn_end', 'cost_usd': None})
 
 
+# ---------------------------------------------------------------------------
+# MiniMax Code (mcode)
+# ---------------------------------------------------------------------------
+
+MINIMAX_TIER_EFFORTS = {
+    'haiku': 'low',
+    'sonnet': 'medium',
+    'opus': 'high',
+}
+
+MINIMAX_TOOL_MAP = {
+    'bash': 'Bash',
+    'write': 'Write',
+    'edit': 'Edit',
+    'read': 'Read',
+    'task': 'Task',
+}
+
+
+def minimax_tier_settings(tier):
+    """Return (model_or_None, effort) for a MiniMax tier.
+
+    Measured on mcode 0.7.6: `mcode exec --permission full` runs unattended;
+    `--model <provider/model>` selects the model. Effort is recorded for parity
+    with other runtimes; MiniMax has no measured common `--effort` flag, so the
+    live adapter only passes `--model` when an explicit
+    `DATARIM_MINIMAX_MODEL_<TIER>` override is set.
+    """
+    effort = MINIMAX_TIER_EFFORTS.get(tier, 'medium')
+    model = os.environ.get('DATARIM_MINIMAX_MODEL_' + tier.upper()) or None
+    return model, effort
+
+
+class MiniMaxRuntime(CodexRuntime):
+    """MiniMax Code CLI (`mcode`), steered by resume-chaining `exec` turns.
+
+    Every turn runs `mcode exec --permission full [--model <model>]
+    [--session <id>] ... <prompt>`. Measured on mcode 0.7.6: `exec` is the
+    non-interactive subcommand and `--permission full` maps to internal
+    `bypassPermissions`. Stream frames are accepted when JSONL; otherwise the
+    adapter treats non-empty stdout as a single text event.
+    """
+
+    name = 'minimax'
+    reports_usage = True
+
+    def __init__(self, tier, **kwargs):
+        kwargs.setdefault('bin_path', resolve_client_binary('minimax') or 'mcode')
+        super().__init__(tier, **kwargs)
+        self._emitted_text = False
+        self._stdout_buf = []
+
+    def _tier_settings(self, tier):
+        model, effort = minimax_tier_settings(tier)
+        effort = self._effort_override.get(tier, effort)
+        return model, effort
+
+    def _argv(self, text, *, resume):
+        self._emitted_text = False
+        self._stdout_buf = []
+        model, _effort = self._tier_settings(self.tier)
+        args = [self.bin, 'exec', '--permission', 'full']
+        if resume:
+            if not self.thread_id:
+                raise RuntimeError_('MiniMax did not report a session ID')
+            args += ['--session', self.thread_id]
+        if model:
+            args += ['--model', model]
+        args += self.extra_args
+        args.append(text)
+        return args
+
+    def _translate(self, data, gen=None):
+        if not isinstance(data, dict):
+            return []
+        events = []
+        session = data.get('session_id') or data.get('session') or data.get('turn_id')
+        if isinstance(session, str) and session and (gen is None or gen == self._generation):
+            if self.thread_id and self.thread_id != session:
+                return [{'kind': 'error', 'message': 'MiniMax changed session identity'}]
+            if not self.thread_id:
+                self.thread_id = session
+                events.append({'kind': 'session', 'id': session})
+        tool_name = data.get('tool_name') or data.get('name')
+        if isinstance(tool_name, str) and tool_name:
+            events.append({'kind': 'tool', 'name': MINIMAX_TOOL_MAP.get(tool_name.lower(), tool_name)})
+        text = data.get('text') or data.get('content') or data.get('response')
+        if isinstance(text, str) and text:
+            self._emitted_text = True
+            events.append({'kind': 'text', 'text': text})
+        if data.get('type') in ('error', 'turn.failed') or data.get('error'):
+            msg = data.get('message') or data.get('error') or 'MiniMax error'
+            events.append({'kind': 'error', 'message': str(msg)[:500]})
+        return events
+
+    def _read_stdout(self, proc, q, gen):
+        for line in proc.stdout:
+            raw = line.rstrip('\n')
+            stripped = raw.strip()
+            if stripped.startswith('{'):
+                try:
+                    data = json.loads(stripped)
+                except (ValueError, TypeError):
+                    self._stdout_buf.append(raw)
+                    continue
+                for event in self._translate(data, gen):
+                    q.put(event)
+            elif stripped:
+                self._stdout_buf.append(raw)
+        if not self._emitted_text and self._stdout_buf:
+            text = '\n'.join(self._stdout_buf)
+            self._emitted_text = True
+            q.put({'kind': 'text', 'text': text})
+        proc.wait()
+        with self._lock:
+            if gen == self._generation:
+                self._last_rc = proc.returncode
+        if proc.returncode:
+            q.put({'kind': 'error',
+                   'message': f'MiniMax exited {proc.returncode} without completing the turn'})
+            q.put({'kind': 'eof'})
+            return
+        q.put({'kind': 'turn_end', 'cost_usd': None})
+
+
 REGISTRY = {
     "antigravity": AntigravityRuntime,
     "claude": ClaudeRuntime,
     "codex": CodexRuntime,
     "cursor": CursorRuntime,
+    "minimax": MiniMaxRuntime,
 }
 
 
@@ -899,11 +1025,13 @@ def resolve_client_binary(agent):
         'claude': ('claude',),
         'codex': ('codex',),
         'cursor': ('cursor-agent', 'agent'),
+        'minimax': ('mcode',),
     }.get(agent)
     if not default_names:
         return None
     override = os.environ.get(agent.upper() + '_BIN') or (
-        os.environ.get('AGY_BIN') if agent == 'antigravity' else None)
+        os.environ.get('AGY_BIN') if agent == 'antigravity' else
+        os.environ.get('MINIMAX_BIN') if agent == 'minimax' else None)
     names = (override,) if override else default_names
     for name in names:
         if not name:

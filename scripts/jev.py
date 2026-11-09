@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Jev dispatcher for Claude Code, Codex, Cursor and Antigravity; Datarim is opt-in."""
+"""Jev dispatcher for Claude Code, Codex, Cursor, Antigravity and MiniMax; Datarim is opt-in."""
 from __future__ import annotations
 
 import argparse
@@ -17,10 +17,10 @@ from project_scope import ScopeError, activate, project_root
 
 
 #: Client options that take a separate value (Claude Code 2.1.280, codex-cli
-#: 0.156.1, cursor-agent 2026.08, agy 1.4.10), per client: `-c` and `-p` are
-#: switches in Claude and take values in Codex; `-c` takes a conversation ID in
-#: Antigravity. Jev's own --model/--effort/--resume/--agent/--mode win; a client
-#: option with several values still needs --.
+#: 0.156.1, cursor-agent 2026.08, agy 1.4.10, mcode 0.7.6), per client: `-c` and
+#: `-p` are switches in Claude and take values in Codex; `-c` takes a conversation
+#: ID in Antigravity. Jev's own --model/--effort/--resume/--agent/--mode win; a
+#: client option with several values still needs --.
 CLIENT_VALUE_OPTIONS = {
     'antigravity': frozenset((
         '-c', '--conversation', '--output-format', '--input-format', '--sandbox', '--worktree-name',
@@ -38,14 +38,18 @@ CLIENT_VALUE_OPTIONS = {
     'cursor': frozenset((
         '--api-key', '-H', '--header', '-e', '--endpoint', '--output-format', '--sandbox', '--plugin-dir',
         '--worktree-base')),
+    'minimax': frozenset((
+        '--model', '--mode', '--tui-mode', '--session', '--continue', '--system-prompt-file',
+        '--append-system-prompt-file', '--ptc', '--permission')),
 }
-AGENT_ALIASES = {'agy': 'antigravity'}
+AGENT_ALIASES = {'agy': 'antigravity', 'mcode': 'minimax'}
 LAUNCHER_ALIASES = {
     'jevcodex': 'codex',
     'jevclaude': 'claude',
     'jevcursor': 'cursor',
     'jevagy': 'antigravity',
     'jevantigravity': 'antigravity',
+    'jevminimax': 'minimax',
 }
 
 
@@ -77,7 +81,8 @@ def parse(argv=None):
                'the client (e.g. jevclaude --dangerously-skip-permissions); give a client option its value '
                'as --flag=value, or put client arguments after --. '
                '`jev permissions full|ask` makes every launch skip (or keep) permission prompts.')
-    p.add_argument('--agent', choices=['codex', 'claude', 'cursor', 'antigravity', 'agy'], default=alias)
+    p.add_argument('--agent', choices=['codex', 'claude', 'cursor', 'antigravity', 'agy',
+                                       'minimax', 'mcode'], default=alias)
     p.add_argument('--mode', choices=['economy', 'balanced', 'quality'], default='balanced')
     p.add_argument('--model')
     p.add_argument('--effort', choices=['low', 'medium', 'high'])
@@ -152,6 +157,8 @@ FULL_PERMISSION_FLAGS = {
     'claude': ['--dangerously-skip-permissions'],
     'codex': ['--dangerously-bypass-approvals-and-sandbox'],
     'cursor': ['--force', '--approve-mcps'],
+    # Measured on mcode 0.7.6: unattended bypass is `mcode exec --permission full`.
+    'minimax': ['exec', '--permission', 'full'],
 }
 #: Options with which the operator already chose a permission policy.
 PERMISSION_CHOICES = {
@@ -160,6 +167,7 @@ PERMISSION_CHOICES = {
     'codex': ('--dangerously-bypass-approvals-and-sandbox', '--yolo', '--full-auto', '-a', '--ask-for-approval',
               '-s', '--sandbox'),
     'cursor': ('--force', '-f', '--yolo', '--sandbox', '--auto-review'),
+    'minimax': ('--permission',),
 }
 
 
@@ -222,9 +230,11 @@ def binary(agent):
         'claude': ('claude',),
         'codex': ('codex',),
         'cursor': ('cursor-agent', 'agent'),
+        'minimax': ('mcode',),
     }[agent]
     override = os.environ.get(agent.upper() + '_BIN') or (
-        os.environ.get('AGY_BIN') if agent == 'antigravity' else None)
+        os.environ.get('AGY_BIN') if agent == 'antigravity' else
+        os.environ.get('MINIMAX_BIN') if agent == 'minimax' else None)
     names = (override,) if override else default_names
     for name in names:
         if not name:
@@ -482,12 +492,15 @@ REGISTERED_EVENTS = {
     'claude': ('UserPromptSubmit', 'PreToolUse', 'PostToolUse'),
     'codex': ('UserPromptSubmit', 'PreToolUse', 'PostToolUse'),
     'cursor': ('beforeSubmitPrompt', 'beforeShellExecution', 'postToolUse'),
+    'minimax': ('UserPromptSubmit', 'PreToolUse', 'PostToolUse'),
 }
-CLIENTS = ('antigravity', 'claude', 'codex', 'cursor')
+CLIENTS = ('antigravity', 'claude', 'codex', 'cursor', 'minimax')
 PROJECT_HOOK_FILES = {'antigravity': '.agents/hooks.json', 'claude': '.claude/settings.local.json',
-                      'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json'}
+                      'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json',
+                      'minimax': '.minimax/hooks.json'}
 HOST_HOOK_FILES = {'antigravity': '.gemini/config/hooks.json', 'claude': '.claude/settings.json',
-                   'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json'}
+                   'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json',
+                   'minimax': '.minimax/hooks.json'}
 
 
 def _names_our_hook(command, entries, client, event):
@@ -828,7 +841,8 @@ def main():
             os.environ['JEV_STATS_ROOT'] = str(state)
         os.execv(sys.executable, [sys.executable, str(plugin/'cli_report.py'), 'stats'])
     if not a.agent:
-        print('jev: select --agent=codex, --agent=claude, --agent=cursor, or --agent=antigravity', file=sys.stderr)
+        print('jev: select --agent=codex, --agent=claude, --agent=cursor, --agent=antigravity, '
+              'or --agent=minimax', file=sys.stderr)
         return 2
     exe = binary(a.agent)
     if not exe:
@@ -944,6 +958,32 @@ def main():
         args += extra
         if a.print:
             args += ['--print']
+        if a.task is not None:
+            args.append(a.task)
+    elif a.agent == 'minimax':
+        # Measured on mcode 0.7.6: non-interactive / full-permission form is
+        # `mcode exec [--permission full] ... <prompt>`. `exec` is a subcommand
+        # and must precede flags; FULL_PERMISSION_FLAGS may have prepended it.
+        if tier:
+            from runtimes import minimax_tier_settings
+            routed_model, _routed_effort = minimax_tier_settings(tier)
+            model = model or routed_model
+            if model:
+                print(f'Jev applied {tier} as {model}', file=sys.stderr)
+        head = []
+        body = list(extra)
+        if body[:3] == ['exec', '--permission', 'full']:
+            head, body = body[:3], body[3:]
+        elif body[:1] == ['exec']:
+            head, body = body[:1], body[1:]
+        elif a.print:
+            head = ['exec']
+        args += head
+        if a.resume:
+            args += ['--session', a.resume]
+        if model:
+            args += ['--model', model]
+        args += body
         if a.task is not None:
             args.append(a.task)
     else:

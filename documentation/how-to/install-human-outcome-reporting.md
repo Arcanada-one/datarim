@@ -1,6 +1,6 @@
 # Install Human Outcome Reporting without Datarim
 
-Use the reporting skill in ordinary Claude Code, Codex, Cursor and Antigravity sessions. This
+Use the reporting skill in ordinary Claude Code, Codex, Cursor, Antigravity and MiniMax sessions. This
 installation copies one skill and enables a communication preference. It does
 not install Datarim commands, agents, a task directory, orchestration or project
 rules. [Datarim project installation](../../INSTALL.md) remains a separate choice.

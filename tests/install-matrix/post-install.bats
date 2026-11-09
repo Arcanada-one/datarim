@@ -17,6 +17,7 @@ setup() {
     case "$VENDOR_FLAG" in
         claude) discovery=.claude ;;
         codex|antigravity|agy) discovery=.agents ;;
+        minimax|mcode) discovery=.minimax ;;
         cursor) discovery=.cursor ;;
     esac
     [ -f "$TARGET_DIR/$discovery/skills/testing/SKILL.md" ]

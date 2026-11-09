@@ -31,7 +31,7 @@ import runtimes  # noqa: E402
 
 class TestRegistry(unittest.TestCase):
     def test_both_runtimes_registered(self):
-        self.assertEqual(sorted(runtimes.REGISTRY), ["antigravity", "claude", "codex", "cursor"])
+        self.assertEqual(sorted(runtimes.REGISTRY), ["antigravity", "claude", "codex", "cursor", "minimax"])
 
     def test_unknown_runtime_is_rejected(self):
         with self.assertRaises(runtimes.RuntimeError_):
@@ -55,9 +55,11 @@ class TestRegistry(unittest.TestCase):
         self.assertTrue(runtimes.build("claude", "sonnet").in_process_switch)
         self.assertFalse(runtimes.build("codex", "sonnet").in_process_switch)
         self.assertFalse(runtimes.build("antigravity", "sonnet").in_process_switch)
+        self.assertFalse(runtimes.build("minimax", "sonnet").in_process_switch)
         self.assertTrue(runtimes.build("claude", "sonnet").reports_usage)
         self.assertTrue(runtimes.build("codex", "sonnet").reports_usage)
         self.assertTrue(runtimes.build("antigravity", "sonnet").reports_usage)
+        self.assertTrue(runtimes.build("minimax", "sonnet").reports_usage)
 
 
 class TestAntigravityRuntime(unittest.TestCase):
@@ -95,6 +97,29 @@ class TestAntigravityRuntime(unittest.TestCase):
         ])
         self.assertEqual(rt._translate({"event": "result", "result": {"status": "SUCCESS", "usage": {"total_tokens": 120}}}),
                          [{"kind": "usage", "tokens": 120}])
+
+
+
+
+class TestMiniMaxRuntime(unittest.TestCase):
+    def test_argv_uses_exec_permission_full_and_session(self):
+        rt = runtimes.MiniMaxRuntime("opus")
+        argv = rt._argv("Inspect repository", resume=False)
+        self.assertEqual(argv[1:4], ["exec", "--permission", "full"])
+        self.assertEqual(argv[-1], "Inspect repository")
+        rt.thread_id = "sess-42"
+        resumed = rt._argv("Continue", resume=True)
+        self.assertIn("--session", resumed)
+        self.assertIn("sess-42", resumed)
+        self.assertEqual(resumed[-1], "Continue")
+
+    def test_translate_maps_lowercase_tools_and_session(self):
+        rt = runtimes.MiniMaxRuntime("sonnet")
+        self.assertEqual(rt._translate({"session_id": "s-1", "tool_name": "bash", "text": "hi"}),
+                         [{"kind": "session", "id": "s-1"},
+                          {"kind": "tool", "name": "Bash"},
+                          {"kind": "text", "text": "hi"}])
+        self.assertEqual(rt.thread_id, "s-1")
 
 
 class TestCodexArgv(unittest.TestCase):

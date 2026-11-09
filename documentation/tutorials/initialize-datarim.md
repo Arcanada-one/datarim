@@ -9,7 +9,7 @@ page explains what that install does and how it behaves afterwards.
 
 The installer copies a runtime into `.datarim-runtime/`, writes the `/dr-*`
 commands for each client (`.claude/commands/`, `.agents/skills/dr-*`,
-`.cursor/skills/dr-*`), and with `--init` creates missing `datarim/tasks.md` and
+`.cursor/skills/dr-*`, `.minimax/skills/dr-*`), and with `--init` creates missing `datarim/tasks.md` and
 `datarim/backlog.md`. Existing task files are preserved. No Jev key is needed
 for plain Datarim.
 

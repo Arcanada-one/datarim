@@ -94,12 +94,14 @@ class NativeHookTests(unittest.TestCase):
         self.assertEqual(len(received), 6)
 
     def test_floor_survives_missing_context_for_every_vendor(self):
-        for client in ('antigravity', 'claude', 'codex', 'cursor'):
+        for client in ('antigravity', 'claude', 'codex', 'cursor', 'minimax'):
             event = 'beforeShellExecution' if client == 'cursor' else 'PreToolUse'
             if client == 'cursor':
                 payload = {'command': 'rm -rf /'}
             elif client == 'antigravity':
                 payload = {'toolCall': {'name': 'run_command', 'arguments': {'CommandLine': 'rm -rf /'}}}
+            elif client == 'minimax':
+                payload = {'tool_name': 'bash', 'tool_input': {'command': 'rm -rf /'}}
             else:
                 payload = {'tool_name': 'Bash', 'tool_input': {'command': 'rm -rf /'}}
             with self.subTest(client=client), patch.object(jev_hook, 'environment', side_effect=AssertionError):
@@ -108,6 +110,25 @@ class NativeHookTests(unittest.TestCase):
                         output['decision'] if client == 'antigravity' else
                         output['hookSpecificOutput']['permissionDecision'])
             self.assertEqual(decision, 'deny')
+
+    def test_minimax_normalization_maps_lowercase_tools(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            name, value = jev_hook.normalize('minimax', 'PreToolUse', {
+                'tool_name': 'bash', 'tool_input': {'command': 'ls'}, 'cwd': workspace,
+                'session_id': 's1', 'turn_id': 't1'})
+            self.assertEqual(name, 'PreToolUse')
+            self.assertEqual(value['tool_name'], 'Bash')
+            self.assertEqual(jev_hook.workdir(value), Path(workspace).resolve())
+            name, value = jev_hook.normalize('minimax', 'PreToolUse', {
+                'tool_name': 'write', 'tool_input': {'file_path': 'a.txt'}, 'cwd': workspace})
+            self.assertEqual(value['tool_name'], 'Write')
+            name, value = jev_hook.normalize('minimax', 'PreToolUse', {
+                'tool_name': 'edit', 'tool_input': {'file_path': 'a.txt'}, 'cwd': workspace})
+            self.assertEqual(value['tool_name'], 'Edit')
+        with patch.object(jev_hook, 'environment', side_effect=ValueError('no context')):
+            out = jev_hook.run('minimax', 'PreToolUse', {
+                'tool_name': 'bash', 'tool_input': {'command': 'rm -rf /'}})
+        self.assertEqual(out['hookSpecificOutput']['permissionDecision'], 'deny')
 
     def test_antigravity_normalization_and_native_output(self):
         with tempfile.TemporaryDirectory() as workspace:

@@ -1,6 +1,6 @@
 # Use Jev on its own, without Datarim
 
-Jev is a routing layer for Claude Code, Codex CLI, Cursor and Antigravity. It does not need
+Jev is a routing layer for Claude Code, Codex CLI, Cursor, Antigravity and MiniMax. It does not need
 Datarim, and installing it does not install Datarim. This page covers the case
 where you want classification and the deterministic safety floor on a machine
 whose projects have nothing to do with the framework.
@@ -59,7 +59,7 @@ been added, and every other key in the file was unchanged. An upgrade replaces
 the Jev entries only, leaving foreign ones alone.
 
 Add `--home` to install into a different account's home, and
-`--client cursor` or `--client antigravity` (or `--client agy`) if you use Cursor or Antigravity.
+`--client cursor`, `--client antigravity` (or `--client agy`), or `--client minimax` (or `--client mcode`) if you use those clients.
 
 Pass every client still in use on each install (`--client` is repeatable).
 The installer records the sorted union of this run, the active runtime
@@ -162,6 +162,7 @@ With `full`, each launcher adds the client's own "do not ask" flag:
 | Codex | `--dangerously-bypass-approvals-and-sandbox` |
 | Cursor | `--force --approve-mcps` |
 | Antigravity | `--dangerously-skip-permissions` |
+| MiniMax | `exec --permission full` |
 
 The launcher says so on stderr each time, and `jev doctor` reports
 `"permissions": "full"`. `JEV_PERMISSIONS=full` or `JEV_PERMISSIONS=ask` in
@@ -283,7 +284,7 @@ jev doctor
 
 ### Client executable missing (false negative on non-interactive PATH)
 
-`jev doctor` and the launchers resolve Claude / Codex / Cursor / Antigravity binaries from
+`jev doctor` and the launchers resolve Claude / Codex / Cursor / Antigravity / MiniMax binaries from
 `CLAUDE_BIN` / `CODEX_BIN` / `CURSOR_BIN` / `ANTIGRAVITY_BIN` (or `AGY_BIN`) when set, then from `PATH`, then from
 well-known directories: `~/.local/bin`, `~/.npm-global/bin`, and
 `/opt/orca/agent-bin` when that directory exists. Cursor still falls back to

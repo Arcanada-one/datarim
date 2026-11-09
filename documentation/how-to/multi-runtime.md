@@ -1,15 +1,15 @@
-# How to use Datarim with Claude Code, Codex, Cursor and Antigravity
+# How to use Datarim with Claude Code, Codex, Cursor, Antigravity and MiniMax
 
-One install serves all four clients in the same project, or the ones you pick. Datarim 3.0 installs
-into the project, not into `~/.claude`, `~/.codex`, `~/.cursor` or `~/.gemini`, and each
+One install serves all five clients in the same project, or the ones you pick. Datarim 3.0 installs
+into the project, not into `~/.claude`, `~/.codex`, `~/.cursor`, `~/.gemini` or `~/.minimax`, and each
 client finds the `/dr-*` commands through its own project-local directory.
 
 ## Install
 
 Install once per project as described in [INSTALL.md](../../INSTALL.md). By
-default every install writes the command files for all four clients, and
-`--with-jev` registers hooks for all four. `--client` limits both to the
-clients you name (`--client claude --client codex`, or `--client claude,codex,antigravity`, or `--client agy`).
+default every install writes the command files for all five clients, and
+`--with-jev` registers hooks for all five. `--client` limits both to the
+clients you name (`--client claude --client codex`, or `--client claude,codex,antigravity,minimax`, or `--client agy` / `--client mcode`).
 The choice is recorded in `.datarim-runtime/installation.json` and kept by
 updates; an update with a shorter list removes the command files and Jev hook
 entries of the clients left out (a hook file the install created goes too when
@@ -21,6 +21,7 @@ nothing else is in it).
 | Codex CLI | `.agents/skills/dr-*/SKILL.md` | ask it to run the `dr-help` skill |
 | Cursor | `.cursor/skills/dr-*/SKILL.md` | ask it to run the `dr-help` skill |
 | Antigravity (`agy`) | `.agents/skills/dr-*/SKILL.md` | ask it to run the `dr-help` skill |
+| MiniMax (`mcode`) | `.minimax/skills/dr-*/SKILL.md` | ask it to run the `dr-help` skill (no commands loader) |
 
 Every command file names this project's runtime (`.datarim-runtime/`) and tells
 the agent to read the framework rules from there. Nothing is added to
@@ -45,10 +46,10 @@ command.
 ```bash
 cd /path/to/project
 git status --short          # nothing from Datarim
-ls .claude/commands .agents/skills .cursor/skills | head
+ls .claude/commands .agents/skills .cursor/skills .minimax/skills | head
 ```
 
-Then run `/dr-help` in Claude Code, or ask Codex, Cursor or Antigravity to run the `dr-help`
+Then run `/dr-help` in Claude Code, or ask Codex, Cursor, Antigravity or MiniMax to run the `dr-help`
 skill. The answer should come from `.datarim-runtime/commands/dr-help.md`.
 
 ## With Jev

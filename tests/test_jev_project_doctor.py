@@ -36,7 +36,7 @@ class ProjectDoctor(unittest.TestCase):
         (self.project/'AGENTS.md').write_text('# Rules\n')
         self.env = dict(os.environ, HOME=str(self.home), CLAUDE_BIN='/usr/bin/true',
                         CODEX_BIN='/usr/bin/true', CURSOR_BIN='/usr/bin/true',
-                        ANTIGRAVITY_BIN='/usr/bin/true')
+                        ANTIGRAVITY_BIN='/usr/bin/true', MINIMAX_BIN='/usr/bin/true')
         self.env.pop('JEV_PERMISSIONS', None)
 
     def install(self, *extra):
@@ -205,6 +205,32 @@ class ProjectDoctor(unittest.TestCase):
         self.assertEqual(live['state'], 'live', live)
         self.assertEqual(live['deliveries'], 1)
         self.assertEqual(live['events'], ['PreToolUse'])
+
+
+    def test_minimax_doctor_checks_registration_and_delivery(self):
+        self.install('--client', 'minimax')
+        code, report = self.doctor('minimax')
+        self.assertEqual((code, report['findings']), (0, []))
+        self.assertEqual(report['hook_clients'], ['minimax'])
+        self.assertEqual(report['native_agents_live']['minimax']['state'], 'not_measured')
+        # Deny path must emit Claude-shaped JSON even when advisory context fails.
+        deny_payload = json.dumps({'cwd': str(self.project), 'session_id': 'probe-mm-deny',
+                                   'tool_name': 'bash', 'tool_input': {'command': 'rm -rf /'}})
+        command = json.loads((self.project/'.minimax/hooks.json').read_text())['hooks']['PreToolUse'][0]['hooks'][0]
+        import shlex
+        deny = subprocess.run(shlex.split(command['command']), input=deny_payload, cwd=self.project,
+                              env=self.env, capture_output=True, text=True, timeout=60)
+        self.assertEqual(deny.returncode, 0, deny.stderr)
+        self.assertEqual(json.loads(deny.stdout)['hookSpecificOutput']['permissionDecision'], 'deny')
+        allow_payload = json.dumps({'cwd': str(self.project), 'session_id': 'probe-mm',
+                                    'tool_name': 'bash', 'tool_input': {'command': 'ls'}})
+        allow = subprocess.run(shlex.split(command['command']), input=allow_payload, cwd=self.project,
+                               env=self.env, capture_output=True, text=True, timeout=60)
+        self.assertEqual(allow.returncode, 0, allow.stderr)
+        live = self.doctor('minimax')[1]['native_agents_live']['minimax']
+        self.assertEqual(live['state'], 'live', live)
+        self.assertGreaterEqual(live['deliveries'], 1)
+        self.assertIn('PreToolUse', live['events'])
 
     # -- defect: a versioned interpreter path in every hook -------------------
 

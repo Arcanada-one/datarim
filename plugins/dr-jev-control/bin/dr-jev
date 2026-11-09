@@ -30,11 +30,12 @@ Commands:
   dr-jev help                         Show this help
 
 Modes: economy | balanced (default) | quality
-Runtimes: claude (default) | codex | cursor
+Runtimes: claude (default) | codex | cursor | antigravity | minimax
 
 Launch Claude Code with: dr-claude-jev [--mode MODE] "task"
 Dynamic (live) routing:  dr-claude-jev --live "task"
 Supervise Codex:         dr-claude-jev --live --runtime codex "task"
+Supervise MiniMax:       dr-claude-jev --live --runtime minimax "task"
 For full launcher options: dr-claude-jev --help
 USAGE
 }
@@ -114,7 +115,10 @@ MODES
    rt_found=0
    if command -v "${CLAUDE_BIN:-claude}" >/dev/null; then echo "OK claude: $(command -v "${CLAUDE_BIN:-claude}")"; rt_found=1; else echo 'WARN claude not found'; fi
    if command -v "${CODEX_BIN:-codex}" >/dev/null; then echo "OK codex: $(command -v "${CODEX_BIN:-codex}")"; rt_found=1; else echo 'WARN codex not found'; fi
-   [[ "$rt_found" == 1 ]] || { echo 'FAIL no agent runtime found (need claude or codex)'; exit 1; }
+   if command -v "${CURSOR_BIN:-cursor-agent}" >/dev/null || command -v agent >/dev/null; then echo "OK cursor: present"; rt_found=1; else echo 'WARN cursor not found'; fi
+   if command -v "${AGY_BIN:-agy}" >/dev/null; then echo "OK antigravity: $(command -v "${AGY_BIN:-agy}")"; rt_found=1; else echo 'WARN antigravity not found'; fi
+   if command -v "${MINIMAX_BIN:-mcode}" >/dev/null; then echo "OK minimax: $(command -v "${MINIMAX_BIN:-mcode}")"; rt_found=1; else echo 'WARN minimax not found'; fi
+   [[ "$rt_found" == 1 ]] || { echo 'FAIL no agent runtime found (need claude, codex, cursor, antigravity, or minimax)'; exit 1; }
    ks="$(python3 -c 'import sys;sys.path.insert(0,"'"$HERE"'/scripts");from route import kill_switch_reason;print(kill_switch_reason() or "")' 2>/dev/null || true)"
    if [[ -n "$ks" ]]; then
      echo "WARN Jev integration is DISABLED ($ks) — routing is off, Datarim runs plain"
