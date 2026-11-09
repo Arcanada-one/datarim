@@ -96,16 +96,20 @@ jobs:
       id-token: write       # required for cosign keyless OIDC + attestations
       attestations: write   # required for actions/attest-build-provenance
     steps:
-      - name: Validate tag format
-        env:
-          RELEASE_TAG: ${{ needs.classify.outputs.release_tag }}
-          RELEASE_SHA: ${{ needs.classify.outputs.release_sha }}
-        run: bash .github/scripts/workflow/release-release-01-validate-tag-format.sh
+      # The checkout comes first: every helper below runs a script from this
+      # repository, so the working tree must exist before the first one. The
+      # tag-format helper was extracted from an inline step after this job was
+      # last green, and the stale order made it exit 127 (no such file).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.classify.outputs.release_sha }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Validate tag format
+        env:
+          RELEASE_TAG: ${{ needs.classify.outputs.release_tag }}
+          RELEASE_SHA: ${{ needs.classify.outputs.release_sha }}
+        run: bash .github/scripts/workflow/release-release-01-validate-tag-format.sh
 
       - name: Confirm release tree identity
         run: bash .github/scripts/workflow/release-release-02-confirm-release-tree-identity.sh

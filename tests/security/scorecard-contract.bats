@@ -125,6 +125,14 @@ assert validate['env']['RELEASE_TAG'] == '${{ needs.classify.outputs.release_tag
 assert 'release-release-01-validate-tag-format.sh' in validate['run']
 assert 'tag="$RELEASE_TAG"' in validate_helper
 assert 'echo "TAG=$tag"' in validate_helper and '"$GITHUB_ENV"' in validate_helper
+# Every repository helper step runs a script from the checked-out tree, so the
+# checkout must precede them: the tag-format helper once ran before the
+# checkout and exited 127, failing every release.
+steps = release['steps']
+checkout_index = next(i for i, step in enumerate(steps) if 'actions/checkout' in str(step.get('uses', '')))
+helper_indexes = [i for i, step in enumerate(steps) if '.github/scripts/workflow/' in str(step.get('run', ''))]
+assert helper_indexes, 'the release job must run repository helper scripts'
+assert min(helper_indexes) > checkout_index, 'the checkout must precede every repository helper step'
 publish = next(step for step in release['steps'] if step.get('name') == 'Publish GitHub Release')['with']
 assert publish['tag_name'] == '${{ env.TAG }}'
 assert publish['generate_release_notes'] == "${{ needs.classify.outputs.root_release != 'true' }}"
