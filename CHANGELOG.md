@@ -4,15 +4,16 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.12.1] — 2026-11-10
+
 ### Fixed
 
+- The changelog lists only published versions: the `4.11.0` section is folded into `4.12.0`. Version 4.11.0 was never tagged or published, so its open-PR budget floor changes ship as part of 4.12.0, and `README.md` names that floor in the "New in 4.12.0" paragraph so the release note matches what the release contains. The `4.10.0` section date now reads `2026-11-03`, the day the annotated tag was created and the GitHub release was published.
 - `dev-tools/check-version-consistency.sh` reads the workspace wrappers in both release phrasings (`Текущая версия:` and `Текущий стабильный релиз:`) instead of reporting a pattern drift on an aligned workspace, and it checks the datarim.club surfaces the way the site builds them: `pages/about.php` and `pages/home.php` must derive the catalogue counts at render time, and the hero copy is verified as one agents/commands/skills triplet. Before this, the gate failed on every full-workspace checkout and could not see a real count drift.
 - `dev-tools/check-repo-site-sync.sh` enumerates nested skill artefacts (`skills/fleet/l1-basic/SKILL.md` publishes as `fleet-l1-basic`), counts plugin commands (`plugins/<id>/commands/`) as part of the command namespace, and reads the flag corpus from the framework `scripts/` implementation surface. Five orphan skill pages, one plugin command citation and one implemented flag were reported as drift while they were accurate.
-
-### Added
-
-- Bats coverage for both repaired gates: the version-consistency suite proves the workspace phrasing, the site triplet and the derivation check; the repo↔site suite proves the nested skill artefact, the plugin command and the implemented flag, and keeps the orphan, stale-token and unknown-flag cases failing.
-- The standalone Human Outcome Reporting skill documents its own installation surface: `python3 scripts/human_reporting_install.py install --agents <list>`, the accepted `--agents` subset (`antigravity,claude,codex,cursor,minimax`), and the `check` / `uninstall` commands.
+- Regression coverage for both repaired gates: the version-consistency suite proves the workspace phrasing, the site triplet and the derivation check; the repo↔site suite proves the nested skill artefact, the plugin command and the implemented flag, and keeps the orphan, stale-token and unknown-flag cases failing.
+- The standalone Human Outcome Reporting skill documents its own installation surface, which was undocumented: `python3 scripts/human_reporting_install.py install --agents <list>`, the accepted `--agents` subset (`antigravity,claude,codex,cursor,minimax`), and the `check` / `uninstall` commands.
+- `plugins/dr-orchestrate/scripts/fleet_audit_trim.sh` trims the fleet audit-log stream exactly to `--max-len`. The trim used the approximate form (`XTRIM ... MAXLEN "~"`), which only removes whole macro nodes, so the stream kept far more entries than requested — on a short stream it kept every entry and the documented contract silently did not hold.
 
 ## [4.12.0] — 2026-11-09
 
