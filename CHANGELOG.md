@@ -4,6 +4,21 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.12.2] — 2026-11-10
+
+### Fixed
+
+- A MiniMax project install no longer writes the user's global MiniMax hook enablement state (`~/.minimax/hook-settings/state.json`) when the client was never selected. That file lives outside the project, so only the project's own entry may change, and only when the project has (or had) MiniMax hooks.
+- The MiniMax hook wrapper now documents the payload contract measured on mcode 0.7.6: the runtime maps a Claude-style `hookSpecificOutput.permissionDecision: "deny"` to the same internal deny as the top-level `{"decision": "block"}` payload, so both shapes are enforced, and a block without a reason is dropped.
+- An internal failure in the Jev hook wrapper is no longer silent. Exit status 2 blocks the call and uses stderr as the reason, any other non-zero status is reported as a hook diagnostic, and a PreToolUse-class event that cannot be evaluated now fails closed instead of silently allowing.
+- The MiniMax runtime no longer silently drops the tier effort: the measured `mcode` command line exposes `--model` but no effort flag, so the tier selects the model and the limitation is documented where the effort is computed.
+- The coexistence of the host Jev hook and the standalone Human Outcome Reporting hook on one `~/.minimax/hooks.json` is covered by a regression test: both writers keep the entries of the other, in both orders.
+- `dev-tools/check-version-consistency.sh` reads the Russian catalogue triplet as the number next to each category word, so an inflected noun form (`32 команды`, `82 навыка`) is compared against disk instead of being reported as a pattern drift, and a stale leading mention can no longer mask a drifted count later in the same line.
+- The pages that derive their catalogue counts are paired with a literal-count check, so a hardcoded catalogue size next to a category word now fails the gate, and the exact number of cross-root surfaces is asserted again.
+- The Redis-free guard on the exact fleet audit-log trim accepts every quoting of the approximate form (`MAXLEN ~`, `MAXLEN "~"`, `MAXLEN '~'`), ignores comment prose and pins the exact form, so an approximate trim can no longer return unnoticed.
+- The `4.12.0` changelog section lists all sixteen pull requests that shipped in that release, with the release-body titles verbatim.
+
+
 ## [4.12.1] — 2026-11-10
 
 ### Fixed
