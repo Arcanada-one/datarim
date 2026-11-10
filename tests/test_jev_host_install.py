@@ -293,6 +293,56 @@ class HostInstallTests(unittest.TestCase):
         self.assertTrue(launcher.is_file())
         self.assertIn('--agent=minimax', launcher.read_text())
 
+
+    def test_minimax_host_and_reporting_hooks_coexist_in_both_orders(self):
+        """The host Jev hook and the standalone reporting hook write the same
+        ~/.minimax/hooks.json. Whichever writes last must keep the other's
+        entries: a coexistence bug would silently disable the safety floor."""
+        source = self.home / 'reporting-source'
+        (source / 'references').mkdir(parents=True)
+        (source / 'SKILL.md').write_text('---\nname: human-outcome-reporting\n---\nPolicy\n')
+        (source / 'references' / 'profile.md').write_text('Profile\n')
+
+        def reporting_install():
+            out = subprocess.run(
+                [sys.executable, str(ROOT / 'scripts/human_reporting_install.py'), 'install',
+                 '--home', str(self.home), '--source', str(source), '--agents', 'minimax'],
+                text=True, capture_output=True)
+            self.assertEqual(out.returncode, 0, out.stderr + out.stdout)
+
+        target = self.home / '.minimax/hooks.json'
+        self.args.client = ['minimax']
+
+        # Order 1: the host Jev hook first.
+        self.install()
+        reporting_install()
+        data = json.loads(target.read_text())
+        self.assertTrue(data.get('enabled'))
+        self.assertIn('jev-hook minimax PreToolUse', data['hooks']['PreToolUse'][0]['hooks'][0]['command'])
+        self.assertEqual(len(data['hooks']['SessionStart']), 1)
+        self.assertIn('human-outcome-reporting', data['hooks']['SessionStart'][0]['hooks'][0]['command'])
+
+        # Order 2: the standalone reporting hook first, in a second home.
+        self.temp2 = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp2.cleanup)
+        self.home = Path(self.temp2.name).resolve()
+        self.project = self.home / 'project'
+        self.project.mkdir()
+        self.args.home = str(self.home)
+        self.args.datarim_project = [str(self.project)]
+        source = self.home / 'reporting-source'
+        (source / 'references').mkdir(parents=True)
+        (source / 'SKILL.md').write_text('---\nname: human-outcome-reporting\n---\nPolicy\n')
+        (source / 'references' / 'profile.md').write_text('Profile\n')
+        reporting_install()
+        self.install()
+        target = self.home / '.minimax/hooks.json'
+        data = json.loads(target.read_text())
+        self.assertTrue(data.get('enabled'))
+        self.assertIn('jev-hook minimax PreToolUse', data['hooks']['PreToolUse'][0]['hooks'][0]['command'])
+        self.assertEqual(len(data['hooks']['SessionStart']), 1)
+        self.assertIn('human-outcome-reporting', data['hooks']['SessionStart'][0]['hooks'][0]['command'])
+
     def test_minimax_project_hook_state_merges_and_preserves_neighbors(self):
         import jev_host_install as jhi
         data_dir = self.home / 'mm-data'

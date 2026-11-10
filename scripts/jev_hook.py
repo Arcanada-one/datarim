@@ -34,6 +34,16 @@ EVENTS = {
 }
 
 
+# Native events whose canonical form is PreToolUse. A failure while such an
+# event is evaluated means the deterministic floor could not be applied.
+BLOCKING_NATIVE_EVENTS = {
+    client: native
+    for client, events in EVENTS.items()
+    for native, canonical in events.items()
+    if canonical == 'PreToolUse'
+}
+
+
 def host_runtime(home=None):
     home = Path(home or Path.home()).resolve()
     pointer = home/'.config/jev/installation.json'
@@ -203,10 +213,14 @@ def native_output(client, event, result):
         return {}
     if client == 'minimax':
         # Measured on mcode 0.7.6: a `hooks.json` command is parsed in the native
-        # MINIMAX output format. A tool call is blocked by a top-level
-        # `{"decision": "block", "reason": ...}` payload; the Claude-style
-        # `hookSpecificOutput.permissionDecision` is accepted but not enforced,
-        # and one unknown top-level key voids the whole payload. Advisory context
+        # MINIMAX output format. The runtime maps a top-level
+        # `{"decision": "block", "reason": ...}` payload to an internal deny, and
+        # it maps a Claude-style `hookSpecificOutput.permissionDecision: "deny"`
+        # to that same internal deny: both shapes are enforced. A block without
+        # a reason is dropped, so the refusal always carries one; an unknown
+        # key inside `hookSpecificOutput` voids that object, while unknown
+        # top-level keys are ignored. The wrapper emits the top-level form
+        # because that is the contract its own tests assert. Advisory context
         # travels through `hookSpecificOutput.additionalContext` and reaches the
         # model on PreToolUse, UserPromptSubmit and PostToolUse.
         body = result.get('hookSpecificOutput', {})
@@ -342,7 +356,7 @@ def main():
         client, event = sys.argv[1:]
         payload = json.load(sys.stdin)
         if not isinstance(payload, dict):
-            return 0
+            raise ValueError('hook payload must be an object')
         result = run(client, event, payload)
         if result or client == 'antigravity':
             print(json.dumps(result))
@@ -351,8 +365,17 @@ def main():
             # and a non-zero exit status blocks it independently. Both channels
             # are emitted so one broken channel cannot reopen the floor.
             return 2
-    except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired):
-        return 0
+    except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as exc:
+        # Measured on mcode 0.7.6 (the Claude contract agrees): exit status 2
+        # blocks the call and uses stderr as the reason, while any other
+        # non-zero status is reported as a hook diagnostic and does not block.
+        # A PreToolUse-class event that cannot be evaluated must not reopen the
+        # deterministic floor, so it fails closed; every other event reports a
+        # visible diagnostic instead of failing silently.
+        print('Jev hook internal error: ' + type(exc).__name__, file=sys.stderr)
+        client = sys.argv[1] if len(sys.argv) > 1 else ''
+        event = sys.argv[2] if len(sys.argv) > 2 else ''
+        return 2 if BLOCKING_NATIVE_EVENTS.get(client) == event else 1
     return 0
 
 
