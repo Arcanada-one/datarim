@@ -52,6 +52,8 @@
 #     README.md                                    "commands/           # Slash commands (N commands)"
 #     README.md                                    "templates/          # Task and document templates (N templates)"
 #     ../../../Websites/datarim.club/pages/about.php  "N specialized agents, N commands, N skills,"
+#     (that page now derives the numbers at render time — see the derivation
+#      surface class below; the literal-count rows for it were removed)
 #     ../../../Websites/datarim.club/content/en.php   "N agents, N commands, N skills,"
 #     ../../../Websites/datarim.club/content/ru.php   "N агентов, N команд, N навыков,"
 #
@@ -130,8 +132,8 @@ surfaces() {
     printf '%s\n' \
         'AGENTS.md|^> \*\*Version:\*\* ' \
         'README.md|badge/Version-' \
-        '../../AGENTS.md|Текущая версия: \*\*' \
-        '../../README.md|\*\*Версия:\*\* ' \
+        '../../AGENTS.md|(Текущая версия|Текущий стабильный релиз): \*\*' \
+        '../../README.md|(Текущая версия|Текущий стабильный релиз): \*\*' \
         "../../../Websites/datarim.club/config.php|'version'[[:space:]]*=>[[:space:]]*'"
 }
 
@@ -212,16 +214,7 @@ count_surfaces() {
         'README.md|agents|# Agent personas \(' \
         'README.md|skills|# Knowledge modules \(' \
         'README.md|commands|# Slash commands \(' \
-        'README.md|templates|# Task and document templates \(' \
-        '../../../Websites/datarim.club/pages/about.php|agents|The framework includes ' \
-        '../../../Websites/datarim.club/pages/about.php|commands|includes [0-9]+ specialized agents, ' \
-        '../../../Websites/datarim.club/pages/about.php|skills|includes [0-9]+ specialized agents, [0-9]+ commands, ' \
-        '../../../Websites/datarim.club/content/en.php|agents|Structure any project into iterative tasks\. ' \
-        '../../../Websites/datarim.club/content/en.php|commands|iterative tasks\. [0-9]+ agents, ' \
-        '../../../Websites/datarim.club/content/en.php|skills|iterative tasks\. [0-9]+ agents, [0-9]+ commands, ' \
-        '../../../Websites/datarim.club/content/ru.php|agents|итерационные задачи\. ' \
-        '../../../Websites/datarim.club/content/ru.php|commands|итерационные задачи\. [0-9]+ агентов, ' \
-        '../../../Websites/datarim.club/content/ru.php|skills|итерационные задачи\. [0-9]+ агентов, [0-9]+ команд, '
+        'README.md|templates|# Task and document templates \('
 }
 
 # Extract the integer count that follows ANCHOR in FILE (first line matching
@@ -234,6 +227,40 @@ extract_count() {
         | LC_ALL=C sed -E "s@^.*${anchor}@@" \
         | LC_ALL=C grep -oE '^[0-9]+' \
         | head -n1 || true
+}
+
+# --- Derivation surface table ----------------------------------------------
+# A public page may state no literal count at all and render the live
+# catalogue instead. Such a page cannot drift, so the gate asserts the
+# derivation itself: the file must call the catalogue loader. Each entry:
+# <path-relative-to-root>|<fixed-string-that-must-be-present>
+dynamic_surfaces() {
+    printf '%s\n' \
+        "../../../Websites/datarim.club/pages/about.php|count(load_all_docs('agents'))" \
+        "../../../Websites/datarim.club/pages/about.php|count(load_all_docs('commands'))" \
+        "../../../Websites/datarim.club/pages/about.php|count(load_all_docs('skills'))" \
+        "../../../Websites/datarim.club/pages/home.php|count(load_all_docs('agents'))" \
+        "../../../Websites/datarim.club/pages/home.php|count(load_all_docs('commands'))" \
+        "../../../Websites/datarim.club/pages/home.php|count(load_all_docs('skills'))"
+}
+
+# --- Triplet surface table --------------------------------------------------
+# A page may state the three catalogue sizes in one sentence. The wording of
+# that sentence is free to change, so the gate matches the numbers and the
+# category words, never the surrounding prose. Each entry:
+# <path-relative-to-root>|<grep-marker>|<sed-expression-that-prints-a-b-c>
+triplet_surfaces() {
+    printf '%s\n' \
+        "../../../Websites/datarim.club/content/en.php|agents, [0-9]+ commands, [0-9]+ skills|s@.*[^0-9]([0-9]+) agents, ([0-9]+) commands, ([0-9]+) skills.*@\1 \2 \3@" \
+        "../../../Websites/datarim.club/content/ru.php|агентов, [0-9]+ команда, [0-9]+ навык|s@.*[^0-9]([0-9]+) агентов, ([0-9]+) команда, ([0-9]+) навык.*@\1 \2 \3@"
+}
+
+# Extract the three counts of a triplet sentence. Prints "agents commands
+# skills" or nothing when the sentence is gone.
+extract_triplet() {
+    local file="$1" marker="$2" sed_expr="$3" line
+    line=$(LC_ALL=C grep -m1 -E "$marker" "$file" 2>/dev/null) || return 0
+    printf '%s\n' "$line" | LC_ALL=C sed -E "$sed_expr" | LC_ALL=C grep -oE '[0-9]+ [0-9]+ [0-9]+' | head -n1 || true
 }
 
 # --- Scan (component counts) -------------------------------------------------
@@ -259,6 +286,47 @@ while IFS='|' read -r rel category anchor; do
         count_mismatches+="  $rel [$category] — claims $found, disk has $expected"$'\n'
     fi
 done < <(count_surfaces)
+
+# --- Scan (derivation surfaces) ----------------------------------------------
+while IFS='|' read -r rel needle; do
+    [ -n "$rel" ] || continue
+    file="$root/$rel"
+    if [ ! -f "$file" ]; then
+        skipped=$((skipped + 1))
+        continue
+    fi
+    if LC_ALL=C grep -qF -- "$needle" "$file" 2>/dev/null; then
+        count_checked=$((count_checked + 1))
+    else
+        count_mismatches+="  $rel — does not derive the catalogue count ($needle)"$'\n'
+    fi
+done < <(dynamic_surfaces)
+
+# --- Scan (triplet surfaces) -------------------------------------------------
+while IFS='|' read -r rel marker sed_expr; do
+    [ -n "$rel" ] || continue
+    file="$root/$rel"
+    if [ ! -f "$file" ]; then
+        skipped=$((skipped + 1))
+        continue
+    fi
+    found=$(extract_triplet "$file" "$marker" "$sed_expr")
+    if [ -z "$found" ]; then
+        count_mismatches+="  $rel — no catalogue triplet matched (pattern drift?)"$'\n'
+        continue
+    fi
+    count_checked=$((count_checked + 1))
+    read -r found_agents found_commands found_skills <<<"$found"
+    for pair in "agents:$found_agents:$count_agents" "commands:$found_commands:$count_commands" "skills:$found_skills:$count_skills"; do
+        category=${pair%%:*}
+        rest=${pair#*:}
+        claimed=${rest%%:*}
+        expected=${rest##*:}
+        if [ "$claimed" != "$expected" ]; then
+            count_mismatches+="  $rel [$category] — claims $claimed, disk has $expected"$'\n'
+        fi
+    done
+done < <(triplet_surfaces)
 
 # --- Report -------------------------------------------------------------------
 fail=0

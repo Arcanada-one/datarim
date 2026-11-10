@@ -200,3 +200,75 @@ narrative_fixture() {
     run bash "$DETECTOR" --report --root "$KB"
     [[ "$output" == *unavailable* ]] || [[ "$output" == *skip* ]]
 }
+
+# Helper: registry that also binds skills, so the nested-artefact rule (a skill
+# that lives deeper than skills/<name>/SKILL.md) is exercised by the fixture.
+write_registry_with_skills() {
+    cat > "$KB/documentation/ecosystem-sync/registry.yml" <<EOF
+products:
+  demo:
+    repo_local: repo
+    repo_remote: Arcanada-one/demo
+    domain: demo.example
+    site_local: site
+    deploy_path: deploy.sh
+    head_site: example.invalid
+    version_repo: VERSION
+    version_site: config.php
+    feature_count_repo: commands
+    feature_count_site: features.php
+    readme_repo: README.md
+    page_bindings:
+      - commands/*.md => data/commands/*.php
+      - skills/*/SKILL.md => data/skills/*.php
+EOF
+}
+
+@test "narrative: a nested skill artefact resolves to its hyphenated site page" {
+    write_registry_with_skills
+    mkdir -p "$KB/repo/skills/fleet/l1-basic" "$KB/site/data/skills"
+    printf '# fleet l1\n' > "$KB/repo/skills/fleet/l1-basic/SKILL.md"
+    printf '<?php // page for the fleet l1 skill\n' > "$KB/site/data/skills/fleet-l1-basic.php"
+    ( cd "$KB/repo" && git add -A && git commit -qm skill )
+    run bash "$DETECTOR" --check --narrative --root "$KB"
+    [ "$status" -eq 0 ]
+}
+
+@test "narrative: a site skill page without a repo artefact is still an orphan" {
+    write_registry_with_skills
+    mkdir -p "$KB/site/data/skills"
+    printf '<?php // page for a skill that no longer exists\n' > "$KB/site/data/skills/fleet-l9-gone.php"
+    run bash "$DETECTOR" --check --narrative --root "$KB"
+    [ "$status" -eq 1 ]
+    run bash "$DETECTOR" --report --narrative --root "$KB"
+    [[ "$output" == *"removed artefact"* ]]
+}
+
+@test "narrative: a command shipped by a plugin is a valid slash-command citation" {
+    narrative_fixture
+    mkdir -p "$KB/repo/plugins/controller-continuation/commands"
+    printf '# checkpoint\n' > "$KB/repo/plugins/controller-continuation/commands/dr-continue-checkpoint.md"
+    printf '<?php // see also /dr-continue-checkpoint\n' >> "$KB/site/data/commands/dr-run.php"
+    ( cd "$KB/repo" && git add -A && git commit -qm plugin )
+    run bash "$DETECTOR" --check --narrative --root "$KB"
+    [ "$status" -eq 0 ]
+}
+
+@test "narrative: a flag implemented in the framework scripts is accepted" {
+    narrative_fixture
+    mkdir -p "$KB/repo/scripts"
+    printf '#!/usr/bin/env python3\nparser.add_argument("--agents")\n' > "$KB/repo/scripts/tool.py"
+    printf '<?php // install with --agents\n' >> "$KB/site/data/commands/dr-run.php"
+    ( cd "$KB/repo" && git add -A && git commit -qm script )
+    run bash "$DETECTOR" --check --narrative --root "$KB"
+    [ "$status" -eq 0 ]
+}
+
+@test "narrative: a flag that exists nowhere is still reported" {
+    narrative_fixture
+    printf '<?php // install with --nonexistent-flag\n' >> "$KB/site/data/commands/dr-run.php"
+    run bash "$DETECTOR" --check --narrative --root "$KB"
+    [ "$status" -eq 1 ]
+    run bash "$DETECTOR" --report --narrative --root "$KB"
+    [[ "$output" == *"--nonexistent-flag"* ]]
+}
