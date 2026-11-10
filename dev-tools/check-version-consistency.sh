@@ -258,8 +258,8 @@ dynamic_surfaces() {
 # <path-relative-to-root>@<regex-for-a-literal-catalogue-claim>
 literal_surfaces() {
     printf '%s\n' \
-        "../../../Websites/datarim.club/pages/about.php@([0-9]+) (agents?|commands?|skills?|агент(а|ы|ов)?|команд(а|ы|ов)?|навык(а|и|ов)?)" \
-        "../../../Websites/datarim.club/pages/home.php@([0-9]+) (agents?|commands?|skills?|агент(а|ы|ов)?|команд(а|ы|ов)?|навык(а|и|ов)?)"
+        "../../../Websites/datarim.club/pages/about.php@([0-9]+)[[:space:]]+(agents?|commands?|skills?|агент(а|ы|ов)?|команд(а|ы|ов)?|навык(а|и|ов)?)" \
+        "../../../Websites/datarim.club/pages/home.php@([0-9]+)[[:space:]]+(agents?|commands?|skills?|агент(а|ы|ов)?|команд(а|ы|ов)?|навык(а|и|ов)?)"
 }
 
 # --- Triplet surface table --------------------------------------------------
@@ -290,7 +290,9 @@ extract_triplet() {
         printf '%s\n' "$line" | LC_ALL=C grep -qE "$re_c" || continue
         printf '%s\n' "$line" | LC_ALL=C grep -qE "$re_s" || continue
         for re in "$re_a" "$re_c" "$re_s"; do
-            n=$(printf '%s\n' "$line" | LC_ALL=C grep -oE "$re" | head -n1 | LC_ALL=C grep -oE '[0-9]+' | head -n1)
+            # The rightmost occurrence on the line wins: a stale leading
+            # mention must not mask a drifted count further down the line.
+            n=$(printf '%s\n' "$line" | LC_ALL=C grep -oE "$re" | tail -n1 | LC_ALL=C grep -oE '[0-9]+' | head -n1)
             found="$found $n"
         done
         printf '%s\n' "$found"

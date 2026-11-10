@@ -77,6 +77,15 @@ setup() {
     [[ "$output" == *"pages/about.php — does not derive the catalogue count"* ]]
 }
 
+@test "a stale leading mention does not mask a drifted count later on the line" {
+    printf '<p>Previously %s skills. Now the catalogue has %s agents, %s commands, 79 skills.</p>\n' \
+        "$n_skills" "$n_agents" "$n_commands" \
+        > "$ws/Projects/Websites/datarim.club/content/en.php"
+    run bash "$SCRIPT" --root "$fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"content/en.php [skills] — claims 79"* ]]
+}
+
 @test "a site page that hardcodes a catalogue size next to a category word fails the check" {
     printf "<?php echo count(load_all_docs('agents')); ?>\n<p>19 agents</p>\n" \
         > "$ws/Projects/Websites/datarim.club/pages/about.php"
