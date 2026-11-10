@@ -22,6 +22,29 @@ import hook_user_prompt
 
 
 class NativeHookTests(unittest.TestCase):
+    def test_an_unreadable_payload_is_reported_and_a_tool_event_fails_closed(self):
+        out, err = io.StringIO(), io.StringIO()
+        with patch.object(sys, 'argv', ['jev_hook.py', 'minimax', 'PreToolUse']), \
+             patch('sys.stdin', io.StringIO('{not json')), \
+             patch('sys.stdout', out), patch('sys.stderr', err):
+            code = jev_hook.main()
+        self.assertEqual(code, 2)
+        self.assertIn('Jev hook internal error', err.getvalue())
+        # A non-blocking event reports the failure without blocking the call.
+        out, err = io.StringIO(), io.StringIO()
+        with patch.object(sys, 'argv', ['jev_hook.py', 'minimax', 'PostToolUse']), \
+             patch('sys.stdin', io.StringIO('{not json')), \
+             patch('sys.stdout', out), patch('sys.stderr', err):
+            code = jev_hook.main()
+        self.assertEqual(code, 1)
+        self.assertIn('Jev hook internal error', err.getvalue())
+
+    def test_the_blocking_event_map_covers_every_client(self):
+        self.assertEqual(jev_hook.BLOCKING_NATIVE_EVENTS, {
+            'antigravity': 'PreToolUse', 'claude': 'PreToolUse', 'codex': 'PreToolUse',
+            'cursor': 'beforeShellExecution', 'minimax': 'PreToolUse'})
+
+
     def test_wrapper_decision_is_delivered_once_without_second_classification(self):
         with tempfile.TemporaryDirectory() as directory:
             prompt = 'Review the implementation'

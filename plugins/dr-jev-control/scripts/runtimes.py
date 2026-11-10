@@ -911,6 +911,11 @@ class MiniMaxRuntime(CodexRuntime):
     non-interactive subcommand and `--permission full` maps to internal
     `bypassPermissions`. Stream frames are accepted when JSONL; otherwise the
     adapter treats non-empty stdout as a single text event.
+
+    The tier effort is not passed: the measured `mcode` command line exposes
+    `--model` but no effort flag, so the tier selects the model and the effort
+    it computes has nowhere to go. A future CLI that accepts one can pass it
+    here; until then the mapping is documented instead of silently dropped.
     """
 
     name = 'minimax'
