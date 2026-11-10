@@ -147,3 +147,13 @@ requested complete report. Do not print two recaps or copy raw technical logs in
 Use [native integration](references/datarim.md) for projection, finalization, runtime
 installation, exceptions, and verification. Native graph reference:
 `skills/human-outcome-reporting/references/datarim.md`.
+
+### Standalone installation
+
+The reporting policy installs without Datarim:
+`python3 scripts/human_reporting_install.py install --agents <list>`. The
+`--agents` argument takes a comma-separated subset of
+`antigravity,claude,codex,cursor,minimax` and selects which clients receive the
+skill and its hooks; `check` verifies an installation and `uninstall` removes
+the artefacts the installer owns. Full guide:
+[`documentation/how-to/install-human-outcome-reporting.md`](../../documentation/how-to/install-human-outcome-reporting.md).

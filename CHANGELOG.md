@@ -4,11 +4,23 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `dev-tools/check-version-consistency.sh` reads the workspace wrappers in both release phrasings (`Текущая версия:` and `Текущий стабильный релиз:`) instead of reporting a pattern drift on an aligned workspace, and it checks the datarim.club surfaces the way the site builds them: `pages/about.php` and `pages/home.php` must derive the catalogue counts at render time, and the hero copy is verified as one agents/commands/skills triplet. Before this, the gate failed on every full-workspace checkout and could not see a real count drift.
+- `dev-tools/check-repo-site-sync.sh` enumerates nested skill artefacts (`skills/fleet/l1-basic/SKILL.md` publishes as `fleet-l1-basic`), counts plugin commands (`plugins/<id>/commands/`) as part of the command namespace, and reads the flag corpus from the framework `scripts/` implementation surface. Five orphan skill pages, one plugin command citation and one implemented flag were reported as drift while they were accurate.
+
+### Added
+
+- Bats coverage for both repaired gates: the version-consistency suite proves the workspace phrasing, the site triplet and the derivation check; the repo↔site suite proves the nested skill artefact, the plugin command and the implemented flag, and keeps the orphan, stale-token and unknown-flag cases failing.
+- The standalone Human Outcome Reporting skill documents its own installation surface: `python3 scripts/human_reporting_install.py install --agents <list>`, the accepted `--agents` subset (`antigravity,claude,codex,cursor,minimax`), and the `check` / `uninstall` commands.
+
 ## [4.12.0] — 2026-11-09
 
 ### Added
 
 - MiniMax Code (`minimax`, binary `mcode`, alias `mcode`→`minimax`) is now a first-class supported client across Datarim project installation (`install.sh` / `update.sh` `--client minimax` or `--client mcode`), Jev project and host hooks (`.minimax/hooks.json` and `~/.minimax/hooks.json` for `UserPromptSubmit`, `PreToolUse` and `PostToolUse`, Claude nested shape with top-level `enabled: true`), Jev launchers (`jevminimax`, `jev --agent=minimax`), the Jev control-plane runtime (`MiniMaxRuntime`), and standalone Human Outcome Reporting (`human_reporting_install.py --agents minimax`). MiniMax has no markdown commands loader, so `/dr-*` commands are delivered as skills under `.minimax/skills/`.
+- Open-PR budget floor: `dev-tools/check-open-pr-budget.sh` PreToolUse guard (structural `gh … pr create` only; fail-closed when `gh` cannot measure; config `~/.claude/local/config/pr-budget.conf`, defaults feature=1 / total=2 / integration_prefixes=`integration/` `batch/`) with regression `dev-tools/tests/check-open-pr-budget.bats`.
+- Developer and architect agents now carry a PR-budget obligation; `finishing-a-development-branch` Option 2 gains Step 0 (PR budget gate) and a Quick Reference column for budget accounting. Documented as AGENTS.md **S10-pr-budget**.
 
 ### Fixed
 
@@ -17,15 +29,9 @@ All notable changes to the Datarim framework are documented here. Format follows
 ### Changed
 
 - Client surface prose and install defaults now describe five clients (Claude Code, Codex, Cursor, Antigravity, MiniMax) instead of four.
+- The `4.11.0` section is folded into this release. Version 4.11.0 was never tagged or published, so its open-PR budget floor changes ship as part of 4.12.0 and the changelog lists only published versions.
 
-## [4.11.0] — 2026-11-06
-
-### Added
-
-- Open-PR budget floor: `dev-tools/check-open-pr-budget.sh` PreToolUse guard (structural `gh … pr create` only; fail-closed when `gh` cannot measure; config `~/.claude/local/config/pr-budget.conf`, defaults feature=1 / total=2 / integration_prefixes=`integration/` `batch/`) with regression `dev-tools/tests/check-open-pr-budget.bats`.
-- Developer and architect agents now carry a PR-budget obligation; `finishing-a-development-branch` Option 2 gains Step 0 (PR budget gate) and a Quick Reference column for budget accounting. Documented as AGENTS.md **S10-pr-budget**.
-
-## [4.10.0] — 2026-11-02
+## [4.10.0] — 2026-11-03
 
 ### Added
 

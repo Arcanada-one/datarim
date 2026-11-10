@@ -248,12 +248,18 @@ check_product() {  # $1=product
 narrative_repo_names() {  # $1=repo-abs $2=repo_glob
     local repo="$1" g="$2" dir file d f b
     case "$g" in
-        */\*/*)  # dir/*/FILE.ext → artefact name is the subdirectory name
+        */\*/*)  # dir/*/FILE.ext → artefact name is the subdirectory path, joined with '-'
             dir="${g%%/\**}"; file="${g##*/}"
             [ -d "$repo/$dir" ] || return 0
-            for d in "$repo/$dir"/*/; do
-                [ -f "${d}${file}" ] && basename "$d"
-            done ;;
+            # The artefact may sit deeper than one level
+            # (skills/fleet/l1-basic/SKILL.md publishes as fleet-l1-basic),
+            # so the whole subtree is enumerated and the relative path is
+            # joined with '-'.
+            while IFS= read -r f; do
+                rel_path="${f#"$repo/$dir/"}"
+                rel_path="${rel_path%/$file}"
+                printf '%s\n' "${rel_path//\//-}"
+            done < <(find "$repo/$dir" -mindepth 1 -type f -name "$file" ! -path '*/.*' | sort) ;;
         */\*.*)  # dir/*.ext → artefact name is the basename minus extension
             dir="${g%/*}"
             [ -d "$repo/$dir" ] || return 0
@@ -290,6 +296,12 @@ check_narrative() {  # $1=product $2=repo-abs $3=site-abs
         case "$repo_glob" in
             commands/*|*/commands/*)
                 cmd_names="$(narrative_repo_names "$repo" "$repo_glob")"
+                # A plugin may ship its own commands (plugins/<id>/commands/);
+                # the site may legitimately cite them.
+                for f in "$repo"/plugins/*/commands/*."md"; do
+                    [ -f "$f" ] || continue
+                    b="$(basename "$f")"; cmd_names="${cmd_names}"$'\n'"${b%.*}"
+                done
                 # token prefix = longest common `<word>-` prefix (e.g. `dr-`)
                 cmd_prefix="$(printf '%s\n' "$cmd_names" | awk -F- 'NF>1 {c[$1"-"]++} END {best=""; for (k in c) if (c[k]>m) {m=c[k]; best=k}; print best}')"
                 ;;
@@ -309,6 +321,9 @@ EOF
     done <<EOF
 $bindings
 EOF
+    # The implementation surface is part of the corpus: a --flag the framework
+    # accepts lives in scripts/, not only in the markdown artefacts.
+    [ -d "$repo/scripts" ] && all_artefact_dirs="${all_artefact_dirs}${repo}/scripts"$'\n'
 
     # True if $1 occurs as a fixed string anywhere in the artefact corpus.
     corpus_has() {  # $1=token

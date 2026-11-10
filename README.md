@@ -31,7 +31,7 @@ New to Datarim? Read [Datarim for everyone](documentation/explanation/datarim-fo
 
 Autonomous execution keeps permission and irreversible-action boundaries. JEV advice is not permission or verification. Install Datarim in the projects where you want the workflow; JEV and the reporting skill can also operate independently.
 
-**New in 4.12.0:** MiniMax Code (`minimax` / `mcode`) is a first-class client: project hooks at `.minimax/hooks.json`, skills at `.minimax/skills/` (including `/dr-*` command stems), launchers `jevminimax`, and `MiniMaxRuntime` in the Jev control plane.
+**New in 4.12.0:** MiniMax Code (`minimax` / `mcode`) is a first-class client: project hooks at `.minimax/hooks.json`, skills at `.minimax/skills/` (including `/dr-*` command stems), launchers `jevminimax`, and `MiniMaxRuntime` in the Jev control plane. The open-PR budget floor (`dev-tools/check-open-pr-budget.sh`, with the developer and architect agents carrying a PR-budget obligation) ships in this release too.
 
 **New in 4.3.0:** choose your reply language independently from generated document
 language, with English defaults and shared settings for standalone reporting.
