@@ -35,9 +35,24 @@ teardown() {
     # An approximate XTRIM (MAXLEN "~") keeps whole macro nodes, so the stream
     # can stay far above --max-len. This check needs no Redis, so the contract
     # is protected on runners that have none — where the integration test below
-    # skips.
-    run grep -E 'XTRIM[^\n]*MAXLEN "~"' "$AUDIT_TRIM"
+    # skips. The detector accepts every quoting of the approximate form
+    # (MAXLEN ~, MAXLEN "~", MAXLEN '~'), so it cannot be side-stepped by
+    # quoting, and it also pins the exact form that must be present. Comment
+    # lines are stripped first: the script documents why an approximate trim
+    # is wrong, and prose must not be read as code.
+    sed 's/^[[:space:]]*#.*//' "$AUDIT_TRIM" > "$TMP/trim.nocomment"
+    run grep -E 'MAXLEN[[:space:]]+["'"'"']?~' "$TMP/trim.nocomment"
     [ "$status" -ne 0 ]
+    run grep -E 'XTRIM[[:space:]]+"?\$STREAM_KEY"?[[:space:]]+MAXLEN[[:space:]]+"?\$MAX_LEN"?' "$TMP/trim.nocomment"
+    [ "$status" -eq 0 ]
+}
+
+@test "V-AC-3: the approximate-trim detector flags every quoting" {
+    for variant in 'MAXLEN ~' 'MAXLEN "~"' "MAXLEN '~'"; do
+        printf 'redis-cli XTRIM "$STREAM_KEY" %s "$MAX_LEN"\n' "$variant" > "$TMP/approx.sh"
+        run grep -E 'MAXLEN[[:space:]]+["'"'"']?~' "$TMP/approx.sh"
+        [ "$status" -eq 0 ]
+    done
 }
 
 @test "V-AC-3: fleet_audit_trim.sh --help exits 0" {

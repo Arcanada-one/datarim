@@ -32,6 +32,27 @@ All notable changes to the Datarim framework are documented here. Format follows
 - Client surface prose and install defaults now describe five clients (Claude Code, Codex, Cursor, Antigravity, MiniMax) instead of four.
 - The `4.11.0` section is folded into this release. Version 4.11.0 was never tagged or published, so its open-PR budget floor changes ship as part of 4.12.0 and the changelog lists only published versions.
 
+### Release contents
+
+The published `v4.12.0` release body enumerates every pull request that shipped in this version. The sections above describe the headline changes; the complete contents are:
+
+- #579 — docs: publish UI/DX evidence summary schema
+- #585 — D5: add opt-in agent frontmatter validation summary
+- #591 — D5: privacy-safe advisory and findings summaries
+- #598 — feat: add privacy-safe QA summaries and portable schemas
+- #599 — test: complete portable summary schema verification
+- #600 — fix(snapshot-writer): close publish/cleanup flock race (D5A-T5.1 AC5)
+- #601 — test(testing): red-before-green control for test value cards
+- #602 — keep unresolved findings open at the iteration cap
+- #603 — feat: open-PR budget PreToolUse gate (BATCH-011)
+- #604 — fix(module-manifest): restore leading-dash and C1 path refusals
+- #605 — fix(preflight): admit exact BATCH-004 contract-job
+- #606 — ARC-CI batch1: measure, microjob batch, LPT shards, off-runner tag wait
+- #607 — fix(test): stabilize post-Popen mutation kill attribution
+- #608 — fix(ci): clear workflow/Bats SHELL_DYNAMIC NOT_MEASURED closures
+- #610 — ARC-CI runner load pilot (cards 07/09/10/11/12)
+- #612 — feat: add MiniMax Code (mcode) as a first-class Datarim client
+
 ## [4.10.0] — 2026-11-03
 
 ### Added

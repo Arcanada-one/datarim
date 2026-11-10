@@ -56,6 +56,9 @@
 #      surface class below; the literal-count rows for it were removed)
 #     ../../../Websites/datarim.club/content/en.php   "N agents, N commands, N skills,"
 #     ../../../Websites/datarim.club/content/ru.php   "N агентов, N команд, N навыков,"
+#     (the triplet rows read the number next to each category word, so any
+#      inflection of the noun — "команда", "команды", "команд", "командов" —
+#      is still compared against disk instead of being reported as drift)
 #
 # USAGE
 #   check-version-consistency.sh [--root DIR] [-h|--help]
@@ -232,35 +235,68 @@ extract_count() {
 # --- Derivation surface table ----------------------------------------------
 # A public page may state no literal count at all and render the live
 # catalogue instead. Such a page cannot drift, so the gate asserts the
-# derivation itself: the file must call the catalogue loader. Each entry:
-# <path-relative-to-root>|<fixed-string-that-must-be-present>
+# derivation itself: the file must call the catalogue loader for that
+# category. Each entry:
+# <path-relative-to-root>@<regex-for-the-catalogue-loader-call>
+# The rows are separated by "@" because the regexes contain "|".
 dynamic_surfaces() {
     printf '%s\n' \
-        "../../../Websites/datarim.club/pages/about.php|count(load_all_docs('agents'))" \
-        "../../../Websites/datarim.club/pages/about.php|count(load_all_docs('commands'))" \
-        "../../../Websites/datarim.club/pages/about.php|count(load_all_docs('skills'))" \
-        "../../../Websites/datarim.club/pages/home.php|count(load_all_docs('agents'))" \
-        "../../../Websites/datarim.club/pages/home.php|count(load_all_docs('commands'))" \
-        "../../../Websites/datarim.club/pages/home.php|count(load_all_docs('skills'))"
+        "../../../Websites/datarim.club/pages/about.php@count\(load_all_docs\('agents'\)\)" \
+        "../../../Websites/datarim.club/pages/about.php@count\(load_all_docs\('commands'\)\)" \
+        "../../../Websites/datarim.club/pages/about.php@count\(load_all_docs\('skills'\)\)" \
+        "../../../Websites/datarim.club/pages/home.php@count\(load_all_docs\('agents'\)\)" \
+        "../../../Websites/datarim.club/pages/home.php@count\(load_all_docs\('commands'\)\)" \
+        "../../../Websites/datarim.club/pages/home.php@count\(load_all_docs\('skills'\)\)"
+}
+
+# --- Literal-count surface table --------------------------------------------
+# A page that derives its counts cannot drift; a page that states a literal
+# count can. The pages above derive theirs, so this table asserts that they
+# hold no literal "<number> <category>" claim of their own — a hardcoded
+# number next to a category word is the one way such a page could still
+# print a catalogue size that no longer matches disk. Each entry:
+# <path-relative-to-root>@<regex-for-a-literal-catalogue-claim>
+literal_surfaces() {
+    printf '%s\n' \
+        "../../../Websites/datarim.club/pages/about.php@([0-9]+) (agents?|commands?|skills?|агент(а|ы|ов)?|команд(а|ы|ов)?|навык(а|и|ов)?)" \
+        "../../../Websites/datarim.club/pages/home.php@([0-9]+) (agents?|commands?|skills?|агент(а|ы|ов)?|команд(а|ы|ов)?|навык(а|и|ов)?)"
 }
 
 # --- Triplet surface table --------------------------------------------------
 # A page may state the three catalogue sizes in one sentence. The wording of
-# that sentence is free to change, so the gate matches the numbers and the
-# category words, never the surrounding prose. Each entry:
-# <path-relative-to-root>|<grep-marker>|<sed-expression-that-prints-a-b-c>
+# that sentence — and the grammatical form of its nouns — is free to change,
+# so the gate reads the number that precedes each category word instead of
+# one fixed phrasing. Every inflection of the word is covered ("команда",
+# "команды", "команд", "командов", "навык", "навыка", "навыков"), so a size
+# change can no longer turn a real drift into a false "pattern drift".
+# Letter classes are deliberately avoided for the Russian words: under
+# LC_ALL=C a bracket range over non-ASCII bytes is not contiguous, so the
+# inflections are spelled out instead. Each entry:
+# <path-relative-to-root>@<agents-regex>@<commands-regex>@<skills-regex>
 triplet_surfaces() {
     printf '%s\n' \
-        "../../../Websites/datarim.club/content/en.php|agents, [0-9]+ commands, [0-9]+ skills|s@.*[^0-9]([0-9]+) agents, ([0-9]+) commands, ([0-9]+) skills.*@\1 \2 \3@" \
-        "../../../Websites/datarim.club/content/ru.php|агентов, [0-9]+ команда, [0-9]+ навык|s@.*[^0-9]([0-9]+) агентов, ([0-9]+) команда, ([0-9]+) навык.*@\1 \2 \3@"
+        "../../../Websites/datarim.club/content/en.php@([0-9]+) agents?@([0-9]+) commands?@([0-9]+) skills?" \
+        "../../../Websites/datarim.club/content/ru.php@([0-9]+) агент(а|ы|ов)?@([0-9]+) команд(а|ы|ов)?@([0-9]+) навык(а|и|ов)?"
 }
 
-# Extract the three counts of a triplet sentence. Prints "agents commands
-# skills" or nothing when the sentence is gone.
+# Extract the three counts of a catalogue-triplet sentence. Prints
+# "agents commands skills", or nothing when no single line carries all three
+# categories. The numbers are read next to their category words, so neither a
+# reworded sentence nor an inflected noun breaks the gate.
 extract_triplet() {
-    local file="$1" marker="$2" sed_expr="$3" line
-    line=$(LC_ALL=C grep -m1 -E "$marker" "$file" 2>/dev/null) || return 0
-    printf '%s\n' "$line" | LC_ALL=C sed -E "$sed_expr" | LC_ALL=C grep -oE '[0-9]+ [0-9]+ [0-9]+' | head -n1 || true
+    local file="$1" re_a="$2" re_c="$3" re_s="$4" line re n found=""
+    while IFS= read -r line; do
+        printf '%s\n' "$line" | LC_ALL=C grep -qE "$re_a" || continue
+        printf '%s\n' "$line" | LC_ALL=C grep -qE "$re_c" || continue
+        printf '%s\n' "$line" | LC_ALL=C grep -qE "$re_s" || continue
+        for re in "$re_a" "$re_c" "$re_s"; do
+            n=$(printf '%s\n' "$line" | LC_ALL=C grep -oE "$re" | head -n1 | LC_ALL=C grep -oE '[0-9]+' | head -n1)
+            found="$found $n"
+        done
+        printf '%s\n' "$found"
+        return 0
+    done < <(LC_ALL=C grep -E "$re_a|$re_c|$re_s" "$file" 2>/dev/null)
+    return 0
 }
 
 # --- Scan (component counts) -------------------------------------------------
@@ -288,29 +324,44 @@ while IFS='|' read -r rel category anchor; do
 done < <(count_surfaces)
 
 # --- Scan (derivation surfaces) ----------------------------------------------
-while IFS='|' read -r rel needle; do
+while IFS='@' read -r rel needle; do
     [ -n "$rel" ] || continue
     file="$root/$rel"
     if [ ! -f "$file" ]; then
         skipped=$((skipped + 1))
         continue
     fi
-    if LC_ALL=C grep -qF -- "$needle" "$file" 2>/dev/null; then
+    if LC_ALL=C grep -qE -- "$needle" "$file" 2>/dev/null; then
         count_checked=$((count_checked + 1))
     else
         count_mismatches+="  $rel — does not derive the catalogue count ($needle)"$'\n'
     fi
 done < <(dynamic_surfaces)
 
-# --- Scan (triplet surfaces) -------------------------------------------------
-while IFS='|' read -r rel marker sed_expr; do
+# --- Scan (literal-count surfaces) -------------------------------------------
+while IFS='@' read -r rel pattern; do
     [ -n "$rel" ] || continue
     file="$root/$rel"
     if [ ! -f "$file" ]; then
         skipped=$((skipped + 1))
         continue
     fi
-    found=$(extract_triplet "$file" "$marker" "$sed_expr")
+    if LC_ALL=C grep -qE -- "$pattern" "$file" 2>/dev/null; then
+        count_mismatches+="  $rel — states a literal catalogue count next to a category word ($pattern)"$'\n'
+    else
+        count_checked=$((count_checked + 1))
+    fi
+done < <(literal_surfaces)
+
+# --- Scan (triplet surfaces) -------------------------------------------------
+while IFS='@' read -r rel re_a re_c re_s; do
+    [ -n "$rel" ] || continue
+    file="$root/$rel"
+    if [ ! -f "$file" ]; then
+        skipped=$((skipped + 1))
+        continue
+    fi
+    found=$(extract_triplet "$file" "$re_a" "$re_c" "$re_s")
     if [ -z "$found" ]; then
         count_mismatches+="  $rel — no catalogue triplet matched (pattern drift?)"$'\n'
         continue
