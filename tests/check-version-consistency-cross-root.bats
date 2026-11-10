@@ -77,6 +77,33 @@ setup() {
     [[ "$output" == *"pages/about.php — does not derive the catalogue count"* ]]
 }
 
+@test "a site page that hardcodes a catalogue size next to a category word fails the check" {
+    printf "<?php echo count(load_all_docs('agents')); ?>\n<p>19 agents</p>\n" \
+        > "$ws/Projects/Websites/datarim.club/pages/about.php"
+    run bash "$SCRIPT" --root "$fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"pages/about.php — states a literal catalogue count"* ]]
+}
+
+@test "a Russian hero with inflected nouns is compared against disk, not reported as drift" {
+    printf '<p>counts: 99 агентов, %s команд, %s навыков</p>\n' \
+        "$n_commands" "$n_skills" \
+        > "$ws/Projects/Websites/datarim.club/content/ru.php"
+    run bash "$SCRIPT" --root "$fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"content/ru.php [agents] — claims 99"* ]]
+    [[ "$output" != *"pattern drift"* ]]
+}
+
+@test "a Russian hero with inflected nouns and correct counts passes the check" {
+    printf '<p>counts: %s агентов, %s команд, %s навыков</p>\n' \
+        "$n_agents" "$n_commands" "$n_skills" \
+        > "$ws/Projects/Websites/datarim.club/content/ru.php"
+    run bash "$SCRIPT" --root "$fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"OK:"* ]]
+}
+
 @test "an aligned workspace and site pass the check" {
     run bash "$SCRIPT" --root "$fw"
     [ "$status" -eq 0 ]
@@ -87,5 +114,5 @@ setup() {
     rm -rf "$ws/Projects/Websites" "$ws/Projects/Datarim/AGENTS.md" "$ws/Projects/Datarim/README.md"
     run bash "$SCRIPT" --root "$fw"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"cross-root surface(s) absent, not checked"* ]]
+    [[ "$output" == *"13 cross-root surface(s) absent, not checked"* ]]
 }
