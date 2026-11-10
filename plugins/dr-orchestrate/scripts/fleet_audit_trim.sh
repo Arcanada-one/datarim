@@ -4,6 +4,11 @@
 # Reads all entries from stream:fleet:audit-log via XRANGE, writes them to a
 # gzip-compressed JSONL archive file, then trims the stream to --max-len.
 #
+# The trim is exact. An approximate trim (XTRIM ... MAXLEN ~) only removes
+# whole macro nodes, so the stream can keep far more entries than --max-len
+# allows — on a short stream it keeps every entry and the documented contract
+# ("keep this many entries after trim") silently does not hold.
+#
 # Usage:
 #   fleet_audit_trim.sh [--max-len N] [--dry-run] [--help]
 #
@@ -142,7 +147,7 @@ printf 'INFO: archive written: %s\n' "$archive_file"
 
 # ── trim ──────────────────────────────────────────────────────────────────────
 
-redis-cli -u "$DR_ORCH_REDIS_URL" XTRIM "$STREAM_KEY" MAXLEN "~" "$MAX_LEN" >/dev/null
-printf 'INFO: trimmed %s to maxlen~%d\n' "$STREAM_KEY" "$MAX_LEN"
+redis-cli -u "$DR_ORCH_REDIS_URL" XTRIM "$STREAM_KEY" MAXLEN "$MAX_LEN" >/dev/null
+printf 'INFO: trimmed %s to maxlen=%d\n' "$STREAM_KEY" "$MAX_LEN"
 
 exit 0

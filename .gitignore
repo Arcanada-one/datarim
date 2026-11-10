@@ -111,3 +111,8 @@ skills/fleet/_test_no_budget/
 /datarim/
 /.datarim-runtime/
 /config/credentials/
+
+# CLI input-manifest verification writes its evidence into the repository
+# root (tests/../.cli-input-manifest-verify-evidence). It is a generated
+# artefact, never a shipped file.
+.cli-input-manifest-verify-evidence/

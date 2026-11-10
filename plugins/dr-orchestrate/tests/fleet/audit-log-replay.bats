@@ -31,6 +31,15 @@ teardown() {
   [ -x "$AUDIT_TRIM" ]
 }
 
+@test "V-AC-3: the trim is exact, not approximate" {
+    # An approximate XTRIM (MAXLEN "~") keeps whole macro nodes, so the stream
+    # can stay far above --max-len. This check needs no Redis, so the contract
+    # is protected on runners that have none — where the integration test below
+    # skips.
+    run grep -E 'XTRIM[^\n]*MAXLEN "~"' "$AUDIT_TRIM"
+    [ "$status" -ne 0 ]
+}
+
 @test "V-AC-3: fleet_audit_trim.sh --help exits 0" {
   run bash "$AUDIT_TRIM" --help
   [ "$status" -eq 0 ]
