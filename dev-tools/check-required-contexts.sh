@@ -41,21 +41,52 @@ if text.count("fail-fast: false") < 2:
     sys.exit(1)
 
 if mode == "remote":
-    raw = subprocess.check_output(
-        [
-            "gh",
-            "api",
-            "repos/Arcanada-one/datarim/branches/main/protection/required_status_checks",
-        ],
-        text=True,
-    )
-    remote = json.loads(raw).get("contexts") or []
-    if remote != contexts:
+    # R-REQUIRED-CHECKS: required contexts come from branch protection AND from
+    # rulesets. A 404 or empty protection answer does not mean "no required
+    # checks". CHECK_REQUIRED_CONTEXTS_FIXTURE_DIR (protection.json, rules.json)
+    # replaces the live reads so the comparison itself is testable offline.
+    import os
+
+    repo = contract.get("repository", "Arcanada-one/datarim")
+    branch = contract.get("branch", "main")
+    fixture = os.environ.get("CHECK_REQUIRED_CONTEXTS_FIXTURE_DIR")
+
+    def read(name, api_path):
+        if fixture:
+            return json.loads((Path(fixture) / name).read_text(encoding="utf-8"))
+        try:
+            return json.loads(subprocess.check_output(["gh", "api", api_path], text=True, stderr=subprocess.PIPE))
+        except subprocess.CalledProcessError as exc:
+            print(f"ERROR: cannot read {api_path}: {exc.stderr.strip()[:200]}", file=sys.stderr)
+            sys.exit(2)
+
+    protection = read("protection.json", f"repos/{repo}/branches/{branch}/protection/required_status_checks")
+    rules = read("rules.json", f"repos/{repo}/rules/branches/{branch}")
+    sources = {}
+    for ctx in protection.get("contexts") or []:
+        sources.setdefault(ctx, set()).add("branch_protection")
+    for rule in rules:
+        if rule.get("type") != "required_status_checks":
+            continue
+        for item in (rule.get("parameters") or {}).get("required_status_checks") or []:
+            sources.setdefault(item["context"], set()).add("ruleset")
+    remote = set(sources)
+    want = set(contexts)
+    missing = sorted(want - remote)
+    extra = sorted(remote - want)
+    if missing or extra:
         print("ERROR: remote required contexts drifted from contract", file=sys.stderr)
-        print("contract:", contexts, file=sys.stderr)
-        print("remote:", remote, file=sys.stderr)
+        print("missing_on_remote:", missing, file=sys.stderr)
+        print("extra_on_remote:", [(c, sorted(sources[c])) for c in extra], file=sys.stderr)
         sys.exit(1)
-    print(f"required_check_contexts=ok remote_match=true count={len(contexts)}")
+    by_source = {}
+    for ctx in sources.values():
+        key = "+".join(sorted(ctx))
+        by_source[key] = by_source.get(key, 0) + 1
+    print(
+        "required_check_contexts=ok remote_match=true count=%d sources=%s"
+        % (len(contexts), json.dumps(by_source, sort_keys=True))
+    )
 else:
     print(f"required_check_contexts=ok local_contract=true count={len(contexts)}")
 sys.exit(0)

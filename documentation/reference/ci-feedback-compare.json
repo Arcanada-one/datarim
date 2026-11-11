@@ -1,0 +1,68 @@
+{
+  "schema": "CiFeedbackCompare/v1",
+  "before_sample_size": 10,
+  "after_sample_size": 10,
+  "min_sample": 10,
+  "samples_sufficient": true,
+  "metrics": [
+    {
+      "metric": "feedback_time_s.p50",
+      "before": 435.0,
+      "after": 459.5,
+      "delta": 24.5
+    },
+    {
+      "metric": "feedback_time_s.p95",
+      "before": 570.0,
+      "after": 639.0,
+      "delta": 69.0
+    },
+    {
+      "metric": "queue_time_s.p50",
+      "before": 173.0,
+      "after": 23.5,
+      "delta": -149.5
+    },
+    {
+      "metric": "run_time_s.p50",
+      "before": 36.0,
+      "after": 101.5,
+      "delta": 65.5
+    },
+    {
+      "metric": "runner_seconds_per_successful_check.p50",
+      "before": 5713.0,
+      "after": 4007.5,
+      "delta": -1705.5
+    },
+    {
+      "metric": "setup_python_job_seconds.p50",
+      "before": 0.0,
+      "after": 0.0,
+      "delta": 0.0
+    },
+    {
+      "metric": "customer_delivery_linux.jobs_p50",
+      "before": 100.0,
+      "after": 20.0,
+      "delta": -80.0
+    },
+    {
+      "metric": "customer_delivery_linux.queue_p50_s",
+      "before": 198.5,
+      "after": 43.25,
+      "delta": -155.25
+    },
+    {
+      "metric": "bats_shards.longest_median_ratio_p50",
+      "before": 2.018,
+      "after": 1.185,
+      "delta": -0.833
+    }
+  ],
+  "claims": {
+    "percentage_speedup_from_single_run": false,
+    "runtime_authorized": false,
+    "KC2": "NOT_MEASURED"
+  }
+}

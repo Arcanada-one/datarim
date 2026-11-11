@@ -261,6 +261,7 @@ tests/known-fix-persistence-wiring.bats	0.567	42423807029
 tests/l3-prd-preflight-wiring.bats	0.618	42423807029
 tests/load-local-config.bats	0.250	42423807029
 tests/local-overlay.bats	9.880	42423807029
+tests/measure-ci-feedback.bats	1.340	local-estimate
 tests/migrate-skill.bats	0.654	42423807029
 tests/module-manifest-summary.bats	4.388	42423807029
 tests/network-exposure-ci-integration.bats	1.714	42423807029
