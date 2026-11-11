@@ -4,7 +4,9 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
-## [4.12.2] — 2026-11-10
+## [4.12.3] — 2026-11-10
+
+Version 4.12.2 was tagged but never published: the release workflow authenticates the bump level from a stamp inside the signed tag message, and release tags are protected against update and deletion, so that tag could not carry the stamp and no release was produced. Its changes ship unchanged as part of 4.12.3, and the changelog lists only published versions.
 
 ### Fixed
 
