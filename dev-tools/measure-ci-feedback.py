@@ -10,6 +10,8 @@ Usage:
   measure-ci-feedback.py --repo OWNER/NAME --workflow bats.yml --limit 10
   measure-ci-feedback.py --repo OWNER/NAME --run-id 42423807029 [--run-id ...]
   measure-ci-feedback.py --jobs-json /path/to/jobs.json --run-id 1
+  measure-ci-feedback.py --since 2026-11-08T00:53:43Z --limit 10   # "after" window
+  measure-ci-feedback.py --compare before.json after.json          # offline diff
 
 Requires `gh` authenticated for live fetches. Offline --jobs-json mode is for
 fixtures and local receipts.
@@ -63,7 +65,48 @@ def gh_api(path: str) -> Any:
     return json.loads(raw)
 
 
-def list_success_runs(repo: str, workflow: str, limit: int) -> list[dict[str, Any]]:
+def select_runs(
+    rows: list[dict[str, Any]],
+    limit: int,
+    since: str | None = None,
+    until: str | None = None,
+    event: str | None = None,
+) -> list[dict[str, Any]]:
+    """Pick successful runs inside [since, until) and optionally of one event.
+
+    Timestamps are ISO-8601 UTC strings; comparing parsed datetimes keeps the
+    selection reproducible and independent of the string form.
+    """
+    lo = parse_ts(since) if since else None
+    hi = parse_ts(until) if until else None
+    picked: list[dict[str, Any]] = []
+    for row in rows:
+        if row.get("conclusion") != "success":
+            continue
+        if event and row.get("event") != event:
+            continue
+        created = parse_ts(row.get("createdAt"))
+        if created is None:
+            continue
+        if lo and created < lo:
+            continue
+        if hi and created >= hi:
+            continue
+        picked.append(row)
+    return picked[:limit]
+
+
+def list_success_runs(
+    repo: str,
+    workflow: str,
+    limit: int,
+    since: str | None = None,
+    until: str | None = None,
+    event: str | None = None,
+) -> list[dict[str, Any]]:
+    fetch = max(limit * 3, limit)
+    if since or until or event:
+        fetch = max(fetch, 200)
     raw = subprocess.check_output(
         [
             "gh",
@@ -74,14 +117,13 @@ def list_success_runs(repo: str, workflow: str, limit: int) -> list[dict[str, An
             "--workflow",
             workflow,
             "--limit",
-            str(max(limit * 3, limit)),
+            str(fetch),
             "--json",
             "databaseId,conclusion,status,headSha,createdAt,updatedAt,event,url,displayTitle",
         ],
         text=True,
     )
-    runs = [row for row in json.loads(raw) if row.get("conclusion") == "success"]
-    return runs[:limit]
+    return select_runs(json.loads(raw), limit, since, until, event)
 
 
 def fetch_jobs(repo: str, run_id: int) -> list[dict[str, Any]]:
@@ -274,6 +316,52 @@ def aggregate(summaries: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+COMPARE_METRICS = [
+    ("feedback_time_s", "p50"),
+    ("feedback_time_s", "p95"),
+    ("queue_time_s", "p50"),
+    ("run_time_s", "p50"),
+    ("runner_seconds_per_successful_check", "p50"),
+    ("setup_python_job_seconds", "p50"),
+    ("customer_delivery_linux", "jobs_p50"),
+    ("customer_delivery_linux", "queue_p50_s"),
+    ("bats_shards", "longest_median_ratio_p50"),
+]
+
+
+def compare_receipts(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    """Diff two CiFeedbackReceipt/v1 documents produced by this same script.
+
+    A metric gets a delta only when BOTH receipts carry a measured number and
+    both samples reach MIN_SAMPLE. Anything else stays NOT_MEASURED; there is
+    no percentage and no verdict wording, so one run cannot read as a speedup.
+    """
+    n_before = int(before.get("sample_size") or 0)
+    n_after = int(after.get("sample_size") or 0)
+    enough = n_before >= MIN_SAMPLE and n_after >= MIN_SAMPLE
+    rows: list[dict[str, Any]] = []
+    for group, key in COMPARE_METRICS:
+        b = (before.get(group) or {}).get(key, NOT_MEASURED)
+        a = (after.get(group) or {}).get(key, NOT_MEASURED)
+        numeric = all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (b, a))
+        row: dict[str, Any] = {"metric": f"{group}.{key}", "before": b, "after": a}
+        row["delta"] = round(a - b, 3) if enough and numeric else NOT_MEASURED
+        rows.append(row)
+    return {
+        "schema": "CiFeedbackCompare/v1",
+        "before_sample_size": n_before,
+        "after_sample_size": n_after,
+        "min_sample": MIN_SAMPLE,
+        "samples_sufficient": enough,
+        "metrics": rows,
+        "claims": {
+            "percentage_speedup_from_single_run": False,
+            "runtime_authorized": False,
+            "KC2": NOT_MEASURED,
+        },
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", default="Arcanada-one/datarim")
@@ -281,6 +369,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--run-id", action="append", type=int, default=[])
     parser.add_argument("--jobs-json", type=Path, help="Offline jobs array for a single --run-id")
+    parser.add_argument("--since", help="Only runs created at/after this ISO-8601 UTC time")
+    parser.add_argument("--until", help="Only runs created before this ISO-8601 UTC time")
+    parser.add_argument("--event", help="Only runs of this event (push, pull_request, ...)")
+    parser.add_argument(
+        "--compare",
+        nargs=2,
+        metavar=("BEFORE", "AFTER"),
+        type=Path,
+        help="Offline: diff two receipts from this script; no GitHub access",
+    )
     parser.add_argument("--output", type=Path)
     return parser.parse_args()
 
@@ -288,6 +386,16 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     summaries: list[dict[str, Any]] = []
+
+    if args.compare:
+        before = json.loads(args.compare[0].read_text(encoding="utf-8"))
+        after = json.loads(args.compare[1].read_text(encoding="utf-8"))
+        text = json.dumps(compare_receipts(before, after), indent=2) + "\n"
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(text, encoding="utf-8")
+        sys.stdout.write(text)
+        return 0
 
     if args.jobs_json:
         if len(args.run_id) != 1:
@@ -298,7 +406,9 @@ def main() -> int:
     else:
         run_ids = list(args.run_id)
         if not run_ids:
-            runs = list_success_runs(args.repo, args.workflow, args.limit)
+            runs = list_success_runs(
+                args.repo, args.workflow, args.limit, args.since, args.until, args.event
+            )
             run_ids = [int(row["databaseId"]) for row in runs]
         for run_id in run_ids:
             jobs = fetch_jobs(args.repo, run_id)
