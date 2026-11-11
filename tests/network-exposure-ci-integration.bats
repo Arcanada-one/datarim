@@ -14,9 +14,7 @@ setup() {
     SCRIPT="$REPO_ROOT/dev-tools/network-exposure-check.sh"
     F="$REPO_ROOT/tests/fixtures/network-exposure"
     WF="$REPO_ROOT/.github/workflows/network-exposure-lint.yml"
-    HELPER="$REPO_ROOT/.github/scripts/workflow/network-exposure-lint-job.sh"
-    SURFACE="$BATS_TEST_TMPDIR/network-exposure-surface.txt"
-    cat "$WF" "$HELPER" >"$SURFACE"
+    SURFACE="$WF"
     TODAY="2026-05-06"
 }
 
@@ -68,19 +66,21 @@ setup() {
 }
 
 @test "workflow: lint job invokes network-exposure-check.sh from .datarim" {
-    run grep -F "bash .github/scripts/workflow/network-exposure-lint-job.sh" "$WF"
-    [ "$status" -eq 0 ]
-    run grep -F ".datarim/dev-tools/network-exposure-check.sh" "$HELPER"
+    # Reusable workflow runs in the consumer checkout: steps must be inline,
+    # a path under the caller's .github/scripts/ does not exist there (exit 127, #608).
+    run grep -F ".github/scripts/" "$WF"
+    [ "$status" -eq 1 ]
+    run grep -F ".datarim/dev-tools/network-exposure-check.sh" "$WF"
     [ "$status" -eq 0 ]
 }
 
 @test "workflow: yq bootstrap works without runner sudo" {
     # shellcheck disable=SC2016
-    run grep -F 'yq_dir="${RUNNER_TEMP}/datarim-bin"' "$HELPER"
+    run grep -F 'yq_dir="${RUNNER_TEMP}/datarim-bin"' "$WF"
     [ "$status" -eq 0 ]
-    run grep -F 'a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7' "$HELPER"
+    run grep -F 'a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7' "$WF"
     [ "$status" -eq 0 ]
-    run grep -F 'sha256sum --check --strict' "$HELPER"
+    run grep -F 'sha256sum --check --strict' "$WF"
     [ "$status" -eq 0 ]
     run grep -F 'sudo ' "$SURFACE"
     [ "$status" -eq 1 ]
@@ -91,7 +91,7 @@ setup() {
     [ "$status" -eq 0 ]
     [ "$output" = "true" ]
     # shellcheck disable=SC2016
-    run grep -F '[[ "$DATARIM_REF" =~ ^[0-9a-f]{40}$ ]]' "$HELPER"
+    run grep -F '[[ "$DATARIM_REF" =~ ^[0-9a-f]{40}$ ]]' "$WF"
     [ "$status" -eq 0 ]
 }
 
