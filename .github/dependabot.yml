@@ -1,11 +1,12 @@
 # Dependabot configuration.
 # Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 #
-# Scope: keep GitHub Actions pinned to verified SHAs. The framework ships no
-# runtime package manifests, and CI/lint tooling (bandit, semgrep, etc.) is
-# installed inline in the workflows rather than from a pinned requirements file,
-# so there is no pip manifest for Dependabot to track — the pip ecosystem was
-# removed (it had no files to update and failed every run with "No files found").
+# Scope: keep GitHub Actions pinned to verified SHAs, and track the pinned CI
+# test dependencies in tests/ci-requirements/. The framework ships no runtime
+# package manifests. A pip bump there MUST also update the matching pins in
+# .github/scripts/workflow/framework-gates-*-01-install-*.sh (the files CI
+# actually installs from); otherwise the PR tests the old version. All pip bumps
+# are grouped into one PR and capped at 2 open PRs.
 
 version: 2
 
@@ -37,5 +38,28 @@ updates:
           - "patch"
       actions-security:
         applies-to: security-updates
+        patterns:
+          - "*"
+
+  # Pinned CI test dependencies (cache-key files for framework-gates jobs).
+  - package-ecosystem: "pip"
+    directory: "/tests/ci-requirements"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 2
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      ci-test-deps:
+        applies-to: version-updates
         patterns:
           - "*"
