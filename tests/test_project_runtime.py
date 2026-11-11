@@ -839,6 +839,13 @@ class InstallationLifecycleTests(unittest.TestCase):
         state = json.loads(state_path.read_text())
         self.assertNotIn(project_key, state.get('projects', {}))
 
+    def test_an_install_without_minimax_does_not_write_the_minimax_hook_state(self):
+        # The enablement state lives outside the project. An install that never
+        # selected MiniMax must not create it, and must not touch it.
+        project_install.install(self.with_args(client=('claude',), with_jev=True))
+        state_path = self.minimax_data / 'hook-settings' / 'state.json'
+        self.assertFalse(state_path.exists())
+
     # -- Claude Code and AGENTS.md --------------------------------------------
     # Claude Code reads AGENTS.md natively, so the installer never creates
     # CLAUDE.md. --claude-import / --no-claude-import stay accepted (deprecated

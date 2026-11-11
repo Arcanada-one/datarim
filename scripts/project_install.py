@@ -1227,11 +1227,20 @@ def _install(args):
             from jev_host_install import sync_minimax_project_hook_state
             relative = CLIENT_HOOK_CONFIG.get('minimax')
             host_jev = bool(getattr(args, 'host_jev', False))
-            if ('minimax' in clients and args.with_jev and not host_jev
+            selected = 'minimax' in clients
+            # The enablement state file lives outside the project, so only
+            # this project's own entry may change, and only when the project
+            # actually has (or had) MiniMax hooks. An install that never
+            # selected MiniMax must not write the user's global state.
+            had_hook = bool(relative) and (
+                relative in retired_hooks
+                or relative in (previous or {}).get('files', {})
+                or (root / relative).is_file())
+            if (selected and args.with_jev and not host_jev
                     and relative in published and published[relative] is not None):
                 sync_minimax_project_hook_state(root, json.loads(published[relative].decode()), enable=True)
-            elif relative and (
-                    'minimax' not in clients or not args.with_jev or relative in retired_hooks
+            elif relative and had_hook and (
+                    not selected or not args.with_jev or relative in retired_hooks
                     or published.get(relative) is None):
                 sync_minimax_project_hook_state(root, {}, enable=False)
         except (OSError, ValueError, TypeError, KeyError):
