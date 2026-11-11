@@ -1,4 +1,4 @@
 # Pinned deps for framework-gates human-reporting job (ARC-CI-09 cache key).
-pytest==9.0.3
-pyyaml==6.0.2
-jsonschema==4.23.0
+pytest==9.2.0
+pyyaml==6.0.3
+jsonschema==4.26.0
