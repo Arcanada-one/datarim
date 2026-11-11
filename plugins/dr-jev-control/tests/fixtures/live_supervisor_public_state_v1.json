@@ -1,0 +1,535 @@
+{
+  "schema": "jev.live_supervisor.public_state.v1",
+  "title": "Frozen public-state cohort for live supervisor decide/SwitchGate/runtimes",
+  "audit_finding": "G-SUPERVISOR-COVERAGE",
+  "shadow_only": true,
+  "notes": [
+    "Offline, secret-free, deterministic. Does not prove a live runtime model switch.",
+    "Does not rewrite test_supervisor_e2e.py (e2e base).",
+    "Primary routing/pretool cohorts remain separate denominators."
+  ],
+  "default_cfg": {
+    "live": {
+      "enabled": true,
+      "escalate_threshold": 0.75,
+      "deescalate_threshold": 0.85,
+      "min_tokens_between_switches": 25000,
+      "min_seconds_between_switches": 90,
+      "max_switches_per_session": 6,
+      "turns_between_reroutes": 2,
+      "effort_switching": true,
+      "model_ceiling": {
+        "economy": "sonnet",
+        "balanced": "opus",
+        "quality": "opus"
+      },
+      "model_floor": {
+        "economy": "haiku",
+        "balanced": "haiku",
+        "quality": "sonnet"
+      }
+    },
+    "routing": {},
+    "telemetry": {
+      "enabled": false
+    }
+  },
+  "cases": [
+    {
+      "id": "RQ-01-keys",
+      "family": "reroute_questions",
+      "expect": {
+        "keys": ["needed_tier", "is_stuck", "work_simplified", "needs_more_thinking"],
+        "types": {
+          "needed_tier": "choice",
+          "is_stuck": "noul",
+          "work_simplified": "noul",
+          "needs_more_thinking": "noul"
+        },
+        "forbidden_substrings_in_keys": ["skill", "agent", "template", "command"]
+      }
+    },
+    {
+      "id": "DIR-01-stuck-reinforces-escalate",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "opus", "confidence": 0.30},
+        "is_stuck": {"noul": 0.90},
+        "work_simplified": {"noul": 0.0},
+        "needs_more_thinking": {"noul": 0.0}
+      },
+      "decide_kwargs": {"turn": 4, "now": 1000.0, "token_hysteresis": true},
+      "expect": {
+        "switch": true,
+        "to": "opus",
+        "blocked_by": null,
+        "reason_contains": ["stuck"],
+        "effort": null
+      }
+    },
+    {
+      "id": "DIR-02-simplified-cannot-push-escalate",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "opus", "confidence": 0.10},
+        "is_stuck": {"noul": 0.0},
+        "work_simplified": {"noul": 0.95},
+        "needs_more_thinking": {"noul": 0.0}
+      },
+      "decide_kwargs": {"turn": 4, "now": 1000.0, "token_hysteresis": true},
+      "expect": {
+        "switch": false,
+        "blocked_by_contains": "below_threshold",
+        "effort": "low"
+      }
+    },
+    {
+      "id": "DIR-03-stuck-cannot-push-deescalate",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "opus", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "haiku", "confidence": 0.10},
+        "is_stuck": {"noul": 0.95},
+        "work_simplified": {"noul": 0.0},
+        "needs_more_thinking": {"noul": 0.0}
+      },
+      "decide_kwargs": {"turn": 4, "now": 1000.0, "token_hysteresis": true},
+      "expect": {
+        "switch": false,
+        "blocked_by_contains": "below_threshold",
+        "effort": null
+      }
+    },
+    {
+      "id": "DIR-04-simplified-reinforces-deescalate",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "opus", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "haiku", "confidence": 0.30},
+        "is_stuck": {"noul": 0.0},
+        "work_simplified": {"noul": 0.95},
+        "needs_more_thinking": {"noul": 0.0}
+      },
+      "decide_kwargs": {"turn": 4, "now": 1000.0, "token_hysteresis": true},
+      "expect": {
+        "switch": true,
+        "to": "haiku",
+        "reason_contains": ["simplified"],
+        "effort": "low"
+      }
+    },
+    {
+      "id": "DIR-05-weak-escalate-without-stuck",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Read"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "opus", "confidence": 0.74},
+        "is_stuck": {"noul": 0.0},
+        "work_simplified": {"noul": 0.0},
+        "needs_more_thinking": {"noul": 0.0}
+      },
+      "decide_kwargs": {"turn": 3, "now": 1000.0, "token_hysteresis": true},
+      "expect": {
+        "switch": false,
+        "blocked_by_contains": "below_threshold(0.75)"
+      }
+    },
+    {
+      "id": "DIR-06-deescalate-bar-stricter",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Bash"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "haiku", "confidence": 0.76},
+        "is_stuck": {"noul": 0.0},
+        "work_simplified": {"noul": 0.0},
+        "needs_more_thinking": {"noul": 0.0}
+      },
+      "decide_kwargs": {"turn": 3, "now": 1000.0, "token_hysteresis": true},
+      "expect": {
+        "switch": false,
+        "blocked_by_contains": "below_threshold(0.85)"
+      }
+    },
+    {
+      "id": "HYST-01-min-tokens",
+      "family": "hysteresis",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "precommit": {
+        "proposed": "opus",
+        "confidence": 0.95,
+        "turn": 2,
+        "now": 1000.0,
+        "tokens_seen": 60000
+      },
+      "evaluate": {
+        "proposed": "haiku",
+        "confidence": 0.99,
+        "turn": 9,
+        "now": 5000.0,
+        "tokens_seen": 61000,
+        "token_hysteresis": true
+      },
+      "expect": {
+        "switch": false,
+        "blocked_by": "min_tokens"
+      }
+    },
+    {
+      "id": "HYST-02-min-seconds",
+      "family": "hysteresis",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "precommit": {
+        "proposed": "opus",
+        "confidence": 0.9,
+        "turn": 2,
+        "now": 1000.0,
+        "tokens_seen": 60000
+      },
+      "evaluate": {
+        "proposed": "haiku",
+        "confidence": 0.99,
+        "turn": 3,
+        "now": 1010.0,
+        "tokens_seen": 200000,
+        "token_hysteresis": true
+      },
+      "expect": {
+        "switch": false,
+        "blocked_by": "min_seconds"
+      }
+    },
+    {
+      "id": "HYST-03-max-switches",
+      "family": "hysteresis",
+      "cfg_overlay": {
+        "live": {
+          "max_switches_per_session": 1,
+          "min_seconds_between_switches": 0,
+          "min_tokens_between_switches": 0
+        }
+      },
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "precommit": {
+        "proposed": "opus",
+        "confidence": 0.95,
+        "turn": 1,
+        "now": 10.0,
+        "tokens_seen": 1000
+      },
+      "evaluate": {
+        "proposed": "haiku",
+        "confidence": 0.99,
+        "turn": 2,
+        "now": 20.0,
+        "tokens_seen": 2000,
+        "token_hysteresis": true
+      },
+      "expect": {
+        "switch": false,
+        "blocked_by": "max_switches"
+      }
+    },
+    {
+      "id": "HYST-04-already-on-tier",
+      "family": "hysteresis",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "evaluate": {
+        "proposed": "sonnet",
+        "confidence": 0.99,
+        "turn": 3,
+        "now": 1000.0,
+        "tokens_seen": 99999,
+        "token_hysteresis": true
+      },
+      "expect": {
+        "switch": false,
+        "blocked_by": "already_on_tier"
+      }
+    },
+    {
+      "id": "HYST-05-live-disabled",
+      "family": "hysteresis",
+      "cfg_overlay": {"live": {"enabled": false}},
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "evaluate": {
+        "proposed": "opus",
+        "confidence": 1.0,
+        "turn": 5,
+        "now": 9999.0,
+        "tokens_seen": 999999,
+        "token_hysteresis": true
+      },
+      "expect": {
+        "switch": false,
+        "blocked_by": "live_disabled"
+      }
+    },
+    {
+      "id": "HYST-06-token-hysteresis-unavailable",
+      "family": "hysteresis",
+      "cfg_overlay": {
+        "live": {
+          "min_seconds_between_switches": 0,
+          "min_tokens_between_switches": 25000
+        }
+      },
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "precommit": {
+        "proposed": "opus",
+        "confidence": 0.95,
+        "turn": 2,
+        "now": 100.0,
+        "tokens_seen": 0,
+        "token_hysteresis": false
+      },
+      "evaluate": {
+        "proposed": "haiku",
+        "confidence": 0.95,
+        "turn": 6,
+        "now": 900.0,
+        "tokens_seen": 0,
+        "token_hysteresis": false
+      },
+      "expect": {
+        "switch": true,
+        "to": "haiku",
+        "token_hysteresis": "unavailable"
+      }
+    },
+    {
+      "id": "EFF-01-high-thinking",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "sonnet", "confidence": 0.99},
+        "is_stuck": {"noul": 0.0},
+        "work_simplified": {"noul": 0.0},
+        "needs_more_thinking": {"noul": 0.75}
+      },
+      "decide_kwargs": {"turn": 2, "now": 500.0, "token_hysteresis": true},
+      "expect": {
+        "switch": false,
+        "blocked_by": "already_on_tier",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "EFF-02-thinking-boundary-below",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "sonnet", "confidence": 0.99},
+        "is_stuck": {"noul": 0.0},
+        "work_simplified": {"noul": 0.0},
+        "needs_more_thinking": {"noul": 0.749}
+      },
+      "decide_kwargs": {"turn": 2, "now": 500.0, "token_hysteresis": true},
+      "expect": {
+        "effort": null
+      }
+    },
+    {
+      "id": "EFF-03-simplified-boundary-below",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "sonnet", "confidence": 0.99},
+        "is_stuck": {"noul": 0.0},
+        "work_simplified": {"noul": 0.799},
+        "needs_more_thinking": {"noul": 0.0}
+      },
+      "decide_kwargs": {"turn": 2, "now": 500.0, "token_hysteresis": true},
+      "expect": {
+        "effort": null
+      }
+    },
+    {
+      "id": "EFF-04-effort-switching-off",
+      "family": "decide",
+      "cfg_overlay": {"live": {"effort_switching": false}},
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "sonnet", "confidence": 0.99},
+        "is_stuck": {"noul": 0.0},
+        "work_simplified": {"noul": 0.95},
+        "needs_more_thinking": {"noul": 0.99}
+      },
+      "decide_kwargs": {"turn": 2, "now": 500.0, "token_hysteresis": true},
+      "expect": {
+        "effort": null
+      }
+    },
+    {
+      "id": "EFF-05-high-wins-over-low",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "sonnet", "confidence": 0.99},
+        "is_stuck": {"noul": 0.0},
+        "work_simplified": {"noul": 0.95},
+        "needs_more_thinking": {"noul": 0.80}
+      },
+      "decide_kwargs": {"turn": 2, "now": 500.0, "token_hysteresis": true},
+      "expect": {
+        "effort": "high"
+      }
+    },
+    {
+      "id": "RT-01-reports-usage-matrix",
+      "family": "runtimes",
+      "expect": {
+        "reports_usage": {
+          "BaseRuntime": false,
+          "ClaudeRuntime": true,
+          "CodexRuntime": true,
+          "CursorRuntime": true,
+          "AntigravityRuntime": true
+        }
+      }
+    },
+    {
+      "id": "RT-02-decide-follows-no-usage-contract",
+      "family": "decide",
+      "cfg_overlay": {
+        "live": {
+          "min_seconds_between_switches": 0,
+          "min_tokens_between_switches": 25000
+        }
+      },
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Bash"], "tokens": 0},
+      "answers": {
+        "needed_tier": {"choice": "opus", "confidence": 0.95},
+        "is_stuck": {"noul": 0.0},
+        "work_simplified": {"noul": 0.0},
+        "needs_more_thinking": {"noul": 0.0}
+      },
+      "decide_kwargs": {"turn": 2, "now": 100.0, "token_hysteresis": false},
+      "expect": {
+        "switch": true,
+        "to": "opus",
+        "token_hysteresis": "unavailable"
+      }
+    },
+    {
+      "id": "BND-01-empty-answers",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": [], "tokens": 80000},
+      "answers": {},
+      "decide_kwargs": {"turn": 2, "now": 500.0, "token_hysteresis": true},
+      "expect": {
+        "switch": false,
+        "blocked_by": "already_on_tier",
+        "effort": null
+      }
+    },
+    {
+      "id": "BND-02-needed-tier-null",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {"needed_tier": null},
+      "decide_kwargs": {"turn": 2, "now": 500.0, "token_hysteresis": true},
+      "expect": {
+        "switch": false,
+        "blocked_by": "already_on_tier"
+      }
+    },
+    {
+      "id": "BND-03-confidence-malformed",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "opus", "confidence": "x"},
+        "is_stuck": {"noul": 0.99}
+      },
+      "decide_kwargs": {"turn": 2, "now": 500.0, "token_hysteresis": true},
+      "expect": {
+        "switch": true,
+        "to": "opus",
+        "reason_contains": ["stuck"]
+      }
+    },
+    {
+      "id": "BND-04-stuck-garbage",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "opus", "confidence": 0.30},
+        "is_stuck": "garbage"
+      },
+      "decide_kwargs": {"turn": 2, "now": 500.0, "token_hysteresis": true},
+      "expect": {
+        "switch": false,
+        "blocked_by_contains": "below_threshold"
+      }
+    },
+    {
+      "id": "BND-05-empty-choice",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": null, "confidence": 0.99},
+        "is_stuck": {"noul": 0.99}
+      },
+      "decide_kwargs": {"turn": 2, "now": 500.0, "token_hysteresis": true},
+      "expect": {
+        "switch": false,
+        "blocked_by": "already_on_tier"
+      }
+    },
+    {
+      "id": "BND-06-economy-ceiling",
+      "family": "decide",
+      "gate": {"mode": "economy", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "opus", "confidence": 0.99},
+        "is_stuck": {"noul": 0.0},
+        "work_simplified": {"noul": 0.0},
+        "needs_more_thinking": {"noul": 0.0}
+      },
+      "decide_kwargs": {"turn": 2, "now": 500.0, "token_hysteresis": true},
+      "expect": {
+        "switch": false,
+        "to": "sonnet",
+        "blocked_by": "already_on_tier"
+      }
+    },
+    {
+      "id": "BND-07-error-noul-shape",
+      "family": "decide",
+      "gate": {"mode": "balanced", "tier": "sonnet", "now": 0.0},
+      "observer": {"tools": ["Edit"], "tokens": 80000},
+      "answers": {
+        "needed_tier": {"choice": "haiku", "confidence": 0.99},
+        "is_stuck": {"noul": null},
+        "work_simplified": {"noul": "boom"},
+        "needs_more_thinking": {"error": "provider"}
+      },
+      "decide_kwargs": {"turn": 2, "now": 500.0, "token_hysteresis": true},
+      "expect": {
+        "switch": true,
+        "to": "haiku",
+        "effort": null
+      }
+    }
+  ]
+}
