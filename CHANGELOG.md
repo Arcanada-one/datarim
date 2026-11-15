@@ -4,6 +4,15 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.12.4] — 2026-11-15
+
+Releases `4.12.0` to `4.12.3` shipped the four reusable workflows (`network-exposure-lint.yml`, `public-surface-lint.yml`, `reusable-security-audit.yml`, `token-health-probe.yml`) in a state that failed in every caller. A reusable workflow runs its steps in the caller's checkout, but those releases invoked `bash .github/scripts/workflow/<helper>.sh`, and that directory exists only in this repository. Every caller job therefore exited with status 127 (`No such file or directory`). The regression entered with #608 and was repaired on `main` by #619, but no release carried the repair, so a caller pinned to any of those four tags kept a broken workflow. Pin the reusable workflows to `4.12.4` or later.
+
+### Fixed
+
+- The four reusable workflows carry their steps inline again, so a caller job no longer depends on any path under this repository's `.github/scripts/`. This is the content of #619, published for the first time in this release.
+- A new regression suite, `tests/reusable-workflow-caller-context.bats`, discovers every workflow that declares `workflow_call` from the checked-out files, requires each of them to be free of `.github/scripts/` references in its steps, and runs the extracted `network-exposure-lint.yml` ref-validation step in an empty directory the way a caller does, expecting exit status 0 for a 40-hex ref and a clean refusal (status 1, never 127) for anything else. A fifth reusable workflow added later is covered without editing the suite.
+
 ## [4.12.3] — 2026-11-10
 
 Version 4.12.2 was tagged but never published: the release workflow authenticates the bump level from a stamp inside the signed tag message, and release tags are protected against update and deletion, so that tag could not carry the stamp and no release was produced. Its changes ship unchanged as part of 4.12.3, and the changelog lists only published versions. The unused `v4.12.2` tag was deleted on 2026-11-11, so no `v4.12.2` ref remains in the repository; the audit record is in `documentation/release-audit/release-4.12.2-not-published.md`.
