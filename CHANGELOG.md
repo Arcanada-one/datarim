@@ -12,6 +12,7 @@ Releases `4.12.0` to `4.12.3` shipped the four reusable workflows (`network-expo
 
 - The four reusable workflows carry their steps inline again, so a caller job no longer depends on any path under this repository's `.github/scripts/`. This is the content of #619, published for the first time in this release.
 - A new regression suite, `tests/reusable-workflow-caller-context.bats`, discovers every workflow that declares `workflow_call` from the checked-out files, requires each of them to be free of `.github/scripts/` references in its steps, and runs the extracted `network-exposure-lint.yml` ref-validation step in an empty directory the way a caller does, expecting exit status 0 for a 40-hex ref and a clean refusal (status 1, never 127) for anything else. A fifth reusable workflow added later is covered without editing the suite.
+- `reusable-security-audit.yml` pins `dtolnay/rust-toolchain` to the current tip of its `stable` branch (`39008827e6b4`). Upstream regenerated that branch, so the earlier pinned commit was no longer reachable from any ref and zizmor reported `impostor-commit` and `ref-version-mismatch` for it.
 
 ## [4.12.3] — 2026-11-10
 
