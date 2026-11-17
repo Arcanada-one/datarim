@@ -24,22 +24,38 @@ bash tests/ci-install-bats-deps.sh \
 
 # file(1) and strings(1) are required by check-public-repository-boundary.sh.
 ensure_file_strings() {
-  local need=()
-  command -v file >/dev/null 2>&1 || need+=(file)
+  local need=() work deb bin
+  command -v file >/dev/null 2>&1 || need+=(file libmagic1 libmagic-mgc)
   command -v strings >/dev/null 2>&1 || need+=(binutils)
   [ "${#need[@]}" -eq 0 ] && return 0
-  local work deb
   work="$(mktemp -d "${RUNNER_TEMP}/file-strings.XXXXXX")"
+  mkdir -p "$work/root" "$prefix/bin"
   (
+    set +e
     cd "$work"
-    apt-get download "${need[@]}"
+    apt-get download "${need[@]}" || exit 1
+    shopt -s nullglob
     for deb in ./*.deb; do
-      dpkg-deb -x "$deb" "$work/root"
+      dpkg-deb -x "$deb" "$work/root" || exit 1
     done
-  )
-  mkdir -p "$prefix/bin"
-  [ -x "$work/root/usr/bin/file" ] && install -m 0755 "$work/root/usr/bin/file" "$prefix/bin/file"
-  [ -x "$work/root/usr/bin/strings" ] && install -m 0755 "$work/root/usr/bin/strings" "$prefix/bin/strings"
+  ) || {
+    echo "::warning::could not download/extract file/strings debs; boundary suite may fail"
+    return 0
+  }
+  for bin in file strings; do
+    if [ -x "$work/root/usr/bin/$bin" ]; then
+      install -m 0755 "$work/root/usr/bin/$bin" "$prefix/bin/$bin"
+    fi
+  done
+  # libmagic is required by file(1); copy shared libs when present.
+  if [ -d "$work/root/usr/lib" ]; then
+    mkdir -p "$prefix/lib"
+    cp -a "$work/root/usr/lib/." "$prefix/lib/" 2>/dev/null || true
+  fi
+  if [ -d "$work/root/lib" ]; then
+    mkdir -p "$prefix/lib"
+    cp -a "$work/root/lib/." "$prefix/lib/" 2>/dev/null || true
+  fi
 }
 ensure_file_strings
 
