@@ -46,6 +46,15 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -84,6 +93,15 @@ jobs:
       linux_matrix: ${{ steps.customer_delivery_matrix.outputs.linux }}
       macos_matrix: ${{ steps.customer_delivery_matrix.outputs.macos }}
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -116,6 +134,15 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -146,6 +173,15 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.registry.outputs.linux_matrix) }}
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -180,6 +216,15 @@ jobs:
     needs: registry
     runs-on: macos-latest
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -232,6 +277,15 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.registry.outputs.macos_matrix) }}
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -270,6 +324,15 @@ jobs:
     needs: [registry, customer-delivery-linux, customer-delivery-macos]
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
