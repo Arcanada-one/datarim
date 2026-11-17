@@ -140,30 +140,20 @@ jobs:
   customer-delivery-linux:
     name: customer delivery group ${{ matrix.group }} (Linux)
     needs: registry
-    # docker label: job runs in an ubuntu container so passwordless sudo exists
-    # for assert_wrapper_sigchld_normalization (host ci-general images have none).
+    # docker label: when the host has no passwordless sudo, linux-03 re-execs the
+    # shard via `docker run --pid=host` (GHA container: breaks PID/signal tests
+    # and exhausts docker networks under a 20-wide matrix).
     runs-on: [self-hosted, linux, X64, ci-general, docker]
-    container:
-      image: ubuntu:24.04
     strategy:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.registry.outputs.linux_matrix) }}
     steps:
-      - name: Install git for checkout inside the container
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          apt-get update -qq
-          apt-get install -y -qq ca-certificates curl git
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Bootstrap container packages and passwordless sudo
-        run: bash .github/scripts/workflow/bats-customer-delivery-linux-00-bootstrap-container-packages.sh
 
       - name: Assert exact triggering head
         run: bash .github/scripts/workflow/bats-customer-delivery-linux-01-assert-exact-triggering-head.sh
