@@ -58,9 +58,10 @@ jobs:
           export PATH="${RUNNER_TEMP}/bats-prefix/bin:${PATH}"
           command -v bats
           command -v yq
+          command -v jq
           command -v file
           command -v strings
-          command -v jq
+          # PATH already includes $RUNNER_TEMP/bats-prefix/bin from install step.
           # Keep each `bats <file>` on its own line — closure-gate.bats greps this file
           # for the literal `bats dev-tools/tests/closure-gate.bats`.
           bats --print-output-on-failure dev-tools/tests/doc-fanout-lint.bats
