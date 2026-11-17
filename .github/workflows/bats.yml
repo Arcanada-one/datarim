@@ -125,6 +125,7 @@ jobs:
         run: bash .github/scripts/workflow/bats-registry-04-publish-suite-inventory.sh
   suites:
     name: shard ${{ matrix.shard }}/8
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     needs: registry
     runs-on: [self-hosted, linux, X64, ci-general]
     strategy:
@@ -166,6 +167,7 @@ jobs:
 
   customer-delivery-linux:
     name: customer delivery group ${{ matrix.group }} (Linux)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     needs: registry
     runs-on: [self-hosted, linux, X64, ci-general]
     strategy:
