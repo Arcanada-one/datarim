@@ -18,10 +18,16 @@ readonly VAULT_ADDR_EXPRESSION='${{ vars.VAULT_ADDR }}'
 # shellcheck disable=SC2016 # GitHub expressions are intentionally literal.
 readonly WORKFLOW_SHA_EXPRESSION='${{ github.workflow_sha }}'
 # BATCH-004 / DEC-AUP stage CI: the only job-level `if` admitted on the
-# capability-free contract job. Arbitrary skip forms (always()/false/…) remain
-# rejected. Absence of `if` stays valid for consumers that always run the job.
+# capability-free contract job when runs-on is ubuntu-latest. Arbitrary skip
+# forms (always()/false/…) remain rejected. Absence of `if` stays valid for
+# ubuntu-latest consumers that always run the job.
 # shellcheck disable=SC2016 # GitHub expressions are intentionally literal.
 readonly ALLOWED_CONTRACT_JOB_IF="github.event_name != 'pull_request' || startsWith(github.head_ref, 'integration/') || contains(github.event.pull_request.labels.*.name, 'ci:run')"
+# Self-hosted org pool: BATCH-004 combined with the fork deny. Required whenever
+# runs-on is [self-hosted, linux, ci-general]; fork deny alone or BATCH-004 alone
+# is not enough on that pool.
+# shellcheck disable=SC2016 # GitHub expressions are intentionally literal.
+readonly ALLOWED_CONTRACT_JOB_IF_SELF_HOSTED="(github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (github.event_name != 'pull_request' || startsWith(github.head_ref, 'integration/') || contains(github.event.pull_request.labels.*.name, 'ci:run'))"
 
 fail() {
     printf 'ERROR: %s\n' "$1" >&2
@@ -194,22 +200,50 @@ yaml_true '(.on | type) == "!!map" and (.on | has("pull_request")) and
     ".on.pull_request"
 yaml_true '.jobs."preflight-caller-contract" | type == "!!map"' ".jobs.${CONTRACT_JOB}"
 yaml_true '.jobs.deploy | type == "!!map"' ".jobs.${DEPLOY_JOB}"
-# Capability-free shape: either the legacy key set, or the same set plus the
-# exact BATCH-004 PR-skip `if`. Any other key or any other `if` expression is a
-# contract violation (does not weaken deploy/vault/step checks below).
+# Capability-free shape + runs-on:
+# - ubuntu-latest: legacy key set, or the same set plus exact BATCH-004 `if`.
+# - [self-hosted, linux, ci-general]: keys must include `if`, and that `if` must
+#   be BATCH-004 combined with the fork deny (self-hosted without fork deny is
+#   rejected). Arbitrary runs-on labels remain a contract violation.
+# Any other key or any other `if` expression is a contract violation (does not
+# weaken deploy/vault/step checks below).
 export EXPECTED_CONTRACT_JOB_IF="$ALLOWED_CONTRACT_JOB_IF"
+export EXPECTED_CONTRACT_JOB_IF_SELF_HOSTED="$ALLOWED_CONTRACT_JOB_IF_SELF_HOSTED"
+# yq v4 array == [..] is unreliable across style/tags; compare !!seq via join.
 yaml_true '
     (
-      (.jobs."preflight-caller-contract" | keys | sort | join(","))
-        == "permissions,runs-on,steps,timeout-minutes"
+      .jobs."preflight-caller-contract"."runs-on" == "ubuntu-latest"
     ) or (
+      ((.jobs."preflight-caller-contract"."runs-on" | type) == "!!seq")
+      and
+      ((.jobs."preflight-caller-contract"."runs-on" | join(",")) == "self-hosted,linux,ci-general")
+    )' \
+    ".jobs.${CONTRACT_JOB}.runs-on"
+yaml_true '
+    (
+      .jobs."preflight-caller-contract"."runs-on" == "ubuntu-latest"
+      and (
+        (
+          (.jobs."preflight-caller-contract" | keys | sort | join(","))
+            == "permissions,runs-on,steps,timeout-minutes"
+        ) or (
+          (.jobs."preflight-caller-contract" | keys | sort | join(","))
+            == "if,permissions,runs-on,steps,timeout-minutes"
+          and
+          ((.jobs."preflight-caller-contract".if | tostring) == strenv(EXPECTED_CONTRACT_JOB_IF))
+        )
+      )
+    ) or (
+      ((.jobs."preflight-caller-contract"."runs-on" | type) == "!!seq")
+      and
+      ((.jobs."preflight-caller-contract"."runs-on" | join(",")) == "self-hosted,linux,ci-general")
+      and
       (.jobs."preflight-caller-contract" | keys | sort | join(","))
         == "if,permissions,runs-on,steps,timeout-minutes"
       and
-      ((.jobs."preflight-caller-contract".if | tostring) == strenv(EXPECTED_CONTRACT_JOB_IF))
+      ((.jobs."preflight-caller-contract".if | tostring) == strenv(EXPECTED_CONTRACT_JOB_IF_SELF_HOSTED))
     )' \
     ".jobs.${CONTRACT_JOB}.capabilities"
-yaml_true '.jobs."preflight-caller-contract"."runs-on" == "ubuntu-latest"' ".jobs.${CONTRACT_JOB}.runs-on"
 yaml_true '.jobs."preflight-caller-contract"."timeout-minutes" == 5' ".jobs.${CONTRACT_JOB}.timeout-minutes"
 yaml_true '(.jobs."preflight-caller-contract".permissions | keys | join(",")) == "contents" and
     .jobs."preflight-caller-contract".permissions.contents == "read"' ".jobs.${CONTRACT_JOB}.permissions"
