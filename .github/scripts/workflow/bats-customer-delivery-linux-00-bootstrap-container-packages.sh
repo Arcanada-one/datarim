@@ -16,6 +16,7 @@ apt-get install -y -qq \
   python3 \
   python3-venv \
   python3-pip \
+  shellcheck \
   sudo
 # Root in the container must be able to `sudo -n` for the wrapper root probe.
 if ! sudo -n /usr/bin/true 2>/dev/null; then
