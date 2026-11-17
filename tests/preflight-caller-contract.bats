@@ -162,7 +162,7 @@ assert_rejected() {
     assert_rejected ".jobs.preflight-caller-contract.capabilities" || return 1
 
     restore_fixture
-    # BATCH-004 exact PR-skip guard is the only admitted job-level if.
+    # BATCH-004 exact PR-skip guard is the only admitted job-level if on ubuntu-latest.
     mutate '.jobs."preflight-caller-contract".if = "github.event_name != '\''pull_request'\'' || startsWith(github.head_ref, '\''integration/'\'') || contains(github.event.pull_request.labels.*.name, '\''ci:run'\'')"'
     run_contract
     assert_status_is 0 || return 1
@@ -170,6 +170,40 @@ assert_rejected() {
     restore_fixture
     mutate '.jobs."preflight-caller-contract".steps += [{"run":"docker ps && vault status && sudo broker"}]'
     assert_rejected ".jobs.preflight-caller-contract.steps"
+}
+
+@test "self-hosted contract job accepts BATCH-004 combined with fork deny" {
+    mutate '
+      .jobs."preflight-caller-contract"."runs-on" = ["self-hosted", "linux", "ci-general"] |
+      .jobs."preflight-caller-contract".if = "(github.event_name != '\''pull_request'\'' || github.event.pull_request.head.repo.full_name == github.repository) && (github.event_name != '\''pull_request'\'' || startsWith(github.head_ref, '\''integration/'\'') || contains(github.event.pull_request.labels.*.name, '\''ci:run'\''))"
+    '
+    run_contract
+    assert_status_is 0 || return 1
+}
+
+@test "self-hosted contract job refuses missing fork deny; arbitrary runs-on refused; ubuntu-latest still accepted" {
+    # Self-hosted + BATCH-004 only (fork deny missing).
+    mutate '
+      .jobs."preflight-caller-contract"."runs-on" = ["self-hosted", "linux", "ci-general"] |
+      .jobs."preflight-caller-contract".if = "github.event_name != '\''pull_request'\'' || startsWith(github.head_ref, '\''integration/'\'') || contains(github.event.pull_request.labels.*.name, '\''ci:run'\'')"
+    '
+    assert_rejected ".jobs.preflight-caller-contract.capabilities" || return 1
+
+    restore_fixture
+    # Self-hosted without any if (fork deny missing).
+    mutate '.jobs."preflight-caller-contract"."runs-on" = ["self-hosted", "linux", "ci-general"]'
+    assert_rejected ".jobs.preflight-caller-contract.capabilities" || return 1
+
+    restore_fixture
+    # Arbitrary label list.
+    mutate '.jobs."preflight-caller-contract"."runs-on" = ["self-hosted", "linux", "ci-arbitrary"]'
+    assert_rejected ".jobs.preflight-caller-contract.runs-on" || return 1
+
+    restore_fixture
+    # ubuntu-latest remains accepted: capability-free job (contents:read only, no
+    # secrets/services/container); existing consumers stay valid on this pin.
+    run_contract
+    assert_status_is 0 || return 1
 }
 
 @test "contract checkout is immutable, credential-minimal, and bound to workflow_sha" {

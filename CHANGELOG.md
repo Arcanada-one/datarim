@@ -2,6 +2,12 @@
 
 All notable changes to the Datarim framework are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.12.8] — 2026-11-17
+
+### Fixed
+
+- `preflight-caller-contract` checker (and the composite action that runs it): accept `runs-on: [self-hosted, linux, ci-general]` when the job `if` is the exact BATCH-004 PR-skip guard combined with the fork deny (`(github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (…BATCH-004…)`). Self-hosted without that combined `if` is rejected. `ubuntu-latest` remains accepted for this capability-free job (contents:read only; no secrets/services/container) so existing consumers stay valid; arbitrary `runs-on` labels stay rejected. All other contract assertions are unchanged.
+
 ## [4.12.7] — 2026-11-17
 
 ### Fixed
