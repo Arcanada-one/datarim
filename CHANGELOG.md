@@ -4,6 +4,16 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.12.5] — 2026-11-17
+
+Moves ordinary CI jobs off GitHub-hosted runners onto the organisation self-hosted pool (`self-hosted`, `linux`, `X64`, `ci-general`), matching the labels already used by `bats.yml`. Reusable workflows that still hard-coded `ubuntu-latest` (`public-surface-lint.yml`, `token-health-probe.yml`) now use the same labels, so callers pick up the change only after they pin this release. macOS jobs stay on `macos-latest` because the fleet has no macOS runner.
+
+### Changed
+
+- Every previously `ubuntu-latest` job in this repository's workflows now runs on `[self-hosted, linux, X64, ci-general]`.
+- `node-tests.yml` runs its Linux matrix leg on that pool; the macOS leg remains on `macos-latest` (documented exception).
+- `public-surface-lint.yml` and `token-health-probe.yml` now hard-code `[self-hosted, linux, X64, ci-general]` instead of `ubuntu-latest` (callers pick this up only after pinning this release).
+
 ## [4.12.4] — 2026-11-15
 
 Releases `4.12.0` to `4.12.3` shipped the four reusable workflows (`network-exposure-lint.yml`, `public-surface-lint.yml`, `reusable-security-audit.yml`, `token-health-probe.yml`) in a state that failed in every caller. A reusable workflow runs its steps in the caller's checkout, but those releases invoked `bash .github/scripts/workflow/<helper>.sh`, and that directory exists only in this repository. Every caller job therefore exited with status 127 (`No such file or directory`). The regression entered with #608 and was repaired on `main` by #619, but no release carried the repair, so a caller pinned to any of those four tags kept a broken workflow. Pin the reusable workflows to `4.12.4` or later.

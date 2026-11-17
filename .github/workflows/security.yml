@@ -30,7 +30,7 @@ jobs:
   # 1. shellcheck on shell sources
   shellcheck:
     name: shellcheck
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -42,7 +42,7 @@ jobs:
   # 2. shellcheck on bash blocks extracted from markdown
   shellcheck-extracted:
     name: shellcheck-extracted
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     # Informational during the TUNE-0045 baseline window: many shipped skills
     # contain illustrative bash snippets with `<PLACEHOLDER>` syntax that fails
     # shellcheck. Promotion to required pending TUNE-0048 (tag illustrative
@@ -62,7 +62,7 @@ jobs:
   # 3. bandit on python sources
   bandit:
     name: bandit
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -79,7 +79,7 @@ jobs:
   # 4. bandit on python blocks extracted from markdown
   bandit-extracted:
     name: bandit-extracted
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     # Informational during the TUNE-0045 baseline window — same rationale as
     # shellcheck-extracted (illustrative blocks need explicit opt-out tagging).
     continue-on-error: true
@@ -99,7 +99,7 @@ jobs:
   # 5. Semgrep with repository-owned rules and SARIF upload
   semgrep-sarif:
     name: semgrep-sarif
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     permissions:
       contents: read
       security-events: write
@@ -127,7 +127,7 @@ jobs:
   # 6. CodeQL for the shipped Python implementation surface
   codeql-python:
     name: codeql-python
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     permissions:
       contents: read
       security-events: write
@@ -150,7 +150,7 @@ jobs:
   # 7. gitleaks — full git history secret scan (sha256-pinned binary)
   gitleaks:
     name: gitleaks
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -174,7 +174,7 @@ jobs:
   # 8. trufflehog — verified secrets only (binary verified via release checksums)
   trufflehog:
     name: trufflehog
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -190,7 +190,7 @@ jobs:
   # 9. actionlint — workflow-yaml lint (binary verified via release checksums)
   actionlint:
     name: actionlint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -208,7 +208,7 @@ jobs:
   # 10. zizmor — GitHub Actions security audit
   zizmor:
     name: zizmor
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -226,7 +226,7 @@ jobs:
   # 11. osv-scanner — dependency vulnerabilities (binary verified via release checksums)
   osv-scanner:
     name: osv-scanner
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -240,7 +240,7 @@ jobs:
   # 12. bats regression tests for fixed findings
   regression-bats:
     name: regression-bats
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -253,7 +253,7 @@ jobs:
   # 13. markdown-policy — anti-pattern grep over shipped docs (counter-example fence aware)
   markdown-policy:
     name: markdown-policy
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -263,7 +263,7 @@ jobs:
   # 14. doc-refs — markdown reference integrity linter (TUNE-0054)
   doc-refs:
     name: doc-refs
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -278,7 +278,7 @@ jobs:
   # 15. task-id-gate — history-agnostic policy on governed public surfaces
   task-id-gate:
     name: task-id-gate
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -16,7 +16,7 @@
 #         token: ${{ secrets.NPM_TOKEN }}
 #     publish:
 #       needs: probe
-#       runs-on: ubuntu-latest
+#       runs-on: [self-hosted, linux, X64, ci-general]
 #       steps: [...]
 #
 # Supported providers: npm, pypi, dockerhub, cloudflare.
@@ -60,7 +60,7 @@ permissions:
 jobs:
   probe:
     name: token-health-probe-${{ inputs.provider }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     env:
       PROVIDER: ${{ inputs.provider }}
       REGISTRY_URL: ${{ inputs.registry_url }}
