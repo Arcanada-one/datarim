@@ -2,7 +2,9 @@
 
 All notable changes to the Datarim framework are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.12.6] — 2026-11-17
+
+Version 4.12.5 was tagged but never published as a GitHub release; 4.12.6 includes its changes.
 
 ### Fixed
 
