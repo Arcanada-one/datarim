@@ -124,6 +124,12 @@ jobs:
           # need real history, not a depth-1 cone.
           fetch-depth: 0
 
+      # Same remedy as jev-and-project-runtime: self-hosted hosts may ship a
+      # python3 without ensurepip; setup-python provides a complete 3.12.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
       - name: Install pinned toolchain
         run: bash .github/scripts/workflow/bats-suites-01-install-pinned-toolchain.sh
       - name: Run shard ${{ matrix.shard }} of 8
@@ -148,6 +154,10 @@ jobs:
 
       - name: Assert exact triggering head
         run: bash .github/scripts/workflow/bats-customer-delivery-linux-01-assert-exact-triggering-head.sh
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
 
       - name: Create trusted absolute Python environment
         run: bash .github/scripts/workflow/bats-customer-delivery-linux-02-create-trusted-absolute-python-environment.sh
