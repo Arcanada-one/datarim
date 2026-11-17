@@ -1,0 +1,6 @@
+{
+  "event_name": "push",
+  "repository": "Arcanada-one/datarim",
+  "pull_request": null,
+  "expect_run": true
+}

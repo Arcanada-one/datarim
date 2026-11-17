@@ -72,6 +72,8 @@ permissions:
 jobs:
   lint:
     name: network-exposure-lint
+    # Fork refuse: never schedule untrusted fork PR checkout onto self-hosted runners.
+    if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ${{ fromJSON(inputs.runner_labels) }}
     steps:
       - name: Validate immutable Datarim ref
