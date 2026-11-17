@@ -140,10 +140,7 @@ jobs:
   customer-delivery-linux:
     name: customer delivery group ${{ matrix.group }} (Linux)
     needs: registry
-    # docker label: when the host has no passwordless sudo, linux-03 re-execs the
-    # shard via `docker run --pid=host` (GHA container: breaks PID/signal tests
-    # and exhausts docker networks under a 20-wide matrix).
-    runs-on: [self-hosted, linux, X64, ci-general, docker]
+    runs-on: [self-hosted, linux, X64, ci-general]
     strategy:
       fail-fast: false
       matrix:

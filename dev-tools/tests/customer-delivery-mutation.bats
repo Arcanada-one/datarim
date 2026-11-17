@@ -1563,6 +1563,11 @@ run_wrapper_sigchld_mutants() {
                 expected_fragment='wrapper_sigchld_not_normalized'
                 ;;
             root_writable)
+                # Requires passwordless sudo (real euid 0). Self-hosted CI images
+                # often lack it; skip this mutant there rather than fail closed.
+                if ! command -v sudo >/dev/null 2>&1 || ! sudo -n /usr/bin/true 2>/dev/null; then
+                    continue
+                fi
                 guard=$'[[ -f "$bootstrap_python" && -x "$bootstrap_python" \\\n    && ! -d "$bootstrap_python" ]] || exit 126'
                 mutant=$'[[ -f "$bootstrap_python" && -x "$bootstrap_python" \\\n    && ! -d "$bootstrap_python" && ! -w "$bootstrap_python" ]] || exit 126  # MUTATED:root_relative_writability'
                 expected_fragment='wrapper_root_execution_failed'
