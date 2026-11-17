@@ -54,13 +54,22 @@ jobs:
       # it is intentionally redundant with discovery, not a substitute for it.
       - name: Run dev-tools self-tests
         run: |
-          bats dev-tools/tests/doc-fanout-lint.bats
-          bats dev-tools/tests/check-public-repository-boundary.bats
-          bats dev-tools/tests/check-github-actions-execution.bats
-          bats dev-tools/tests/rename-task-prefix.bats
-          bats dev-tools/tests/cross-kb-evolution-digest.bats
-          bats dev-tools/tests/closure-gate.bats
-          bats dev-tools/tests/orchestrate-phase3-acceptance.bats
+          # Prefer the pinned toolchain from the previous step (GITHUB_PATH + explicit).
+          export PATH="${RUNNER_TEMP}/bats-prefix/bin:${PATH}"
+          command -v bats
+          command -v yq
+          command -v file
+          command -v strings
+          command -v jq
+          # Keep each `bats <file>` on its own line — closure-gate.bats greps this file
+          # for the literal `bats dev-tools/tests/closure-gate.bats`.
+          bats --print-output-on-failure dev-tools/tests/doc-fanout-lint.bats
+          bats --print-output-on-failure dev-tools/tests/check-public-repository-boundary.bats
+          bats --print-output-on-failure dev-tools/tests/check-github-actions-execution.bats
+          bats --print-output-on-failure dev-tools/tests/rename-task-prefix.bats
+          bats --print-output-on-failure dev-tools/tests/cross-kb-evolution-digest.bats
+          bats --print-output-on-failure dev-tools/tests/closure-gate.bats
+          bats --print-output-on-failure dev-tools/tests/orchestrate-phase3-acceptance.bats
 
   linter-run:
     name: doc-fanout-lint (errors blocking, cross-root advisory)

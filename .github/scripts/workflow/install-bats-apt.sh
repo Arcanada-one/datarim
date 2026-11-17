@@ -21,6 +21,28 @@ bash tests/ci-install-bats-deps.sh \
   --prefix "$prefix" \
   --no-sudo \
   --python-bin "$venv/bin/python"
+
+# file(1) and strings(1) are required by check-public-repository-boundary.sh.
+ensure_file_strings() {
+  local need=()
+  command -v file >/dev/null 2>&1 || need+=(file)
+  command -v strings >/dev/null 2>&1 || need+=(binutils)
+  [ "${#need[@]}" -eq 0 ] && return 0
+  local work deb
+  work="$(mktemp -d "${RUNNER_TEMP}/file-strings.XXXXXX")"
+  (
+    cd "$work"
+    apt-get download "${need[@]}"
+    for deb in ./*.deb; do
+      dpkg-deb -x "$deb" "$work/root"
+    done
+  )
+  mkdir -p "$prefix/bin"
+  [ -x "$work/root/usr/bin/file" ] && install -m 0755 "$work/root/usr/bin/file" "$prefix/bin/file"
+  [ -x "$work/root/usr/bin/strings" ] && install -m 0755 "$work/root/usr/bin/strings" "$prefix/bin/strings"
+}
+ensure_file_strings
+
 echo "$prefix/bin" >> "${GITHUB_PATH:?}"
 export PATH="$prefix/bin:$PATH"
 command -v bats
