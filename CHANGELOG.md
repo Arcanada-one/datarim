@@ -4,6 +4,10 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `preflight-check` composite action: print the report JSON to the job log under `always()` (bounded to 64 KiB) before `upload-artifact`, and set `continue-on-error: true` on the upload step so an artifact-store quota or transport failure cannot fail the action or skip deploy. The check step (`id: run`) remains the sole decider; a fatal finding still fails the action.
+
 ## [4.12.4] — 2026-11-15
 
 Releases `4.12.0` to `4.12.3` shipped the four reusable workflows (`network-exposure-lint.yml`, `public-surface-lint.yml`, `reusable-security-audit.yml`, `token-health-probe.yml`) in a state that failed in every caller. A reusable workflow runs its steps in the caller's checkout, but those releases invoked `bash .github/scripts/workflow/<helper>.sh`, and that directory exists only in this repository. Every caller job therefore exited with status 127 (`No such file or directory`). The regression entered with #608 and was repaired on `main` by #619, but no release carried the repair, so a caller pinned to any of those four tags kept a broken workflow. Pin the reusable workflows to `4.12.4` or later.
