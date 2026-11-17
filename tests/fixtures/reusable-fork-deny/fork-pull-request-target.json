@@ -1,0 +1,12 @@
+{
+  "event_name": "pull_request_target",
+  "repository": "Arcanada-one/datarim",
+  "pull_request": {
+    "head": {
+      "repo": {
+        "full_name": "evil-fork/datarim"
+      }
+    }
+  },
+  "expect_run": false
+}
