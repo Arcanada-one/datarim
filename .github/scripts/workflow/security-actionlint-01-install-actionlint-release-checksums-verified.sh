@@ -6,6 +6,6 @@ curl -fsSL -o "/tmp/${asset}" "${base}/${asset}"
 curl -fsSL -o "/tmp/actionlint_checksums.txt" "${base}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
 (cd /tmp && grep "${asset}" actionlint_checksums.txt | sha256sum -c -)
 tar -xzf "/tmp/${asset}" -C /tmp actionlint
-bash .github/scripts/workflow/install-tool-to-runner-temp.sh /tmp/actionlint actionlint
-export PATH="$RUNNER_TEMP/bin:$PATH"
+tool_bindir="$(bash .github/scripts/workflow/install-tool-to-runner-temp.sh /tmp/actionlint actionlint)"
+export PATH="$tool_bindir:$PATH"
 actionlint --version

@@ -8,6 +8,6 @@ if [ "$actual" != "$GITLEAKS_SHA256" ]; then
   exit 1
 fi
 tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
-bash .github/scripts/workflow/install-tool-to-runner-temp.sh /tmp/gitleaks gitleaks
-export PATH="$RUNNER_TEMP/bin:$PATH"
+tool_bindir="$(bash .github/scripts/workflow/install-tool-to-runner-temp.sh /tmp/gitleaks gitleaks)"
+export PATH="$tool_bindir:$PATH"
 gitleaks version

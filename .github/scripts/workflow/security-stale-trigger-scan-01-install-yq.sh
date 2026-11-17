@@ -6,6 +6,6 @@ if command -v yq >/dev/null 2>&1; then
 fi
 curl -fsSL -o /tmp/yq_linux_amd64 \
   https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
-bash .github/scripts/workflow/install-tool-to-runner-temp.sh /tmp/yq_linux_amd64 yq
-export PATH="$RUNNER_TEMP/bin:$PATH"
+tool_bindir="$(bash .github/scripts/workflow/install-tool-to-runner-temp.sh /tmp/yq_linux_amd64 yq)"
+export PATH="$tool_bindir:$PATH"
 yq --version
