@@ -756,8 +756,11 @@ def check_results(rows: list[Row], platform: str, directory: Path) -> int:
         f"customer_delivery_results=complete platform={platform} count={sum(observed.values())} "
         f"passed={sum(observed.values()) - failed - timed_out} failed={failed} timed_out={timed_out}"
     )
-    runner_class = os.environ.get("CUSTOMER_DELIVERY_RUNNER_CLASS", "ci-general")
-    check_capability_skips(platform, directory, runner_class)
+    # Enforce only when the caller names a runner class (CI aggregate does).
+    # Fixture suites call --check-results without the env and must stay green.
+    runner_class = os.environ.get("CUSTOMER_DELIVERY_RUNNER_CLASS", "").strip()
+    if runner_class:
+        check_capability_skips(platform, directory, runner_class)
     return 1 if failed or timed_out else 0
 
 
