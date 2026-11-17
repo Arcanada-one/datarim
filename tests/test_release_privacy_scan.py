@@ -53,7 +53,35 @@ class ReleasePrivacyScanTest(unittest.TestCase):
         asset.write_text(json.dumps({'value': 'synthetic-private-marker'}).replace('synthetic', '\\u0073ynthetic'))
         result = self.run_scan(asset)
         self.assertEqual(result.returncode, 1)
-        self.assertNotIn('synthetic-private-marker', result.stdout + result.stderr)
+        combined = result.stdout + result.stderr
+        self.assertIn(
+            'ERROR: protected identifier found in release asset: payload.cdx.json',
+            result.stderr,
+        )
+        self.assertNotIn('synthetic-private-marker', combined)
+
+    def test_finding_names_top_level_asset_only(self):
+        """Asset basename is reported; matched value and member paths are not."""
+        inner = io.BytesIO()
+        with zipfile.ZipFile(inner, 'w') as archive:
+            archive.writestr('deep/nested/secret.txt', 'synthetic-private-marker')
+        asset = self.path / 'datarim-v9.9.9-source.tar.gz'
+        with tarfile.open(asset, 'w:gz') as archive:
+            data = inner.getvalue()
+            info = tarfile.TarInfo('inner.zip')
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+        result = self.run_scan(asset)
+        combined = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(
+            'ERROR: protected identifier found in release asset: '
+            'datarim-v9.9.9-source.tar.gz',
+            result.stderr,
+        )
+        self.assertNotIn('synthetic-private-marker', combined)
+        self.assertNotIn('deep/nested/secret.txt', combined)
+        self.assertNotIn('inner.zip', combined)
 
     def test_nested_archive_member_is_checked(self):
         inner = io.BytesIO()

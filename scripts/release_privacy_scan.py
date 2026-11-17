@@ -199,11 +199,16 @@ def main():
         for asset in args.asset:
             if asset.is_symlink() or not asset.is_file():
                 raise Unsupported('asset unavailable')
-            scanner.scan(asset.read_bytes(), asset.name)
+            try:
+                scanner.scan(asset.read_bytes(), asset.name)
+            except Finding:
+                # Top-level asset basename only — never a member path or match text.
+                print(
+                    f'ERROR: protected identifier found in release asset: {asset.name}',
+                    file=sys.stderr,
+                )
+                return 1
         print(f'release privacy scan passed: {len(args.asset)} assets, {scanner.members} payloads')
-    except Finding:
-        print('ERROR: protected identifier found in release asset', file=sys.stderr)
-        return 1
     except (Unsupported, OSError, UnicodeError, re.error, tarfile.TarError,
             zipfile.BadZipFile, subprocess.SubprocessError):
         print('ERROR: release privacy scan could not cover every asset', file=sys.stderr)
