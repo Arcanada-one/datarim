@@ -825,3 +825,53 @@ ACTION_YML="$BATS_TEST_DIRNAME/../.github/actions/preflight-check/action.yml"
     [ "$status" -eq 0 ]
     [ "$output" = "5,75,85" ]
 }
+
+# ---------- Artifact-upload must not decide the action result ----------
+# Print the report under always() so quota/transport failure of upload-artifact
+# cannot erase evidence; upload itself is continue-on-error; the check step (id:run)
+# remains the sole decider (no continue-on-error).
+
+@test "T42 print report step: present under always() before upload" {
+    run python3 -B - "$ACTION_YML" <<'PY'
+import sys, yaml
+with open(sys.argv[1]) as f:
+    action = yaml.safe_load(f)
+steps = action['runs']['steps']
+by_name = {s.get('name'): s for s in steps}
+print_step = by_name['Print report to job log']
+upload = by_name['Upload report']
+assert print_step.get('if') == 'always()'
+assert print_step.get('id') == 'print-report'
+assert 'PREFLIGHT_REPORT_PATH' in print_step.get('env', {})
+assert '65536' in print_step.get('run', '') or 'limit=65536' in print_step.get('run', '')
+assert 'TRUNCATED' in print_step.get('run', '')
+assert steps.index(print_step) < steps.index(upload)
+print('ok')
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T43 upload report: continue-on-error true so quota failure is non-blocking" {
+    run python3 -B - "$ACTION_YML" <<'PY'
+import sys, yaml
+with open(sys.argv[1]) as f:
+    action = yaml.safe_load(f)
+upload = next(s for s in action['runs']['steps'] if s.get('name') == 'Upload report')
+assert upload.get('if') == 'always()'
+assert upload.get('continue-on-error') is True
+print('ok')
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T44 check step (id:run): NOT continue-on-error" {
+    run python3 -B - "$ACTION_YML" <<'PY'
+import sys, yaml
+with open(sys.argv[1]) as f:
+    action = yaml.safe_load(f)
+run_step = next(s for s in action['runs']['steps'] if s.get('id') == 'run')
+assert 'continue-on-error' not in run_step
+print('ok')
+PY
+    [ "$status" -eq 0 ]
+}

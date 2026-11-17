@@ -116,8 +116,34 @@ runs:
       run: |
         source "${{ github.action_path }}/../../../dev-tools/preflight-resolve-thresholds.sh"
         "${{ github.action_path }}/../../../dev-tools/preflight-check.sh"
+    - name: Print report to job log
+      id: print-report
+      if: always()
+      shell: bash
+      env:
+        PREFLIGHT_REPORT_PATH: ${{ steps.run.outputs.report-path }}
+      run: |
+        # Report JSON is check names/statuses/metrics/thresholds only
+        # (append_finding in preflight-check.sh). OPSBOT_KEY never enters the
+        # file. Bound print so a pathological report cannot flood the log.
+        report="${PREFLIGHT_REPORT_PATH:-}"
+        if [[ -z "$report" || ! -f "$report" ]]; then
+          echo "preflight report file absent; nothing to print"
+          exit 0
+        fi
+        total="$(wc -c <"$report" | tr -d '[:space:]')"
+        limit=65536
+        echo "=== preflight report (JSON; names/statuses/metrics/thresholds only; no secret values) ==="
+        if [[ "$total" -gt "$limit" ]]; then
+          head -c "$limit" "$report"
+          printf '\nTRUNCATED: printed %s of %s bytes\n' "$limit" "$total"
+        else
+          cat "$report"
+          printf '\nprinted %s of %s bytes (complete)\n' "$total" "$total"
+        fi
     - name: Upload report
       if: always()
+      continue-on-error: true
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: preflight-report-${{ inputs.service-name }}-${{ inputs.target-host }}

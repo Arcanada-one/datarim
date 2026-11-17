@@ -2,7 +2,13 @@
 
 All notable changes to the Datarim framework are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.12.6] — 2026-11-17
+
+Version 4.12.5 was tagged but never published as a GitHub release; 4.12.6 includes its changes.
+
+### Fixed
+
+- `preflight-check` composite action: print the report JSON to the job log under `always()` (bounded to 64 KiB) before `upload-artifact`, and set `continue-on-error: true` on the upload step so an artifact-store quota or transport failure cannot fail the action or skip deploy. The check step (`id: run`) remains the sole decider; a fatal finding still fails the action.
 
 ## [4.12.5] — 2026-11-17
 
