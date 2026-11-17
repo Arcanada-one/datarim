@@ -60,7 +60,9 @@ test('bounded reads and scans reject oversized inputs without partial success', 
 test('source fingerprint checks refuse in-place mutation during related artifact reads', linuxOnly, async () => fixture(async root => {
   await writeFile(join(root, 'a.ts'), 'before', { mode: 0o600 });
   await assert.rejects(scanSourceTree(root, { afterRead: async () => {
-    await writeFile(join(root, 'a.ts'), 'after!');
+    // Different length so size is part of the fingerprint delta even on
+    // filesystems with coarse mtime resolution under parallel CI load.
+    await writeFile(join(root, 'a.ts'), 'after-mutation');
   } }));
 }));
 test('final directory listing cannot hide an in-place leaf change after its hash', linuxOnly, async () => fixture(async root => {

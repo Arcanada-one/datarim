@@ -23,7 +23,7 @@ concurrency:
 jobs:
   analysis:
     name: openssf-scorecard
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     permissions:
       # Required for publish_results to OpenSSF dashboard.
       id-token: write

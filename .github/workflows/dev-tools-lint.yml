@@ -32,7 +32,7 @@ concurrency:
 jobs:
   bats-self-tests:
     name: bats self-tests (blocking)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,6 +54,15 @@ jobs:
       # it is intentionally redundant with discovery, not a substitute for it.
       - name: Run dev-tools self-tests
         run: |
+          # Prefer the pinned toolchain from the previous step (GITHUB_PATH + explicit).
+          export PATH="${RUNNER_TEMP}/bats-prefix/bin:${PATH}"
+          command -v bats
+          command -v yq
+          command -v jq
+          command -v file
+          command -v strings
+          # Keep each `bats <file>` on its own line — closure-gate.bats and
+          # rename-task-prefix.bats grep this file for those exact literals.
           bats dev-tools/tests/doc-fanout-lint.bats
           bats dev-tools/tests/check-public-repository-boundary.bats
           bats dev-tools/tests/check-github-actions-execution.bats
@@ -64,7 +73,7 @@ jobs:
 
   linter-run:
     name: doc-fanout-lint (errors blocking, cross-root advisory)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     # NOTE: this job previously carried BOTH `continue-on-error: true` AND a
     # trailing `|| echo "::warning::"`. Either alone neutralises the gate; both
     # together made it impossible for doc-fanout-lint to fail CI under any
@@ -109,7 +118,7 @@ jobs:
     # contradicted its header. Own blocking job, mirroring the sibling
     # `dr-auto-cross-runtime` job. Regression:
     # tests/check-dr-auto-reassert-wiring.bats (workflow-wiring test).
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -140,7 +149,7 @@ jobs:
     # deterministic pure-bash assertions over committed files, with no corpus
     # heuristics. Complements the reassert-wiring lint above, which checks the
     # command spec's prose for a mandatory cue.
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

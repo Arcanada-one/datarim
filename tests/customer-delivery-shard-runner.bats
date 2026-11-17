@@ -550,6 +550,28 @@ PY
         && [[ "$output" == *"customer_delivery_results=complete platform=linux count=100 passed=99 failed=0 timed_out=1"* ]]
 }
 
+@test "customer-delivery aggregate enforces capability skip count when runner class is set" {
+    local results="$BATS_TEST_TMPDIR/results"
+    seed_results linux "$results" || return 1
+    printf '%s\n' \
+        'customer-delivery-capability-skip wrapper_root_execution_probe passwordless_sudo_unavailable' \
+        >"$results/capability-skips.1.txt"
+    printf '%s\n' \
+        'customer-delivery-capability-skip root_writable_mutant passwordless_sudo_unavailable' \
+        >"$results/capability-skips.2.txt"
+    run env CUSTOMER_DELIVERY_RUNNER_CLASS=ci-general \
+        "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
+    [ "$status" -eq 0 ] \
+        && [[ "$output" == *"customer_delivery_capability_skips platform=linux runner_class=ci-general expected=2 observed=2"* ]]
+    run env CUSTOMER_DELIVERY_RUNNER_CLASS=ci-general \
+        "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
+    # Drop one skip → mismatch must fail closed.
+    : >"$results/capability-skips.2.txt"
+    run env CUSTOMER_DELIVERY_RUNNER_CLASS=ci-general \
+        "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
+    [ "$status" -eq 2 ] && [[ "$output" == *"capability skip count mismatch"* ]]
+}
+
 @test "customer-delivery aggregate rejects a missing result" {
     local results="$BATS_TEST_TMPDIR/results"
     seed_results linux "$results" || return 1

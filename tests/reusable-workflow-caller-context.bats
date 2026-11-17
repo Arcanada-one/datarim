@@ -98,3 +98,21 @@ reusable_workflows() {
         ! grep -F '.github/scripts/' "$SANDBOX/s$i.sh"
     done
 }
+
+@test "caller context: every reusable workflow exposes runner_labels with the same default" {
+    local f name runs_on default
+    while IFS= read -r f; do
+        name="$(basename "$f")"
+        runs_on="$(yq -r '.jobs[]."runs-on"' "$f" | head -n1)"
+        # shellcheck disable=SC2016
+        [ "$runs_on" = '${{ fromJSON(inputs.runner_labels) }}' ] || {
+            echo "$name runs-on is not fromJSON(inputs.runner_labels): $runs_on" >&2
+            return 1
+        }
+        default="$(yq -r '.on.workflow_call.inputs.runner_labels.default' "$f")"
+        [ "$default" = '["self-hosted","linux","ci-general"]' ] || {
+            echo "$name runner_labels default mismatch: $default" >&2
+            return 1
+        }
+    done < <(reusable_workflows)
+}

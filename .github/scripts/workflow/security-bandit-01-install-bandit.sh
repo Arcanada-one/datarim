@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail
-pipx install 'bandit==1.9.4'
+bash .github/scripts/workflow/install-python-pkg-venv.sh bandit-venv 'bandit==1.9.4'

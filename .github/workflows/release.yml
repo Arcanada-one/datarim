@@ -42,7 +42,7 @@ jobs:
   # agent's stamp. The release job selects its environment from this output.
   classify:
     name: classify-bump
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     permissions:
       contents: read
     outputs:
@@ -77,7 +77,7 @@ jobs:
   release:
     name: build-sign-attest-publish
     needs: [classify]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     # Conditional environment (TUNE-0351): a major bump routes to release-manual
     # (required reviewer); patch/minor flows through release-auto (no reviewer).
     #
