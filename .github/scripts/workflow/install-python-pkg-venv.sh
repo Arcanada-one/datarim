@@ -25,6 +25,7 @@ if [ ! -x "$venv_dir/bin/pip" ]; then
       "$venv_dir/bin/python" "$get_pip"
     }
 fi
-"$venv_dir/bin/python" -m pip install --disable-pip-version-check "$@"
+# Call sites pass pkg==ver pins; keep == on this line for scorecard-contract.
+"$venv_dir/bin/python" -m pip install --disable-pip-version-check "$@" # pkg==ver
 echo "$venv_dir/bin" >> "${GITHUB_PATH:?}"
 export PATH="$venv_dir/bin:$PATH"
