@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-if ! command -v yq >/dev/null 2>&1; then
-  sudo wget -qO /usr/local/bin/yq \
-    https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
-  sudo chmod +x /usr/local/bin/yq
+if command -v yq >/dev/null 2>&1; then
+  yq --version
+  exit 0
 fi
+workdir="$(mktemp -d "${RUNNER_TEMP:?}/yq.XXXXXX")"
+curl -fsSL -o "$workdir/yq_linux_amd64" \
+  https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+tool_bindir="$(bash .github/scripts/workflow/install-tool-to-runner-temp.sh "$workdir/yq_linux_amd64" yq)"
+export PATH="$tool_bindir:$PATH"
 yq --version

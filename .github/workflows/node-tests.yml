@@ -49,13 +49,28 @@ concurrency:
 jobs:
   node-test:
     name: node --test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          # Linux CI on the org self-hosted pool (same labels as bats.yml).
+          - os: linux
+            runner: [self-hosted, linux, X64, ci-general]
+          # EXCEPTION: no macOS self-hosted runner in the fleet; kept hosted.
+          - os: macos
+            runner: macos-latest
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false

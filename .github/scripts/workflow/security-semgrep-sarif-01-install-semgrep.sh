@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail
-pipx install 'semgrep==1.176.0'
+bash .github/scripts/workflow/install-python-pkg-venv.sh semgrep-venv 'semgrep==1.176.0'

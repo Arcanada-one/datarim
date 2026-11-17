@@ -2,6 +2,10 @@
 
 setup() {
     REPO_ROOT="${BATS_TEST_DIRNAME}/../.."
+    # Resolve via REPO_ROOT so mutation copies that rewrite REPO_ROOT to the
+    # real tree still find the helper (BATS_TEST_DIRNAME then points at a tempdir).
+    # shellcheck source=customer-delivery-capability-skip.bash
+    source "${REPO_ROOT}/dev-tools/tests/customer-delivery-capability-skip.bash"
     SCRIPT="${CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE:-${REPO_ROOT}/dev-tools/check-customer-delivery.sh}"
     VALIDATOR_PYTHON="${CUSTOMER_DELIVERY_PYTHON:-/usr/bin/python3}"
     PYTHON="${CUSTOMER_DELIVERY_TEST_PYTHON:-$VALIDATOR_PYTHON}"
@@ -367,6 +371,13 @@ SH
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
         || { printf 'wrapper_sigchld_pending_portability_smoke_failed status=%s output=%s\n' \
             "$status" "$output"; return 1; }
+    assert_wrapper_pinned_interpreter || return 1
+}
+
+# Fail-closed root-execution probe (matches main). Callers that lack
+# passwordless sudo must bats-skip via a dedicated @test; never return ok here.
+assert_wrapper_root_execution() {
+    build_test_framework wrapper-root-execution || return 1
     command -v sudo >/dev/null 2>&1 && sudo -n /usr/bin/true 2>/dev/null \
         || { printf 'wrapper_root_execution_unavailable\n'; return 1; }
     run sudo -n /usr/bin/env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
@@ -374,7 +385,6 @@ SH
     [ "$status" -eq 0 ] && [[ "$output" == usage:* ]] \
         || { printf 'wrapper_root_execution_failed status=%s output=%s\n' \
             "$status" "$output"; return 1; }
-    assert_wrapper_pinned_interpreter || return 1
 }
 
 assert_wrapper_pinned_interpreter() {
@@ -5730,4 +5740,13 @@ assert_signed_generic_matrix_rejection() {
 
 @test "signed generic locale wrapper rejects duplicate painted identities after a passing baseline" {
     assert_signed_generic_matrix_rejection duplicate
+}
+
+@test "wrapper root execution remains available under passwordless sudo" {
+    if ! customer_delivery_passwordless_sudo_available; then
+        customer_delivery_record_capability_skip \
+            wrapper_root_execution_probe passwordless_sudo_unavailable
+        skip "passwordless sudo unavailable for wrapper root execution probe"
+    fi
+    assert_wrapper_root_execution || return 1
 }

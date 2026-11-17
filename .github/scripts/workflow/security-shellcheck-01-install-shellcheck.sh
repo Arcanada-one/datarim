@@ -4,10 +4,11 @@ if command -v shellcheck >/dev/null 2>&1; then
   shellcheck --version
   exit 0
 fi
-# GitHub-hosted images occasionally ship transiently broken Microsoft
-# apt entries; shellcheck comes from Ubuntu, so disable those sources
-# inside this job instead of letting external repo drift block release.
-sudo find /etc/apt/sources.list.d -type f \
-  \( -name '*microsoft*' -o -name '*azure-cli*' \) -delete
-sudo apt-get update -qq
-sudo apt-get install -y --no-install-recommends shellcheck
+ver="v0.10.0"
+mkdir -p "${RUNNER_TEMP:?}/bin"
+curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/${ver}/shellcheck-${ver}.linux.x86_64.tar.xz" \
+  | tar -xJ -C "$RUNNER_TEMP/bin" "shellcheck-${ver}/shellcheck" --strip-components=1
+chmod +x "$RUNNER_TEMP/bin/shellcheck"
+echo "$RUNNER_TEMP/bin" >> "${GITHUB_PATH:?}"
+export PATH="$RUNNER_TEMP/bin:$PATH"
+shellcheck --version

@@ -5,10 +5,10 @@ name: security
 # Replaces the P1 stop-gap security-minimal.yml.
 #
 # Tools install pattern:
-#   - Trivial OS packages (shellcheck, bats) → apt-get on the runner image.
-#   - Python tooling (bandit, semgrep, zizmor) → pipx (PyPI integrity = TLS + index attestation).
+#   - Trivial OS packages (shellcheck, bats) → release/tarball or no-sudo prefix under $RUNNER_TEMP.
+#   - Python tooling (bandit, semgrep, zizmor) → job-local venv under $RUNNER_TEMP (no pipx/sudo).
 #   - Standalone binaries (gitleaks, trufflehog, actionlint, osv-scanner) → download release tarball,
-#     verify the matching SHA256 from the project's release checksums file, install to /usr/local/bin.
+#     verify the matching SHA256 from the project's release checksums file, install to $RUNNER_TEMP/bin.
 #   - Single third-party action — actions/checkout — pinned to commit SHA.
 #
 # This avoids managing pin-rot across 6+ third-party actions while keeping the
@@ -30,8 +30,17 @@ jobs:
   # 1. shellcheck on shell sources
   shellcheck:
     name: shellcheck
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -42,7 +51,7 @@ jobs:
   # 2. shellcheck on bash blocks extracted from markdown
   shellcheck-extracted:
     name: shellcheck-extracted
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     # Informational during the TUNE-0045 baseline window: many shipped skills
     # contain illustrative bash snippets with `<PLACEHOLDER>` syntax that fails
     # shellcheck. Promotion to required pending TUNE-0048 (tag illustrative
@@ -50,6 +59,15 @@ jobs:
     # See documentation/archive/security/triage-2026-04.md.
     continue-on-error: true
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -62,8 +80,17 @@ jobs:
   # 3. bandit on python sources
   bandit:
     name: bandit
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -79,11 +106,20 @@ jobs:
   # 4. bandit on python blocks extracted from markdown
   bandit-extracted:
     name: bandit-extracted
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     # Informational during the TUNE-0045 baseline window — same rationale as
     # shellcheck-extracted (illustrative blocks need explicit opt-out tagging).
     continue-on-error: true
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -99,13 +135,22 @@ jobs:
   # 5. Semgrep with repository-owned rules and SARIF upload
   semgrep-sarif:
     name: semgrep-sarif
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     permissions:
       contents: read
       security-events: write
     env:
       EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
@@ -127,13 +172,22 @@ jobs:
   # 6. CodeQL for the shipped Python implementation surface
   codeql-python:
     name: codeql-python
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     permissions:
       contents: read
       security-events: write
     env:
       EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
@@ -150,8 +204,17 @@ jobs:
   # 7. gitleaks — full git history secret scan (sha256-pinned binary)
   gitleaks:
     name: gitleaks
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -168,14 +231,23 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: gitleaks-sarif
-          path: /tmp/gitleaks.sarif
+          path: ${{ runner.temp }}/gitleaks.sarif
           if-no-files-found: ignore
 
   # 8. trufflehog — verified secrets only (binary verified via release checksums)
   trufflehog:
     name: trufflehog
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -190,8 +262,17 @@ jobs:
   # 9. actionlint — workflow-yaml lint (binary verified via release checksums)
   actionlint:
     name: actionlint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -208,8 +289,17 @@ jobs:
   # 10. zizmor — GitHub Actions security audit
   zizmor:
     name: zizmor
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -226,8 +316,17 @@ jobs:
   # 11. osv-scanner — dependency vulnerabilities (binary verified via release checksums)
   osv-scanner:
     name: osv-scanner
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -240,8 +339,17 @@ jobs:
   # 12. bats regression tests for fixed findings
   regression-bats:
     name: regression-bats
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -253,8 +361,17 @@ jobs:
   # 13. markdown-policy — anti-pattern grep over shipped docs (counter-example fence aware)
   markdown-policy:
     name: markdown-policy
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -263,8 +380,17 @@ jobs:
   # 14. doc-refs — markdown reference integrity linter (TUNE-0054)
   doc-refs:
     name: doc-refs
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -278,8 +404,17 @@ jobs:
   # 15. task-id-gate — history-agnostic policy on governed public surfaces
   task-id-gate:
     name: task-id-gate
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, ci-general]
     steps:
+      - name: Repair self-hosted workspace ownership
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+              -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+              ubuntu:24.04 \
+              chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" || true
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
