@@ -36,14 +36,14 @@ _payload() {
   [ "$ch" = "orchestrator-out:mysessionid01" ]
 }
 
-# Redis unavailable → exits 0 (graceful skip) or exits non-zero with clear ERR
+# Missing redis-cli → non-zero (hermetic: PATH has no redis-cli, regardless of host tools).
 @test "V-AC-9: publish_event without redis-cli exits gracefully" {
-  if (( REDIS_AVAILABLE )); then
-    skip "redis available — testing live path only"
-  fi
-  DR_ORCH_OUTBOUND_REDIS_URL="redis://127.0.0.1:16379" \
-    run bash "$REDIS_SCRIPT" publish_event "testsession01" "$(_payload)"
-  # Should exit non-zero with ERR message (redis unavailable)
+  local empty_bin bash_bin
+  empty_bin="$(mktemp -d "$TMP/no-redis-cli.XXXXXX")"
+  bash_bin="$(command -v bash)"
+  # Absolute bash so an empty PATH still runs the script; empty_bin has no redis-cli.
+  PATH="$empty_bin" \
+    run "$bash_bin" "$REDIS_SCRIPT" publish_event "testsession01" "$(_payload)"
   [ "$status" -ne 0 ]
 }
 
