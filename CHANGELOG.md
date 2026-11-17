@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [4.12.9] — 2026-11-17
+
 ### Fixed
 
 - Fork refuse on every reusable (`workflow_call`) workflow whose default `runner_labels` are self-hosted (`public-surface-lint`, `network-exposure-lint`, `reusable-security-audit`, `token-health-probe`): job-level `if` skips the job when the caller event is `pull_request` or `pull_request_target` and `pull_request.head.repo.full_name != github.repository`. Callers pinned to `@main` pick this up after merge; callers pinned to a release tag need a patch release.
