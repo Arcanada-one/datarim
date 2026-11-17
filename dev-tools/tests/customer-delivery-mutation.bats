@@ -3,7 +3,7 @@
 setup() {
     REPO_ROOT="${BATS_TEST_DIRNAME}/../.."
     # shellcheck source=customer-delivery-capability-skip.bash
-    source "${BATS_TEST_DIRNAME}/customer-delivery-capability-skip.bash"
+    source "${REPO_ROOT}/dev-tools/tests/customer-delivery-capability-skip.bash"
     SCRIPT="${REPO_ROOT}/dev-tools/check-customer-delivery.sh"
     FUNCTIONAL_TEST="${BATS_TEST_DIRNAME}/check-customer-delivery.bats"
     VALIDATOR_PYTHON="${CUSTOMER_DELIVERY_PYTHON:-/usr/bin/python3}"

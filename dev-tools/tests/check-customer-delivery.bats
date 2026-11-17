@@ -2,8 +2,10 @@
 
 setup() {
     REPO_ROOT="${BATS_TEST_DIRNAME}/../.."
+    # Resolve via REPO_ROOT so mutation copies that rewrite REPO_ROOT to the
+    # real tree still find the helper (BATS_TEST_DIRNAME then points at a tempdir).
     # shellcheck source=customer-delivery-capability-skip.bash
-    source "${BATS_TEST_DIRNAME}/customer-delivery-capability-skip.bash"
+    source "${REPO_ROOT}/dev-tools/tests/customer-delivery-capability-skip.bash"
     SCRIPT="${CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE:-${REPO_ROOT}/dev-tools/check-customer-delivery.sh}"
     VALIDATOR_PYTHON="${CUSTOMER_DELIVERY_PYTHON:-/usr/bin/python3}"
     PYTHON="${CUSTOMER_DELIVERY_TEST_PYTHON:-$VALIDATOR_PYTHON}"
