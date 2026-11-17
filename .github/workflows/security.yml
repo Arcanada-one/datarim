@@ -5,10 +5,10 @@ name: security
 # Replaces the P1 stop-gap security-minimal.yml.
 #
 # Tools install pattern:
-#   - Trivial OS packages (shellcheck, bats) → apt-get on the runner image.
-#   - Python tooling (bandit, semgrep, zizmor) → pipx (PyPI integrity = TLS + index attestation).
+#   - Trivial OS packages (shellcheck, bats) → release/tarball or no-sudo prefix under $RUNNER_TEMP.
+#   - Python tooling (bandit, semgrep, zizmor) → job-local venv under $RUNNER_TEMP (no pipx/sudo).
 #   - Standalone binaries (gitleaks, trufflehog, actionlint, osv-scanner) → download release tarball,
-#     verify the matching SHA256 from the project's release checksums file, install to /usr/local/bin.
+#     verify the matching SHA256 from the project's release checksums file, install to $RUNNER_TEMP/bin.
 #   - Single third-party action — actions/checkout — pinned to commit SHA.
 #
 # This avoids managing pin-rot across 6+ third-party actions while keeping the

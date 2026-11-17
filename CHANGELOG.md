@@ -13,6 +13,7 @@ Moves ordinary CI jobs off GitHub-hosted runners onto the organisation self-host
 - Every previously `ubuntu-latest` job in this repository's workflows now runs on `[self-hosted, linux, X64, ci-general]`.
 - `node-tests.yml` runs its Linux matrix leg on that pool; the macOS leg remains on `macos-latest` (documented exception).
 - `public-surface-lint.yml` and `token-health-probe.yml` now hard-code `[self-hosted, linux, X64, ci-general]` instead of `ubuntu-latest` (callers pick this up only after pinning this release).
+- CI install helpers no longer rely on passwordless `sudo`, host `pipx`, or writes under `/usr/local/bin`: bats/shellcheck/binaries and Python tools install into `$RUNNER_TEMP` (or a job-local venv) so jobs pass on the organisation self-hosted pool.
 
 ## [4.12.4] — 2026-11-15
 
