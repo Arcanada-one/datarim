@@ -36,12 +36,22 @@ on:
         type: string
         required: false
         default: 'main'
+      runner_labels:
+        description: 'JSON array string of runner labels to pin the job (workflow_call inputs cannot be arrays; consumed via fromJSON in runs-on)'
+        type: string
+        required: false
+        default: '["self-hosted","linux","ci-general"]'
   workflow_dispatch:
     inputs:
       paths:
         description: 'Paths to scan'
         type: string
         default: 'README.md CHANGELOG.md CONTRIBUTING.md docs packages'
+      runner_labels:
+        description: 'JSON array string of runner labels'
+        type: string
+        required: false
+        default: '["self-hosted","linux","ci-general"]'
 
 permissions:
   contents: read
@@ -49,7 +59,7 @@ permissions:
 jobs:
   lint:
     name: public-surface-lint
-    runs-on: [self-hosted, linux, X64, ci-general]
+    runs-on: ${{ fromJSON(inputs.runner_labels) }}
     steps:
       - name: Checkout target repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

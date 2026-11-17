@@ -6,9 +6,10 @@ mkdir -p "$DR_ORCH_STATE_DIR"
 # replaced it with the internal bash HTTP server. CI starts the
 # bash server on port 8090 so the OpenAPI base-URL contract
 # (http://127.0.0.1:8090) stays stable for Schemathesis.
-mkdir -p /tmp/dr-orch-ci
+ci_dir="${DR_ORCH_CI_DIR:?DR_ORCH_CI_DIR must name a per-job directory under RUNNER_TEMP}"
+mkdir -p "$ci_dir"
 nohup bash scripts/dr_orchestrate_server.sh \
-  >/tmp/dr-orch-ci/server.out 2>/tmp/dr-orch-ci/server.err &
+  >"$ci_dir/server.out" 2>"$ci_dir/server.err" &
 server_pid=$!
 # Wait up to 15s for the listener to come up.
 for i in $(seq 1 30); do
@@ -23,9 +24,9 @@ for i in $(seq 1 30); do
   if ! kill -0 "$server_pid" 2>/dev/null; then
     echo "server PID $server_pid exited before binding the port" >&2
     echo "--- stdout ---" >&2
-    cat /tmp/dr-orch-ci/server.out >&2 || true
+    cat "$ci_dir/server.out" >&2 || true
     echo "--- stderr ---" >&2
-    cat /tmp/dr-orch-ci/server.err >&2 || true
+    cat "$ci_dir/server.err" >&2 || true
     exit 1
   fi
   sleep 0.5

@@ -40,6 +40,11 @@ on:
         type: string
         required: false
         default: ''
+      runner_labels:
+        description: 'JSON array string of runner labels to pin the job (workflow_call inputs cannot be arrays; consumed via fromJSON in runs-on)'
+        type: string
+        required: false
+        default: '["self-hosted","linux","ci-general"]'
     secrets:
       token:
         description: 'The long-lived token to probe.'
@@ -53,6 +58,11 @@ on:
         description: 'Provider id (smoke only — no real publish triggered).'
         type: string
         default: 'npm'
+      runner_labels:
+        description: 'JSON array string of runner labels'
+        type: string
+        required: false
+        default: '["self-hosted","linux","ci-general"]'
 
 permissions:
   contents: read
@@ -60,7 +70,7 @@ permissions:
 jobs:
   probe:
     name: token-health-probe-${{ inputs.provider }}
-    runs-on: [self-hosted, linux, X64, ci-general]
+    runs-on: ${{ fromJSON(inputs.runner_labels) }}
     env:
       PROVIDER: ${{ inputs.provider }}
       REGISTRY_URL: ${{ inputs.registry_url }}

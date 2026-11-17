@@ -1,0 +1,14 @@
+{
+  "linux": {
+    "ci-general": 2,
+    "hosted-with-sudo": 0
+  },
+  "macos": {
+    "hosted-with-sudo": 0,
+    "ci-general": 2
+  },
+  "names_on_ci_general": [
+    "wrapper_root_execution_probe",
+    "root_writable_mutant"
+  ]
+}

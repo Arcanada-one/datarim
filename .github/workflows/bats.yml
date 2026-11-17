@@ -200,13 +200,17 @@ jobs:
         timeout-minutes: 12
         env:
           GROUP_MEMBERS: ${{ toJSON(matrix.members) }}
+          CUSTOMER_DELIVERY_JOB_INDEX: ${{ strategy.job-index }}
+          CUSTOMER_DELIVERY_RUNNER_CLASS: ci-general
         run: bash .github/scripts/workflow/bats-customer-delivery-linux-03-run-bounded-exact-shard.sh
       - name: Upload exact shard result
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: customer-delivery-linux-${{ strategy.job-index }}
-          path: ${{ runner.temp }}/customer-delivery-result/*.json
+          path: |
+            ${{ runner.temp }}/customer-delivery-result/*.json
+            ${{ runner.temp }}/customer-delivery-result/capability-skips*.txt
           if-no-files-found: error
           retention-days: 1
 
@@ -308,13 +312,17 @@ jobs:
         env:
           DEVELOPER_DIR: /Library/Developer/CommandLineTools
           GROUP_MEMBERS: ${{ toJSON(matrix.members) }}
+          CUSTOMER_DELIVERY_JOB_INDEX: ${{ strategy.job-index }}
+          CUSTOMER_DELIVERY_RUNNER_CLASS: hosted-with-sudo
         run: bash .github/scripts/workflow/bats-customer-delivery-macos-03-run-bounded-exact-shard.sh
       - name: Upload exact shard result
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: customer-delivery-macos-${{ strategy.job-index }}
-          path: ${{ runner.temp }}/customer-delivery-result/*.json
+          path: |
+            ${{ runner.temp }}/customer-delivery-result/*.json
+            ${{ runner.temp }}/customer-delivery-result/capability-skips*.txt
           if-no-files-found: error
           retention-days: 1
 

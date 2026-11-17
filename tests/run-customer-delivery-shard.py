@@ -649,6 +649,65 @@ def run_logical_shard(
         return 2
 
 
+CAPABILITY_SKIP_PREFIX = "customer-delivery-capability-skip "
+CAPABILITY_SKIP_EXPECTATIONS = ROOT / "tests/customer-delivery-capability-skip-expectations.json"
+
+
+def load_capability_skip_expectation(platform: str, runner_class: str) -> int:
+    try:
+        payload = json.loads(CAPABILITY_SKIP_EXPECTATIONS.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ContractError("capability skip expectations unreadable") from error
+    if not isinstance(payload, dict):
+        raise ContractError("capability skip expectations malformed")
+    platform_map = payload.get(platform)
+    if not isinstance(platform_map, dict) or runner_class not in platform_map:
+        raise ContractError(
+            f"capability skip expectation missing for {platform}/{runner_class}"
+        )
+    expected = platform_map[runner_class]
+    if not isinstance(expected, int) or isinstance(expected, bool) or expected < 0:
+        raise ContractError(
+            f"capability skip expectation invalid for {platform}/{runner_class}"
+        )
+    return expected
+
+
+def collect_capability_skips(directory: Path) -> list[str]:
+    lines: list[str] = []
+    for path in sorted(directory.rglob("capability-skips*.txt")):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            raise ContractError(f"capability skip log unreadable: {path.name}") from error
+        for raw in text.splitlines():
+            line = raw.strip()
+            if not line:
+                continue
+            if not line.startswith(CAPABILITY_SKIP_PREFIX):
+                raise ContractError(f"capability skip log malformed: {path.name}")
+            lines.append(line)
+    return lines
+
+
+def check_capability_skips(platform: str, directory: Path, runner_class: str) -> int:
+    expected = load_capability_skip_expectation(platform, runner_class)
+    observed_lines = collect_capability_skips(directory)
+    observed = len(observed_lines)
+    summary = (
+        f"customer_delivery_capability_skips platform={platform} "
+        f"runner_class={runner_class} expected={expected} observed={observed}"
+    )
+    print(summary)
+    for line in observed_lines:
+        print(line)
+    if observed != expected:
+        raise ContractError(
+            f"capability skip count mismatch: expected {expected}, observed {observed}"
+        )
+    return 0
+
+
 def check_results(rows: list[Row], platform: str, directory: Path) -> int:
     expected = Counter((item["suite"], item["shard"]) for item in matrix_for(rows, platform))
     if not directory.is_dir():
@@ -697,6 +756,8 @@ def check_results(rows: list[Row], platform: str, directory: Path) -> int:
         f"customer_delivery_results=complete platform={platform} count={sum(observed.values())} "
         f"passed={sum(observed.values()) - failed - timed_out} failed={failed} timed_out={timed_out}"
     )
+    runner_class = os.environ.get("CUSTOMER_DELIVERY_RUNNER_CLASS", "ci-general")
+    check_capability_skips(platform, directory, runner_class)
     return 1 if failed or timed_out else 0
 
 

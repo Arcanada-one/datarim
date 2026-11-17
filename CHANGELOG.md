@@ -6,14 +6,16 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [4.12.5] — 2026-11-17
 
-Moves ordinary CI jobs off GitHub-hosted runners onto the organisation self-hosted pool (`self-hosted`, `linux`, `X64`, `ci-general`), matching the labels already used by `bats.yml`. Reusable workflows that still hard-coded `ubuntu-latest` (`public-surface-lint.yml`, `token-health-probe.yml`) now use the same labels, so callers pick up the change only after they pin this release. macOS jobs stay on `macos-latest` because the fleet has no macOS runner.
+Moves ordinary CI jobs off GitHub-hosted runners onto the organisation self-hosted pool (`self-hosted`, `linux`, `X64`, `ci-general`), matching the labels already used by `bats.yml`. Reusable workflows that still hard-coded `ubuntu-latest` now take a `runner_labels` input (default `["self-hosted","linux","ci-general"]`), so callers pick up the change only after they pin this release. macOS jobs stay on `macos-latest` because the fleet has no macOS runner.
 
 ### Changed
 
 - Every previously `ubuntu-latest` job in this repository's workflows now runs on `[self-hosted, linux, X64, ci-general]`.
 - `node-tests.yml` runs its Linux matrix leg on that pool; the macOS leg remains on `macos-latest` (documented exception).
-- `public-surface-lint.yml` and `token-health-probe.yml` now hard-code `[self-hosted, linux, X64, ci-general]` instead of `ubuntu-latest` (callers pick this up only after pinning this release).
+- `public-surface-lint.yml` and `token-health-probe.yml` accept the same `runner_labels` input and default as `network-exposure-lint.yml` / `reusable-security-audit.yml` (callers pick this up only after pinning this release).
 - CI install helpers no longer rely on passwordless `sudo`, host `pipx`, or writes under `/usr/local/bin`: bats/shellcheck/binaries and Python tools install into `$RUNNER_TEMP` (or a job-local venv) so jobs pass on the organisation self-hosted pool.
+- Workflow-executed install/scan helpers no longer use fixed names under `/tmp` (gitleaks, actionlint, trufflehog, osv-scanner, yq, cosign, syft, dr-orchestrate CI state); they use `$RUNNER_TEMP` or `mktemp` directories, including the gitleaks SARIF upload path.
+- Customer-delivery root-execution coverage is visible on the general pool: the root probe is a dedicated bats test that `skip`s when passwordless sudo is absent, the `root_writable` mutant reports `NOT_RUN`, each skip is written to `$GITHUB_STEP_SUMMARY` and a per-job skip log, and the aggregate inventory fails when the skip count differs from the declared expectation (`ci-general`: 2; `hosted-with-sudo`: 0). Where sudo is available the probe stays fail-closed as on main.
 
 ## [4.12.4] — 2026-11-15
 

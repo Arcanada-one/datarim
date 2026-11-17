@@ -231,7 +231,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: gitleaks-sarif
-          path: /tmp/gitleaks.sarif
+          path: ${{ runner.temp }}/gitleaks.sarif
           if-no-files-found: ignore
 
   # 8. trufflehog — verified secrets only (binary verified via release checksums)

@@ -2,6 +2,8 @@
 
 setup() {
     REPO_ROOT="${BATS_TEST_DIRNAME}/../.."
+    # shellcheck source=customer-delivery-capability-skip.bash
+    source "${BATS_TEST_DIRNAME}/customer-delivery-capability-skip.bash"
     SCRIPT="${REPO_ROOT}/dev-tools/check-customer-delivery.sh"
     FUNCTIONAL_TEST="${BATS_TEST_DIRNAME}/check-customer-delivery.bats"
     VALIDATOR_PYTHON="${CUSTOMER_DELIVERY_PYTHON:-/usr/bin/python3}"
@@ -1563,14 +1565,18 @@ run_wrapper_sigchld_mutants() {
                 expected_fragment='wrapper_sigchld_not_normalized'
                 ;;
             root_writable)
-                # Requires passwordless sudo (real euid 0). Self-hosted CI images
-                # often lack it; skip this mutant there rather than fail closed.
-                if ! command -v sudo >/dev/null 2>&1 || ! sudo -n /usr/bin/true 2>/dev/null; then
+                # Requires passwordless sudo (real euid 0). Without it the mutant
+                # is NOT_RUN (visible), never silently dropped.
+                if ! customer_delivery_passwordless_sudo_available; then
+                    printf 'NOT_RUN root_writable passwordless_sudo_unavailable\n'
+                    customer_delivery_record_capability_skip \
+                        root_writable_mutant passwordless_sudo_unavailable
                     continue
                 fi
                 guard=$'[[ -f "$bootstrap_python" && -x "$bootstrap_python" \\\n    && ! -d "$bootstrap_python" ]] || exit 126'
                 mutant=$'[[ -f "$bootstrap_python" && -x "$bootstrap_python" \\\n    && ! -d "$bootstrap_python" && ! -w "$bootstrap_python" ]] || exit 126  # MUTATED:root_relative_writability'
                 expected_fragment='wrapper_root_execution_failed'
+                filter='wrapper root execution remains available under passwordless sudo'
                 ;;
             *) return 1 ;;
         esac
@@ -1755,11 +1761,23 @@ PY
             fi
         else
             chmod +x "$validator_mutant"
-            run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-                CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
-                CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
-                CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY="$wrapper_mode" \
-                bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+            if [[ "$kind" == root_writable ]]; then
+                # Dedicated root probe test (fail-closed); not WRAPPER_SIGCHLD_ONLY.
+                run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+                    CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+                    bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+                assert_baseline_green "$filter" || return 1
+                run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+                    CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+                    CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
+                    bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+            else
+                run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+                    CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+                    CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
+                    CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY="$wrapper_mode" \
+                    bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+            fi
             [ "$status" -ne 0 ] \
                 && [[ "$output" == *"${expected_fragment}"* ]] \
                 && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
