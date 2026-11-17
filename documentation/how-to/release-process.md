@@ -255,7 +255,9 @@ checked-out `main` SHA, then:
 3. Checks out the exact peeled tag SHA (no persisted credentials).
 4. Installs `cosign` and `syft` from upstream releases (SHA-pinned).
 5. Builds a deterministic source tarball with `git archive HEAD`.
-6. Computes a CycloneDX SBOM with `syft scan dir:.`.
+6. Computes a CycloneDX SBOM by extracting the release tarball into a fresh
+   `$RUNNER_TEMP` directory and running `syft scan` on that directory (never
+   the runner workspace).
 7. Signs the tarball and the SBOM with `cosign sign-blob`
    (keyless OIDC).
 8. Re-verifies the protected inventory revision and scans all eleven produced
