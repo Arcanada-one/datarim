@@ -140,24 +140,33 @@ jobs:
   customer-delivery-linux:
     name: customer delivery group ${{ matrix.group }} (Linux)
     needs: registry
-    runs-on: [self-hosted, linux, X64, ci-general]
+    # docker label: job runs in an ubuntu container so passwordless sudo exists
+    # for assert_wrapper_sigchld_normalization (host ci-general images have none).
+    runs-on: [self-hosted, linux, X64, ci-general, docker]
+    container:
+      image: ubuntu:24.04
     strategy:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.registry.outputs.linux_matrix) }}
     steps:
+      - name: Install git for checkout inside the container
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq ca-certificates curl git
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      - name: Bootstrap container packages and passwordless sudo
+        run: bash .github/scripts/workflow/bats-customer-delivery-linux-00-bootstrap-container-packages.sh
+
       - name: Assert exact triggering head
         run: bash .github/scripts/workflow/bats-customer-delivery-linux-01-assert-exact-triggering-head.sh
-
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: '3.12'
 
       - name: Create trusted absolute Python environment
         run: bash .github/scripts/workflow/bats-customer-delivery-linux-02-create-trusted-absolute-python-environment.sh
