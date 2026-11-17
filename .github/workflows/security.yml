@@ -30,6 +30,7 @@ jobs:
   # 1. shellcheck on shell sources
   shellcheck:
     name: shellcheck
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - name: Repair self-hosted workspace ownership
@@ -51,6 +52,7 @@ jobs:
   # 2. shellcheck on bash blocks extracted from markdown
   shellcheck-extracted:
     name: shellcheck-extracted
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     # Informational during the TUNE-0045 baseline window: many shipped skills
     # contain illustrative bash snippets with `<PLACEHOLDER>` syntax that fails
@@ -80,6 +82,7 @@ jobs:
   # 3. bandit on python sources
   bandit:
     name: bandit
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - name: Repair self-hosted workspace ownership
@@ -106,6 +109,7 @@ jobs:
   # 4. bandit on python blocks extracted from markdown
   bandit-extracted:
     name: bandit-extracted
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     # Informational during the TUNE-0045 baseline window — same rationale as
     # shellcheck-extracted (illustrative blocks need explicit opt-out tagging).
@@ -135,6 +139,7 @@ jobs:
   # 5. Semgrep with repository-owned rules and SARIF upload
   semgrep-sarif:
     name: semgrep-sarif
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     permissions:
       contents: read
@@ -172,6 +177,7 @@ jobs:
   # 6. CodeQL for the shipped Python implementation surface
   codeql-python:
     name: codeql-python
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     permissions:
       contents: read
@@ -204,6 +210,7 @@ jobs:
   # 7. gitleaks — full git history secret scan (sha256-pinned binary)
   gitleaks:
     name: gitleaks
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - name: Repair self-hosted workspace ownership
@@ -237,6 +244,7 @@ jobs:
   # 8. trufflehog — verified secrets only (binary verified via release checksums)
   trufflehog:
     name: trufflehog
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - name: Repair self-hosted workspace ownership
@@ -262,6 +270,7 @@ jobs:
   # 9. actionlint — workflow-yaml lint (binary verified via release checksums)
   actionlint:
     name: actionlint
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - name: Repair self-hosted workspace ownership
@@ -289,6 +298,7 @@ jobs:
   # 10. zizmor — GitHub Actions security audit
   zizmor:
     name: zizmor
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - name: Repair self-hosted workspace ownership
@@ -316,6 +326,7 @@ jobs:
   # 11. osv-scanner — dependency vulnerabilities (binary verified via release checksums)
   osv-scanner:
     name: osv-scanner
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - name: Repair self-hosted workspace ownership
@@ -339,6 +350,7 @@ jobs:
   # 12. bats regression tests for fixed findings
   regression-bats:
     name: regression-bats
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - name: Repair self-hosted workspace ownership
@@ -361,6 +373,7 @@ jobs:
   # 13. markdown-policy — anti-pattern grep over shipped docs (counter-example fence aware)
   markdown-policy:
     name: markdown-policy
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - name: Repair self-hosted workspace ownership
@@ -380,6 +393,7 @@ jobs:
   # 14. doc-refs — markdown reference integrity linter (TUNE-0054)
   doc-refs:
     name: doc-refs
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - name: Repair self-hosted workspace ownership
@@ -404,6 +418,7 @@ jobs:
   # 15. task-id-gate — history-agnostic policy on governed public surfaces
   task-id-gate:
     name: task-id-gate
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - name: Repair self-hosted workspace ownership

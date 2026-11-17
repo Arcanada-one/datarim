@@ -32,6 +32,7 @@ concurrency:
 jobs:
   bats-self-tests:
     name: bats self-tests (blocking)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -73,6 +74,7 @@ jobs:
 
   linter-run:
     name: doc-fanout-lint (errors blocking, cross-root advisory)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     # NOTE: this job previously carried BOTH `continue-on-error: true` AND a
     # trailing `|| echo "::warning::"`. Either alone neutralises the gate; both
@@ -109,6 +111,7 @@ jobs:
 
   dr-auto-reassert-wiring:
     name: dr-auto reassert-wiring lint (blocking)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     # The lint's own header promises that "a deterministic CI lint FAILS
     # (exit 1) the moment that call decays back to advisory prose only". That
     # promise only holds when the lint runs in a job with no continue-on-error
@@ -141,6 +144,7 @@ jobs:
 
   dr-auto-cross-runtime:
     name: dr-auto cross-runtime smoke (blocking)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     # Exercises the /dr-auto activation PRIMITIVES rather than the command prose:
     # marker write+resolve round-trip, `subagent-active` with DATARIM_AUTO_MODE
     # unset, and a non-empty hard_gated_actions list. Those three properties are

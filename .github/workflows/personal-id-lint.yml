@@ -34,6 +34,7 @@ concurrency:
 jobs:
   personal-id-lint:
     name: personal-id-lint
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, X64, ci-general]
     steps:
       - name: Checkout
