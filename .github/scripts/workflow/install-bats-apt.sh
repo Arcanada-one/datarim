@@ -84,7 +84,7 @@ ensure_file_strings
 echo "$prefix/bin" >> "${GITHUB_PATH:?}"
 # Expose extracted libs to file(1) when we provisioned them.
 if [ -d "$prefix/lib" ]; then
-  echo "LD_LIBRARY_PATH=$prefix/lib\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}" >> "${GITHUB_ENV:?}"
+  printf "LD_LIBRARY_PATH=%s%s\n" "$prefix/lib" "${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "${GITHUB_ENV:?}"
 fi
 export PATH="$prefix/bin:$PATH"
 command -v bats
