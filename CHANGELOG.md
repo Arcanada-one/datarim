@@ -4,6 +4,16 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- CI no longer targets GitHub-hosted runners. `node-tests.yml` drops the
+  `macos-latest` matrix leg; `bats.yml` removes the opt-in `run_hosted_macos`
+  input and the `macos-portability` / `customer-delivery-macos` jobs, and the
+  customer-delivery aggregate verifies the Linux inventory only. macOS/BSD
+  portability and macOS customer-delivery coverage are **NOT_MEASURED** (no macOS
+  self-hosted runner in the fleet). `tests/workflow-self-hosted-runners.bats`
+  fails if any workflow `runs-on` lacks `self-hosted`.
+
 ## [4.12.9] — 2026-11-17
 
 ### Fixed

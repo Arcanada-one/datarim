@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# Keep this list in step with the constructs named above. A suite that
-# covers newly-added portability-sensitive code belongs here too.
+# Inventory of portability-sensitive suites (GNU vs BSD constructs).
+# CI does not invoke this script: macOS/BSD coverage is NOT_MEASURED (no
+# GitHub-hosted runners; no macOS self-hosted runner in the fleet). Keep the
+# list current so source review still knows which suites need a BSD userland.
 bats \
   tests/stage-snapshot-size-cap.bats \
   tests/stage-snapshot-e2e.bats \
