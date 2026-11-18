@@ -142,11 +142,10 @@ workflow_run_block_has_suite() {
     local suite="$2"
     local helper="${3:-${REPO_ROOT}/.github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh}"
 
-    # Static helper extraction moved the bats suite list out of bats.yml; the
-    # workflow must still invoke the helper, and the helper must list the suite.
-    # Callers may pass a mutant helper path as $3 for anti-decay fixtures.
-    grep -q 'bash .github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh' "$workflow" \
-        || return 1
+    # Portability-sensitive suite inventory lives in the helper. CI no longer
+    # invokes it (macOS/BSD coverage NOT_MEASURED); callers may pass a mutant
+    # helper path as $3 for anti-decay fixtures. workflow arg kept for callers.
+    : "${workflow:?workflow path required}"
     [ -f "$helper" ] || return 1
 
     awk -v suite="$suite" '
@@ -1628,11 +1627,12 @@ EOF
     [ "$(find "$fixture_dir" -type f | wc -l | tr -d '[:space:]')" -eq 1 ]
 }
 
-@test "focused customer binding tests are BSD-portable and run in macOS CI" {
+@test "focused customer binding tests are BSD-portable and stay in the portability inventory" {
     local focused_suite="${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats"
     local workflow="${REPO_ROOT}/.github/workflows/bats.yml"
 
     assert_no_direct_in_place_sed "$focused_suite" || return 1
+    ! grep -qE 'runs-on:[[:space:]]*macos-latest' "$workflow" || return 1
     workflow_run_block_has_suite \
         "$workflow" \
         'tests/customer-requirement-expectations-binding.bats'
@@ -1799,7 +1799,7 @@ EOF
         && [[ "$output" == *"not ok 1 portable sed helper preserves bytes mode and sibling cleanliness"* ]]
 }
 
-@test "portability anti-decay rejects in-place option variants and commented macOS wiring" {
+@test "portability anti-decay rejects in-place option variants and commented inventory wiring" {
     local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-mutant.bats"
     local mutant_workflow="${BATS_TEST_TMPDIR}/bats-mutant.yml"
     local mutant_helper="${BATS_TEST_TMPDIR}/bats-macos-portability-03-mutant.sh"
@@ -1815,11 +1815,13 @@ EOF
     cp "${REPO_ROOT}/.github/workflows/bats.yml" "$mutant_workflow"
     cp "${REPO_ROOT}/.github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh" \
         "$mutant_helper"
-    # Suite list lives in the static helper; comment it there and keep heredoc
-    # decoys in the workflow so decoys cannot revive active wiring.
+    # Suite list lives in the static inventory helper; comment it there.
+    # Heredoc decoys in the workflow must not satisfy the inventory check.
     portable_sed_in_place '/^[[:space:]]*tests\/customer-requirement-expectations-binding\.bats/c\
   # tests/customer-requirement-expectations-binding.bats' "$mutant_helper"
-    portable_sed_in_place '/^      - name: Run CI dependency and portability contracts/i\
+    portable_sed_in_place '/^  customer-delivery-aggregate:/i\
+      - name: Portability decoy\
+        run: |\
           cat <<'\''PORTABILITY_DECOY'\''\
           bats \\\
             tests/customer-requirement-expectations-binding.bats\
