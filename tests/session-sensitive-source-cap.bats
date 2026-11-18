@@ -113,11 +113,13 @@ write_fixture() {
     && [ ! -d "$FIXTURE_ROOT/datarim/sessions/.lock.$SESSION_ID" ]
 }
 
-@test "session capacity regression suite runs in the macOS portability job" {
+@test "session capacity regression suite stays in the portability-sensitive inventory" {
   local workflow="$FRAMEWORK_ROOT/.github/workflows/bats.yml"
   local helper="$FRAMEWORK_ROOT/.github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh"
   local suites
-  grep -q 'bash .github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh' "$workflow"
+  # macOS CI job removed: coverage is NOT_MEASURED. Inventory must still list this suite.
+  ! grep -qE 'runs-on:[[:space:]]*macos-latest' "$workflow"
+  ! grep -q 'bash .github/scripts/workflow/bats-macos-portability-03-run-portability-sensitive-suites.sh' "$workflow"
   suites="$(cat "$helper")"
   [[ "$suites" == *'tests/session-sensitive-source-cap.bats'* ]]
 }
