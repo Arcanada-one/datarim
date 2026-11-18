@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # workspace#1063: reusable workflows that take datarim_ref must refuse when the
-# executed checkout SHA differs from the called workflow SHA (github.workflow_sha).
+# executed checkout SHA differs from the called workflow SHA (job.workflow_sha).
 #
 # The step body is extracted from the workflow YAML and run under env only — no
 # moving git refs, no network.
@@ -54,7 +54,7 @@ extract_validate_step() {
     [[ "$output" == *"uses_and_ref_disagree"* ]]
 }
 
-@test "every datarim_ref reusable workflow wires WORKFLOW_SHA from github.workflow_sha" {
+@test "every datarim_ref reusable workflow wires WORKFLOW_SHA from job.workflow_sha" {
     local f
     for f in \
         "$WF_DIR/network-exposure-lint.yml" \
@@ -62,10 +62,16 @@ extract_validate_step() {
         "$WF_DIR/reusable-security-audit.yml"
     do
         # shellcheck disable=SC2016
-        grep -F 'WORKFLOW_SHA: ${{ github.workflow_sha }}' "$f" >/dev/null || {
+        grep -F 'WORKFLOW_SHA: ${{ job.workflow_sha }}' "$f" >/dev/null || {
             echo "missing WORKFLOW_SHA wiring in $(basename "$f")" >&2
             return 1
         }
+        # Must not bind the caller-side github.workflow_sha (rev-core blocking).
+        # shellcheck disable=SC2016
+        if grep -F 'WORKFLOW_SHA: ${{ github.workflow_sha }}' "$f" >/dev/null; then
+            echo "wrong context github.workflow_sha in $(basename "$f")" >&2
+            return 1
+        fi
         grep -F 'Validate immutable Datarim ref' "$f" >/dev/null || {
             echo "missing validate step in $(basename "$f")" >&2
             return 1

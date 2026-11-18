@@ -66,7 +66,7 @@ jobs:
       - name: Validate immutable Datarim ref
         env:
           DATARIM_REF: ${{ inputs.datarim_ref }}
-          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
         run: |
           set -euo pipefail
           [[ "$DATARIM_REF" =~ ^[0-9a-f]{40}$ ]] || {
@@ -74,7 +74,7 @@ jobs:
             exit 1
           }
           [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]] || {
-            echo "github.workflow_sha missing or not 40-hex (called workflow pin)" >&2
+            echo "job.workflow_sha missing or not 40-hex (called workflow pin)" >&2
             exit 1
           }
           if [ "$DATARIM_REF" != "$WORKFLOW_SHA" ]; then

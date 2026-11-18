@@ -79,11 +79,11 @@ jobs:
       - name: Validate immutable Datarim ref
         env:
           DATARIM_REF: ${{ inputs.datarim_ref }}
-          # github.workflow_sha is the commit of THIS reusable workflow file
+          # job.workflow_sha is the commit of THIS reusable workflow file
           # (the caller's uses: …@<sha>). It must equal datarim_ref so the
           # shell and the checked-out linter code are the same commit
           # (arcanada-workspace#1063).
-          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
         run: |
           set -euo pipefail
           [[ "$DATARIM_REF" =~ ^[0-9a-f]{40}$ ]] || {
@@ -91,7 +91,7 @@ jobs:
             exit 1
           }
           [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]] || {
-            echo "github.workflow_sha missing or not 40-hex (called workflow pin)" >&2
+            echo "job.workflow_sha missing or not 40-hex (called workflow pin)" >&2
             exit 1
           }
           if [ "$DATARIM_REF" != "$WORKFLOW_SHA" ]; then
