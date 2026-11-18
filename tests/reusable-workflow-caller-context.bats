@@ -74,15 +74,19 @@ reusable_workflows() {
     mkdir "$SANDBOX/caller"
     [ ! -e "$SANDBOX/caller/.github/scripts" ]
 
-    run env -C "$SANDBOX/caller" DATARIM_REF="$GOOD_REF" bash "$step"
+    run env -C "$SANDBOX/caller" DATARIM_REF="$GOOD_REF" WORKFLOW_SHA="$GOOD_REF" bash "$step"
     [ "$status" -eq 0 ]
 
-    run env -C "$SANDBOX/caller" DATARIM_REF="main" bash "$step"
+    run env -C "$SANDBOX/caller" DATARIM_REF="main" WORKFLOW_SHA="$GOOD_REF" bash "$step"
     [ "$status" -eq 1 ]
     [[ "$output" == *"40-hex"* ]]
 
-    run env -C "$SANDBOX/caller" DATARIM_REF="${GOOD_REF^^}" bash "$step"
+    run env -C "$SANDBOX/caller" DATARIM_REF="${GOOD_REF^^}" WORKFLOW_SHA="$GOOD_REF" bash "$step"
     [ "$status" -eq 1 ]
+
+    run env -C "$SANDBOX/caller" DATARIM_REF="$GOOD_REF" WORKFLOW_SHA="abcdef0123456789abcdef0123456789abcdef01" bash "$step"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"uses_and_ref_disagree"* ]]
 }
 
 @test "caller context: every network-exposure run step executes without a helper from this repository" {
