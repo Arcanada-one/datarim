@@ -63,6 +63,25 @@ jobs:
     if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ${{ fromJSON(inputs.runner_labels) }}
     steps:
+      - name: Validate immutable Datarim ref
+        env:
+          DATARIM_REF: ${{ inputs.datarim_ref }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$DATARIM_REF" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "datarim_ref must be an exact lowercase 40-hex commit (not a moving ref such as main)" >&2
+            exit 1
+          }
+          [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "job.workflow_sha missing or not 40-hex (called workflow pin)" >&2
+            exit 1
+          }
+          if [ "$DATARIM_REF" != "$WORKFLOW_SHA" ]; then
+            echo "uses_and_ref_disagree: datarim_ref=$DATARIM_REF workflow_sha=$WORKFLOW_SHA (pin uses:@ and datarim_ref to the same 40-hex)" >&2
+            exit 1
+          fi
+
       - name: Checkout target repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

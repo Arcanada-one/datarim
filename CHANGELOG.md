@@ -6,6 +6,7 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Fixed
 
+- Reusable workflows that take `datarim_ref` (`network-exposure-lint`, `public-surface-lint`, `reusable-security-audit`): first validate step now fails when `datarim_ref` differs from `job.workflow_sha` (the called reusable workflow pin / caller's `uses: …@<sha>`), so Dependabot cannot move the shell alone while the executed linter stays on an older commit (arcanada-workspace#1063). Pinned actionlint 1.7.7 does not model `job.workflow_sha`; the security actionlint runner ignores that false-positive expression diagnostic.
 - CI no longer targets GitHub-hosted runners. `node-tests.yml` drops the
   `macos-latest` matrix leg; `bats.yml` removes the opt-in `run_hosted_macos`
   input and the `macos-portability` / `customer-delivery-macos` jobs, and the
