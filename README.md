@@ -20,6 +20,12 @@
 
 Datarim coordinates AI agents, takes tasks through their required stages autonomously, offers a fast lane for small tasks, and uses JEV classification to advise the model and reasoning effort. It works with Claude Code, Codex, Cursor, Antigravity and MiniMax.
 
+## We are looking for sponsors
+
+We are looking for sponsors to help maintain Datarim, improve its documentation and tutorials, and publish practical, reproducible examples for the open-source community.
+
+Interested in sponsoring Datarim? Contact [sponsor@arcanada.ai](mailto:sponsor@arcanada.ai).
+
 | Main capability | What it does for you | Start here |
 |-----------------|----------------------|------------|
 | **Agent orchestration** | Coordinates stage specialists, checkpoints and feedback instead of requiring you to run each step. The optional transport plugin also drives terminal sessions and keeps an audit trail. | [`/dr-orchestrate`](commands/dr-orchestrate.md) and [orchestration setup](plugins/dr-orchestrate/README.md) |
