@@ -26,6 +26,8 @@ Explicit `--replies`/`--artifacts` values take precedence over delegated
 project, user, shared project, English. Artifact preference order is private
 project, shared project or legacy `Artifact language: <tag>` in project `AGENTS.md`,
 user, English. Conflicting project YAML and legacy directives are an error.
+Legacy directive discovery streams project `AGENTS.md` with a separate 1 MiB
+limit; the 64 KiB limit applies to actual preference configuration files.
 Malformed configuration does not silently become a successful English default.
 
 Carry the resolved pair to delegated agents. Native personal language requests
