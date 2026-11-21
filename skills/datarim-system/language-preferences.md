@@ -19,6 +19,8 @@ delegated `DATARIM_ARTIFACT_LANG`, private project config, shared project config
 or legacy `Artifact language: <lang>` directive, personal config, then `en`.
 Personal config is `$XDG_CONFIG_HOME/datarim/config.yaml`, falling back to
 `~/.config/datarim/config.yaml`. All use `language.replies` / `language.artifacts`.
+Legacy directive discovery streams project `AGENTS.md` with a separate 1 MiB
+limit. The 64 KiB limit applies only to actual preference configuration files.
 Explicit project YAML conflicting with a legacy directive is a resolution error:
 resolve the conflict in its authorized scope before dependent generation.
 
