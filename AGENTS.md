@@ -685,3 +685,8 @@ Schema: `| Prefix | Project | Archive Subdir |`. Archive Subdir MUST match `^[a-
 > the universal list for project-specific routing, and confirm with
 > `datarim-doctor.sh --probe-prefix=<P>` that the answer names a subdir that
 > exists on disk.
+
+## Post-merge cleanup
+After a merge to `main` and its deploy, delete the merged branch, local worktrees and clones, build outputs, and unused CI artifacts.
+Never delete unmerged work; finish it into `main`.
+See [the ecosystem mandate](https://github.com/Arcanada-one/arcanada-workspace/blob/main/documentation/mandates/post-merge-cleanup-mandate.md).
