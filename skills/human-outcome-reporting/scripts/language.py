@@ -15,6 +15,7 @@ import stat
 import sys
 
 MAX_CONFIG_BYTES = 65536
+MAX_LEGACY_AGENTS_BYTES = 1024 * 1024
 FIELDS = ('replies', 'artifacts')
 TAG_RE = re.compile(r'(?:[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*|[ixIX](?:-[A-Za-z0-9]{1,8})+)\Z')
 RTL_LANGUAGES = {'ar', 'arc', 'ckb', 'dv', 'fa', 'he', 'ku', 'ps', 'sd', 'ug', 'ur', 'yi'}
@@ -180,19 +181,38 @@ def user_config_path(environ=None):
 
 
 def _legacy_artifact(project):
-    text = _read(project / 'AGENTS.md')
-    if text is None:
+    path = project / 'AGENTS.md'
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+    except FileNotFoundError:
         return None
-    values = []
-    for line in text.splitlines():
-        match = re.fullmatch(r'\s*Artifact language:\s*([^#]+?)(?:\s*#.*)?', line)
-        if match:
-            value = match[1].strip()
-            if value != '<lang>':
-                values.append(language_tag(value))
-    if len(set(values)) > 1:
-        raise PreferenceError('Conflicting Artifact language directives in project AGENTS.md.')
-    return values[0] if values else None
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise PreferenceError('Project AGENTS.md must be a regular file.')
+        if info.st_size > MAX_LEGACY_AGENTS_BYTES:
+            raise PreferenceError('Project AGENTS.md exceeds the 1 MiB legacy directive scan limit.')
+        values = []
+        consumed = 0
+        with os.fdopen(fd, 'rb', closefd=False) as stream:
+            while True:
+                raw_line = stream.readline(MAX_LEGACY_AGENTS_BYTES - consumed + 1)
+                if not raw_line:
+                    break
+                consumed += len(raw_line)
+                if consumed > MAX_LEGACY_AGENTS_BYTES:
+                    raise PreferenceError('Project AGENTS.md exceeds the 1 MiB legacy directive scan limit.')
+                line = raw_line.decode('utf-8').rstrip('\r\n')
+                match = re.fullmatch(r'\s*Artifact language:\s*([^#]+?)(?:\s*#.*)?', line)
+                if match:
+                    value = match[1].strip()
+                    if value != '<lang>':
+                        values.append(language_tag(value))
+        if len(set(values)) > 1:
+            raise PreferenceError('Conflicting Artifact language directives in project AGENTS.md.')
+        return values[0] if values else None
+    finally:
+        os.close(fd)
 
 
 def resolve_preferences(project=None, user_config=None, project_config=None,

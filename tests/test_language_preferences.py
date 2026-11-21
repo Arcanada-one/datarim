@@ -222,6 +222,24 @@ class LanguagePreferencesTests(unittest.TestCase):
         with self.assertRaisesRegex(language.PreferenceError, 'conflicts'):
             self.resolve()
 
+    def test_large_agents_without_legacy_directive_is_not_a_config_error(self):
+        self.write(self.project / 'AGENTS.md', '# Project instructions\n' + ('x' * language.MAX_CONFIG_BYTES) + '\n')
+        self.assertGreater((self.project / 'AGENTS.md').stat().st_size, language.MAX_CONFIG_BYTES)
+        self.assertEqual(self.resolve()['artifacts'], 'en')
+
+    def test_large_agents_scans_legacy_directive_past_config_limit(self):
+        self.write(self.project / 'AGENTS.md', '# Project instructions\n' + ('x' * language.MAX_CONFIG_BYTES)
+                   + '\nArtifact language: de\n')
+        self.assertGreater((self.project / 'AGENTS.md').stat().st_size, language.MAX_CONFIG_BYTES)
+        got = self.resolve()
+        self.assertEqual(got['artifacts'], 'de')
+        self.assertEqual(got['sources']['artifacts'], 'legacy_instruction')
+
+    def test_agents_over_legacy_scan_limit_are_refused(self):
+        self.write(self.project / 'AGENTS.md', 'x' * (language.MAX_LEGACY_AGENTS_BYTES + 1))
+        with self.assertRaisesRegex(language.PreferenceError, '1 MiB'):
+            self.resolve()
+
     def test_legacy_fenced_configuration_snippet_preserves_explicit_override(self):
         self.write(self.project/'AGENTS.md', '# Project\n```\nArtifact language: ja\n```\n')
         self.assertEqual(self.resolve()['artifacts'], 'ja')
