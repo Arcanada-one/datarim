@@ -1,6 +1,6 @@
 # Datarim vNext: Goal-Driven Autonomous Engineering, Future Dependency DAG, and Pre-PR Evidence
 
-Status: DRAFT RFC, 2026-11-22. **Not implemented, approved, released, or adopted by ecosystem consumers.** Phase-0 reference checker lives in this draft branch. Scope: Datarim first; Scrutator and Arcanada teams only after owner reviews and independent evidence.
+Status: DRAFT RFC, 2026-11-22. **Not implemented, approved, released, or adopted by ecosystem consumers.** Phase-0 reference checker lives in this draft branch. Scope: Datarim first; Scrutator and Arcanada teams only after the reviews required by the adopter's approval policy (section 7a) and independent evidence.
 
 ## 1. Evidence and baseline
 
@@ -11,9 +11,11 @@ Datarim main at 8e738a4f583cb96904c41573ca5334dc148ec252 (VERSION 4.12.9) alread
 ## 2. Intended behavior
 
 One bounded delegated engineering task proceeds from a measured point A toward a measured point B:
-intake -> goal admission -> dependency/source analysis -> frozen plan -> independent plan review -> isolated implementation -> pre-PR validation and repair -> signed candidate evidence -> PR -> exact-head integration/owner gates -> build-once delivery -> independent served-source readback -> outcome measurement -> validated reusable learning.
+intake -> goal admission -> dependency/source analysis -> frozen plan -> independent plan review -> isolated implementation -> pre-PR validation and repair -> signed candidate evidence -> PR -> exact-head integration and approval-policy gates -> build-once delivery -> independent served-source readback -> outcome measurement -> validated reusable learning.
 
 Every interruption has a durable outcome: PARKED_NEEDS_INPUT, BLOCKED with exact reason, EXPIRED with owner, REFUSED with rule, or RESUMABLE with source pins. No agent invents missing goals or secretly weakens a gate.
+
+Acceptance (P1): a fault-injection test interrupts the run at least once in every state of section 4 (process kill, lease expiry, executor loss, missing input) and then reads back, from the durable store and not from process memory, one record per interruption with one of the five outcomes and its required field (reason, owner, rule or source pins). An interruption with no readable record, or a record without its required field, is FAIL. Until P1 runs that test the claim is NOT_MEASURED.
 
 ## 3. Contracts
 
@@ -31,7 +33,7 @@ Typed nodes: goal, requirement, ticket, module/file, interface/data contract, te
 
 ### PlanReviewReceipt/v1
 
-Freeze GoalContract, PRD, acceptance, risk, graph, change list and rollback approach under one plan digest before code. Independent vendor/provider reviewer records receipt and concrete findings; the implementation provider cannot approve itself. Provider string in self-reported JSON is not an independently authenticated model identity; real gate requires source-bound signed or externally witnessed receipts. Re-review after material plan changes. L1/L2 use concise plan only where existing risk/complexity policy permits; L3/L4 keep full PRD and owner checks.
+Freeze GoalContract, PRD, acceptance, risk, graph, change list and rollback approach under one plan digest before code. Independent vendor/provider reviewer records receipt and concrete findings; the implementation provider cannot approve itself. Provider string in self-reported JSON is not an independently authenticated model identity; real gate requires source-bound signed or externally witnessed receipts. Re-review after material plan changes. L1/L2 use concise plan only where existing risk/complexity policy permits; L3/L4 keep full PRD and the review required by the approval policy (section 7a).
 
 ### CandidatePrePRReceipt/v1
 
@@ -39,7 +41,7 @@ Bind task, goal/plan/acceptance digests, source repository, base/head/tree, lock
 
 ### VerifiedLesson/v1
 
-Failure signature, root cause, code/test before and after, exact source digest, independent confirmation, outcome and recurrence, tenant/namespace, TTL and supersession, human/owner review for changing policy. Reflection is candidate data until verified and adopted. Retrieved memory must never execute itself or authorize credentials/deployment.
+Failure signature, root cause, code/test before and after, exact source digest, independent confirmation, outcome and recurrence, tenant/namespace, TTL and supersession, review under the approval policy (section 7a) before it changes policy. Reflection is candidate data until verified and adopted. Retrieved memory must never execute itself or authorize credentials/deployment.
 
 ## 4. Engineering state machine
 
@@ -51,14 +53,14 @@ Alternate PARKED, BLOCKED, EXPIRED, REJECTED and ROLLED_BACK retain full negativ
 
 - Multiple tasks: one owner lease each; limited WIP; separate bounded branches/worktrees/workspace; collision and interface-impact detection before parallel runs.
 - Stage executor: disposable VM or equivalently isolated sandbox; no production credentials, no shared privileged files/host caches, no network by default; bounded CPU, time, model tokens and budget; enforced exit/status and append-only audit. A GitHub self-hosted label alone is NOT a sandbox.
-- Developer and reviewer: different model providers or BLOCKED/explicit approved exception, never silent self-review. Fallback handles vendor outages without changing model quality, privacy or authorization floors.
+- Developer and reviewer: different model providers or BLOCKED/explicit approved exception, never silent self-review. Fallback handles vendor outages without changing model quality, privacy or authorization floors. Acceptance: fallback targets come only from a pinned allow-list in the routing policy; each entry declares its data-handling class, authorization scope and minimum model tier, and a fallback to a target whose declared class, scope or tier is below the primary's is refused and recorded (P2 negative control). Equivalence of model quality between providers is NOT_MEASURED; P4 and the experiment report defect and rework rates per provider so a drop is visible.
 - Repair: diagnose -> patch -> targeted recheck -> full required verification; preserve every failed attempt, no disabling tests, rewriting baselines or reclassifying required lanes after red evidence.
 - PR packet: original objective, baseline/target and North Star, frozen plan, future/observed dependency graph, source SHA, complete attested pre-PR test matrix, independent review findings, risk, consumer impact, migration, rollback, and post-PR/production outstanding checks.
-- Release: build once in unprivileged context; bind output digest to immutable source+toolchain; after merge perform only obligations whose source/coverage identities permit reuse plus environment/privilege-specific checks, owner approvals, atomic switch, private-data denial, purge and independent first-public-healthy readback. Never replace required CI/production checks with an agent's self-asserted local log.
+- Release: build once in unprivileged context; bind output digest to immutable source+toolchain; after merge perform only obligations whose source/coverage identities permit reuse plus environment/privilege-specific checks, the approvals required by the approval policy (section 7a), atomic switch, private-data denial, purge and independent first-public-healthy readback. Never replace required CI/production checks with an agent's self-asserted local log.
 
 ### Important deployment constraint
 
-Moving expensive tests before PR is valuable, but cannot guarantee instantaneous deployment. PR base updates, lockfile/toolchain changes, protection policy and production environment conditions may require new verification. Merge-to-public-ready SLO starts at the **original merge time**; keep attempts with no workflow run and late dispatch, not just successful deploy job durations. The pre-merge CPU time and production SLO are different metrics. Shared GitHub runner pools must never let untrusted PR jobs reach production writable stores. Required source and cache rights are not granted by this RFC.
+Moving expensive tests before PR is valuable, but cannot guarantee instantaneous deployment. PR base updates, lockfile/toolchain changes, protection policy and production environment conditions may require new verification. Merge-to-public-ready SLO starts at the **original merge time**; keep attempts with no workflow run and late dispatch, not just successful deploy job durations. The pre-merge CPU time and production SLO are different metrics. Shared GitHub runner pools must never let untrusted PR jobs reach production writable stores. Acceptance: the P2 and P3 negative control below; until it runs the claim is NOT_MEASURED. Required source and cache rights are not granted by this RFC.
 
 ## 6. Lean 4, Clojure and statistics
 
@@ -74,13 +76,40 @@ No general "5 sigma software correctness" target. Deterministic invariants use e
 
 **P1: integrate existing contracts.** Datarim /dr-plan -> shared goal + future graph; /dr-qa and /dr-compliance -> existing immutable acceptance/provenance evidence. Do not duplicate current check-live-evidence, spec-graph-gate or framework-graph. Changes to acceptance/source/graph invalidate downstream approval. Exercise current full Bats and shell/python regressions.
 
-**P2: trusted pre-PR executor.** Ephemeral sandboxed full suite with deterministic source and command capture, independent cross-provider review and signed attestation. Negative controls: forged test, skipped required arm, poisoned package/toolchain cache, network, secret, stale head, changed lockfile, wrong review identity and missing API -> fail closed. Zero privilege escalation.
+**P2: trusted pre-PR executor.** Ephemeral sandboxed full suite with deterministic source and command capture, independent cross-provider review and signed attestation. Negative controls: forged test, skipped required arm, poisoned package/toolchain cache, network, secret, stale head, changed lockfile, wrong review identity, missing API, and a fallback to a model provider below the declared floor -> fail closed. Zero privilege escalation. Production-store negative control: a job started from an untrusted PR (fork or unreviewed branch) attempts to write each production writable store the deployment uses (deploy credential, production database, release cache, signing key, served web root); every attempt must be denied, the denial recorded, and the job's runner must show no mount or credential for those stores. One successful write is FAIL.
 
-**P3: actual autonomous PR gate.** Controlled orchestrator cannot create PR unless the trusted receipt is complete; native PR CI validates exact candidate and security policy before reusing evidence. Branch protection/owner approval remain mandatory. Test correct/changed head and base, tampered artifacts, denied network and missing checks. No duplicate task registry.
+**P3: actual autonomous PR gate.** Controlled orchestrator cannot create PR unless the trusted receipt is complete; native PR CI validates exact candidate and security policy before reusing evidence. Branch protection and required checks remain mandatory; merge approval follows the approval policy (section 7a). Test correct/changed head and base, tampered artifacts, denied network and missing checks, and repeat the P2 production-store negative control on the PR runner pool. No duplicate task registry.
 
 **P4: one production service canary.** Run three distinct authorized production activations, preserving original merge clocks and all failed/no-run attempts; measure first independently observed healthy expected SHA, no forbidden private content, cache state, recovery safety and rollback. Need all actual Muneral DoD checks, not just three observations.
 
-**P5: publish Datarim and propagate.** After full required tests, trusted review and existing release gate: VERSION/CHANGELOG, signed GitHub tag/release, README and install/upgrade/migration, EN/RU docs and datarim.club changelog with externally verified served bytes. Next owner-reviewed Scrutator KnownFix retrieval and memory namespace integration with its recall security gates, then selected Arcanada engineering consumers behind pinned versions/flags. Each repo has its own PR/CI/readback; no automatic fleet rewrite.
+**P5: publish Datarim and propagate.** After full required tests, trusted review and the existing release gate: VERSION/CHANGELOG and a signed GitHub tag/release created from the merged main commit by the repository's release workflow (a product release in its own repository, not an external publication), README and install/upgrade/migration, EN/RU docs, and the datarim.club changelog published by push to main and its deploy pipeline, with externally verified served bytes. Any announcement on social networks or other external sites goes only through the adopter's mandated publishing channel (Publisher in Arcanada). Next, after review under the approval policy, Scrutator KnownFix retrieval and memory namespace integration with its recall security gates, then selected Arcanada engineering consumers behind pinned versions/flags. Each repo has its own PR/CI/readback; no automatic fleet rewrite.
+
+### 7a. Approval policy (product knob)
+
+`approval_policy` is an adopter setting, recorded in the policy revision that every receipt binds:
+
+- `owner_approval`: a named human owner approves plan and merge. Available to adopters who want it; Datarim does not require it.
+- `blind_agent_review`: an independent agent reviewer from a different provider reviews the exact head without seeing the author's verdict; its verdict counts only for that head.
+
+Arcanada value: `blind_agent_review`, with no human gate on any phase, per Arcanada decision DEC-AUP-0010 ("no gates on the operator"; human review steps become blind agent review). In Arcanada the only hard gates are the Supreme Directive and the Publisher mandate. Acceptance: the P3 gate reads `approval_policy` from the pinned policy revision; a fixture with `blind_agent_review` must admit a merge with no human approval present, and a fixture with `owner_approval` must refuse it.
+
+### 7b. Invariants every phase preserves
+
+1. Precedence: the Supreme Directive (Rules of Robotics) overrides this RFC, any adopter policy and any agent instruction. On conflict the agent refuses, records the rule, and the task ends REFUSED.
+2. Graph-verified change: in Arcanada, merge and release admission require the existing ChangeAdmissionReceipt/v1 for the exact head (DEC-AUP-0008): impact set computed, every affected entity re-verified by the verifier for its edge type, tri-valued verdicts. FutureImpactGraph/v1 and CandidatePrePRReceipt/v1 are inputs to that receipt, never a replacement; an empty impact set is a prediction to explain, not an approval. Acceptance: the P3 gate refuses a candidate whose ChangeAdmissionReceipt/v1 is missing, names a different head, or holds a FAIL verdict.
+3. Destructive-command floor: the host safety hook (Jev in Arcanada) stays installed and enforcing in every executor, sandbox and orchestrator; no phase disables, bypasses or relaxes it. Acceptance: a P2 negative control issues a blocked destructive command inside the executor and expects the floor's refusal.
+4. Publication route: external publication goes only through the adopter's mandated channel (Publisher in Arcanada); own sites publish only by push to main and their deploy pipeline; the GitHub tag/release is a product release made by the repository's workflow. No phase posts directly to an external service.
+
+### 7c. Per-phase reversal
+
+| Phase | reverse_if (any one) | Rollback action |
+|-------|----------------------|-----------------|
+| P0 | the checker reports STRUCTURALLY_READY for a fixture its negative controls expect to fail, or any consumer reads its output as release evidence | delete the draft branch or revert the pilot commit; nothing outside the branch depends on it |
+| P1 | the full Bats and shell/python regression suite turns red on the integration, or an existing evidence check (check-live-evidence, spec-graph-gate, framework-graph) changes its verdict on an unchanged input | revert the integration PR; flag `vnext_goal_graph` off; existing /dr-plan, /dr-qa and /dr-compliance behaviour returns unchanged |
+| P2 | any negative control in P2 passes when it should fail, a production-store write succeeds, or the executor needs a production credential | stop the executor, revoke its runner registration and credentials, revert the executor PR; candidates fall back to native PR CI |
+| P3 | the gate admits a candidate without a complete receipt, admits a stale head, or refuses a valid candidate in two consecutive cases | flag `vnext_pr_gate` off and revert the gate PR; merges follow the existing branch protection, required checks and approval policy |
+| P4 | a canary activation serves an unexpected SHA, exposes forbidden private content, or recovery fails | roll the service back to the previous released build by its existing rollback, keep every attempt record, stop further activations |
+| P5 | a release fails served-bytes readback, the upgrade breaks a pinned consumer, or a consumer reports a regression traced to the release | publish a new patch release that restores the previous behaviour (never delete or re-tag a published release); consumers stay on or return to their pinned previous version |
 
 ## 8. Experiment protocol
 
@@ -90,7 +119,7 @@ Stop on policy/credential breach, increased critical defects, unbounded costs or
 
 ## 9. Owners and dependencies
 
-Datarim engineer implements, separate reviewer examines exact head and full suite, release maintainer controls tag and publication. Arcana-Brain provides architecture/source review, not a substitute for owner code authority. DEUS/DEVIL provide coordination and capability, never missing credentials or waiver. Scrutator engineering owns KB provenance/ACL/recall. Existing Muneral is task authority for Arcanada. Product repo branch/PR/green owner gate is mandatory. No marketing announcement or cross-project rollout until P4 acceptance.
+Datarim engineer implements, separate reviewer examines exact head and full suite, release maintainer runs the tag/release workflow described in P5. Arcana-Brain provides architecture/source review, not a substitute for owner code authority. DEUS/DEVIL provide coordination and capability, never missing credentials or waiver. Scrutator engineering owns KB provenance/ACL/recall. Existing Muneral is task authority for Arcanada. Product repo branch, PR and green required checks are mandatory; who approves the merge is set by the approval policy (section 7a), which in Arcanada is blind agent review with no human gate. No marketing announcement or cross-project rollout until P4 acceptance.
 
 ## Sources and access limitations
 
