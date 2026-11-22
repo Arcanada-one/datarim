@@ -55,7 +55,7 @@ def read_json(path: Path):
 
 def git(root: Path, *args: str) -> str:
     try:
-        return subprocess.check_output(["git", "-c", "core.fsmonitor=false",
+        return subprocess.check_output(["git", "--no-optional-locks", "-c", "core.fsmonitor=false",
                                         "-c", "diff.external=", "-C", str(root), *args],
                                        stderr=subprocess.DEVNULL, timeout=10, text=True).strip()
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:

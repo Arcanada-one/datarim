@@ -144,6 +144,20 @@ class PrePRPilot(unittest.TestCase):
             gate.read_json(f)
         self.assertEqual(e.exception.code, "NONFINITE_JSON")
 
+    def test_check_does_not_write_the_input_repository(self):
+        index = self.repo / ".git" / "index"
+        src = self.repo / "src/api.py"
+        st = src.stat()
+        os.utime(src, ns=(st.st_atime_ns, st.st_mtime_ns + 5_000_000_000))
+        before_bytes, before_ns = index.read_bytes(), index.stat().st_mtime_ns
+        before_files = sorted(str(f.relative_to(self.repo)) for f in self.repo.rglob("*"))
+        out = gate.check(self.repo, self.plan, self.evidence)
+        self.assertEqual(out["status"], "STRUCTURALLY_READY")
+        self.assertEqual(index.read_bytes(), before_bytes)
+        self.assertEqual(index.stat().st_mtime_ns, before_ns)
+        self.assertEqual(sorted(str(f.relative_to(self.repo)) for f in self.repo.rglob("*")),
+                         before_files)
+
     def test_cli_result_does_not_approve_release(self):
         p, e = self.top / "plan.json", self.top / "evidence.json"
         p.write_text(json.dumps(self.plan))
