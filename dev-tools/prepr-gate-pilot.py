@@ -77,7 +77,73 @@ def sha(value):
 def path(value):
     return (isinstance(value, str) and len(value) <= 240 and value != "" and
             not value.startswith(("/", "~")) and "\\" not in value and
+            not any(ord(c) < 32 or ord(c) == 127 for c in value) and
             all(part not in ("", ".", "..") for part in value.split("/")))
+
+
+CHANGE_OPS = ("A", "D", "M", "T")
+
+
+def git_bytes(root: Path, *args: str, ok_codes=(0,)) -> bytes:
+    try:
+        run = subprocess.run(["git", "-c", "core.fsmonitor=false", "-c", "diff.external=",
+                              "-c", "core.quotepath=false", "-C", str(root), *args],
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise Refusal("GIT_UNAVAILABLE") from exc
+    if run.returncode not in ok_codes:
+        raise Refusal("GIT_UNAVAILABLE")
+    return run.stdout
+
+
+def decode_path(raw: bytes) -> str:
+    try:
+        value = raw.decode("utf-8", errors="strict")
+    except UnicodeError as exc:
+        raise Refusal("CHANGED_PATH_UNSAFE") from exc
+    if not path(value):
+        raise Refusal("CHANGED_PATH_UNSAFE")
+    return value
+
+
+def changed_operations(root: Path, base: str, head: str) -> dict:
+    """Exact path -> status for base...head; renames split into D old + A new (NUL-parsed)."""
+    raw = git_bytes(root, "diff", "--no-ext-diff", "--no-textconv", "--no-renames",
+                    "-z", "--name-status", base + "..." + head)
+    fields = raw.split(b"\0")
+    if fields and fields[-1] == b"":
+        fields.pop()
+    if len(fields) % 2:
+        raise Refusal("DIFF_UNPARSEABLE")
+    ops = {}
+    for i in range(0, len(fields), 2):
+        status = fields[i].decode("ascii", errors="replace")
+        if status not in CHANGE_OPS:
+            raise Refusal("DIFF_STATUS_UNSUPPORTED")
+        changed_path = decode_path(fields[i + 1])
+        if changed_path in ops:
+            raise Refusal("DIFF_UNPARSEABLE")
+        ops[changed_path] = status
+    return ops
+
+
+def exists_at(root: Path, commit: str, rel: str) -> bool:
+    out = git_bytes(root, "ls-tree", "-z", "--full-tree", "--name-only", commit, "--", rel)
+    return out.split(b"\0")[0] == rel.encode("utf-8")
+
+
+def referencing_files(root: Path, commit: str, needle: str) -> set:
+    """Files at commit whose text contains needle (fixed string). Heuristic consumer scan."""
+    out = git_bytes(root, "grep", "-z", "-l", "-I", "-F", "--full-name", "-e", needle,
+                    commit, "--", ok_codes=(0, 1))
+    prefix = (commit + ":").encode("ascii")
+    found = set()
+    for item in out.split(b"\0"):
+        if item:
+            if not item.startswith(prefix):
+                raise Refusal("GIT_UNAVAILABLE")
+            found.add(decode_path(item[len(prefix):]))
+    return found
 
 
 def plan_digest(plan):
@@ -124,8 +190,8 @@ def check(root: Path, plan: dict, evidence: dict):
         raise Refusal("BASE_DRIFT")
     if git(root, "status", "--porcelain", "--untracked-files=all"):
         raise Refusal("DIRTY_TREE")
-    changed = set(git(root, "diff", "--no-ext-diff", "--no-textconv", "--name-only",
-                      source["base"] + "..." + source["head"]).splitlines())
+    ops = changed_operations(root, source["base"], source["head"])
+    changed = set(ops)
     if not changed:
         raise Refusal("NO_CHANGED_FILES")
 
@@ -134,17 +200,31 @@ def check(root: Path, plan: dict, evidence: dict):
     if (not isinstance(nodes, list) or not nodes or len(nodes) > 512 or
             not isinstance(edges, list) or len(edges) > 4096):
         raise Refusal("GRAPH_INVALID")
-    by_id = {}
+    by_id, seen = {}, set()
     for node in nodes:
         if (not isinstance(node, dict) or not name(node.get("id")) or
-                node.get("kind") not in ("change", "test") or not path(node.get("path")) or
-                node["id"] in by_id):
+                node.get("kind") not in ("change", "test", "consumer") or
+                not path(node.get("path")) or node["id"] in by_id or
+                (node["kind"], node["path"]) in seen):
+            raise Refusal("GRAPH_INVALID")
+        if node["kind"] == "change" and node.get("op") not in CHANGE_OPS:
             raise Refusal("GRAPH_INVALID")
         by_id[node["id"]] = node
-    if {n["path"] for n in nodes} != changed:
+        seen.add((node["kind"], node["path"]))
+    # Changed-path equality uses change-operation nodes only; selected tests may be unchanged.
+    change_nodes = {n["path"]: n for n in nodes if n["kind"] == "change"}
+    if set(change_nodes) != changed:
         raise Refusal("CHANGED_FILE_GRAPH_MISMATCH")
+    if any(change_nodes[p]["op"] != ops[p] for p in changed):
+        raise Refusal("CHANGE_OP_MISMATCH")
+    for node in nodes:
+        if node["kind"] == "test" and not exists_at(root, source["head"], node["path"]):
+            raise Refusal("TEST_PATH_MISSING")
+        if node["kind"] == "consumer" and (node["path"] in changed or
+                                           not exists_at(root, source["head"], node["path"])):
+            raise Refusal("GRAPH_INVALID")
     depends = {key: set() for key in by_id}
-    covers = {key: set() for key in by_id if by_id[key]["kind"] == "change"}
+    covers = {key: set() for key in by_id if by_id[key]["kind"] in ("change", "consumer")}
     for edge in edges:
         if (not isinstance(edge, dict) or edge.get("from") not in by_id or
                 edge.get("to") not in by_id or edge["from"] == edge["to"]):
@@ -152,13 +232,27 @@ def check(root: Path, plan: dict, evidence: dict):
         if edge.get("kind") == "depends_on":
             depends[edge["from"]].add(edge["to"])
         elif edge.get("kind") == "verifies":
-            if by_id[edge["from"]]["kind"] != "test" or by_id[edge["to"]]["kind"] != "change":
+            if by_id[edge["from"]]["kind"] != "test" or by_id[edge["to"]]["kind"] == "test":
                 raise Refusal("GRAPH_INVALID")
             covers[edge["to"]].add(edge["from"])
         else:
             raise Refusal("GRAPH_INVALID")
     if any(not witnesses for witnesses in covers.values()):
         raise Refusal("CHANGE_WITHOUT_TEST")
+    # A deleted path (including the old side of a rename) must not leave unmapped consumers:
+    # every head file that still names it must be a graph node depending on the deletion.
+    id_by_path = {}
+    for key, node in by_id.items():
+        if node["kind"] != "change":
+            id_by_path.setdefault(node["path"], set()).add(key)
+    for deleted, op in sorted(ops.items()):
+        if op != "D":
+            continue
+        stem = deleted.rsplit(".", 1)[0] if "." in deleted.rsplit("/", 1)[-1] else deleted
+        deletion_id = next(k for k, n in by_id.items() if n["kind"] == "change" and n["path"] == deleted)
+        for consumer in sorted(referencing_files(root, source["head"], stem)):
+            if not any(deletion_id in depends[k] for k in id_by_path.get(consumer, ())):
+                raise Refusal("DELETED_PATH_UNMAPPED_CONSUMER")
     active, visited = set(), set()
     def visit(node_id):
         if node_id in active:
@@ -196,6 +290,7 @@ def check(root: Path, plan: dict, evidence: dict):
     return {"schema": "DatarimPrePRGateResult/v1", "task_id": plan["task_id"],
             "status": "STRUCTURALLY_READY", "source_head": source["head"],
             "plan_sha256": plan_digest(plan), "changed_files": len(changed),
+            "changed_operations": {op: sum(1 for v in ops.values() if v == op) for op in CHANGE_OPS},
             "tests_claimed_passed": len(runs), "trusted_execution": "NOT_VERIFIED",
             "independent_reviewer_identity": "NOT_VERIFIED",
             "release_eligible": False}
