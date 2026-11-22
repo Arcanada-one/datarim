@@ -100,7 +100,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     - When the advisory surfaces matches, operator chooses: `duplicate` (abort + `/dr-init {EXISTING-ID}`), `refine-scope` (narrow new task to avoid collision), or `orthogonal` (continue — overlap is incidental). Default on no operator input: continue.
     - Performance contract: completes ≤300 ms on a 500-item backlog (regression-gated by `tests/dr-init-topic-overlap-latency.bats`); false-positive rate <10% on a 30-item orthogonal corpus (`tests/dr-init-topic-overlap-fp-budget.bats`).
 
-2.5c. **MISPLACED-DATARIM ADVISORY** (advisory, non-blocking; framework v2.19.0+):
+2.5c. **Misplaced Datarim directory advisory** (advisory, non-blocking; framework v2.19.0+):
     - Detects fragmented KB: more than one `datarim/` directory visible in the parent chain below the git-root, where the extra ones lack their own `.git/` boundary (i.e. they belong to the same repo as the canonical KB but live in a sub-path — a misplaced KB written by a parallel session that walked upward to the wrong anchor).
     - Skip silently when:
       - `pwd` is outside any git repository (no toplevel to anchor against).

@@ -110,7 +110,7 @@ effort: high
     - On drift: propose `spawn-diataxis-reorg` — adds `INFRA-<next-num> · pending · P4 · L2 · Diátaxis docs reorg for <repo-name>` to `datarim/backlog.md`, with `Source: TUNE-* (diataxis-drift-detector)` annotation.
     - **Soft only** — never block build. Hard CI gate is deferred (separate backlog item: `INFRA-* — Diátaxis CI gate enforcement`, trigger: ≥3 live consumers post-mandate). When activated, the same detector flips to `exit 1` on drift.
 
-6b. **DATARIM STATE HYGIENE** (always run):
+6b. **Datarim state hygiene** (always run):
     - Read `datarim/tasks.md`: extract all task IDs in `## Active Tasks` section AND all task IDs in `## Archived Tasks` table.
     - If any task ID appears in BOTH sections → it was archived but not cleaned from Active Tasks. Propose `remove-orphaned-active-task` (auto-approve: safe, data preserved in archive).
     - Read `datarim/activeContext.md`: if any task listed in `## Active Tasks` has a matching entry in the Archived Tasks table of tasks.md → propose removal from activeContext.
