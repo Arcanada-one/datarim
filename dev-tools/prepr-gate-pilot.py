@@ -110,9 +110,12 @@ def changed_operations(root: Path, base: str, head: str) -> dict:
     """Exact path -> status for base...head; renames split into D old + A new (NUL-parsed)."""
     raw = git_bytes(root, "diff", "--no-ext-diff", "--no-textconv", "--no-renames",
                     "-z", "--name-status", base + "..." + head)
-    fields = raw.split(b"\0")
-    if fields and fields[-1] == b"":
-        fields.pop()
+    # Every -z record ends in NUL. A nonempty stream that does not is truncated:
+    # refuse it before splitting, or an even field count would hide the cut.
+    # An empty stream stays an empty map; check() refuses it as NO_CHANGED_FILES.
+    if raw and not raw.endswith(b"\0"):
+        raise Refusal("DIFF_UNPARSEABLE")
+    fields = raw[:-1].split(b"\0") if raw else []
     if len(fields) % 2:
         raise Refusal("DIFF_UNPARSEABLE")
     ops = {}

@@ -194,6 +194,27 @@ class PrePRPilot(unittest.TestCase):
         self.bind()
         self.assert_blocked("CHANGED_PATH_UNSAFE")
 
+    def _ops_from(self, stream: bytes):
+        saved = gate.git_bytes
+        gate.git_bytes = lambda *_a, **_k: stream
+        try:
+            return gate.changed_operations(self.repo, "a" * 40, "b" * 40)
+        finally:
+            gate.git_bytes = saved
+
+    def test_truncated_even_field_diff_stream_is_refused(self):
+        # "M\0path" has an even field count but no terminating NUL: a cut stream.
+        with self.assertRaises(gate.Refusal) as e:
+            self._ops_from(b"M\0truncated-path")
+        self.assertEqual(str(e.exception), "DIFF_UNPARSEABLE")
+        with self.assertRaises(gate.Refusal) as e:
+            self._ops_from(b"M\0src/a.py\0D\0src/b")
+        self.assertEqual(str(e.exception), "DIFF_UNPARSEABLE")
+        # Well-terminated and empty streams keep their meaning.
+        self.assertEqual(self._ops_from(b"M\0src/a.py\0D\0src/b.py\0"),
+                         {"src/a.py": "M", "src/b.py": "D"})
+        self.assertEqual(self._ops_from(b""), {})
+
     def test_wrong_tree_is_blocked(self):
         self.plan["source"]["tree"] = "b" * 40
         self.assert_blocked("SOURCE_DRIFT")
